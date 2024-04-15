@@ -1,0 +1,109 @@
+{
+  "name": "cabbage",
+  "displayName": "cabbage",
+  "description": "A Visual Studio extension for Cabbage",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cabbage.launchUIEditor",
+        "title": "Launch UI Editor",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.editText",
+        "title": "Edit text",
+        "category": "Cabbage"
+      }
+    ],
+    "languages": [
+      {
+        "id": "csound-orc",
+        "aliases": [
+          "Csound ORC",
+          "csound-orc"
+        ],
+        "extensions": [
+          ".orc",
+          ".udo"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "csound-sco",
+        "aliases": [
+          "Csound SCO",
+          "csound-sco"
+        ],
+        "extensions": [
+          ".sco"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "csound-csd",
+        "aliases": [
+          "Csound CSD",
+          "csound-csd"
+        ],
+        "extensions": [
+          ".csd"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "csound-orc",
+        "scopeName": "source.csound.orc",
+        "path": "./syntaxes/csound-orc.tmLanguage.json"
+      },
+      {
+        "language": "csound-sco",
+        "scopeName": "source.csound.sco",
+        "path": "./syntaxes/csound-sco.tmLanguage.json"
+      },
+      {
+        "language": "csound-csd",
+        "scopeName": "source.csound.csd",
+        "path": "./syntaxes/csound-csd.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.88.0",
+    "@typescript-eslint/eslint-plugin": "^7.4.0",
+    "@typescript-eslint/parser": "^7.4.0",
+    "@vscode/test-cli": "^0.0.8",
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.57.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "interactjs": "^1.10.27"
+  }
+}
