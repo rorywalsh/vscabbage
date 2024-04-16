@@ -63,7 +63,7 @@ const rotarySliderProps = {
   "valuePostfix": ""
 }
 
-export function GetDefaultPropsFor(widget) {
+export function DefaultWidgetProps(widget) {
   switch (widget) {
     case "form":
       return formProps;
@@ -72,21 +72,21 @@ export function GetDefaultPropsFor(widget) {
   }
 }
 
-export class Form {
-  constructor(name) {
-    this.name = name;
-    this.props = GetDefaultPropsFor("form");
-    this.props.name = name;
-  }
-}
+// export class Form {
+//   constructor(name) {
+//     this.name = name;
+//     this.props = GetDefaultPropsFor("form");
+//     this.props.name = name;
+//   }
+// }
 
-export class RotarySlider {
-  constructor(name) {
-    this.name = name;
-    this.props = GetDefaultPropsFor("rslider");
-    this.props.name = name;
-  }
-}
+// export class RotarySlider {
+//   constructor(name) {
+//     this.name = name;
+//     this.props = GetDefaultPropsFor("rslider");
+//     this.props.name = name;
+//   }
+// }
 
 
 export function WidgetSVG(type) {

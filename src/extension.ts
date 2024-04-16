@@ -206,7 +206,6 @@ function updateText(jsonText: string) {
 		let lineNumber = 0;
 		//get default props so we can compare them to incoming one and display any that are different
 		const defaultProps = GetDefaultPropsFor(props.type);
-		console.log(JSON.stringify(defaultProps));
 		console.log(jsonText);
 
 		textEditor.edit(editBuilder => {

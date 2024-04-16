@@ -1,6 +1,6 @@
 
 
-import { WidgetSVG, RotarySlider, Form } from "./widgets.js";
+import { WidgetSVG, DefaultWidgetProps} from "./widgets.js";
 import { WidgetWrapper } from "./widgetWrapper.js";
 
 
@@ -8,7 +8,7 @@ const currentWidget = [{ name: "Top", value: 0 }, { name: "Left", value: 0 }, { 
 const vscode = acquireVsCodeApi();
 const widgets = [];
 
-widgets.push(new Form('MainForm'));
+widgets.push(DefaultWidgetProps("form"));
 
 let numberOfWidgets = 1;
 const contextMenu = document.querySelector(".wrapper");
@@ -20,6 +20,9 @@ function DBG(...text) {
   console.log("Cabbage:", text.join());
 }
 
+function wDBG() {
+  console.log("Cabbage:", JSON.stringify(widgets, null, 2));
+}
 /**
  * This uses a simple regex pattern to parse a line of Cabbage code and convert it to a JSON object
  */
@@ -90,7 +93,8 @@ function parseCabbageCsdTile(text) {
   cabbageCode.forEach((line) => {
     const type = `${line.trimStart().split(' ')[0]}`;
     if (line.trim() != "") {
-      if (type != "form"){
+      if (type != "form") {
+        DBG(line);
         insertWidget(type, getCabbageCodeAsJSON(line));
         numberOfWidgets++;
       }
@@ -101,8 +105,8 @@ function parseCabbageCsdTile(text) {
             const h = getCabbageCodeAsJSON(line).height;
             form.style.width = w + "px";
             form.style.height = h + "px";
-            widget.props.width = w;
-            widget.props.width = h;
+            widget.width = w;
+            widget.width = h;
           }
         });
       }
@@ -127,24 +131,25 @@ function updatePanel(eventType, name, bounds) {
 
   widgets.forEach((widget) => {
 
-    if (widget.name == name) {
-      DBG(widget.name, name);
-      if (eventType != 'click') {
-        widget.props.left = Math.floor(bounds.x);
-        widget.props.top = Math.floor(bounds.y);
-        widget.props.width = Math.floor(bounds.w);
-        widget.props.height = Math.floor(bounds.h);
-      }
+    // DBG(JSON.stringify(widget.props));
+    // if (widget.name == name) {
+    //   DBG(widget.name, name);
+    //   if (eventType != 'click') {
+    //     widget.props.left = Math.floor(bounds.x);
+    //     widget.props.top = Math.floor(bounds.y);
+    //     widget.props.width = Math.floor(bounds.w);
+    //     widget.props.height = Math.floor(bounds.h);
+    //   }
 
-      if (widget.props.hasOwnProperty('channel'))
-        widget.props.channel = name;
+    //   if (widget.props.hasOwnProperty('channel'))
+    //     widget.props.channel = name;
 
-      new PropertyPanel(widget.props.type, widget.props);
-      vscode.postMessage({
-        command: 'widgetUpdate',
-        text: JSON.stringify(widget.props)
-      })
-    }
+    //   new PropertyPanel(widget.props.type, widget.props);
+    //   // vscode.postMessage({
+    //   //   command: 'widgetUpdate',
+    //   //   text: JSON.stringify(widget.props)
+    //   // })
+    // }
   });
 }
 /**
@@ -190,29 +195,29 @@ class PropertyPanel {
       }
 
       input.addEventListener('input', function (evt) {
-        if (evt.target.type === 'color') {
-          // function rgbToHex(rgbText) {
-          //   return rgbText.replace(/rgb\((.+?)\)/ig, (_, rgb) => {
-          //     return '#' + rgb.split(',')
-          //       .map(str => parseInt(str, 10).toString(16).padStart(2, '0'))
-          //       .join('')
-          //   })
-          // }
-          // input.value = rgbToHex(`rgb(${value})`);
-          widgets.forEach((widget) => {
-            if (widget.name == evt.target.dataset.parent) {
-              widget.props[evt.target.id] = evt.target.value;
-              console.log(widget.props);
-              vscode.postMessage({
-                command: 'widgetUpdate',
-                text: JSON.stringify(widget.props)
-              })
-            }
-          })
-        }
-        else {
-          console.log(evt.target.id);
-        }
+        // if (evt.target.type === 'color') {
+        //   // function rgbToHex(rgbText) {
+        //   //   return rgbText.replace(/rgb\((.+?)\)/ig, (_, rgb) => {
+        //   //     return '#' + rgb.split(',')
+        //   //       .map(str => parseInt(str, 10).toString(16).padStart(2, '0'))
+        //   //       .join('')
+        //   //   })
+        //   // }
+        //   // input.value = rgbToHex(`rgb(${value})`);
+        //   widgets.forEach((widget) => {
+        //     if (widget.name == evt.target.dataset.parent) {
+        //       widget.props[evt.target.id] = evt.target.value;
+        //       console.log(widget.props);
+        //       vscode.postMessage({
+        //         command: 'widgetUpdate',
+        //         text: JSON.stringify(widget.props)
+        //       })
+        //     }
+        //   })
+        // }
+        // else {
+        //   console.log(evt.target.id);
+        // }
 
       }, this);
 
@@ -265,7 +270,7 @@ for (var i = 0; i < menuItems.length; i++) {
         //update text editor with last added widget
         vscode.postMessage({
           command: 'widgetUpdate',
-          text: JSON.stringify(widgets[widgets.length-1].props)
+          text: JSON.stringify(widgets[widgets.length - 1])
         })
       }
       numberOfWidgets++;
@@ -282,8 +287,6 @@ function insertWidget(type, props) {
   const widgetType = type;
   const widgetDiv = document.createElement('div');
   widgetDiv.className = 'resize-drag';
-  DBG(widgetType);
-
 
   if (form) {
     form.appendChild(widgetDiv);
@@ -291,39 +294,42 @@ function insertWidget(type, props) {
 
   widgetDiv.innerHTML = WidgetSVG(widgetType);
 
-  let widget = null;
-
+  let widget;
 
   switch (type) {
     case "rslider":
-      widget = new RotarySlider(widgetDiv.id);
-      //widgets.push(new RotarySlider(widgetDiv.id));
+      widget = DefaultWidgetProps("rslider");
       break;
     case "form":
-      widget = new Form(widgetDiv.id);
-    //widgets.push(new Form(widgetDiv.id));
+      widget = DefaultWidgetProps("form");
     default:
+      DBG('+++++++++++++++++++++++++++++++++');
       break;
   }
 
+  // DBG(JSON.stringify(props, null, 2));
+  DBG(JSON.stringify(widget, null, 2));
   Object.entries(props).forEach((entry) => {
     const [key, value] = entry;
-    widget.props[key] = value;
+
+    widget[key] = value;
     if (key === 'channel') {
       widget.name = value;
-      widget.props.name = value;
-      widgetDiv.id = widget.props.name;
+      widgetDiv.id = widget.name;
+      DBG(widget.name);
     }
   })
 
+  widgetDiv.style.transform = 'translate(' + widget.left + 'px,' + widget.top + 'px)';
+  widgetDiv.setAttribute('data-x', widget.left);
+  widgetDiv.setAttribute('data-y', widget.top);
+  widgetDiv.style.width = widget.width + 'px'
+  widgetDiv.style.height = widget.height + 'px'
+
   widgets.push(widget);
-  widgetDiv.style.transform = 'translate(' + widget.props.left + 'px,' + widget.props.top + 'px)';
-  widgetDiv.setAttribute('data-x', widget.props.left);
-  widgetDiv.setAttribute('data-y', widget.props.top);
-  widgetDiv.style.width = widget.props.width + 'px'
-  widgetDiv.style.height = widget.props.height + 'px'
 
-
+  widget = {};
+  // wDBG();
 }
 
 

@@ -35,7 +35,6 @@ export class WidgetWrapper {
                     move(event) {
                         var target = event.target
                         restrictions.restriction = (target.id === 'MainForm' ? 'none' : 'parent');
-                        console.log(restrictions.restriction);
                         var x = (parseFloat(target.getAttribute('data-x')) || 0)
                         var y = (parseFloat(target.getAttribute('data-y')) || 0)
 
@@ -77,7 +76,6 @@ export class WidgetWrapper {
                     interact.modifiers.restrictRect(restrictions)
                 ]
             }).on('down', function (event) {
-                console.log(event.target);
                 if (event.target.id) //form
                     updatePanelCallback("click", event.target.id, {});
                 else{ //all widgets placed on form
