@@ -379,7 +379,7 @@ const rotarySliderProps = {
   "width": 60,
   "height": 60,
   "textBoxOutlineColour": '245, 245, 245',
-  "channel": 'channel',
+  "channel": 'rslider',
   "min": 0,
   "max": 1,
   "value": 0,
@@ -421,7 +421,7 @@ function GetDefaultPropsFor(widget) {
     case "form":
       return formProps;
     case "rslider":
-      return rotarySliderProps;
+      return rotarySliderProps; 
   }
 }
 

@@ -81,7 +81,7 @@ export class WidgetWrapper {
                 if (event.target.id) //form
                     updatePanelCallback("click", event.target.id, {});
                 else{ //all widgets placed on form
-                    const widgetId = event.target.parentElement.parentElement.id;
+                    const widgetId = event.target.parentElement.parentElement.id.replace(/(<([^>]+)>)/ig);
                     updatePanelCallback("click", widgetId, {});
                 }
             })

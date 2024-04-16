@@ -3,7 +3,7 @@
 import { WidgetSVG, RotarySlider, Form } from "./widgets.js";
 import { WidgetWrapper } from "./widgetWrapper.js";
 
-const rotarySliderSvg = WidgetSVG("rslider");
+
 const currentWidget = [{ name: "Top", value: 0 }, { name: "Left", value: 0 }, { name: "Width", value: 0 }, { name: "Height", value: 0 }];
 const vscode = acquireVsCodeApi();
 const widgets = [];
@@ -34,9 +34,9 @@ function getCabbageCodeAsJSON(text) {
 
     if (name === 'bounds') {
       // Splitting the value into individual parts for top, left, width, and height
-      const [top, left, width, height] = value.split(',').map(v => parseInt(v.trim()));
-      jsonObj['top'] = top;
+      const [left, top, width, height] = value.split(',').map(v => parseInt(v.trim()));
       jsonObj['left'] = left;
+      jsonObj['top'] = top;
       jsonObj['width'] = width;
       jsonObj['height'] = height;
     }
@@ -90,8 +90,10 @@ function parseCabbageCsdTile(text) {
   cabbageCode.forEach((line) => {
     const type = `${line.trimStart().split(' ')[0]}`;
     if (line.trim() != "") {
-      if (type != "form")
+      if (type != "form"){
         insertWidget(type, getCabbageCodeAsJSON(line));
+        numberOfWidgets++;
+      }
       else {
         widgets.forEach((widget) => {
           if (widget.name == "MainForm") {
@@ -108,9 +110,7 @@ function parseCabbageCsdTile(text) {
 
   });
 
-  const div = document.getElementById('rslider1');
-  console.log(div); // Log the IDs of each element
-  numberOfWidgets++;
+
 }
 
 /**
@@ -126,8 +126,9 @@ function updatePanel(eventType, name, bounds) {
     element.innerHTML = '';
 
   widgets.forEach((widget) => {
-    DBG(widget.name, name);
+
     if (widget.name == name) {
+      DBG(widget.name, name);
       if (eventType != 'click') {
         widget.props.left = Math.floor(bounds.x);
         widget.props.top = Math.floor(bounds.y);
@@ -138,7 +139,6 @@ function updatePanel(eventType, name, bounds) {
       if (widget.props.hasOwnProperty('channel'))
         widget.props.channel = name;
 
-      console.log(widget.props);
       new PropertyPanel(widget.props.type, widget.props);
       vscode.postMessage({
         command: 'widgetUpdate',
@@ -225,8 +225,10 @@ class PropertyPanel {
 };
 
 /**
- * Add listener for context menu
+ * Add listener for context menu. Also keeps the current x and x positions 
+ * in case a user adds a widget
  */
+let mouseDownPosition = {};
 form.addEventListener("contextmenu", e => {
   e.preventDefault();
   let x = e.offsetX, y = e.offsetY,
@@ -239,6 +241,7 @@ form.addEventListener("contextmenu", e => {
 
   contextMenu.style.left = `${x}px`;
   contextMenu.style.top = `${y}px`;
+  mouseDownPosition = { x: x, y: y };
   contextMenu.style.visibility = "visible";
 });
 document.addEventListener("click", () => contextMenu.style.visibility = "hidden");
@@ -250,13 +253,22 @@ new PropertyPanel('slider', currentWidget);
  * a new widget is added to the form, and a new widget object is pushed to the widgets array. 
  * Assigning class type 'resize-drag' gives it draggable and resizable functionality. 
  */
-
 let menuItems = document.getElementsByTagName('*');
 for (var i = 0; i < menuItems.length; i++) {
   if (menuItems[i].getAttribute('class') == 'menuItem') {
     menuItems[i].addEventListener("click", (e) => {
       DBG("contextMenuItemClicks()");
-      insertWidget(e.target.innerHTML, {});
+      const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig);
+      const channel = type + String(numberOfWidgets);
+      insertWidget(type, { channel: channel, top: mouseDownPosition.y, left: mouseDownPosition.x });
+      if (widgets) {
+        //update text editor with last added widget
+        vscode.postMessage({
+          command: 'widgetUpdate',
+          text: JSON.stringify(widgets[widgets.length-1].props)
+        })
+      }
+      numberOfWidgets++;
     });
   }
 }
@@ -266,22 +278,20 @@ for (var i = 0; i < menuItems.length; i++) {
  * click and add widgets
  */
 function insertWidget(type, props) {
-  const widgetType = type
+  DBG("insertWidget()");
+  const widgetType = type;
   const widgetDiv = document.createElement('div');
   widgetDiv.className = 'resize-drag';
-  widgetDiv.id = widgetType + String(numberOfWidgets);
+  DBG(widgetType);
+
 
   if (form) {
     form.appendChild(widgetDiv);
   }
 
-  const element = document.getElementById(widgetDiv.id);
+  widgetDiv.innerHTML = WidgetSVG(widgetType);
 
-  if (element) {
-    element.innerHTML = rotarySliderSvg;
-  }
-
-  let widget;
+  let widget = null;
 
 
   switch (type) {
@@ -296,23 +306,26 @@ function insertWidget(type, props) {
       break;
   }
 
-  //if a new widget added in the webview
-  if (Object.keys(props).length === 0) {
-    widgets.push(widget);
-  }
-  //a new widget created on file save/load
-  else {
-    Object.entries(props).forEach((entry) => {
-      const [key, value] = entry;
-      widget[key] = value;
-    });
+  Object.entries(props).forEach((entry) => {
+    const [key, value] = entry;
+    widget.props[key] = value;
+    if (key === 'channel') {
+      widget.name = value;
+      widget.props.name = value;
+      widgetDiv.id = widget.props.name;
+    }
+  })
 
-    widgets.push(widget);
-    widgetDiv.style.transform = 'translate(' + widget.left + 'px,' + widget.top + 'px)';
-    widgetDiv.setAttribute('data-x', widget.left);
-    widgetDiv.setAttribute('data-y', widget.top);
-  }
+  widgets.push(widget);
+  widgetDiv.style.transform = 'translate(' + widget.props.left + 'px,' + widget.props.top + 'px)';
+  widgetDiv.setAttribute('data-x', widget.props.left);
+  widgetDiv.setAttribute('data-y', widget.props.top);
+  widgetDiv.style.width = widget.props.width + 'px'
+  widgetDiv.style.height = widget.props.height + 'px'
+
+
 }
+
 
 
 

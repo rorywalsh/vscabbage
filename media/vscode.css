@@ -116,7 +116,7 @@ textarea::placeholder {
 	padding: 0; /* Adjust padding to reduce overall height */
 	border: 1px solid #363636;
 	border-radius: 5px;
-	background-color: #4d4d4d;
+	background-color: #4d4d4d00;
 	overflow-y: auto;
 	visibility: hidden;
 	z-index: 9999;
@@ -141,7 +141,7 @@ textarea::placeholder {
 	margin-right: 10px;
 	text-align: right;
 	font-weight: bold;
-	color: #fdfdfd;
+	color: #1f1f1f;
 }
 
 .property input {
@@ -155,7 +155,7 @@ textarea::placeholder {
 }
 
 .property input[type="color"] {
-	flex: 2;
+	flex: 1;
 	border: 1px solid #000000;
 	font-size: 12px;
 	padding: 0px;
