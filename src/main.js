@@ -292,6 +292,7 @@ async function insertWidget(type, props) {
   }
 
   widgetDiv.innerHTML = WidgetSVG(widgetType);
+  widgetDiv.style.setProperty('--myColour', '#ff0000');
 
   let widget = {}; 
 
