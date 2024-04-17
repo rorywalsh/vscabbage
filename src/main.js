@@ -186,7 +186,7 @@ class PropertyPanel {
               .join('')
           })
         }
-        input.value = rgbToHex(`rgb(${value})`);
+        input.value = value;
       }
       else {
         input.type = 'text';
@@ -194,29 +194,23 @@ class PropertyPanel {
       }
 
       input.addEventListener('input', function (evt) {
-        // if (evt.target.type === 'color') {
-        //   // function rgbToHex(rgbText) {
-        //   //   return rgbText.replace(/rgb\((.+?)\)/ig, (_, rgb) => {
-        //   //     return '#' + rgb.split(',')
-        //   //       .map(str => parseInt(str, 10).toString(16).padStart(2, '0'))
-        //   //       .join('')
-        //   //   })
-        //   // }
-        //   // input.value = rgbToHex(`rgb(${value})`);
-        //   widgets.forEach((widget) => {
-        //     if (widget.name == evt.target.dataset.parent) {
-        //       widget.props[evt.target.id] = evt.target.value;
-        //       console.log(widget.props);
-        //       vscode.postMessage({
-        //         command: 'widgetUpdate',
-        //         text: JSON.stringify(widget.props)
-        //       })
-        //     }
-        //   })
-        // }
-        // else {
-        //   console.log(evt.target.id);
-        // }
+        if (evt.target.type === 'color') {
+          widgets.forEach((widget) => {
+            if (widget.name == evt.target.dataset.parent) {
+              widget[evt.target.id] = evt.target.value;
+              const widgetDiv = document.getElementById(widget.name);
+              console.log(widgetDiv.innerHTML);
+              widgetDiv.innerHTML = WidgetSVG(widget);
+              vscode.postMessage({
+                command: 'widgetUpdate',
+                text: JSON.stringify(widget)
+              })
+            }
+          })
+        }
+        else {
+          console.log(evt.target.id);
+        }
 
       }, this);
 
@@ -291,8 +285,6 @@ async function insertWidget(type, props) {
       form.appendChild(widgetDiv);
   }
 
-  widgetDiv.innerHTML = WidgetSVG(widgetType);
-  widgetDiv.style.setProperty('--myColour', '#ff0000');
 
   let widget = {}; 
 
@@ -323,6 +315,7 @@ async function insertWidget(type, props) {
 
   widgets.push(widget); // Push the new widget object into the array
 
+  widgetDiv.innerHTML = WidgetSVG(widget);
   widgetDiv.style.transform = 'translate(' + widget.left + 'px,' + widget.top + 'px)';
   widgetDiv.setAttribute('data-x', widget.left);
   widgetDiv.setAttribute('data-y', widget.top);
