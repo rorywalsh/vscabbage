@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-import { GetDefaultPropsFor } from "../media/widgets.js";
+import { GetDefaultPropsFor } from "./widgets.js";
 
 //don't think I need this as only one instance of the extension can run at a timw..
 //import { getNonce } from './getNonce';
@@ -36,15 +36,15 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
 
 		//this is a little clunky, but it seems I have to load each src individually
-		let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'main.js');
+		let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'main.js');
 		const mainJS = panel.webview.asWebviewUri(onDiskPath);
 		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css');
 		const styles = panel.webview.asWebviewUri(onDiskPath);
-		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'interact.min.js');
+		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'interact.min.js');
 		const interactJS = panel.webview.asWebviewUri(onDiskPath);
-		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'widgets.js');
+		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'widgets.js');
 		const widgetSVGs = panel.webview.asWebviewUri(onDiskPath);
-		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'widgetWrapper.js');
+		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'widgetWrapper.js');
 		const widgetWrapper = panel.webview.asWebviewUri(onDiskPath);
 
 		//add widget types to menu
@@ -269,7 +269,7 @@ function updateText(jsonText: string) {
 					textEditor.selection = new vscode.Selection(lineNumber, 0, lineNumber, 10000);
 				}
 			}
-		}
+		});
 	}
 }
 

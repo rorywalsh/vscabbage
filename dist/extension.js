@@ -55,15 +55,15 @@ function activate(context) {
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
         //this is a little clunky, but it seems I have to load each src individually
-        let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'main.js');
+        let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'main.js');
         const mainJS = panel.webview.asWebviewUri(onDiskPath);
         onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css');
         const styles = panel.webview.asWebviewUri(onDiskPath);
-        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'interact.min.js');
+        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'interact.min.js');
         const interactJS = panel.webview.asWebviewUri(onDiskPath);
-        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'widgets.js');
+        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'widgets.js');
         const widgetSVGs = panel.webview.asWebviewUri(onDiskPath);
-        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'widgetWrapper.js');
+        onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'widgetWrapper.js');
         const widgetWrapper = panel.webview.asWebviewUri(onDiskPath);
         //add widget types to menu
         const widgetTypes = ["button", "optionbutton", "checkbox", "combobox", "csoundoutput", "encoder", "fftdisplay", "filebutton", "presetbutton", "form",
@@ -200,7 +200,6 @@ function updateText(jsonText) {
         let lineNumber = 0;
         //get default props so we can compare them to incoming one and display any that are different
         const defaultProps = (0, widgets_js_1.GetDefaultPropsFor)(props.type);
-        console.log(JSON.stringify(defaultProps));
         console.log(jsonText);
         textEditor.edit(editBuilder => {
             if (textEditor) {
@@ -346,9 +345,7 @@ module.exports = require("vscode");
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Form: () => (/* binding */ Form),
-/* harmony export */   GetDefaultPropsFor: () => (/* binding */ GetDefaultPropsFor),
-/* harmony export */   RotarySlider: () => (/* binding */ RotarySlider),
+/* harmony export */   DefaultWidgetProps: () => (/* binding */ DefaultWidgetProps),
 /* harmony export */   WidgetSVG: () => (/* binding */ WidgetSVG)
 /* harmony export */ });
 
@@ -416,7 +413,7 @@ const rotarySliderProps = {
   "valuePostfix": ""
 }
 
-function GetDefaultPropsFor(widget) {
+function DefaultWidgetProps(widget) {
   switch (widget) {
     case "form":
       return formProps;
@@ -425,21 +422,21 @@ function GetDefaultPropsFor(widget) {
   }
 }
 
-class Form {
-  constructor(name) {
-    this.name = name;
-    this.props = GetDefaultPropsFor("form");
-    this.props.name = name;
-  }
-}
+// export class Form {
+//   constructor(name) {
+//     this.name = name;
+//     this.props = GetDefaultPropsFor("form");
+//     this.props.name = name;
+//   }
+// }
 
-class RotarySlider {
-  constructor(name) {
-    this.name = name;
-    this.props = GetDefaultPropsFor("rslider");
-    this.props.name = name;
-  }
-}
+// export class RotarySlider {
+//   constructor(name) {
+//     this.name = name;
+//     this.props = GetDefaultPropsFor("rslider");
+//     this.props.name = name;
+//   }
+// }
 
 
 function WidgetSVG(type) {
