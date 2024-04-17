@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-import { GetDefaultPropsFor } from "./widgets.js";
+import { DefaultWidgetProps } from "./widgets.js";
 
 //don't think I need this as only one instance of the extension can run at a timw..
 //import { getNonce } from './getNonce';
@@ -205,7 +205,7 @@ function updateText(jsonText: string) {
 		const document = textEditor.document;
 		let lineNumber = 0;
 		//get default props so we can compare them to incoming one and display any that are different
-		const defaultProps = GetDefaultPropsFor(props.type);
+		const defaultProps = DefaultWidgetProps(props.type);
 		console.log(jsonText);
 
 		textEditor.edit(editBuilder => {

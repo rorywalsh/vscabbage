@@ -20,9 +20,6 @@ function DBG(...text) {
   console.log("Cabbage:", text.join());
 }
 
-function wDBG() {
-  console.log("Cabbage:", JSON.stringify(widgets, null, 2));
-}
 /**
  * This uses a simple regex pattern to parse a line of Cabbage code and convert it to a JSON object
  */
@@ -44,7 +41,7 @@ function getCabbageCodeAsJSON(text) {
       jsonObj['height'] = height;
     }
     else if (name === 'size') {
-      // Splitting the value into individual parts for top, left, width, and height
+      // Splitting the value into individual parts for width and height
       const [width, height] = value.split(',').map(v => parseInt(v.trim()));
       jsonObj['width'] = width;
       jsonObj['height'] = height;
@@ -75,6 +72,7 @@ window.addEventListener('message', event => {
 function parseCabbageCsdTile(text) {
   DBG("parseCabbageCsdTile()");
   widgets.splice(1, widgets.length - 1);
+  console.log("length of widgets array:", widgets.length);
 
   let cabbageStart = 0;
   let cabbageEnd = 0;
@@ -90,19 +88,19 @@ function parseCabbageCsdTile(text) {
   })
 
   const cabbageCode = lines.slice(cabbageStart, cabbageEnd);
-  cabbageCode.forEach((line) => {
+  cabbageCode.forEach(async (line) => {
+    const codeProps = getCabbageCodeAsJSON(line);
     const type = `${line.trimStart().split(' ')[0]}`;
     if (line.trim() != "") {
       if (type != "form") {
-        DBG(line);
-        insertWidget(type, getCabbageCodeAsJSON(line));
+        await insertWidget(type, codeProps);
         numberOfWidgets++;
       }
       else {
         widgets.forEach((widget) => {
           if (widget.name == "MainForm") {
-            const w = getCabbageCodeAsJSON(line).width;
-            const h = getCabbageCodeAsJSON(line).height;
+            const w = codeProps.width;
+            const h = codeProps.height;
             form.style.width = w + "px";
             form.style.height = h + "px";
             widget.width = w;
@@ -128,28 +126,29 @@ function updatePanel(eventType, name, bounds) {
 
   if (element)
     element.innerHTML = '';
+    
 
   widgets.forEach((widget) => {
-
+    console.log(widget.name);
     // DBG(JSON.stringify(widget.props));
-    // if (widget.name == name) {
-    //   DBG(widget.name, name);
-    //   if (eventType != 'click') {
-    //     widget.props.left = Math.floor(bounds.x);
-    //     widget.props.top = Math.floor(bounds.y);
-    //     widget.props.width = Math.floor(bounds.w);
-    //     widget.props.height = Math.floor(bounds.h);
-    //   }
+    if (widget.name == name) {
+      // DBG(widget.name, name);
+      if (eventType != 'click') {
+        widget.left = Math.floor(bounds.x);
+        widget.top = Math.floor(bounds.y);
+        widget.width = Math.floor(bounds.w);
+        widget.height = Math.floor(bounds.h);
+      }
 
-    //   if (widget.props.hasOwnProperty('channel'))
-    //     widget.props.channel = name;
+      if (widget.hasOwnProperty('channel'))
+        widget.channel = name;
 
-    //   new PropertyPanel(widget.props.type, widget.props);
-    //   // vscode.postMessage({
-    //   //   command: 'widgetUpdate',
-    //   //   text: JSON.stringify(widget.props)
-    //   // })
-    // }
+      new PropertyPanel(widget.type, widget);
+      vscode.postMessage({
+        command: 'widgetUpdate',
+        text: JSON.stringify(widget)
+      })
+    }
   });
 }
 /**
@@ -261,19 +260,20 @@ new PropertyPanel('slider', currentWidget);
 let menuItems = document.getElementsByTagName('*');
 for (var i = 0; i < menuItems.length; i++) {
   if (menuItems[i].getAttribute('class') == 'menuItem') {
-    menuItems[i].addEventListener("click", (e) => {
+    menuItems[i].addEventListener("click", async (e) => {
       DBG("contextMenuItemClicks()");
       const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig);
       const channel = type + String(numberOfWidgets);
-      insertWidget(type, { channel: channel, top: mouseDownPosition.y, left: mouseDownPosition.x });
+      numberOfWidgets++;
+      const w = await insertWidget(type, { channel: channel, top: mouseDownPosition.y, left: mouseDownPosition.x });
       if (widgets) {
         //update text editor with last added widget
         vscode.postMessage({
           command: 'widgetUpdate',
-          text: JSON.stringify(widgets[widgets.length - 1])
+          text: JSON.stringify(w)
         })
       }
-      numberOfWidgets++;
+      
     });
   }
 }
@@ -282,43 +282,45 @@ for (var i = 0; i < menuItems.length; i++) {
  * insets a new widget to the form, this can be called when loading/saving a file, or when we right-
  * click and add widgets
  */
-function insertWidget(type, props) {
-  DBG("insertWidget()");
+async function insertWidget(type, props) {
   const widgetType = type;
   const widgetDiv = document.createElement('div');
   widgetDiv.className = 'resize-drag';
 
   if (form) {
-    form.appendChild(widgetDiv);
+      form.appendChild(widgetDiv);
   }
 
   widgetDiv.innerHTML = WidgetSVG(widgetType);
 
-  let widget;
+  let widget = {}; 
 
   switch (type) {
-    case "rslider":
-      widget = DefaultWidgetProps("rslider");
-      break;
-    case "form":
-      widget = DefaultWidgetProps("form");
-    default:
-      DBG('+++++++++++++++++++++++++++++++++');
-      break;
+      case "rslider":
+          widget = DefaultWidgetProps("rslider");
+          break;
+      case "form":
+          widget = DefaultWidgetProps("form");
+          break;
+      default:
+          DBG('+++++++++++++++++++++++++++++++++');
+          return;
   }
 
-  // DBG(JSON.stringify(props, null, 2));
-  DBG(JSON.stringify(widget, null, 2));
+  
+  
   Object.entries(props).forEach((entry) => {
-    const [key, value] = entry;
+      const [key, value] = entry;
+      widget[key] = value;
+      if (key === 'channel') {
+          widget.name = value;
+          widget.channel = value;
+          widgetDiv.id = widget.name;
+      }
 
-    widget[key] = value;
-    if (key === 'channel') {
-      widget.name = value;
-      widgetDiv.id = widget.name;
-      DBG(widget.name);
-    }
   })
+
+  widgets.push(widget); // Push the new widget object into the array
 
   widgetDiv.style.transform = 'translate(' + widget.left + 'px,' + widget.top + 'px)';
   widgetDiv.setAttribute('data-x', widget.left);
@@ -326,10 +328,7 @@ function insertWidget(type, props) {
   widgetDiv.style.width = widget.width + 'px'
   widgetDiv.style.height = widget.height + 'px'
 
-  widgets.push(widget);
-
-  widget = {};
-  // wDBG();
+  return widget;
 }
 
 

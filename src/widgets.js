@@ -65,10 +65,12 @@ const rotarySliderProps = {
 
 export function DefaultWidgetProps(widget) {
   switch (widget) {
-    case "form":
-      return formProps;
-    case "rslider":
-      return rotarySliderProps; 
+      case "form":
+          return { ...formProps }; // Return a shallow copy of formProps
+      case "rslider":
+          return { ...rotarySliderProps }; // Return a shallow copy of rotarySliderProps
+      default:
+          return {}; // Return an empty object for unknown widget types
   }
 }
 
