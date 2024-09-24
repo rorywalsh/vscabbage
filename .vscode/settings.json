@@ -14,5 +14,16 @@
         "activityBar.background": "#4B1A46",
         "titleBar.activeBackground": "#6A2462",
         "titleBar.activeForeground": "#FDF9FC"
-    }
+    },
+    "cSpell.words": [
+        "Colours",
+        "combobox",
+        "csound",
+        "csoundoutput",
+        "filebutton",
+        "gentable",
+        "hslider",
+        "texteditor",
+        "vslider"
+    ]
 }

@@ -12,15 +12,145 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Cabbage",
+      "properties": {
+        "cabbage.pathToCabbageExecutable": {
+          "type": "string",
+          "default": "/Users/rwalsh/sourcecode/cabbage3/icabbage/cabbage/build/Debug",
+          "description": "Path to Cabbage service app (path only, don't pass the file name)."
+        },
+        "cabbage.audioOutput": {
+          "type": "string",
+          "default": "Mac Mini Speakers",
+          "description": "Choose an audio output device",
+          "enum": [
+            "Mac Mini Speakers",
+            "Blackhole 2ch",
+            "Microsoft Teams Audio"
+          ],
+          "enumDescriptions": [
+            "Output to Mac Mini Speakers",
+            "Output to Blackhole 2ch",
+            "Output to Microsoft Teams Audio"
+          ]
+        },
+        "cabbage.audioInput": {
+          "type": "string",
+          "default": "None",
+          "description": "Choose an audio input device",
+          "enum": [
+            "Blackhole 2ch",
+            "Microsoft Teams Audio"
+          ],
+          "enumDescriptions": [
+            "Input from Blackhole 2ch",
+            "Input from Microsoft Teams Audio"
+          ]
+        },
+        "cabbage.audioSampleRate": {
+          "type": "string",
+          "default": "44100",
+          "description": "Choose an audio sample rate",
+          "enum": [
+            "44100",
+            "48000",
+            "88200",
+            "96000",
+            "176400"
+          ],
+          "enumDescriptions": [
+            "44100 samples per second",
+            "48000 samples per second",
+            "88200 samples per second",
+            "96000 samples per second",
+            "176400 samples per second"
+          ]
+        },
+        "cabbage.audioBufferSize": {
+          "type": "string",
+          "default": "32 samples",
+          "description": "Choose an audio sample rate",
+          "enum": [
+            "16 samples",
+            "32 samples",
+            "64 samples",
+            "96 samples",
+            "128 samples",
+            "160 samples",
+            "192 samples",
+            "224 samples",
+            "256 samples",
+            "288 samples",
+            "320 samples",
+            "352 samples",
+            "384 samples",
+            "416 samples",
+            "448 samples",
+            "480 samples",
+            "512 samples",
+            "544 samples",
+            "576 samples",
+            "608 samples",
+            "640 samples",
+            "672 samples",
+            "704 samples",
+            "736 samples",
+            "768 samples",
+            "800 samples",
+            "832 samples",
+            "864 samples",
+            "896 samples",
+            "928 samples",
+            "960 samples",
+            "992 samples",
+            "1024 samples"
+          ]
+        },
+        "cabbage.snapToSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Set the number of pixels to move by when dragging an element."
+        },
+        "cabbage.saveExternalJSON": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic saving of external JSON when compiling .csd file."
+        },
+        "cabbage.defaultJsonFormatting": {
+          "type": "string",
+          "default": "Single line objects",
+          "description": "Choose an option",
+          "enum": [
+            "Singe line objects",
+            "Multiline objects"
+          ],
+          "enumDescriptions": [
+            "Formats each widget object to a single line enclosed with curly braces",
+            "Formats each widget object over multiple lines; typical of most JSON formatters"
+          ]
+        }
+      }
+    },
     "commands": [
       {
-        "command": "cabbage.launchUIEditor",
-        "title": "Launch UI Editor",
+        "command": "cabbage.launch",
+        "title": "Launch Cabbage",
         "category": "Cabbage"
       },
       {
-        "command": "cabbage.editText",
-        "title": "Edit text",
+        "command": "cabbage.editMode",
+        "title": "Edit Mode",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.formatDocument",
+        "title": "Format Document",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.expandCabbageJSON",
+        "title": "Expand Cabbage section",
         "category": "Cabbage"
       }
     ],
@@ -74,7 +204,10 @@
       {
         "language": "csound-csd",
         "scopeName": "source.csound.csd",
-        "path": "./syntaxes/csound-csd.tmLanguage.json"
+        "path": "./syntaxes/csound-csd.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.json": "json"
+        }
       }
     ]
   },
@@ -93,6 +226,7 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
     "@types/vscode": "^1.88.0",
+    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.4.0",
     "@vscode/test-cli": "^0.0.8",
@@ -104,6 +238,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "interactjs": "^1.10.27"
+    "interactjs": "^1.10.27",
+    "ws": "^8.16.0"
   }
 }

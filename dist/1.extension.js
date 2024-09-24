@@ -1,8 +1,20 @@
+"use strict";
+exports.id = 1;
+exports.ids = [1];
+exports.modules = {
+
+/***/ 45:
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   WidgetWrapper: () => (/* binding */ WidgetWrapper)
+/* harmony export */ });
 /**
  * This is a wrapper for all widgets. It provides the drag and drop functionality
  * for the UI designer
  */
-export class WidgetWrapper {
+class WidgetWrapper {
     constructor(updatePanelCallback, selectedSet, widgets, vscode) {
         const restrictions = {
             restriction: 'parent',
@@ -45,7 +57,6 @@ export class WidgetWrapper {
             element.style.transform = `translate(${x}px, ${y}px)`;
             element.setAttribute('data-x', x);
             element.setAttribute('data-y', y);
-            console.log("element.id",element.id);
             this.updatePanelCallback(this.vscode, { eventType: "move", name: element.id, bounds: { x: x, y: y, w: -1, h: -1 } },this.widgets);
 
 
@@ -205,3 +216,10 @@ function formDragMoveListener(event) {
 
 
 
+
+
+/***/ })
+
+};
+;
+//# sourceMappingURL=1.extension.js.map
