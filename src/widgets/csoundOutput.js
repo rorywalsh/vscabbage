@@ -6,10 +6,12 @@ import { CabbageUtils } from "../utils.js";
 export class CsoundOutput {
     constructor() {
         this.props = {
-            "top": 0,
-            "left": 0,
-            "width": 200,
-            "height": 300,
+            "bounds": {
+                "top": 0,
+                "left": 0,
+                "width": 200,
+                "height": 300
+            },
             "type": "csoundoutput",
             "colour": "#000000",
             "channel": "csoundoutput",
@@ -19,7 +21,7 @@ export class CsoundOutput {
             "corners": 4,
             "align": "left",
             "visible": 1,
-            "text": "Csound Output\n",
+            "text": "Csound Output",
             "automatable": 0
         };
 

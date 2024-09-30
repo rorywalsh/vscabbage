@@ -67,11 +67,6 @@ function initialiseHighlightDecorationType() {
 }
 
 import WebSocket from 'ws';
-interface TokenObject {
-	token: string;
-	values: string[];
-	// Add other properties if necessary
-}
 
 const wss = new WebSocket.Server({ port: 9991 });
 let websocket: WebSocket;
@@ -558,22 +553,22 @@ async function initializeDefaultProps(type: string): Promise<WidgetProps | null>
 }
 
 function transformProps(props: WidgetProps): WidgetProps {
-	if (props.left !== undefined && props.top !== undefined && props.width !== undefined && props.height !== undefined) {
-		props.bounds = [props.left, props.top, props.width, props.height];
-		delete props.left;
-		delete props.top;
-		delete props.width;
-		delete props.height;
+	if (props.bounds.left !== undefined && props.bounds.top !== undefined && props.bounds.width !== undefined && props.bounds.height !== undefined) {
+		props.bounds = [props.bounds.left, props.bounds.top, props.bounds.width, props.bounds.height];
+		delete props.bounds.left;
+		delete props.bounds.top;
+		delete props.bounds.width;
+		delete props.bounds.height;
 	}
 
 	if (props.type.includes("slider")) {
-		if (props.min !== undefined && props.max !== undefined && props.skew !== undefined && props.increment !== undefined) {
-			props.range = [props.min, props.max, props.value, props.skew, props.increment];
-			delete props.min;
-			delete props.max;
-			delete props.skew;
-			delete props.increment;
-			delete props.value;
+		if (props.bounds.min !== undefined && props.bounds.max !== undefined && props.range.skew !== undefined && props.range.increment !== undefined) {
+			props.range = [props.bounds.min, props.bounds.max, props.range.defaultValue, props.range.skew, props.range.increment];
+			delete props.bounds.min;
+			delete props.bounds.max;
+			delete props.range.skew;
+			delete props.range.increment;
+			delete props.range.defaultValue;
 		}
 	}
 
@@ -855,16 +850,6 @@ async function updateText(jsonText: string) {
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
-
 
 
 

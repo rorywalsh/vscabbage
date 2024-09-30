@@ -1,4 +1,4 @@
-import { CabbageUtils, CabbageColours } from "../utils.js";
+import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
 /**
  * Rotary Slider (rslider) class
@@ -6,16 +6,21 @@ import { Cabbage } from "../cabbage.js";
 export class RotarySlider {
   constructor() {
     this.props = {
-      "top": 10,
-      "left": 10,
-      "width": 60,
-      "height": 60,
+      "bounds": {
+        "top": 10,
+        "left": 10,
+        "width": 60,
+        "height": 60
+      },
       "channel": "rotarySlider",
-      "min": 0,
-      "max": 1,
+      "range": {
+        "min": 0,
+        "max": 1,
+        "defaultValue": 0,
+        "skew": 1,
+        "increment": 0.001
+      },
       "value": 0,
-      "skew": 1,
-      "increment": 0.001,
       "index": 0,
       "text": "",
       "fontFamily": "Verdana",
@@ -99,14 +104,14 @@ export class RotarySlider {
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
     const rect = form.getBoundingClientRect();
-    this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.increment);
+    this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
     if (popup) {
       popup.textContent = parseFloat(this.props.value).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup
-      const sliderLeft = this.props.left;
-      const sliderWidth = this.props.width;
+      const sliderLeft = this.props.bounds.left;
+      const sliderWidth = this.props.bounds.width;
       const formLeft = rect.left;
       const formWidth = rect.width;
 
@@ -125,7 +130,7 @@ export class RotarySlider {
         popup.classList.remove('right');
       }
 
-      const popupTop = rect.top + this.props.top + this.props.height * .5; // Adjust top position relative to the form's top
+      const popupTop = rect.top + this.props.top + this.props.bounds.height * .5; // Adjust top position relative to the form's top
 
       // Set the calculated position
       popup.style.left = `${popupLeft}px`;
@@ -162,27 +167,27 @@ export class RotarySlider {
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
     widgetDiv.RotarySliderInstance = this;
   }
- 
+
   pointerMove({ clientY }) {
     if (this.props.active === 0) {
       return '';
     }
 
     const steps = 200;
-    const valueDiff = ((this.props.max - this.props.min) * (clientY - this.startY)) / steps;
-    const value = CabbageUtils.clamp(this.startValue - valueDiff, this.props.min, this.props.max);
-    
+    const valueDiff = ((this.props.range.max - this.props.range.min) * (clientY - this.startY)) / steps;
+    const value = CabbageUtils.clamp(this.startValue - valueDiff, this.props.range.min, this.props.range.max);
 
-    this.props.value = Math.round(value / this.props.increment) * this.props.increment;
+
+    this.props.value = Math.round(value / this.props.range.increment) * this.props.range.increment;
 
     const widgetDiv = document.getElementById(this.props.channel);
     widgetDiv.innerHTML = this.getInnerHTML();
 
     //values sent to Cabbage should be normalized between 0 and 1
-    const newValue = CabbageUtils.map(this.props.value, this.props.min, this.props.max, 0, 1);
-    const msg = { paramIdx:this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" }
+    const newValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" }
     Cabbage.sendParameterUpdate(this.vscode, msg);
-    
+
   }
 
   // https://stackoverflow.com/questions/20593575/making-circular-progress-bar-with-html5-svg
@@ -213,7 +218,7 @@ export class RotarySlider {
   handleInputChange(evt) {
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
-      if (!isNaN(inputValue) && inputValue >= this.props.min && inputValue <= this.props.max) {
+      if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
         this.props.value = inputValue;
         const widgetDiv = document.getElementById(this.props.channel);
         widgetDiv.innerHTML = this.getInnerHTML();
@@ -236,39 +241,39 @@ export class RotarySlider {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
 
-    let w = (this.props.width > this.props.height ? this.props.height : this.props.width) * 0.75;
+    let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.trackerOutlineWidth;
     const innerTrackerEndPoints = this.props.trackerOutlineWidth * 0.5;
     const trackerOutlineColour = this.props.trackerOutlineWidth == 0 ? this.props.trackerBackgroundColour : this.props.trackerOutlineColour;
-    const outerTrackerPath = this.describeArc(this.props.width / 2, this.props.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.width / 2)), -130, 132);
-    const trackerPath = this.describeArc(this.props.width / 2, this.props.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
-    const trackerArcPath = this.describeArc(this.props.width / 2, this.props.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.width / 2)), -(130 - innerTrackerEndPoints), CabbageUtils.map(this.props.value, this.props.min, this.props.max, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints));
+    const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -130, 132);
+    const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
+    const trackerArcPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints));
 
     // Calculate proportional font size if this.props.fontSize is 0
     let fontSize = this.props.fontSize > 0 ? this.props.fontSize : w * 0.24;
-    const textY = this.props.height + (this.props.fontSize > 0 ? this.props.textOffsetY : 0);
+    const textY = this.props.bounds.height + (this.props.fontSize > 0 ? this.props.textOffsetY : 0);
     let scale = 100;
 
     if (this.props.valueTextBox == 1) {
       scale = 0.7;
       const moveY = 5;
 
-      const centerX = this.props.width / 2;
-      const centerY = this.props.height / 2;
+      const centerX = this.props.bounds.width / 2;
+      const centerY = this.props.bounds.height / 2;
       const inputWidth = CabbageUtils.getNumberBoxWidth(this.props);
-      const inputX = this.props.width / 2 - inputWidth / 2;
+      const inputX = this.props.bounds.width / 2 - inputWidth / 2;
 
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.width} ${this.props.height}" width="100%" height="100%" preserveAspectRatio="none">
-        <text text-anchor="middle" x=${this.props.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none">
+        <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.trackerWidth} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
         <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.trackerColour} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.width / 2} cy=${this.props.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
         </g>
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${inputWidth}" height="${fontSize * 2}">
-          <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.increment))}"
+          <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
           style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.fontFamily}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
           onKeyDown="document.getElementById('${this.props.channel}').RotarySliderInstance.handleInputChange(event)"/>
           />
@@ -278,12 +283,12 @@ export class RotarySlider {
     }
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.width} ${this.props.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none">
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.trackerWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.trackerColour} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.width / 2} cy=${this.props.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
-      <text text-anchor="middle" x=${this.props.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
+      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
       </svg>
     `;
   }

@@ -4,10 +4,12 @@
 export class Image {
     constructor() {
         this.props = {
+            "bounds":{
             "top": 0,
             "left": 0,
             "width": 100,
-            "height": 30,
+            "height": 30
+            },
             "type": "image",
             "colour": "#888888",
             "channel": "",
@@ -48,9 +50,9 @@ export class Image {
         const outlineOffset = this.props.outlineWidth / 2;
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.width} ${this.props.height}" width="100%" height="100%" preserveAspectRatio="none"
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                  style="position: absolute; top: 0; left: 0;">
-                <rect width="${this.props.width - this.props.outlineWidth}" height="${this.props.height - this.props.outlineWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour}" 
+                <rect width="${this.props.bounds.width - this.props.outlineWidth}" height="${this.props.bounds.height - this.props.outlineWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" pointer-events="all"></rect>
             </svg>
         `;

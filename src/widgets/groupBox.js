@@ -4,16 +4,18 @@
 export class GroupBox {
     constructor() {
         this.props = {
-            "top": 0,
-            "left": 0,
-            "width": 100,
-            "height": 30,
+            "bounds": {
+                "top": 0,
+                "left": 0,
+                "width": 100,
+                "height": 30
+            },
             "type": "groupbox",
-            "text": "Hello", // Text displayed next to the slider
-            "fontFamily": "Verdana", // Font family for the text
-            "fontSize": 0, // Font size for the text
+            "text": "Hello",
+            "fontFamily": "Verdana",
+            "fontSize": 0,
             "fontColour": "#dddddd",
-            "align": "centre", // Text alignment within the slider (center, left, right)
+            "align": "centre",
             "colour": "#888888",
             "channel": "groupbox",
             "outlineWidth": 1,
@@ -50,53 +52,53 @@ export class GroupBox {
         if (this.props.visible === 0) {
             return '';
         }
-    
+
         const outlineOffset = this.props.outlineWidth / 2;
-        const textSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.height * 0.3;
+        const textSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.height * 0.3;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
         const textWidth = (this.props.text.length * textSize) / 2; // approximate width of text
-    
+
         const alignMap = {
             'left': 'start',
             'center': 'middle',
             'centre': 'middle',
             'right': 'end',
         };
-    
+
         const svgAlign = alignMap[this.props.align] || 'middle'; // Default to 'middle' if alignment is not set or invalid
-    
+
         // Calculate text position based on alignment
         let textXPosition;
         let gapStart;
         let gapEnd;
-    
+
         if (svgAlign === 'start') {
             textXPosition = outlineOffset + padding; // Left-aligned, with padding
             gapStart = textXPosition - padding;
             gapEnd = textXPosition + textWidth + padding;
         } else if (svgAlign === 'end') {
-            textXPosition = this.props.width - outlineOffset - padding; // Right-aligned, with padding
+            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-aligned, with padding
             gapStart = textXPosition - textWidth - padding;
             gapEnd = textXPosition + padding;
         } else {
-            textXPosition = this.props.width / 2; // Center-aligned
-            gapStart = (this.props.width / 2) - textWidth / 2 - padding;
-            gapEnd = (this.props.width / 2) + textWidth / 2 + padding;
+            textXPosition = this.props.bounds.width / 2; // Center-aligned
+            gapStart = (this.props.bounds.width / 2) - textWidth / 2 - padding;
+            gapEnd = (this.props.bounds.width / 2) + textWidth / 2 + padding;
         }
-    
+
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.width} ${this.props.height}" 
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
                  width="100%" height="100%" preserveAspectRatio="none"
                  style="position: absolute; top: 0; left: 0;">
                 <!-- Transparent rectangle as the background -->
-                <rect width="${this.props.width - this.props.outlineWidth}" height="${this.props.height - this.props.outlineWidth}" 
+                <rect width="${this.props.bounds.width - this.props.outlineWidth}" height="${this.props.bounds.height - this.props.outlineWidth}" 
                       x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="transparent"></rect>
                 
                 <!-- Top border lines with gap adjusted for text alignment -->
                 <line x1="0" y1="${outlineOffset + yOffset}" x2="${gapStart}" y2="${outlineOffset + yOffset}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" />
-                <line x1="${gapEnd}" y1="${outlineOffset + yOffset}" x2="${this.props.width}" y2="${outlineOffset + yOffset}" 
+                <line x1="${gapEnd}" y1="${outlineOffset + yOffset}" x2="${this.props.bounds.width}" y2="${outlineOffset + yOffset}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" />
                 
                 <!-- Text at the top with alignment support -->
@@ -106,18 +108,18 @@ export class GroupBox {
                 </text>
                 
                 <!-- Bottom border line -->
-                <line x1="0" y1="${this.props.height - outlineOffset}" x2="${this.props.width}" y2="${this.props.height - outlineOffset}" 
+                <line x1="0" y1="${this.props.bounds.height - outlineOffset}" x2="${this.props.bounds.width}" y2="${this.props.bounds.height - outlineOffset}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" />
                 
                 <!-- Left and right border lines adjusted to start at yOffset -->
-                <line x1="${outlineOffset}" y1="${yOffset}" x2="${outlineOffset}" y2="${this.props.height - outlineOffset}" 
+                <line x1="${outlineOffset}" y1="${yOffset}" x2="${outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" />
-                <line x1="${this.props.width - outlineOffset}" y1="${yOffset}" x2="${this.props.width - outlineOffset}" y2="${this.props.height - outlineOffset}" 
+                <line x1="${this.props.bounds.width - outlineOffset}" y1="${yOffset}" x2="${this.props.bounds.width - outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
                       stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" />
             </svg>
         `;
     }
-    
-    
-    
+
+
+
 }

@@ -6,10 +6,12 @@ import { CabbageUtils } from "../utils.js";
 export class TextEditor {
     constructor() {
         this.props = {
-            "top": 0,
-            "left": 0,
-            "width": 200,
-            "height": 300,
+            "bounds": {
+                "top": 0,
+                "left": 0,
+                "width": 200,
+                "height": 300
+            },
             "type": "texteditor",
             "colour": "#dddddd",
             "channel": "texteditor",
@@ -38,13 +40,13 @@ export class TextEditor {
     addEventListeners(widgetDiv) {
         // Add any necessary event listeners here
     }
-   
+
     getInnerHTML() {
         if (this.props.visible === 0) {
             return '';
         }
 
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.height * 0.8, 12); // Ensuring font size doesn't get too small
+        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
         const alignMap = {
             'left': 'start',
             'center': 'center',

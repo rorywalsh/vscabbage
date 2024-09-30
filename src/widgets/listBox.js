@@ -4,10 +4,12 @@
 export class ListBox {
     constructor() {
         this.props = {
+            "bounds":{
             "top": 0,
             "left": 0,
             "width": 200,
-            "height": 300,
+            "height": 300
+            },
             "type": "listbox",
             "backgroundColour": "#ffffff",
             "fontColour": "#000000",
