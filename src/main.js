@@ -22,24 +22,24 @@ import { TextEditor } from "./widgets/textEditor.js";
 const widgetConstructors = {
   //add new widgets here, first the name, then the constructor
   "rotarySlider": RotarySlider,
-  "hslider": HorizontalSlider,
-  "hrange": HorizontalRangeSlider,
+  "horizontalSlider": HorizontalSlider,
+  "horizontalRangeSlider": HorizontalRangeSlider,
   "vslider": VerticalSlider,
-  "nslider": NumberSlider,
+  "numberSlider": NumberSlider,
   "keyboard": MidiKeyboard,
   "form": Form,
   "button": Button,
-  "filebutton": FileButton,
-  "optionbutton": OptionButton,
-  "gentable": GenTable,
+  "fileButton": FileButton,
+  "optionButton": OptionButton,
+  "genTable": GenTable,
   "label": Label,
   "image": Image,
-  "listbox": ListBox,
-  "combobox": ComboBox,
-  "groupbox": GroupBox,
-  "checkbox": Checkbox,
-  "csoundoutput": CsoundOutput,
-  "texteditor": TextEditor
+  "listBox": ListBox,
+  "comboBox": ComboBox,
+  "groupBox": GroupBox,
+  "checkBox": Checkbox,
+  "csoundOutput": CsoundOutput,
+  "textEditor": TextEditor
 };
 
 //for use by the context menu accessed when adding new widgets
@@ -383,13 +383,13 @@ function setupFormWidget(widget) {
   // Set MainForm properties and styles
   const form = document.getElementById('MainForm');
   if (form) {
-    form.style.width = widget.props.bounds.width + "px";
-    form.style.height = widget.props.bounds.height + "px";
+    form.style.width = widget.props.size.width + "px";
+    form.style.height = widget.props.size.height + "px";
     form.style.top = '0px';
     form.style.left = '0px';
     console.log("updating form");
 
-    // Call widget's updateSVG method
+    // Call form's updateSVG method
     if (typeof widget.updateSVG === 'function') {
       console.log("updating form svg whilst setting up form widget");
       widget.updateSVG();

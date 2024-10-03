@@ -39,10 +39,9 @@ import { CabbageUtils } from "./utils.js";
 // @ts-ignore
 import { Form } from "./widgets/form.js";
 import * as cp from "child_process";
-
+import WebSocket from 'ws';
 import path from 'path';
 
-let isCabbageSingleLine = true;
 let textEditor: vscode.TextEditor | undefined;
 let highlightDecorationType: vscode.TextEditorDecorationType;
 let vscodeOutputChannel: vscode.OutputChannel;
@@ -66,8 +65,7 @@ function initialiseHighlightDecorationType() {
 	}
 }
 
-import WebSocket from 'ws';
-
+// Setup websocket server
 const wss = new WebSocket.Server({ port: 9991 });
 let websocket: WebSocket;
 let cabbageMode = "play";
@@ -508,15 +506,15 @@ interface WidgetProps {
 
 async function initializeDefaultProps(type: string): Promise<WidgetProps | null> {
 	switch (type) {
-		case 'rslider':
+		case 'rotarySlider':
 			return new RotarySlider().props;
-		case 'hslider':
+		case 'horizontalSlider':
 			return new HorizontalSlider().props;
-		case 'vslider':
+		case 'verticalSlider':
 			return new VerticalSlider().props;
-		case 'hrange':
+		case 'horizontalRangeSlider':
 			return new HorizontalRangeSlider().props;
-		case 'nslider':
+		case 'numberSlider':
 			return new NumberSlider().props;
 		case 'keyboard':
 			return new MidiKeyboard().props;

@@ -172,16 +172,16 @@ export class CabbageUtils {
     let fontSize = 0;
     switch (props.type) {
 
-      case 'hslider':
+      case 'horizontalSlider':
         fontSize = props.height * .8;
         break;
-      case "rslider":
+      case "rotarySlider":
         fontSize = props.width * .3;
         break;
-      case "vslider":
+      case "verticalSlider":
         fontSize = props.width * .3;
         break;
-      case "combobox":
+      case "comboBox":
         fontSize = props.height * .5;
         break;
       default:

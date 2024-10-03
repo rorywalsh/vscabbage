@@ -13,7 +13,7 @@ export class HorizontalRangeSlider {
         "width": 60,
         "height": 60
       },
-      "channel": "rslider",
+      "channel": "hrslider",
       "range": {
         "min": 0,
         "max": 1,
