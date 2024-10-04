@@ -12,14 +12,16 @@ export class CsoundOutput {
                 "width": 200,
                 "height": 300
             },
-            "type": "csoundoutput",
+            "type": "csoundOutput",
             "colour": "#000000",
             "channel": "csoundoutput",
             "fontColour": "#dddddd",
-            "fontFamily": "Verdana",
-            "fontSize": 14,
+            "font": {
+                "family": "Verdana",
+                "size": 14,
+                "align": "left"
+            },
             "corners": 4,
-            "align": "left",
             "visible": 1,
             "text": "Csound Output",
             "automatable": 0
@@ -28,7 +30,7 @@ export class CsoundOutput {
         this.panelSections = {
             "Properties": ["type"],
             "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "fontSize", "fontFamily", "align"],
+            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
             "Colours": ["colour"]
         };
     }
@@ -46,18 +48,18 @@ export class CsoundOutput {
             return '';
         }
 
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.height * 0.8, 12); // Ensuring font size doesn't get too small
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.height * 0.8, 12);
         const alignMap = {
             'left': 'start',
             'center': 'center',
             'centre': 'center',
             'right': 'end',
         };
-        const textAlign = alignMap[this.props.align] || 'start';
+        const textAlign = alignMap[this.props.font.align] || 'start';
 
         return `
                 <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.colour}; 
-                color: ${this.props.fontColour}; font-family: ${this.props.fontFamily}; font-size: ${fontSize}px; 
+                color: ${this.props.fontColour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
                 text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none;">
 ${this.props.text}
                 </textarea>

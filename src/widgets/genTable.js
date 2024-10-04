@@ -1,5 +1,8 @@
 import { CabbageUtils } from "../utils.js";
 
+/**
+ * CsoundOutput class
+ */
 export class GenTable {
     constructor() {
         console.log("Creating GenTable widget");
@@ -10,20 +13,22 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
-            "type": "gentable",
+            "type": "genTable",
             "colour": "#888888",
             "outlineColour": "#dddddd",
             "outlineWidth": 1,
             "channel": "gentable",
             "backgroundColour": "#a8d388",
             "fontColour": "#dddddd",
-            "fontFamily": "Verdana",
+            "font": {
+                "family": "Verdana",
+                "size": 0,
+                "align": "left"
+            },
             "startSample": -1,
             "endSample": -1,
             "file": "",
-            "fontSize": 0,
             "corners": 4,
-            "align": "left",
             "visible": 1,
             "text": "",
             "tableNumber": 1,
@@ -31,11 +36,10 @@ export class GenTable {
             "automatable": 0
         };
 
-
         this.panelSections = {
             "Info": ["type", "channel"],
             "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontSize", "fontFamily", "fontColour", "align"],
+            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
             "Colours": ["colour", "backgroundColour", "outlineColour"]
         };
     }
@@ -115,7 +119,7 @@ export class GenTable {
         this.ctx.closePath();
 
         // Draw text
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.bounds.height * 0.1, 12);
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.1, 12);
         const alignMap = {
             'left': 'start',
             'center': 'center',
@@ -128,27 +132,21 @@ export class GenTable {
             'centre': 'center',
             'right': 'right',
         };
-        const svgAlign = alignMap[this.props.align] || 'start';
-        const textAlign = canvasAlignMap[this.props.align] || 'left';
-        this.ctx.font = `${fontSize}px ${this.props.fontFamily}`;
+        const svgAlign = alignMap[this.props.font.align] || 'start';
+        const textAlign = canvasAlignMap[this.props.font.align] || 'left';
+        this.ctx.font = `${fontSize}px ${this.props.font.family}`;
         this.ctx.fillStyle = this.props.fontColour;
         this.ctx.textAlign = textAlign;
         this.ctx.textBaseline = 'bottom';
 
-
-        const textX = this.props.align === 'right' ? this.props.bounds.width - 10 : this.props.align === 'center' || this.props.align === 'centre' ? this.props.bounds.width / 2 : 10;
+        const textX = this.props.font.align === 'right' ? this.props.bounds.width - 10 : this.props.font.align === 'center' || this.props.font.align === 'centre' ? this.props.bounds.width / 2 : 10;
         const textY = this.props.bounds.height - 10;
         this.ctx.fillText(this.props.text, textX, textY);
-
 
         // Update DOM with the canvas
         const widgetElement = document.getElementById(this.props.channel);
         if (widgetElement) {
             widgetElement.style.transform = `translate(${this.props.bounds.left}px, ${this.props.bounds.top}px)`;
-            // widgetElement.setAttribute('data-x', this.props.bounds.left);
-            // widgetElement.setAttribute('data-y', this.props.bounds.top);
-            // widgetElement.style.top = `${this.props.bounds.top}px`;
-            // widgetElement.style.left = `${this.props.bounds.left}px`;
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content

@@ -1,5 +1,6 @@
 import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+
 /**
  * Rotary Slider (rslider) class
  */
@@ -23,9 +24,11 @@ export class RotarySlider {
       "value": 0,
       "index": 0,
       "text": "",
-      "fontFamily": "Verdana",
-      "fontSize": 0,
-      "align": "centre",
+      "font": {
+        "family": "Verdana",
+        "size": 0,
+        "align": "centre"
+      },
       "textOffsetY": 0,
       "valueTextBox": 0,
       "colour": "#0295cf",
@@ -51,12 +54,11 @@ export class RotarySlider {
       "presetIgnore": 0
     };
 
-
     this.panelSections = {
       "Properties": ["type", "channel"],
       "Bounds": ["left", "top", "width", "height"],
       "Range": ["min", "max", "value", "skew", "increment"],
-      "Text": ["text", "fontSize", "fontFamily", "fontColour", "textOffsetY", "align"],
+      "Text": ["text", "font.size", "font.family", "fontColour", "textOffsetY", "font.align"],
       "Colours": ["colour", "trackerColour", "trackerBackgroundColour", "trackerOutlineColour", "trackerStrokeColour", "outlineColour", "textBoxOutlineColour", "textBoxColour", "markerColour"]
     };
 
@@ -89,7 +91,7 @@ export class RotarySlider {
 
     this.isMouseDown = true;
     this.startY = evt.clientY;
-    console.log(this.props.value)
+    console.log(this.props.value);
     this.startValue = this.props.value;
     window.addEventListener("pointermove", this.moveListener);
     window.addEventListener("pointerup", this.upListener);
@@ -99,7 +101,6 @@ export class RotarySlider {
     if (this.props.active === 0) {
       return '';
     }
-
 
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
@@ -143,7 +144,6 @@ export class RotarySlider {
     console.log("pointerEnter", this);
   }
 
-
   mouseLeave(evt) {
     if (!this.isMouseDown) {
       const popup = document.getElementById('popupValue');
@@ -177,7 +177,6 @@ export class RotarySlider {
     const valueDiff = ((this.props.range.max - this.props.range.min) * (clientY - this.startY)) / steps;
     const value = CabbageUtils.clamp(this.startValue - valueDiff, this.props.range.min, this.props.range.max);
 
-
     this.props.value = Math.round(value / this.props.range.increment) * this.props.range.increment;
 
     const widgetDiv = document.getElementById(this.props.channel);
@@ -185,9 +184,8 @@ export class RotarySlider {
 
     //values sent to Cabbage should be normalized between 0 and 1
     const newValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" }
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
     Cabbage.sendParameterUpdate(this.vscode, msg);
-
   }
 
   // https://stackoverflow.com/questions/20593575/making-circular-progress-bar-with-html5-svg
@@ -224,8 +222,7 @@ export class RotarySlider {
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
       }
-    }
-    else if (evt.key === 'Esc') {
+    } else if (evt.key === 'Esc') {
       const widgetDiv = document.getElementById(this.props.channel);
       widgetDiv.querySelector('input').blur();
     }
@@ -250,8 +247,8 @@ export class RotarySlider {
     const trackerArcPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints));
 
     // Calculate proportional font size if this.props.fontSize is 0
-    let fontSize = this.props.fontSize > 0 ? this.props.fontSize : w * 0.24;
-    const textY = this.props.bounds.height + (this.props.fontSize > 0 ? this.props.textOffsetY : 0);
+    let fontSize = this.props.font.size > 0 ? this.props.font.size : w * 0.24;
+    const textY = this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0);
     let scale = 100;
 
     if (this.props.valueTextBox == 1) {
@@ -265,7 +262,7 @@ export class RotarySlider {
 
       return `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none">
-        <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
+        <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.trackerWidth} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
@@ -274,7 +271,7 @@ export class RotarySlider {
         </g>
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${inputWidth}" height="${fontSize * 2}">
           <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
-          style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.fontFamily}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
+          style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
           onKeyDown="document.getElementById('${this.props.channel}').RotarySliderInstance.handleInputChange(event)"/>
           />
         </foreignObject>
@@ -288,9 +285,8 @@ export class RotarySlider {
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.trackerColour} stroke-width=${innerTrackerWidth} />
       <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
-      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
+      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
       </svg>
     `;
   }
-
 }

@@ -13,25 +13,29 @@ export class MidiKeyboard {
         "width": 600,
         "height": 300
       },
-      type: "keyboard",
-      colour: "#888888",
-      channel: "keyboard",
-      blackNoteColour: "#000000",
-      value: "36",
-      fontFamily: "Verdana",
-      whiteNoteColour: "#ffffff",
-      keySeparatorColour: "#000000",
-      arrowBackgroundColour: "#0295cf",
-      mouseoverKeyColour: '#93d200',
-      keydownColour: '#93d200',
-      automatable: 0,
-      octaves: 5
+      "type": "keyboard",
+      "colour": "#888888",
+      "channel": "keyboard",
+      "blackNoteColour": "#000000",
+      "value": "36",
+      "font": {
+        "family": "Verdana",
+        "size": 0,
+        "align": "centre"
+      },
+      "whiteNoteColour": "#ffffff",
+      "keySeparatorColour": "#000000",
+      "arrowBackgroundColour": "#0295cf",
+      "mouseoverKeyColour": '#93d200',
+      "keydownColour": '#93d200',
+      "automatable": 0,
+      "octaves": 5
     };
 
     this.panelSections = {
       Properties: ["type", "channel"],
       Bounds: ["left", "top", "width", "height"],
-      Text: ["fontFamily"],
+      Text: ["font.family", "font.size"],
       Colours: ["colour", "blackNoteColour", "whiteNoteColour", "keySeparatorColour", "arrowBackgroundColour", "keydownColour"],
       Octaves: ["octaves"] // Add octaves to the panel sections
     };
@@ -153,7 +157,6 @@ export class MidiKeyboard {
     console.log("Midi message listener", midiData);
     if (midiData.status == 144) {
       const note = midiData.data1;
-      // const velocity = midiData.data2;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
       key.setAttribute('fill', this.props.keydownColour);
@@ -201,7 +204,7 @@ export class MidiKeyboard {
     let whiteSvgKeys = '';
     let blackSvgKeys = '';
 
-    const fontSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.height * 0.1;
+    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.1;
 
     for (let octave = 0; octave < this.props.octaves; octave++) {
       for (let i = 0; i < whiteKeys.length; i++) {
@@ -221,7 +224,7 @@ export class MidiKeyboard {
         if (i === 0) { // First white key of the octave
           const textX = xOffset + whiteKeyWidth / 2; // Position text in the middle of the white key
           const textY = whiteKeyHeight * 0.8; // Position text in the middle vertically
-          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.fontFamily}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.blackNoteColour}" style="pointer-events: none;">${note}</text>`;
+          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.font.family}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.blackNoteColour}" style="pointer-events: none;">${note}</text>`;
         }
       }
     }
@@ -243,5 +246,4 @@ export class MidiKeyboard {
       </div>
     `;
   }
-
 }

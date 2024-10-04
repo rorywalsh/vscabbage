@@ -1,5 +1,5 @@
 /**
- * Label class
+ * GroupBox class
  */
 export class GroupBox {
     constructor() {
@@ -10,12 +10,14 @@ export class GroupBox {
                 "width": 100,
                 "height": 30
             },
-            "type": "groupbox",
+            "type": "groupBox",
             "text": "Hello",
-            "fontFamily": "Verdana",
-            "fontSize": 0,
+            "font": {
+                "family": "Verdana",
+                "size": 0,
+                "align": "centre"
+            },
             "fontColour": "#dddddd",
-            "align": "centre",
             "colour": "#888888",
             "channel": "groupbox",
             "outlineWidth": 1,
@@ -23,11 +25,11 @@ export class GroupBox {
             "corners": 4,
             "visible": 1,
             "automatable": 0
-        }
+        };
 
         this.panelSections = {
             "Properties": ["type"],
-            "Text": ["text", "fontSize", "fontFamily", "fontColour", "align"],
+            "Text": ["text", "font.size", "font.family", "fontColour", "font.align"],
             "Bounds": ["left", "top", "width", "height"],
             "Colours": ["colour", "outlineColour"],
         };
@@ -54,7 +56,7 @@ export class GroupBox {
         }
 
         const outlineOffset = this.props.outlineWidth / 2;
-        const textSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.height * 0.3;
+        const textSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.3;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
         const textWidth = (this.props.text.length * textSize) / 2; // approximate width of text
@@ -66,23 +68,23 @@ export class GroupBox {
             'right': 'end',
         };
 
-        const svgAlign = alignMap[this.props.align] || 'middle'; // Default to 'middle' if alignment is not set or invalid
+        const svgAlign = alignMap[this.props.font.align] || 'middle'; // Default to 'middle' if font.alignment is not set or invalid
 
-        // Calculate text position based on alignment
+        // Calculate text position based on font.alignment
         let textXPosition;
         let gapStart;
         let gapEnd;
 
         if (svgAlign === 'start') {
-            textXPosition = outlineOffset + padding; // Left-aligned, with padding
+            textXPosition = outlineOffset + padding; // Left-font.aligned, with padding
             gapStart = textXPosition - padding;
             gapEnd = textXPosition + textWidth + padding;
         } else if (svgAlign === 'end') {
-            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-aligned, with padding
+            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-font.aligned, with padding
             gapStart = textXPosition - textWidth - padding;
             gapEnd = textXPosition + padding;
         } else {
-            textXPosition = this.props.bounds.width / 2; // Center-aligned
+            textXPosition = this.props.bounds.width / 2; // Center-font.aligned
             gapStart = (this.props.bounds.width / 2) - textWidth / 2 - padding;
             gapEnd = (this.props.bounds.width / 2) + textWidth / 2 + padding;
         }
@@ -103,7 +105,7 @@ export class GroupBox {
                 
                 <!-- Text at the top with alignment support -->
                 <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
-                      font-family="${this.props.fontFamily}" font-size="${textSize}" fill="${this.props.fontColour}">
+                      font-family="${this.props.font.family}" font-size="${textSize}" fill="${this.props.fontColour}">
                     ${this.props.text}
                 </text>
                 
@@ -119,7 +121,4 @@ export class GroupBox {
             </svg>
         `;
     }
-
-
-
 }

@@ -21,16 +21,18 @@ export class NumberSlider {
             "value": 0,
             "index": 0,
             "text": "",
-            "fontFamily": "Verdana",
-            "fontSize": 0,
-            "align": "centre",
+            "font": {
+                "family": "Verdana",
+                "size": 0,
+                "align": "centre"
+            },
             "textOffsetY": 0,
             "valueTextBox": 0,
             "colour": '#93d200',
             "fontColour": "#dddddd",
             "outlineColour": "#525252",
             "outlineWidth": 2,
-            "type": "nslider",
+            "type": "numberSlider",
             "decimalPlaces": 1,
             "velocity": 0,
             "popup": 1,
@@ -44,7 +46,7 @@ export class NumberSlider {
         this.panelSections = {
             "Properties": ["type"],
             "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "fontSize", "fontFamily", "align"],
+            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
             "Colours": ["colour"]
         };
 
@@ -52,7 +54,7 @@ export class NumberSlider {
         this.startY = 0;
         this.startValue = 0;
         this.parameterIndex = 0;
-        this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment)
+        this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -95,7 +97,6 @@ export class NumberSlider {
         }
     }
 
-
     pointerUp(event) {
         this.isDragging = false;
         event.target.releasePointerCapture(event.pointerId);
@@ -113,7 +114,7 @@ export class NumberSlider {
         input.style.width = '60%'; // Adjust the width as needed
         input.style.height = 'auto';
         input.style.fontSize = `${Math.max(this.props.bounds.height * 0.4, 12)}px`; // Adjust font size
-        input.style.fontFamily = this.props.fontFamily;
+        input.style.fontFamily = this.props.font.family;
         input.style.textAlign = 'center'; // Center align the text inside input
         input.style.boxSizing = 'border-box';
 
@@ -140,12 +141,6 @@ export class NumberSlider {
         input.select(); // Auto-select the current text
     }
 
-
-
-
-
-
-
     updateSliderValue() {
         const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
         const sliderText = document.getElementById(`slider-text-${this.props.channel}`);
@@ -159,14 +154,14 @@ export class NumberSlider {
             return '';
         }
 
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
         const alignMap = {
             'left': 'end',
             'center': 'middle',
             'centre': 'middle',
             'right': 'start',
         };
-        const svgAlign = alignMap[this.props.align] || 'middle';
+        const svgAlign = alignMap[this.props.font.align] || 'middle';
         const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         return `
@@ -181,14 +176,11 @@ export class NumberSlider {
                 <!-- Text SVG with proper alignment -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
-                    <text id="slider-text-${this.props.channel}" x="${this.props.align === 'left' ? '10%' : this.props.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.fontFamily}" font-size="${fontSize}"
+                    <text id="slider-text-${this.props.channel}" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
                         fill="${this.props.fontColour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
                         style="pointer-events: none;">${valueText}</text>
                 </svg>
             </div>
         `;
     }
-
-
-
 }

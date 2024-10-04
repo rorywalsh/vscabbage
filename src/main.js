@@ -6,7 +6,7 @@ import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
 import { VerticalSlider } from "./widgets/verticalSlider.js";
 import { NumberSlider } from "./widgets/numberSlider.js";
 import { Button, FileButton, OptionButton } from "./widgets/button.js";
-import { Checkbox } from "./widgets/checkbox.js";
+import { Checkbox } from "./widgets/checkBox.js";
 import { ComboBox } from "./widgets/comboBox.js";
 import { Label } from "./widgets/label.js";
 import { Image } from "./widgets/image.js";
@@ -165,7 +165,7 @@ window.addEventListener('message', async event => {
 * this is called from the plugin and will update a corresponding widget
 */
 function updateWidget(obj) {
-  
+
   const channel = obj['channel'];
   let widgetFound = false;
   for (const widget of widgets) {
@@ -193,7 +193,7 @@ function updateWidget(obj) {
         }
 
       }
-      else{
+      else {
         console.error("Widget not found:", widget.props.channel);
       }
 
@@ -237,6 +237,7 @@ function createWidget(type) {
     return widget;
   } else {
     console.error("Unknown widget type: " + type);
+    console.trace();
     return null;
   }
 }
@@ -261,7 +262,7 @@ async function insertWidget(type, props) {
   }
 
   Object.assign(widget.props, props);
-  if(type == "rotarySlider" || type == "horizontalSlider" || type == "verticalSlider" || type == "numberSlider" || type == "horizontalRangeSlider"){
+  if (type == "rotarySlider" || type == "horizontalSlider" || type == "verticalSlider" || type == "numberSlider" || type == "horizontalRangeSlider") {
     widget.props.value = props.range.defaultValue;
   }
   widgets.push(widget);
@@ -408,17 +409,24 @@ function setupFormWidget(widget) {
 
 
 function updateWidgetStyles(widgetDiv, props) {
+  console.log("updating widget styles", props);
   widgetDiv.style.position = 'absolute';
-  widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-
   //if we use translate we need to ensure x/y are 0. 
   widgetDiv.style.top = '0px'
   widgetDiv.style.left = '0px'
 
-  widgetDiv.setAttribute('data-x', props.bounds.left);
-  widgetDiv.setAttribute('data-y', props.bounds.top);
-  widgetDiv.style.width = props.bounds.width + 'px';
-  widgetDiv.style.height = props.bounds.height + 'px';
+  if (typeof props?.bounds === 'object' && props.bounds !== null) {
+    widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+    widgetDiv.style.width = props.bounds.width + 'px';
+    widgetDiv.style.height = props.bounds.height + 'px';
+    widgetDiv.setAttribute('data-x', props.bounds.left);
+    widgetDiv.setAttribute('data-y', props.bounds.top);
+  }
+  else if(typeof props?.size === 'object' && props.size !== null){
+    widgetDiv.style.width = props.size.width + 'px';
+    widgetDiv.style.height = props.size.height + 'px';
+  }
+
 }
 
 
@@ -497,21 +505,21 @@ function setupFormHandlers() {
         contextMenu.style.left = `${x}px`;
         contextMenu.style.top = `${y}px`;
 
-        
+
         //groupContextMenu
         x = e.clientX, y = e.clientY;
         x = x > winWidth - cmWidth ? winWidth - cmWidth - 5 : x;
         y = y > winHeight - cmHeight ? winHeight - cmHeight - 5 : y;
-        groupContextMenu.style.left = `${x}px`; 
+        groupContextMenu.style.left = `${x}px`;
         groupContextMenu.style.top = `${y}px`;
 
         mouseDownPosition = { x: x, y: y };
         if (cabbageMode === 'draggable' && e.target.id === "MainForm") {
           contextMenu.style.visibility = "visible";
         } else {
-          groupContextMenu.style.visibility="visible";
+          groupContextMenu.style.visibility = "visible";
         }
-          
+
 
       });
 
@@ -573,7 +581,7 @@ function setupFormHandlers() {
       if (event.button !== 0) {
         return;
       }
-      else{
+      else {
         contextMenu.style.visibility = "hidden"
         groupContextMenu.style.visibility = "hidden"
       }

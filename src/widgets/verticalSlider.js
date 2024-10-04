@@ -11,18 +11,20 @@ export class VerticalSlider {
         "height": 60
       },
       "channel": "vslider",
-      "range":{
-      "min": 0,
-      "max": 1,
-      "defaultValue": 0,
-      "skew": 1,
-      "increment": 0.001
+      "range": {
+        "min": 0,
+        "max": 1,
+        "defaultValue": 0,
+        "skew": 1,
+        "increment": 0.001
       },
-      "value":0,
+      "value": 0,
       "text": "",
-      "fontFamily": "Verdana",
-      "fontSize": 0,
-      "align": "centre",
+      "font": {
+        "family": "Verdana",
+        "size": 0,
+        "align": "centre"
+      },
       "valueTextBox": 0,
       "colour": "#0295cf",
       "trackerColour": "#93d200",
@@ -33,7 +35,7 @@ export class VerticalSlider {
       "textBoxColour": "#555555",
       "trackerOutlineWidth": 1,
       "outlineWidth": 1,
-      "type": "vslider",
+      "type": "verticalSlider",
       "decimalPlaces": 1,
       "velocity": 0,
       "visible": 1,
@@ -44,12 +46,11 @@ export class VerticalSlider {
       "presetIgnore": 0,
     };
 
-
     this.panelSections = {
       "Info": ["type", "channel"],
       "Bounds": ["left", "top", "width", "height"],
       "Range": ["min", "max", "default", "skew", "increment"],
-      "Text": ["text", "fontSize", "fontFamily", "fontColour", "textOffsetX", "align"],
+      "Text": ["text", "font.size", "font.family", "fontColour", "textOffsetX", "font.align"],
       "Colours": ["colour", "trackerBackgroundColour", "trackerStrokeColour", "outlineColour", "textBoxOutlineColour", "textBoxColour"]
     };
 
@@ -101,7 +102,6 @@ export class VerticalSlider {
     }
   }
 
-
   mouseEnter(evt) {
     if (this.props.active === 0) {
       return '';
@@ -146,7 +146,6 @@ export class VerticalSlider {
       popup.classList.remove('hide');
     }
   }
-
 
   mouseLeave(evt) {
     if (!this.isMouseDown) {
@@ -234,7 +233,7 @@ export class VerticalSlider {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.align] || this.props.align;
+    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
 
     // Calculate text height
     let textHeight = this.props.text ? this.props.bounds.height * 0.1 : 0;
@@ -242,13 +241,13 @@ export class VerticalSlider {
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight * 1.1;
 
     const textX = this.props.bounds.width / 2;
-    const fontSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.width * 0.3;
+    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.width * 0.3;
 
     const thumbHeight = sliderHeight * 0.05;
 
     const textElement = this.props.text ? `
     <svg x="0" y="${this.props.valueTextBox ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <text text-anchor="${svgAlign}" x="${textX}" y="${textHeight}" font-size="${fontSize}px" font-family="${this.props.fontFamily}" stroke="none" fill="${this.props.fontColour}">
+      <text text-anchor="${svgAlign}" x="${textX}" y="${textHeight}" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.fontColour}">
         ${this.props.text}
       </text>
     </svg>
@@ -265,7 +264,7 @@ export class VerticalSlider {
     const valueTextElement = this.props.valueTextBox ? `
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight + 2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight}">
       <input type="text" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
-      style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.fontFamily}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
+      style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
       onKeyDown="document.getElementById('${this.props.channel}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
   ` : '';
@@ -278,8 +277,4 @@ export class VerticalSlider {
     </svg>
   `;
   }
-
-
-
-
 }

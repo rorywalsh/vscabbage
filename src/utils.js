@@ -227,39 +227,7 @@ export class CabbageUtils {
       }
     }
   }
-  /**
-   * This function will return an identifier in the form of ident(param) from an incoming
-   * JSON object of properties
-   */
-  static getCabbageCodeFromJson(json, name) {
-    const obj = JSON.parse(json);
-    let syntax = '';
-
-    if (name === 'range' && obj['type'].indexOf('slider') > -1) {
-      const { min, max, value, skew, increment } = obj;
-      syntax = `range(${min}, ${max}, ${value}, ${skew}, ${increment})`;
-      return syntax;
-    }
-    if (name === 'bounds') {
-      const { left, top, width, height } = obj;
-      syntax = `bounds(${left}, ${top}, ${width}, ${height})`;
-      return syntax;
-    }
-
-
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key) && key === name) {
-        const value = obj[key];
-        // Check if value is string and if so, wrap it in single quotes
-        const formattedValue = typeof value === 'string' ? `"${value}"` : value;
-        syntax += `${key}(${formattedValue}), `;
-      }
-    }
-    // Remove the trailing comma and space
-    syntax = syntax.slice(0, -2);
-    return syntax;
-  }
-
+  
   static updateBounds(props, identifier) {
     const element = document.getElementById(props.channel);
     if (element) {

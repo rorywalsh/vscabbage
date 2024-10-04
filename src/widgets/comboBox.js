@@ -12,9 +12,11 @@ export class ComboBox {
             },
             "channel": "comboBox",
             "corners": 2,
-            "fontFamily": "Verdana",
-            "fontSize": 14,
-            "align": "center",
+            "font": {
+                "family": "Verdana",
+                "size": 0,
+                "align": "centre"
+            },
             "colour": "#0295cf",
             "items": "One, Two, Three",
             "fontColour": "#dddddd",
@@ -23,7 +25,7 @@ export class ComboBox {
             "min": 0,
             "max": 3,
             "visible": 1,
-            "type": "combobox",
+            "type": "comboBox",
             "value": 0,
             "automatable": 1,
             "active": 1,
@@ -35,7 +37,7 @@ export class ComboBox {
         this.panelSections = {
             "Properties": ["type"],
             "Bounds": ["top", "left", "width", "height"],
-            "Text": ["items", "fontFamily", "align", "fontSize", "fontColour"],
+            "Text": ["items", "font", "align", "fontColour"],
             "Colours": ["colour", "outlineColour"]
         };
 
@@ -120,8 +122,8 @@ export class ComboBox {
             'right': 'end',
         };
 
-        const svgAlign = alignMap[this.props.align] || this.props.align;
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.height * 0.5;
+        const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
 
         let totalHeight = this.props.bounds.height;
         const itemHeight = this.props.bounds.height * 0.8; // Scale back item height to 80% of the original height
@@ -134,7 +136,7 @@ export class ComboBox {
                         onmouseover="this.style.backgroundColor='${CabbageColours.lighter(this.props.colour, 0.2)}'"
                         onmouseout="this.style.backgroundColor='${CabbageColours.darker(this.props.colour, 0.2)}'"
                         onmousedown="document.getElementById('${this.props.channel}').ComboBoxInstance.handleItemClick('${item}')">
-                        <span style="font-family:${this.props.fontFamily}; font-size:${this.props.fontSize}px; color:${this.props.fontColour};">${item.trim()}</span>
+                        <span style="font-family:${this.props.font.family}; font-size:${this.props.font.size}px; color:${this.props.fontColour};">${item.trim()}</span>
                     </div>
                 `;
             });
@@ -200,12 +202,10 @@ export class ComboBox {
                     </foreignObject>` : ''}
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.outlineColour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
-                <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.fontFamily}" font-size="${fontSize}"
+                <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
                     fill="${this.props.fontColour}" text-anchor="${svgAlign}" alignment-baseline="middle" style="${this.isOpen ? 'display: none;' : ''}"
                     style="pointer-events: none;">${this.selectedItem}</text>
             </svg>
         `;
     }
-
-
 }

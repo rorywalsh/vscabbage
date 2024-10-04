@@ -16,18 +16,21 @@ export class Checkbox {
       "max": 1,
       "value": 0,
       "text": "On/Off",
-      "fontFamily": "Verdana",
-      "fontColour": "#dddddd",
-      "fontSize": 0,
-      "align": "left",
-      "colourOn": "#93d200",
-      "colourOff": "#ffffff",
-      "fontColourOn": "#dddddd",
-      "fontColourOff": "#000000",
-      "outlineColour": "#999999",
+      "font": {
+        "family": "Verdana",
+        "size": 0,
+        "align": "left"
+      },
+      "colour": {
+        "on": "#93d200",
+        "off": "#ffffff"
+      },
+      "fontColour": {
+        "on": "#dddddd",
+        "off": "#000000",
+      },
       "outlineWidth": 1,
-      "value": 0,
-      "type": "checkbox",
+      "type": "checkBox",
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0
@@ -36,7 +39,7 @@ export class Checkbox {
     this.panelSections = {
       "Info": ["type", "channel"],
       "Bounds": ["left", "top", "width", "height"],
-      "Text": ["text", "fontSize", "fontFamily", "fontColour", "align"], // Changed from textOffsetY to textOffsetX for vertical slider
+      "Text": ["text", "font.size", "font.family", "fontColour", "font.align"], 
       "Colours": ["colourOn", "colourOff", "outlineColour"]
     };
 
@@ -54,8 +57,6 @@ export class Checkbox {
     Cabbage.sendParameterUpdate(this.vscode, msg);
   }
 
-
-
   pointerDown(evt) {
     this.toggle();
   }
@@ -71,7 +72,6 @@ export class Checkbox {
     widgetDiv.VerticalSliderInstance = this;
   }
 
-
   getInnerHTML() {
     if (this.props.visible === 0) {
       return '';
@@ -84,22 +84,20 @@ export class Checkbox {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.align] || this.props.align;
-    console.warn(this.props.fontSize)
-    const fontSize = this.props.fontSize > 0 ? this.props.fontSize : this.props.bounds.height * 0.8;
+    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.8;
 
     const checkboxSize = this.props.bounds.height * 0.8;
-    const checkboxX = this.props.align === 'right' ? this.props.bounds.width - checkboxSize - this.props.corners : this.props.corners;
-    const textX = this.props.align === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4; // Add more padding to prevent overlap
+    const checkboxX = this.props.font.align === 'right' ? this.props.bounds.width - checkboxSize - this.props.corners : this.props.corners;
+    const textX = this.props.font.align === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4;
 
-    const adjustedTextAnchor = this.props.align === 'right' ? 'end' : 'start';
+    const adjustedTextAnchor = this.props.font.align === 'right' ? 'end' : 'start';
 
     return `
       <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
-        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colourOn : this.props.colourOff}" stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.fontFamily}" font-size="${fontSize}" fill="${this.props.fontColour}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
+        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colour.on : this.props.colour.off}" stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
+        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.fontColour[this.props.value === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
       </svg>
     `;
   }
-
 }

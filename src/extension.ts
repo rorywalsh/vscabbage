@@ -1,43 +1,45 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-
+// // @ts-ignore
+// Import widgets and utilities
 // @ts-ignore
 import { RotarySlider } from "./widgets/rotarySlider.js";
 // @ts-ignore
 import { HorizontalSlider } from "./widgets/horizontalSlider.js";
-// @ts-ignore
-import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
-// @ts-ignore
-import { VerticalSlider } from "./widgets/verticalSlider.js";
-// @ts-ignore
-import { NumberSlider } from "./widgets/numberSlider.js";
-// @ts-ignore
-import { Button, FileButton, OptionButton } from "./widgets/button.js";
-// @ts-ignore
-import { Checkbox } from "./widgets/checkbox.js";
-// @ts-ignore
-import { ComboBox } from "./widgets/comboBox.js";
-// @ts-ignore
-import { Label } from "./widgets/label.js";
-// @ts-ignore
-import { GroupBox } from "./widgets/groupBox.js";
-// @ts-ignore
-import { Image } from "./widgets/image.js";
-// @ts-ignore
-import { ListBox } from "./widgets/listBox.js";
-// @ts-ignore
-import { CsoundOutput } from "./widgets/csoundOutput.js";
-// @ts-ignore
-import { MidiKeyboard } from "./widgets/midiKeyboard.js";
-// @ts-ignore
-import { GenTable } from "./widgets/genTable.js";
-// @ts-ignore
-import { TextEditor } from "./widgets/textEditor.js";
-// @ts-ignore
+// // @ts-ignore
+// import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
+// // @ts-ignore
+// import { VerticalSlider } from "./widgets/verticalSlider.js";
+// // @ts-ignore
+// import { NumberSlider } from "./widgets/numberSlider.js";
+// // @ts-ignore
+// import { Button, FileButton, OptionButton } from "./widgets/button.js";
+// // @ts-ignore
+// import { Checkbox } from "./widgets/checkbox.js";
+// // @ts-ignore
+// import { ComboBox } from "./widgets/comboBox.js";
+// // @ts-ignore
+// import { Label } from "./widgets/label.js";
+// // @ts-ignore
+// import { GroupBox } from "./widgets/groupBox.js";
+// // @ts-ignore
+// import { Image } from "./widgets/image.js";
+// // @ts-ignore
+// import { ListBox } from "./widgets/listBox.js";
+// // @ts-ignore
+// import { CsoundOutput } from "./widgets/csoundOutput.js";
+// // @ts-ignore
+// import { MidiKeyboard } from "./widgets/midiKeyboard.js";
+// // @ts-ignore
+// import { GenTable } from "./widgets/genTable.js";
+// // @ts-ignore
+// import { TextEditor } from "./widgets/textEditor.js";
+// // @ts-ignore
+// import { Form } from "./widgets/form.js";
+
+
 import { CabbageUtils } from "./utils.js";
-// @ts-ignore
-import { Form } from "./widgets/form.js";
 import * as cp from "child_process";
 import WebSocket from 'ws';
 import path from 'path';
@@ -505,6 +507,7 @@ interface WidgetProps {
 }
 
 async function initializeDefaultProps(type: string): Promise<WidgetProps | null> {
+
 	switch (type) {
 		case 'rotarySlider':
 			return new RotarySlider().props;
@@ -522,46 +525,46 @@ async function initializeDefaultProps(type: string): Promise<WidgetProps | null>
 			return new Button().props;
 		case 'gentable':
 			return new GenTable().props;
-		case 'filebutton':
+		case 'fileButton':
 			return new FileButton().props;
-		case 'optionbutton':
+		case 'optionButton':
 			return new OptionButton().props;
-		case 'checkbox':
+		case 'checkBox':
 			return new Checkbox().props;
-		case 'combobox':
+		case 'comboBox':
 			return new ComboBox().props;
-		case 'groupbox':
+		case 'groupBox':
 			return new GroupBox().props;
 		case 'image':
 			return new Image().props;
-		case 'listbox':
+		case 'listBox':
 			return new ListBox().props;
 		case 'form':
 			return new Form().props;
 		case 'label':
 			return new Label().props;
-		case 'csoundoutput':
+		case 'csoundOutput':
 			return new CsoundOutput().props;
-		case 'texteditor':
+		case 'textEditor':
 			return new TextEditor().props;
 		default:
-			console.error("Unsupported widget type:", type);
+			console.error("Found unsupported widget type:", type);
 			return null;
 	}
 }
 
 function transformProps(props: WidgetProps): WidgetProps {
 	if (props.bounds.left !== undefined && props.bounds.top !== undefined && props.bounds.width !== undefined && props.bounds.height !== undefined) {
-		props.bounds = [props.bounds.left, props.bounds.top, props.bounds.width, props.bounds.height];
+		props.bounds = {"left":props.bounds.left, "top": props.bounds.top, "width":props.bounds.width, "height":props.bounds.height};
 		delete props.bounds.left;
 		delete props.bounds.top;
 		delete props.bounds.width;
 		delete props.bounds.height;
 	}
 
-	if (props.type.includes("slider")) {
-		if (props.bounds.min !== undefined && props.bounds.max !== undefined && props.range.skew !== undefined && props.range.increment !== undefined) {
-			props.range = [props.bounds.min, props.bounds.max, props.range.defaultValue, props.range.skew, props.range.increment];
+	if (props.type.toLowerCase().includes("slider")) {
+		if (props.range.min !== undefined && props.range.max !== undefined && props.range.skew !== undefined && props.range.increment !== undefined) {
+			props.range = {"min":props.bounds.min, "max":props.bounds.max, "defaultValue":props.range.defaultValue, "skew":props.range.skew, "increment":props.range.increment};
 			delete props.bounds.min;
 			delete props.bounds.max;
 			delete props.range.skew;
@@ -634,6 +637,7 @@ async function updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetPr
 }
 
 function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
+
 	let foundChannel = false;
 	let foundForm = false;
 
@@ -657,15 +661,15 @@ function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultPr
 		}
 	}
 
-	if (!foundChannel && props.type !== 'form') {
-		let newObject = transformProps(props);
-		for (let key in defaultProps) {
-			if (newObject[key] === defaultProps[key] && key !== 'type') {
-				delete newObject[key];
-			}
-		}
-		jsonArray.push(ensureTypeFirst(newObject));
-	}
+	// if (!foundChannel && props.type !== 'form') {
+	// 	let newObject = transformProps(props);
+	// 	for (let key in defaultProps) {
+	// 		if (newObject[key] === defaultProps[key] && key !== 'type') {
+	// 			delete newObject[key];
+	// 		}
+	// 	}
+	// 	jsonArray.push(ensureTypeFirst(newObject));
+	// }
 
 	return jsonArray;
 }

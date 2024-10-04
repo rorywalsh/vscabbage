@@ -12,14 +12,16 @@ export class TextEditor {
                 "width": 200,
                 "height": 300
             },
-            "type": "texteditor",
+            "type": "textEditor",
             "colour": "#dddddd",
             "channel": "texteditor",
             "fontColour": "#222222",
-            "fontFamily": "Verdana",
-            "fontSize": 14,
+            "font": {
+                "family": "Verdana",
+                "size": 14,
+                "align": "left"
+            },
             "corners": 4,
-            "align": "left",
             "visible": 1,
             "text": "",
             "automatable": 0
@@ -28,7 +30,7 @@ export class TextEditor {
         this.panelSections = {
             "Properties": ["type"],
             "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "fontSize", "fontFamily", "align"],
+            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
             "Colours": ["colour"]
         };
     }
@@ -46,35 +48,21 @@ export class TextEditor {
             return '';
         }
 
-        const fontSize = this.props.fontSize > 0 ? this.props.fontSize : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
         const alignMap = {
             'left': 'start',
             'center': 'center',
             'centre': 'center',
             'right': 'end',
         };
-        const textAlign = alignMap[this.props.align] || 'start';
+        const textAlign = alignMap[this.props.font.align] || 'start';
 
         return `
                 <textarea style="width: 100%; height: 100%; background-color: ${this.props.colour}; 
-                color: ${this.props.fontColour}; font-family: ${this.props.fontFamily}; font-size: ${fontSize}px; 
+                color: ${this.props.fontColour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
                 text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute">
 ${this.props.text}
                 </textarea>
         `;
     }
-
-    // appendText(newText) {
-    //     this.props.text += newText + '\n';
-    //     const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
-
-    //     if (widgetDiv) {
-    //         const textarea = widgetDiv.querySelector('textarea');
-    //         if (textarea) {
-    //             textarea.value += newText + '\n';
-    //             console.log(textarea.value);
-    //             textarea.scrollTop = textarea.scrollHeight; // Scroll to the bottom
-    //         }
-    //     }
-    // }
 }
