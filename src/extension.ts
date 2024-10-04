@@ -7,36 +7,36 @@ import * as vscode from 'vscode';
 import { RotarySlider } from "./widgets/rotarySlider.js";
 // @ts-ignore
 import { HorizontalSlider } from "./widgets/horizontalSlider.js";
-// // @ts-ignore
-// import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
-// // @ts-ignore
-// import { VerticalSlider } from "./widgets/verticalSlider.js";
-// // @ts-ignore
-// import { NumberSlider } from "./widgets/numberSlider.js";
-// // @ts-ignore
-// import { Button, FileButton, OptionButton } from "./widgets/button.js";
-// // @ts-ignore
-// import { Checkbox } from "./widgets/checkbox.js";
-// // @ts-ignore
-// import { ComboBox } from "./widgets/comboBox.js";
-// // @ts-ignore
-// import { Label } from "./widgets/label.js";
-// // @ts-ignore
-// import { GroupBox } from "./widgets/groupBox.js";
-// // @ts-ignore
-// import { Image } from "./widgets/image.js";
-// // @ts-ignore
-// import { ListBox } from "./widgets/listBox.js";
-// // @ts-ignore
-// import { CsoundOutput } from "./widgets/csoundOutput.js";
-// // @ts-ignore
-// import { MidiKeyboard } from "./widgets/midiKeyboard.js";
-// // @ts-ignore
-// import { GenTable } from "./widgets/genTable.js";
-// // @ts-ignore
-// import { TextEditor } from "./widgets/textEditor.js";
-// // @ts-ignore
-// import { Form } from "./widgets/form.js";
+// @ts-ignore
+import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
+// @ts-ignore
+import { VerticalSlider } from "./widgets/verticalSlider.js";
+// @ts-ignore
+import { NumberSlider } from "./widgets/numberSlider.js";
+// @ts-ignore
+import { Button, FileButton, OptionButton } from "./widgets/button.js";
+// @ts-ignore
+import { Checkbox } from "./widgets/checkbox.js";
+// @ts-ignore
+import { ComboBox } from "./widgets/comboBox.js";
+// @ts-ignore
+import { Label } from "./widgets/label.js";
+// @ts-ignore
+import { GroupBox } from "./widgets/groupBox.js";
+// @ts-ignore
+import { Image } from "./widgets/image.js";
+// @ts-ignore
+import { ListBox } from "./widgets/listBox.js";
+// @ts-ignore
+import { CsoundOutput } from "./widgets/csoundOutput.js";
+// @ts-ignore
+import { MidiKeyboard } from "./widgets/midiKeyboard.js";
+// @ts-ignore
+import { GenTable } from "./widgets/genTable.js";
+// @ts-ignore
+import { TextEditor } from "./widgets/textEditor.js";
+// @ts-ignore
+import { Form } from "./widgets/form.js";
 
 
 import { CabbageUtils } from "./utils.js";
@@ -52,10 +52,10 @@ let dbg = false;
 
 // Create and initialize the output channel
 function createOutputChannel() {
-    if (!vscodeOutputChannel) {
-        vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
-    }
-    return vscodeOutputChannel;
+	if (!vscodeOutputChannel) {
+		vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
+	}
+	return vscodeOutputChannel;
 }
 
 // Define a function to initialize or update highlightDecorationType
@@ -555,7 +555,7 @@ async function initializeDefaultProps(type: string): Promise<WidgetProps | null>
 
 function transformProps(props: WidgetProps): WidgetProps {
 	if (props.bounds.left !== undefined && props.bounds.top !== undefined && props.bounds.width !== undefined && props.bounds.height !== undefined) {
-		props.bounds = {"left":props.bounds.left, "top": props.bounds.top, "width":props.bounds.width, "height":props.bounds.height};
+		props.bounds = { "left": props.bounds.left, "top": props.bounds.top, "width": props.bounds.width, "height": props.bounds.height };
 		delete props.bounds.left;
 		delete props.bounds.top;
 		delete props.bounds.width;
@@ -564,7 +564,7 @@ function transformProps(props: WidgetProps): WidgetProps {
 
 	if (props.type.toLowerCase().includes("slider")) {
 		if (props.range.min !== undefined && props.range.max !== undefined && props.range.skew !== undefined && props.range.increment !== undefined) {
-			props.range = {"min":props.bounds.min, "max":props.bounds.max, "defaultValue":props.range.defaultValue, "skew":props.range.skew, "increment":props.range.increment};
+			props.range = { "min": props.bounds.min, "max": props.bounds.max, "defaultValue": props.range.defaultValue, "skew": props.range.skew, "increment": props.range.increment };
 			delete props.bounds.min;
 			delete props.bounds.max;
 			delete props.range.skew;
@@ -576,13 +576,39 @@ function transformProps(props: WidgetProps): WidgetProps {
 	return props;
 }
 
-function ensureTypeFirst(obj: WidgetProps): WidgetProps {
-	const { type, ...rest } = obj;
-	return { type, ...rest };
+function sortOrderOfProperties(obj: WidgetProps): WidgetProps {
+    const { type, channel, bounds, range, ...rest } = obj; // Destructure type, channel, bounds, range, and the rest of the properties
+
+    // Ensure the order of bounds properties: left, top, width, height
+    const orderedBounds = {
+        left: bounds?.left,
+        top: bounds?.top,
+        width: bounds?.width,
+        height: bounds?.height,
+    };
+
+    // Ensure the order of range properties: min, max, defaultValue, skew, increment
+    const orderedRange = {
+        min: range?.min,
+        max: range?.max,
+        defaultValue: range?.defaultValue,
+        skew: range?.skew,
+        increment: range?.increment,
+    };
+
+    // Return a new object with the desired property order
+    return {
+        type,
+        channel,
+        bounds: orderedBounds,
+        range: orderedRange,
+        ...rest, // Include the rest of the properties
+    };
 }
 
+
 function formatObject(obj: WidgetProps): string {
-	const formattedObj = ensureTypeFirst(obj);
+	const formattedObj = sortOrderOfProperties(obj);
 	return JSON.stringify(formattedObj)
 		.replace(/"([^"]+)":/g, '"$1": ')
 		.replace(/,(?!\s*?[\{\[\"\'\w])/g, ''); // remove trailing commas if any
@@ -636,43 +662,6 @@ async function updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetPr
 	});
 }
 
-function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
-
-	let foundChannel = false;
-	let foundForm = false;
-
-	for (let i = 0; i < jsonArray.length; i++) {
-		let jsonObject = jsonArray[i];
-		if (jsonObject.type === 'form') {
-			foundForm = true;
-		}
-		if (jsonObject.channel === props.channel) {
-			foundChannel = true;
-			let newObject = { ...jsonObject, ...props };
-
-			for (let key in defaultProps) {
-				if (newObject[key] === defaultProps[key] && key !== 'type') {
-					delete newObject[key];
-				}
-			}
-
-			jsonArray[i] = ensureTypeFirst(newObject);
-			break;
-		}
-	}
-
-	// if (!foundChannel && props.type !== 'form') {
-	// 	let newObject = transformProps(props);
-	// 	for (let key in defaultProps) {
-	// 		if (newObject[key] === defaultProps[key] && key !== 'type') {
-	// 			delete newObject[key];
-	// 		}
-	// 	}
-	// 	jsonArray.push(ensureTypeFirst(newObject));
-	// }
-
-	return jsonArray;
-}
 
 function getExternalJsonFileName(cabbageContent: string, csdFilePath: string): string {
 	// Regular expression to find the include statement
@@ -755,6 +744,45 @@ function highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageSta
 	}
 }
 
+//this function will merge incoming properties (from the props object) into an existing JSON array, while removing any 
+//properties that match the default values defined in the defaultProps object.
+function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
+
+	let foundChannel = false;
+	let foundForm = false;
+
+	for (let i = 0; i < jsonArray.length; i++) {
+		let jsonObject = jsonArray[i];
+		if (jsonObject.type === 'form') {
+			foundForm = true;
+		}
+		if (jsonObject.channel === props.channel) {
+			foundChannel = true;
+			let newObject = { ...jsonObject, ...props };
+
+			for (let key in defaultProps) {
+				if (newObject[key] === defaultProps[key] && key !== 'type') {
+					delete newObject[key];
+				}
+			}
+
+			jsonArray[i] = sortOrderOfProperties(newObject);
+			break;
+		}
+	}
+
+	// if (!foundChannel && props.type !== 'form') {
+	// 	let newObject = transformProps(props);
+	// 	for (let key in defaultProps) {
+	// 		if (newObject[key] === defaultProps[key] && key !== 'type') {
+	// 			delete newObject[key];
+	// 		}
+	// 	}
+	// 	jsonArray.push(ensureTypeFirst(newObject));
+	// }
+
+	return jsonArray;
+}
 
 
 async function updateText(jsonText: string) {
@@ -785,8 +813,6 @@ async function updateText(jsonText: string) {
 		return;
 	}
 
-	const updatedProps = transformProps(props);
-
 	const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
 	const cabbageMatch = originalText.match(cabbageRegex);
 
@@ -809,7 +835,7 @@ async function updateText(jsonText: string) {
 
 			if (!externalFile) {
 				// Update the existing JSON array with the new props
-				const updatedJsonArray = updateJsonArray(cabbageJsonArray, updatedProps, defaultProps);
+				const updatedJsonArray = updateJsonArray(cabbageJsonArray, props, defaultProps);
 
 				// Access configuration settings for JSON formatting
 				const config = vscode.workspace.getConfiguration("cabbage");
@@ -834,7 +860,7 @@ async function updateText(jsonText: string) {
 				});
 
 				// Call the separate function to handle highlighting
-				highlightAndScrollToUpdatedObject(updatedProps, cabbageMatch.index, isSingleLine);
+				highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine);
 			}
 		} catch (parseError) {
 			// console.error("Failed to parse Cabbage content as JSON:", parseError);
@@ -846,7 +872,7 @@ async function updateText(jsonText: string) {
 	if (externalFile) {
 		const externalEditor = await openOrShowTextDocument(externalFile);
 		if (externalEditor) {
-			await updateExternalJsonFile(externalEditor, updatedProps, defaultProps);
+			await updateExternalJsonFile(externalEditor, props, defaultProps);
 		} else {
 			vscodeOutputChannel.append(`Failed to open the external JSON file: ${externalFile}`);
 		}

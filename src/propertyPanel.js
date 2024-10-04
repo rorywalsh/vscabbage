@@ -5,52 +5,75 @@
 import { CabbageUtils } from "./utils.js";
 
 export class PropertyPanel {
-  constructor(vscode, type, properties, panelSections, widgets) {
+  constructor(vscode, type, properties, widgets) {
     this.vscode = vscode;
     this.type = type;
     this.properties = properties;
-    this.panelSections = panelSections;
     this.widgets = widgets;
 
     // Create the panel and sections
     this.createPanel();
   }
 
+  clearInputs() {
+    const inputs = document.querySelectorAll('.property-panel input');
+    inputs.forEach(input => {
+      input.removeEventListener('input', this.handleInputChange.bind(this));
+    });
+  }
+
   createPanel() {
     const panel = document.querySelector('.property-panel');
     panel.innerHTML = ''; // Clear the panel
+    this.clearInputs();
+    // Create a special section for type and channel
+    this.createSpecialSection(panel);
 
-    const sections = this.createSections();
+    // Create sections based on the properties object
+    this.createSections(this.properties, panel);
+    this.createMiscSection(this.properties, panel);
+  }
 
-    // Process properties and assign them to sections
-    this.processProperties(this.properties, sections);
+  createSpecialSection(panel) {
+    const specialSection = this.createSection('Widget Properties');
 
-    // Append sections to the panel
-    Object.values(sections).forEach(section => {
-      if (section.childNodes.length > 1) { // Check if there's at least one property
-        panel.appendChild(section);
+    // Add Type Property
+    this.addPropertyToSection('Type', this.type, specialSection);
+
+    // Add Channel Property
+    if (this.properties.channel) {
+      this.addPropertyToSection('Channel', this.properties.channel, specialSection);
+    }
+
+    panel.appendChild(specialSection);
+  }
+
+  createSections(properties, panel) {
+    Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
+      if (typeof sectionProperties === 'object' && sectionProperties !== null && !Array.isArray(sectionProperties)) {
+        const sectionDiv = this.createSection(sectionName);
+
+        Object.entries(sectionProperties).forEach(([key, value]) => {
+          this.addPropertyToSection(key, value, sectionDiv);
+        });
+
+        panel.appendChild(sectionDiv);
       }
     });
   }
 
-  createSections() {
-    const sections = {};
+  createMiscSection(properties, panel) {
+    const miscSection = this.createSection('Misc');
 
-    // Create sections based on the panelSections object
-    Object.entries(this.panelSections).forEach(([sectionName]) => {
-      const sectionDiv = document.createElement('div');
-      sectionDiv.classList.add('property-section');
-
-      const header = document.createElement('h3');
-      header.textContent = sectionName;
-      sectionDiv.appendChild(header);
-      sections[sectionName] = sectionDiv;
+    Object.entries(properties).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        // Skip adding properties that belong to objects already covered
+        return;
+      }
+      this.addPropertyToSection(key, value, miscSection);
     });
 
-    // Create a section for Miscellaneous properties
-    sections['Misc'] = this.createSection('Misc');
-
-    return sections;
+    panel.appendChild(miscSection);
   }
 
   createSection(name) {
@@ -118,42 +141,6 @@ export class PropertyPanel {
     return input;
   }
 
-  processProperties(obj, sections) {
-    const assignedProperties = new Set();
-
-    Object.entries(this.panelSections).forEach(([sectionName, keys]) => {
-      keys.forEach((key) => {
-        if (obj.hasOwnProperty(key)) {
-          this.addPropertyToSection(key, obj[key], sections[sectionName]);
-          assignedProperties.add(key);
-        }
-      });
-    });
-
-    // Add properties that haven't been assigned to any section to the Misc section
-    Object.keys(obj).forEach((key) => {
-      if (!assignedProperties.has(key)) {
-        this.addPropertyToSection(key, obj[key], sections['Misc']);
-      }
-    });
-
-    // Process nested properties and assign them to the correct sections
-    this.processNestedProperties(obj, sections);
-  }
-
-  processNestedProperties(obj, sections) {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        Object.entries(value).forEach(([nestedKey, nestedValue]) => {
-          const sectionName = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize the key for section names
-          if (sections[sectionName]) {
-            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sections[sectionName]);
-          }
-        });
-      }
-    }
-  }
-
   addPropertyToSection(key, value, section) {
     const propertyDiv = document.createElement('div');
     propertyDiv.classList.add('property');
@@ -201,9 +188,15 @@ export class PropertyPanel {
   }
 
   static async updatePanel(vscode, input, widgets) {
+    widgets.forEach(widget => {
+      console.log("updatePane:", widget.props);
+    });
     // Ensure input is an array of objects
     this.vscode = vscode;
     let events = Array.isArray(input) ? input : [input];
+
+    console.log("input", input);
+
 
     const element = document.querySelector('.property-panel');
     if (element) {
@@ -217,44 +210,47 @@ export class PropertyPanel {
 
       widgets.forEach((widget, index) => {
         if (widget.props.channel === name) {
-          if (eventType !== 'click') {
-            if (typeof widget.props?.size === 'object' && widget.props.size !== null) {
-              if (bounds.w > 0 && bounds.h > 0) {
-                widget.props.size.width = Math.floor(bounds.w);
-                widget.props.size.height = Math.floor(bounds.h);
-              }
-            } else if (typeof widget.props?.bounds === 'object' && widget.props.bounds !== null) {
+          //if (eventType !== 'click') {
+          if (typeof widget.props?.size === 'object' && widget.props.size !== null) {
+            if (bounds.w > 0 && bounds.h > 0) {
+              widget.props.size.width = Math.floor(bounds.w);
+              widget.props.size.height = Math.floor(bounds.h);
+            }
+          }
+          if (typeof widget.props?.bounds === 'object' && widget.props.bounds !== null) {
+            if (Object.keys(bounds).length === 4) {
               if (bounds.w > 0 && bounds.h > 0) {
                 widget.props.bounds.width = Math.floor(bounds.w);
                 widget.props.bounds.height = Math.floor(bounds.h);
               }
               widget.props.bounds.left = Math.floor(bounds.x);
               widget.props.bounds.top = Math.floor(bounds.y);
-              console.log("updating bounds", widget.props);
             }
-
-            // gentable and form are special cases and have dedicated update methods
-            if (widget.props.type == "gentable") {
-              widget.updateTable();
-            } else if (widget.props.type == "form") {
-              widget.updateSVG();
-            } else {
-              const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-              widgetDiv.innerHTML = widget.getInnerHTML();
-            }
-
-            new PropertyPanel(vscode, widget.props.type, widget.props, widget.panelSections, widgets);
-            if (!this.vscode) {
-              console.error("not valid");
-            }
-            //firing these off in one go causes the vs-code editor to react slowly
-            setTimeout(() => {
-              this.vscode.postMessage({
-                command: 'widgetUpdate',
-                text: JSON.stringify(widget.props),
-              });
-            }, (index + 1) * 150);
           }
+
+          // gentable and form are special cases and have dedicated update methods
+          if (widget.props.type == "gentable") {
+            widget.updateTable();
+          } else if (widget.props.type == "form") {
+            widget.updateSVG();
+          } else {
+            // const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+            // widgetDiv.innerHTML = widget.getInnerHTML();
+          }
+
+          new PropertyPanel(vscode, widget.props.type, widget.props, widgets);
+          if (!this.vscode) {
+            console.error("not valid");
+          }
+
+          //firing these off in one go causes the vs-code editor to react slowly
+          setTimeout(() => {
+            this.vscode.postMessage({
+              command: 'widgetUpdate',
+              text: JSON.stringify(widget.props),
+            });
+          }, (index + 1) * 150);
+          //}
         }
       });
     });

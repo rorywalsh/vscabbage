@@ -176,7 +176,6 @@ function updateWidget(obj) {
       } else {
         // console.error("obj has no data property:", obj);
         widget.props.value = obj.value;
-        console.log("updating widget value:", obj.value);
       }
 
       const widgetElement = CabbageUtils.getWidgetDiv(widget.props.channel);
@@ -188,7 +187,6 @@ function updateWidget(obj) {
         // widgetElement.style.top = `${widget.props.bounds.top}px`;
         // widgetElement.style.left = `${widget.props.bounds.left}px`;
         if (widget.props.type !== "form") {
-          console.log("updating widget:", widget.props.items);
           widgetElement.innerHTML = widget.getInnerHTML();
         }
 
@@ -316,7 +314,6 @@ function setupNonDraggableMode(widget, widgetDiv) {
       widget.addVsCodeEventListeners(widgetDiv, vscode);
     }
   } else if (widget.props.type !== "form") {
-    console.log("adding listeners for:", widget);
     if (typeof widget.addEventListeners === 'function') {
       widget.addEventListeners(widgetDiv);
     }
@@ -326,7 +323,6 @@ function setupNonDraggableMode(widget, widgetDiv) {
 function appendToMainForm(widgetDiv) {
   const form = document.getElementById('MainForm');
   if (form) {
-    console.log("Appending to form");
     form.appendChild(widgetDiv);
   } else {
     console.error("MainForm not found");
@@ -388,11 +384,9 @@ function setupFormWidget(widget) {
     form.style.height = widget.props.size.height + "px";
     form.style.top = '0px';
     form.style.left = '0px';
-    console.log("updating form");
 
     // Call form's updateSVG method
     if (typeof widget.updateSVG === 'function') {
-      console.log("updating form svg whilst setting up form widget");
       widget.updateSVG();
       const selectionColour = CabbageColours.invertColor(widget.props.colour);
       CabbageColours.changeSelectedBorderColor(selectionColour);
@@ -409,7 +403,6 @@ function setupFormWidget(widget) {
 
 
 function updateWidgetStyles(widgetDiv, props) {
-  console.log("updating widget styles", props);
   widgetDiv.style.position = 'absolute';
   //if we use translate we need to ensure x/y are 0. 
   widgetDiv.style.top = '0px'
@@ -422,7 +415,7 @@ function updateWidgetStyles(widgetDiv, props) {
     widgetDiv.setAttribute('data-x', props.bounds.left);
     widgetDiv.setAttribute('data-y', props.bounds.top);
   }
-  else if(typeof props?.size === 'object' && props.size !== null){
+  else if (typeof props?.size === 'object' && props.size !== null) {
     widgetDiv.style.width = props.size.width + 'px';
     widgetDiv.style.height = props.size.height + 'px';
   }
