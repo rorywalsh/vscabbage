@@ -553,28 +553,6 @@ async function initializeDefaultProps(type: string): Promise<WidgetProps | null>
 	}
 }
 
-function transformProps(props: WidgetProps): WidgetProps {
-	if (props.bounds.left !== undefined && props.bounds.top !== undefined && props.bounds.width !== undefined && props.bounds.height !== undefined) {
-		props.bounds = { "left": props.bounds.left, "top": props.bounds.top, "width": props.bounds.width, "height": props.bounds.height };
-		delete props.bounds.left;
-		delete props.bounds.top;
-		delete props.bounds.width;
-		delete props.bounds.height;
-	}
-
-	if (props.type.toLowerCase().includes("slider")) {
-		if (props.range.min !== undefined && props.range.max !== undefined && props.range.skew !== undefined && props.range.increment !== undefined) {
-			props.range = { "min": props.bounds.min, "max": props.bounds.max, "defaultValue": props.range.defaultValue, "skew": props.range.skew, "increment": props.range.increment };
-			delete props.bounds.min;
-			delete props.bounds.max;
-			delete props.range.skew;
-			delete props.range.increment;
-			delete props.range.defaultValue;
-		}
-	}
-
-	return props;
-}
 
 function sortOrderOfProperties(obj: WidgetProps): WidgetProps {
     const { type, channel, bounds, range, ...rest } = obj; // Destructure type, channel, bounds, range, and the rest of the properties

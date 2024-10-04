@@ -187,6 +187,20 @@ export class PropertyPanel {
     });
   }
 
+  static reattachListeners(widget, widgetDiv) {
+    if (typeof acquireVsCodeApi === 'function') {
+      if (!vscode) {
+        vscode = acquireVsCodeApi();
+      }
+      if (typeof widget.addVsCodeEventListeners === 'function') {
+        widget.addVsCodeEventListeners(widgetDiv, vscode);
+      }
+    } else if (widget.props.type !== "form") {
+      if (typeof widget.addEventListeners === 'function') {
+        widget.addEventListeners(widgetDiv);
+      }
+    }
+  }
   static async updatePanel(vscode, input, widgets) {
     widgets.forEach(widget => {
       console.log("updatePane:", widget.props);
@@ -229,15 +243,16 @@ export class PropertyPanel {
           }
 
           // gentable and form are special cases and have dedicated update methods
-          if (widget.props.type == "gentable") {
-            widget.updateTable();
-          } else if (widget.props.type == "form") {
-            widget.updateSVG();
-          } else {
-            // const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-            // widgetDiv.innerHTML = widget.getInnerHTML();
+          if (eventType !== 'click') {
+            if (widget.props.type == "gentable") {
+              widget.updateTable();
+            } else if (widget.props.type == "form") {
+              widget.updateSVG();
+            } else {
+              const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+              widgetDiv.innerHTML = widget.getInnerHTML();
+            }
           }
-
           new PropertyPanel(vscode, widget.props.type, widget.props, widgets);
           if (!this.vscode) {
             console.error("not valid");
