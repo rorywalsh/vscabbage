@@ -32,14 +32,6 @@ export class MidiKeyboard {
       "octaves": 5
     };
 
-    this.panelSections = {
-      Properties: ["type", "channel"],
-      Bounds: ["left", "top", "width", "height"],
-      Text: ["font.family", "font.size"],
-      Colours: ["colour", "blackNoteColour", "whiteNoteColour", "keySeparatorColour", "arrowBackgroundColour", "keydownColour"],
-      Octaves: ["octaves"] // Add octaves to the panel sections
-    };
-
     this.isMouseDown = false; // Track the state of the mouse button
     this.octaveOffset = 3;
     this.noteMap = {};

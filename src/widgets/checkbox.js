@@ -29,18 +29,14 @@ export class Checkbox {
         "on": "#dddddd",
         "off": "#000000",
       },
-      "outlineWidth": 1,
+      "stroke": {
+        "colour": "#dddddd",
+        "width": 2
+      },
       "type": "checkBox",
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0
-    };
-
-    this.panelSections = {
-      "Info": ["type", "channel"],
-      "Bounds": ["left", "top", "width", "height"],
-      "Text": ["text", "font.size", "font.family", "fontColour", "font.align"], 
-      "Colours": ["colourOn", "colourOff", "outlineColour"]
     };
 
     this.vscode = null;
@@ -95,7 +91,7 @@ export class Checkbox {
 
     return `
       <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
-        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colour.on : this.props.colour.off}" stroke="${this.props.outlineColour}" stroke-width="${this.props.outlineWidth}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
+        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colour.on : this.props.colour.off}" stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.fontColour[this.props.value === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
       </svg>
     `;

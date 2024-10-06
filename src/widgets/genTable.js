@@ -15,8 +15,10 @@ export class GenTable {
             },
             "type": "genTable",
             "colour": "#888888",
-            "outlineColour": "#dddddd",
-            "outlineWidth": 1,
+            "stroke": {
+                "colour": "#dddddd",
+                "width": 1
+            },
             "channel": "gentable",
             "backgroundColour": "#a8d388",
             "fontColour": "#dddddd",
@@ -36,12 +38,6 @@ export class GenTable {
             "automatable": 0
         };
 
-        this.panelSections = {
-            "Info": ["type", "channel"],
-            "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
-            "Colours": ["colour", "backgroundColour", "outlineColour"]
-        };
     }
 
     createCanvas() {
@@ -87,8 +83,8 @@ export class GenTable {
         this.ctx.fill();
 
         // Draw waveform
-        this.ctx.strokeStyle = this.props.outlineColour;
-        this.ctx.lineWidth = this.props.outlineWidth;
+        this.ctx.strokeStyle = this.props.stroke.colour;
+        this.ctx.lineWidth = this.props.stroke.width;
         this.ctx.beginPath();
         this.ctx.moveTo(0, this.props.bounds.height / 2);
 
@@ -109,8 +105,8 @@ export class GenTable {
 
                 // Draw vertical lines for outline
                 if (i > 0) {
-                    this.ctx.strokeStyle = this.props.outlineColour;
-                    this.ctx.lineWidth = this.props.outlineWidth;
+                    this.ctx.strokeStyle = this.props.stroke.colour;
+                    this.ctx.lineWidth = this.props.stroke.width;
                     this.ctx.lineTo(x, y);
                 }
             }

@@ -34,10 +34,12 @@ export class HorizontalRangeSlider {
       "trackerBackgroundColour": "#ffffff",
       "trackerOutlineColour": "#525252",
       "fontColour": "#dddddd",
-      "outlineColour": "#999999",
+      "stroke": {
+        "colour": "#999999",
+        "width": 1
+      },
       "textBoxColour": "#555555",
       "trackerOutlineWidth": 1,
-      "outlineWidth": 1,
       "markerThickness": 0.2,
       "markerStart": 0.1,
       "markerEnd": 0.9,
@@ -50,15 +52,6 @@ export class HorizontalRangeSlider {
       "valuePrefix": "",
       "valuePostfix": "",
       "presetIgnore": 0
-    };
-
-
-    this.panelSections = {
-      "Info": ["type", "channel"],
-      "Bounds": ["left", "top", "width", "height"],
-      "Range": ["min", "max", "default", "skew", "increment"],
-      "Text": ["text", "font.size", "font.family", "fontColour", "textOffsetY", "font.align"],
-      "Colours": ["colour", "trackerBackgroundColour", "trackerStrokeColour", "outlineColour", "textBoxOutlineColour", "textBoxColour"]
     };
 
     this.parameterIndex = 0;
@@ -90,7 +83,6 @@ export class HorizontalRangeSlider {
     const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth;
 
-
     if (evt.offsetX >= textWidth && evt.offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
       this.isMouseDown = true;
       this.startX = evt.offsetX - textWidth;
@@ -99,13 +91,11 @@ export class HorizontalRangeSlider {
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
 
-
       this.props.value = Math.round(this.props.value / this.props.range.increment) * this.props.range.increment;
       this.startValue = this.props.value;
       CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
   }
-
 
   mouseEnter(evt) {
     if (this.props.active === 0) {
@@ -150,7 +140,6 @@ export class HorizontalRangeSlider {
       popup.classList.remove('hide');
     }
   }
-
 
   mouseLeave(evt) {
     if (this.props.active === 0) {
@@ -241,7 +230,7 @@ export class HorizontalRangeSlider {
       'right': 'end',
     };
 
-    const svgAlign = font.alignMap[this.props.font.align] || this.props.font.align;
+    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
 
     // Add padding if font.alignment is 'end' or 'middle'
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0; // Adjust the padding value as needed
@@ -268,9 +257,9 @@ export class HorizontalRangeSlider {
 
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.trackerBackgroundColour}" stroke-width="${this.props.outlineWidth}" stroke="black"/>
+        <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.trackerBackgroundColour}" stroke-width="${this.props.stroke.width}" stroke="black"/>
         <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.trackerColour}" stroke-width="${this.props.trackerOutlineWidth}" stroke="${this.props.trackerOutlineColour}"/> 
-        <rect x="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour}" stroke-width="${this.props.outlineWidth}" stroke="black"/>
+        <rect x="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour}" stroke-width="${this.props.stroke.width}" stroke="black"/>
       </svg>
     `;
 
@@ -290,7 +279,4 @@ export class HorizontalRangeSlider {
       </svg>
     `;
   }
-
-
-
 }

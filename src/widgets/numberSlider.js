@@ -30,8 +30,10 @@ export class NumberSlider {
             "valueTextBox": 0,
             "colour": '#93d200',
             "fontColour": "#dddddd",
-            "outlineColour": "#525252",
-            "outlineWidth": 2,
+            "stroke": {
+                "colour": "#525252",
+                "width": 2
+            },
             "type": "numberSlider",
             "decimalPlaces": 1,
             "velocity": 0,
@@ -41,13 +43,6 @@ export class NumberSlider {
             "valuePrefix": "",
             "valuePostfix": "",
             "presetIgnore": 0,
-        };
-
-        this.panelSections = {
-            "Properties": ["type"],
-            "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
-            "Colours": ["colour"]
         };
 
         this.isDragging = false;

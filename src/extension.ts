@@ -16,7 +16,7 @@ import { NumberSlider } from "./widgets/numberSlider.js";
 // @ts-ignore
 import { Button, FileButton, OptionButton } from "./widgets/button.js";
 // @ts-ignore
-import { Checkbox } from "./widgets/checkbox.js";
+import { Checkbox } from "./widgets/checkBox.js";
 // @ts-ignore
 import { ComboBox } from "./widgets/comboBox.js";
 // @ts-ignore
@@ -251,7 +251,7 @@ export function activate(context: vscode.ExtensionContext) {
 			editor.edit(editBuilder => {
 				editBuilder.replace(range, '\n' + formattedJson + '\n');
 			});
-			isCabbageSingleLine = false;
+
 		} catch (error) {
 			vscode.window.showErrorMessage("Failed to parse and format JSON content.");
 		}
@@ -749,16 +749,6 @@ function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultPr
 		}
 	}
 
-	// if (!foundChannel && props.type !== 'form') {
-	// 	let newObject = transformProps(props);
-	// 	for (let key in defaultProps) {
-	// 		if (newObject[key] === defaultProps[key] && key !== 'type') {
-	// 			delete newObject[key];
-	// 		}
-	// 	}
-	// 	jsonArray.push(ensureTypeFirst(newObject));
-	// }
-
 	return jsonArray;
 }
 
@@ -856,8 +846,6 @@ async function updateText(jsonText: string) {
 		}
 	}
 }
-
-
 
 
 /**

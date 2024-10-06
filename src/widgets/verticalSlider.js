@@ -31,10 +31,12 @@ export class VerticalSlider {
       "trackerBackgroundColour": "#ffffff",
       "trackerOutlineColour": "#525252",
       "fontColour": "#dddddd",
-      "outlineColour": "#999999",
+      "stroke": {
+        "colour": "#999999",
+        "width": 1
+      },
       "textBoxColour": "#555555",
       "trackerOutlineWidth": 1,
-      "outlineWidth": 1,
       "type": "verticalSlider",
       "decimalPlaces": 1,
       "velocity": 0,
@@ -44,14 +46,6 @@ export class VerticalSlider {
       "valuePrefix": "",
       "valuePostfix": "",
       "presetIgnore": 0,
-    };
-
-    this.panelSections = {
-      "Info": ["type", "channel"],
-      "Bounds": ["left", "top", "width", "height"],
-      "Range": ["min", "max", "default", "skew", "increment"],
-      "Text": ["text", "font.size", "font.family", "fontColour", "textOffsetX", "font.align"],
-      "Colours": ["colour", "trackerBackgroundColour", "trackerStrokeColour", "outlineColour", "textBoxOutlineColour", "textBoxColour"]
     };
 
     this.moveListener = this.pointerMove.bind(this);
@@ -255,16 +249,16 @@ export class VerticalSlider {
 
     const sliderElement = `
     <svg x="0" y="${this.props.valueTextBox ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="${this.props.bounds.width * 0.4}" y="1" width="${this.props.bounds.width * 0.2}" height="${sliderHeight * 0.95}" rx="2" fill="${this.props.trackerBackgroundColour}" stroke-width="${this.props.outlineWidth}" stroke="black"/>
+      <rect x="${this.props.bounds.width * 0.4}" y="1" width="${this.props.bounds.width * 0.2}" height="${sliderHeight * 0.95}" rx="2" fill="${this.props.trackerBackgroundColour}" stroke-width="${this.props.stroke.width}" stroke="black"/>
       <rect x="${this.props.bounds.width * 0.4}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95) - 1}" height="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1) * sliderHeight * 0.95}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.trackerColour}" stroke-width="${this.props.trackerOutlineWidth}" stroke="${this.props.trackerOutlineColour}"/> 
-      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour}" stroke-width="${this.props.outlineWidth}" stroke="black"/>
+      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour}" stroke-width="${this.props.stroke.width}" stroke="black"/>
     </svg>
   `;
 
     const valueTextElement = this.props.valueTextBox ? `
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight + 2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight}">
       <input type="text" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
-      style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
+      style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family=${this.props.font.family}; color=${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
       onKeyDown="document.getElementById('${this.props.channel}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
   ` : '';

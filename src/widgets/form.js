@@ -14,12 +14,6 @@ export class Form {
       "channel": "MainForm"
     }
 
-    this.panelSections = {
-      "Properties": ["type"],
-      "Bounds": ["width", "height"],
-      "Text": ["caption"],
-      "Colours": ["colour"]
-    };
   }
 
 

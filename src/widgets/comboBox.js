@@ -20,8 +20,10 @@ export class ComboBox {
             "colour": "#0295cf",
             "items": "One, Two, Three",
             "fontColour": "#dddddd",
-            "outlineColour": "#dddddd",
-            "outlineWidth": 0,
+            "stroke": {
+                "colour": "#dddddd",
+                "width": 0
+            },
             "min": 0,
             "max": 3,
             "visible": 1,
@@ -32,13 +34,6 @@ export class ComboBox {
             "channelType": "number",
             "currentDirectory": "",
             "fileType": ""
-        };
-
-        this.panelSections = {
-            "Properties": ["type"],
-            "Bounds": ["top", "left", "width", "height"],
-            "Text": ["items", "font", "align", "fontColour"],
-            "Colours": ["colour", "outlineColour"]
         };
 
         this.isMouseInside = false;
@@ -177,8 +172,8 @@ export class ComboBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${totalHeight}" width="${this.props.bounds.width}" height="${totalHeight}" preserveAspectRatio="none">
-                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour}" stroke="${this.props.outlineColour}"
-                    stroke-width="${this.props.outlineWidth}" rx="${this.props.corners}" ry="${this.props.corners}" 
+                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour}" stroke="${this.props.stroke.colour}"
+                    stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 
                     onmousedown="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
                 ${this.isOpen ? `
@@ -201,7 +196,7 @@ export class ComboBox {
                         </div>
                     </foreignObject>` : ''}
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
-                    fill="${this.props.outlineColour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
+                    fill="${this.props.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
                     fill="${this.props.fontColour}" text-anchor="${svgAlign}" alignment-baseline="middle" style="${this.isOpen ? 'display: none;' : ''}"
                     style="pointer-events: none;">${this.selectedItem}</text>

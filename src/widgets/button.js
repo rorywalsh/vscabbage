@@ -5,10 +5,10 @@ export class Button {
   constructor() {
     this.props = {
       "bounds": {
-        "top": 10,
-        "left": 10,
-        "width": 80,
-        "height": 30
+      "top": 10,
+      "left": 10,
+      "width": 80,
+      "height": 30
       },
       "channel": "button",
       "corners": 2,
@@ -16,38 +16,33 @@ export class Button {
       "max": 1,
       "value": 0,
       "text": {
-        "on": "On",
-        "off": "Off"
+      "on": "On",
+      "off": "Off"
       },
       "alpha": 1,
       "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "centre"
+      "family": "Verdana",
+      "size": 0,
+      "align": "centre"
       },
       "colour": {
-        "on": "#0295cf",
-        "off": "#0295cf"
+      "on": "#0295cf",
+      "off": "#0295cf"
       },
       "fontColour": {
-        "on": "#dddddd",
-        "off": "#dddddd"
+      "on": "#dddddd",
+      "off": "#dddddd"
       }, 
-      "outlineColour": "#dddddd",
-      "outlineWidth": 2,
+      "stroke": {
+      "colour": "#dddddd",
+      "width": 2
+      },
       "name": "",
       "value": 0,
       "type": "button",
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0
-    };
-
-    this.panelSections = {
-      "Info": ["type", "channel"],
-      "Bounds": ["left", "top", "width", "height"],
-      "Text": ["text.on", "text.off", "font.size", "font.family", "fontColour.on", "fontColour.off", "font.align"], 
-      "Colours": ["colour.on", "colour.off", "outlineColour"]
     };
 
     this.vscode = null;
@@ -157,8 +152,8 @@ export class Button {
     const currentColour = this.isMouseDown ? CabbageColours.lighter(this.props.colour.on, 0.2) : stateColour;
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
-          <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.outlineColour}"
-            stroke-width="${this.props.outlineWidth}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
+          <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.stroke.colour}"
+            stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
           <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
             fill="${this.props.value === 1 ? this.props.fontColour.on : this.props.fontColour.off}" text-anchor="${svgAlign}" alignment-baseline="middle">${buttonText}</text>
       </svg>

@@ -36,13 +36,15 @@ export class RotarySlider {
       "trackerBackgroundColour": "#ffffff",
       "trackerOutlineColour": "#525252",
       "fontColour": "#dddddd",
-      "outlineColour": "#525252",
+      "stroke": {
+        "colour": "#525252",
+        "width": 2
+      },
       "textBoxOutlineColour": "#999999",
       "textBoxColour": "#555555",
       "markerColour": "#222222",
       "trackerOutlineWidth": 3,
       "trackerWidth": 20,
-      "outlineWidth": 2,
       "type": "rotarySlider",
       "decimalPlaces": 1,
       "velocity": 0,
@@ -52,14 +54,6 @@ export class RotarySlider {
       "valuePrefix": "",
       "valuePostfix": "",
       "presetIgnore": 0
-    };
-
-    this.panelSections = {
-      "Properties": ["type", "channel"],
-      "Bounds": ["left", "top", "width", "height"],
-      "Range": ["min", "max", "value", "skew", "increment"],
-      "Text": ["text", "font.size", "font.family", "fontColour", "textOffsetY", "font.align"],
-      "Colours": ["colour", "trackerColour", "trackerBackgroundColour", "trackerOutlineColour", "trackerStrokeColour", "outlineColour", "textBoxOutlineColour", "textBoxColour", "markerColour"]
     };
 
     this.moveListener = this.pointerMove.bind(this);
@@ -267,7 +261,7 @@ export class RotarySlider {
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.trackerWidth} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
         <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.trackerColour} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.stroke.colour} stroke-width=${this.props.stroke.width} fill=${this.props.colour} />
         </g>
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${inputWidth}" height="${fontSize * 2}">
           <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
@@ -284,7 +278,7 @@ export class RotarySlider {
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.trackerWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.trackerBackgroundColour} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.trackerColour} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.outlineColour} stroke-width=${this.props.outlineWidth} fill=${this.props.colour} />
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.stroke.colour} stroke-width=${this.props.stroke.width} fill=${this.props.colour} />
       <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.fontColour}">${this.props.text}</text>
       </svg>
     `;

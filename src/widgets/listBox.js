@@ -23,12 +23,6 @@ export class ListBox {
             "max":3
         }
 
-        this.panelSections = {
-            "Properties": ["type"],
-            "Bounds": ["left", "top", "width", "height"],
-            "Colours": ["backgroundColour", "fontColour", "highlightedItemColour"],
-            "Items": ["items"]
-        };
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {

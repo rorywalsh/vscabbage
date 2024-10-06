@@ -27,12 +27,6 @@ export class CsoundOutput {
             "automatable": 0
         };
 
-        this.panelSections = {
-            "Properties": ["type"],
-            "Bounds": ["left", "top", "width", "height"],
-            "Text": ["text", "fontColour", "font.size", "font.family", "font.align"],
-            "Colours": ["colour"]
-        };
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
