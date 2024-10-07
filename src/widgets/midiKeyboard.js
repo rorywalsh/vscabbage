@@ -133,8 +133,7 @@ export class MidiKeyboard {
 
   addVsCodeEventListeners(widgetDiv, vscode) {
     this.vscode = vscode;
-    this.addListeners(widgetDiv);
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    this.addEventListeners(widgetDiv);
   }
 
   addEventListeners(widgetDiv) {

@@ -148,10 +148,7 @@ export class RotarySlider {
 
   addVsCodeEventListeners(widgetDiv, vs) {
     this.vscode = vs;
-    widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
-    widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
-    widgetDiv.RotarySliderInstance = this;
+    this.addEventListeners(widgetDiv);
   }
 
   addEventListeners(widgetDiv) {

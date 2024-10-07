@@ -54,8 +54,7 @@ export class NumberSlider {
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
-        widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        widgetDiv.addEventListener("dblclick", this.doubleClick.bind(this)); // Add double-click event listener
+        this.addEventListeners(widgetDiv);
     }
 
     addEventListeners(widgetDiv) {

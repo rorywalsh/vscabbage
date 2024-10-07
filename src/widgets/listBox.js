@@ -24,10 +24,9 @@ export class ListBox {
         }
 
     }
-
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
-        widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
+        this.addEventListeners(widgetDiv);
     }
 
     addEventListeners(widgetDiv) {
