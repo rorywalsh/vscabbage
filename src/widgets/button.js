@@ -110,10 +110,7 @@ export class Button {
   addVsCodeEventListeners(widgetDiv, vs) {
     console.log("addVsCodeEventListeners");
     this.vscode = vs;
-    widgetDiv.addEventListener("pointerdown", this.pointerUp.bind(this));
-    widgetDiv.addEventListener("pointerup", this.pointerDown.bind(this));
-    window.addEventListener("mousemove", this.handleMouseMove.bind(this));
-    widgetDiv.VerticalSliderInstance = this;
+    this.addEventListeners(widgetDiv);
   }
 
   addEventListeners(widgetDiv) {

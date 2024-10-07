@@ -76,9 +76,7 @@ export class ComboBox {
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
-        widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        document.body.addEventListener("click", this.handleClickOutside.bind(this));
-        widgetDiv.ComboBoxInstance = this;
+        this.addEventListeners(widgetDiv);
     }
 
     addEventListeners(widgetDiv) {

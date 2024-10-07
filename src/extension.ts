@@ -557,31 +557,37 @@ async function initializeDefaultProps(type: string): Promise<WidgetProps | null>
 function sortOrderOfProperties(obj: WidgetProps): WidgetProps {
     const { type, channel, bounds, range, ...rest } = obj; // Destructure type, channel, bounds, range, and the rest of the properties
 
-    // Ensure the order of bounds properties: left, top, width, height
-    const orderedBounds = {
-        left: bounds?.left,
-        top: bounds?.top,
-        width: bounds?.width,
-        height: bounds?.height,
-    };
+    // Create an ordered bounds object only if bounds is present in the original object
+    const orderedBounds = bounds ? {
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+        height: bounds.height,
+    } : undefined;
 
-    // Ensure the order of range properties: min, max, defaultValue, skew, increment
-    const orderedRange = {
-        min: range?.min,
-        max: range?.max,
-        defaultValue: range?.defaultValue,
-        skew: range?.skew,
-        increment: range?.increment,
-    };
+    // Create an ordered range object only if range is present in the original object
+    const orderedRange = range ? {
+        min: range.min,
+        max: range.max,
+        defaultValue: range.defaultValue,
+        skew: range.skew,
+        increment: range.increment,
+    } : undefined;
 
-    // Return a new object with the desired property order
-    return {
+    // Return a new object with the original order and only include bounds/range if they exist
+    const result: WidgetProps = {
         type,
         channel,
-        bounds: orderedBounds,
-        range: orderedRange,
-        ...rest, // Include the rest of the properties
+        ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
+        ...rest,                                         // Include the rest of the properties
     };
+
+    // Only include range if it's defined
+    if (orderedRange) {
+        result.range = orderedRange;
+    }
+
+    return result;
 }
 
 
@@ -722,35 +728,52 @@ function highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageSta
 	}
 }
 
+function deepEqual(obj1: any, obj2: any): boolean {
+    // If both are the same instance (including primitives)
+    if (obj1 === obj2) return true;
+
+    // If either is not an object, they are not equal
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
+        return false;
+    }
+
+    // Compare the number of keys (early return if different)
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+    if (keys1.length !== keys2.length) return false;
+
+    // Recursively compare properties
+    for (let key of keys1) {
+        if (!deepEqual(obj1[key], obj2[key])) return false;
+    }
+
+    return true;
+}
+
 //this function will merge incoming properties (from the props object) into an existing JSON array, while removing any 
 //properties that match the default values defined in the defaultProps object.
 function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
 
-	let foundChannel = false;
-	let foundForm = false;
+    for (let i = 0; i < jsonArray.length; i++) {
+        let jsonObject = jsonArray[i];
+        if (jsonObject.channel === props.channel) {
+            let newObject = { ...jsonObject, ...props };
 
-	for (let i = 0; i < jsonArray.length; i++) {
-		let jsonObject = jsonArray[i];
-		if (jsonObject.type === 'form') {
-			foundForm = true;
-		}
-		if (jsonObject.channel === props.channel) {
-			foundChannel = true;
-			let newObject = { ...jsonObject, ...props };
+            for (let key in defaultProps) {
+                // Check for deep equality when comparing objects
+                if (deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
+                    delete newObject[key]; // Remove matching property or object
+                }
+            }
 
-			for (let key in defaultProps) {
-				if (newObject[key] === defaultProps[key] && key !== 'type') {
-					delete newObject[key];
-				}
-			}
+            jsonArray[i] = sortOrderOfProperties(newObject);
+            break;
+        }
+    }
 
-			jsonArray[i] = sortOrderOfProperties(newObject);
-			break;
-		}
-	}
-
-	return jsonArray;
+    return jsonArray;
 }
+
 
 
 async function updateText(jsonText: string) {
@@ -817,18 +840,20 @@ async function updateText(jsonText: string) {
 				// Recreate the Cabbage section with the formatted array
 				const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
 
-				await textEditor.edit(editBuilder => {
-					editBuilder.replace(
-						new vscode.Range(
-							document.positionAt(cabbageMatch.index),
-							document.positionAt(cabbageMatch.index + cabbageMatch[0].length)
-						),
-						updatedCabbageSection
-					);
-				});
+				await textEditor.edit(editBuilder => editBuilder.replace(
+					new vscode.Range(
+						document.positionAt(cabbageMatch.index ?? 0),
+						document.positionAt((cabbageMatch.index ?? 0) + cabbageMatch[0].length)
+					),
+					updatedCabbageSection
+				));
 
 				// Call the separate function to handle highlighting
-				highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine);
+				if (cabbageMatch.index !== undefined) {
+					highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine);
+				} else {
+					console.error("Cabbage match index is undefined.");
+				}
 			}
 		} catch (parseError) {
 			// console.error("Failed to parse Cabbage content as JSON:", parseError);
@@ -910,4 +935,3 @@ function getWebviewContent(mainJS: vscode.Uri, styles: vscode.Uri,
 </body>
 
 </html>`}
-

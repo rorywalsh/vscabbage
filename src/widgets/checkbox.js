@@ -59,8 +59,7 @@ export class Checkbox {
 
   addVsCodeEventListeners(widgetDiv, vscode) {
     this.vscode = vscode;
-    widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    widgetDiv.VerticalSliderInstance = this;
+    this.addEventListeners(widgetDiv);
   }
 
   addEventListeners(widgetDiv) {
