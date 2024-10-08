@@ -349,10 +349,22 @@ export function activate(context: vscode.ExtensionContext) {
 				panel.webview.postMessage({ command: "onFileChanged", text: "fileChanged" })
 			}
 			else {
-				console.error("No panel found")
+				console.error("No panel found");
 			}
 			cabbageMode = "play";
-			const command = config.get("pathToCabbageExecutable") + '/CabbageApp.app/Contents/MacOS/CabbageApp';
+
+			let binaryName = '';
+			const platform = os.platform();
+			if (platform === 'win32') {
+				binaryName = `CabbageApp_x64.exe`;
+			} else if (platform === 'darwin') {
+				binaryName = `CabbageApp.app/Contents/MacOS/CabbageApp`;
+			} else {
+				console.log('Not implemented yet');
+			}
+
+			const command = config.get("pathToCabbageExecutable") + '/' + binaryName;
+			console.log("full command:", command);
 			const path = vscode.Uri.file(command);
 
 
@@ -396,7 +408,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 		});
-
 		vscode.workspace.onDidOpenTextDocument((editor) => {
 			sendTextToWebView(editor, 'onFileChanged');
 		});
