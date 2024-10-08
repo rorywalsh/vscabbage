@@ -9,7 +9,9 @@ import * as cp from "child_process";
 import WebSocket from 'ws';
 import path from 'path';
 import os from 'os';
-import { initialiseDefaultProps, WidgetProps } from './initProps';
+import { initialiseDefaultProps, WidgetProps } from './types';
+import { formatDocument, enterEditMode } from './commands';
+import { formatJsonObjects, updateJsonArray } from './formatting';
 
 let textEditor: vscode.TextEditor | undefined;
 let highlightDecorationType: vscode.TextEditorDecorationType;
@@ -73,105 +75,7 @@ wss.on('connection', (ws) => {
 
 });
 
-function formatText(text: string, indentSpaces: number = 4): string {
-	const lines = text.split('\n');
-	let indents = 0;
-	let formattedText = '';
-	let insideCabbage = false;
-	let cabbageContent = '';
 
-	// Create a string with the specified number of spaces
-	const indentString = ' '.repeat(indentSpaces);
-
-	lines.forEach((line, index) => {
-		const trimmedLine = line.trim();
-
-		// Detect the start of the <Cabbage> block
-		if (trimmedLine.startsWith('<Cabbage>')) {
-			insideCabbage = true;
-			formattedText += line + '\n';
-			return;
-		}
-
-		// Detect the end of the </Cabbage> block
-		if (trimmedLine.startsWith('</Cabbage>')) {
-			insideCabbage = false;
-
-			// Process and format the JSON content
-			try {
-				const jsonArray = JSON.parse(cabbageContent);
-				const formattedJson = formatJsonObjects(jsonArray, '');
-				formattedText += formattedJson + '\n';
-			} catch (error) {
-				formattedText += cabbageContent + '\n'; // If parsing fails, keep the original content
-			}
-
-			formattedText += line + '\n';
-			cabbageContent = ''; // Reset the Cabbage content
-			return;
-		}
-
-		if (insideCabbage) {
-			// Collect Cabbage content
-			cabbageContent += line.trim();
-		} else {
-			// Continue with the regular Csound formatting logic
-
-			// Trim leading whitespace from non-empty lines
-			const trimmedLine = line.trim().length > 0 ? line.trimStart() : line;
-
-			// Increase indentation level for specific keywords
-			if (index > 0 && (
-				lines[index - 1].trim().startsWith("if ") ||
-				lines[index - 1].trim().startsWith("if(") ||
-				lines[index - 1].trim().startsWith("instr") ||
-				lines[index - 1].trim().startsWith("opcode") ||
-				lines[index - 1].trim().startsWith("else") ||
-				lines[index - 1].trim().startsWith("while")
-			)) {
-				indents++;
-			}
-
-			// Decrease indentation level for end keywords
-			if (
-				trimmedLine.startsWith("endif") ||
-				trimmedLine.startsWith("endin") ||
-				trimmedLine.startsWith("endop") ||
-				trimmedLine.startsWith("od") ||
-				trimmedLine.startsWith("else") ||
-				trimmedLine.startsWith("enduntil")
-			) {
-				indents = Math.max(0, indents - 1);
-			}
-
-			// Add indentation
-			const indentText = indentString.repeat(indents);
-			formattedText += indentText + trimmedLine + '\n';
-		}
-	});
-
-	return formattedText;
-}
-
-// Helper function to format JSON objects on single lines within the array
-function formatJsonObjects(jsonArray: any[], indentString: string): string {
-	const formattedLines = [];
-
-	formattedLines.push("[");  // Opening bracket on its own line
-
-	jsonArray.forEach((obj, index) => {
-		const formattedObject = JSON.stringify(obj);
-		if (index < jsonArray.length - 1) {
-			formattedLines.push(indentString + formattedObject + ','); // Add comma for all but the last object
-		} else {
-			formattedLines.push(indentString + formattedObject); // Last object without a comma
-		}
-	});
-
-	formattedLines.push("]");  // Closing bracket on its own line
-
-	return formattedLines.join('\n');
-}
 
 let processes: (cp.ChildProcess | undefined)[] = [];
 
@@ -235,6 +139,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "cabbage" is now active!');
 
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', formatDocument));
+
 
 	//send text to webview for parsing if file has an extension of csd and contains valid Cabbage tags
 	function sendTextToWebView(editor: vscode.TextDocument | undefined, command: string) {
@@ -251,18 +157,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	vscode.commands.registerCommand('cabbage.formatDocument', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) return;
-
-		const text = editor.document.getText();
-		const formattedText = formatText(text);  // Your formatting logic
-
-		const edit = new vscode.WorkspaceEdit();
-		edit.replace(editor.document.uri, new vscode.Range(0, 0, editor.document.lineCount, 0), formattedText);
-		await vscode.workspace.applyEdit(edit);
-	});
-
+	
 
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.launch', () => {
 		// The code you place here will be executed every time your command is executed
@@ -451,27 +346,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
-		// The code you place here will be executed every time your command is executed
-		// Place holder - but these commands will eventually launch Cabbage standalone 
-		// with the file currently in focus. 
-		if (!panel) {
-			return;
-		}
-		const msg = { command: "stopCsound" };
-		if (websocket) {
-			websocket.send(JSON.stringify(msg));
-		}
 		processes.forEach((p) => {
 			p?.kill("SIGKILL");
 		});
 		//sendTextToWebView(textEditor?.document, 'onEnterEditMode');
 		cabbageMode = "draggable";
-		if (panel) {
-			panel.webview.postMessage({ command: "onEnterEditMode", text: "onEnterEditMode" })
-		}
-		else {
-			console.error("No panel found")
-		}
+		enterEditMode(panel, websocket);
 	})
 	);
 
@@ -479,49 +359,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 
-function sortOrderOfProperties(obj: WidgetProps): WidgetProps {
-    const { type, channel, bounds, range, ...rest } = obj; // Destructure type, channel, bounds, range, and the rest of the properties
 
-    // Create an ordered bounds object only if bounds is present in the original object
-    const orderedBounds = bounds ? {
-        left: bounds.left,
-        top: bounds.top,
-        width: bounds.width,
-        height: bounds.height,
-    } : undefined;
-
-    // Create an ordered range object only if range is present in the original object
-    const orderedRange = range ? {
-        min: range.min,
-        max: range.max,
-        defaultValue: range.defaultValue,
-        skew: range.skew,
-        increment: range.increment,
-    } : undefined;
-
-    // Return a new object with the original order and only include bounds/range if they exist
-    const result: WidgetProps = {
-        type,
-        channel,
-        ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
-        ...rest,                                         // Include the rest of the properties
-    };
-
-    // Only include range if it's defined
-    if (orderedRange) {
-        result.range = orderedRange;
-    }
-
-    return result;
-}
-
-
-function formatObject(obj: WidgetProps): string {
-	const formattedObj = sortOrderOfProperties(obj);
-	return JSON.stringify(formattedObj)
-		.replace(/"([^"]+)":/g, '"$1": ')
-		.replace(/,(?!\s*?[\{\[\"\'\w])/g, ''); // remove trailing commas if any
-}
+// function formatObject(obj: WidgetProps): string {
+// 	const formattedObj = sortOrderOfProperties(obj);
+// 	return JSON.stringify(formattedObj)
+// 		.replace(/"([^"]+)":/g, '"$1": ')
+// 		.replace(/,(?!\s*?[\{\[\"\'\w])/g, ''); // remove trailing commas if any
+// }
 
 async function openOrShowTextDocument(filePath: string): Promise<vscode.TextEditor | null> {
 	try {
@@ -652,53 +496,6 @@ function highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageSta
 		}
 	}
 }
-
-function deepEqual(obj1: any, obj2: any): boolean {
-    // If both are the same instance (including primitives)
-    if (obj1 === obj2) return true;
-
-    // If either is not an object, they are not equal
-    if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
-        return false;
-    }
-
-    // Compare the number of keys (early return if different)
-    const keys1 = Object.keys(obj1);
-    const keys2 = Object.keys(obj2);
-    if (keys1.length !== keys2.length) return false;
-
-    // Recursively compare properties
-    for (let key of keys1) {
-        if (!deepEqual(obj1[key], obj2[key])) return false;
-    }
-
-    return true;
-}
-
-//this function will merge incoming properties (from the props object) into an existing JSON array, while removing any 
-//properties that match the default values defined in the defaultProps object.
-function updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
-
-    for (let i = 0; i < jsonArray.length; i++) {
-        let jsonObject = jsonArray[i];
-        if (jsonObject.channel === props.channel) {
-            let newObject = { ...jsonObject, ...props };
-
-            for (let key in defaultProps) {
-                // Check for deep equality when comparing objects
-                if (deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                    delete newObject[key]; // Remove matching property or object
-                }
-            }
-
-            jsonArray[i] = sortOrderOfProperties(newObject);
-            break;
-        }
-    }
-
-    return jsonArray;
-}
-
 
 
 async function updateText(jsonText: string) {
