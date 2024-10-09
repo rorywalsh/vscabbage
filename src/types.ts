@@ -1,39 +1,39 @@
 
 // Import widgets and utilities
 // @ts-ignore
-import { RotarySlider } from "./widgets/rotarySlider.js";
+import { RotarySlider } from "./cabbage/widgets/rotarySlider.js";
 // @ts-ignore
-import { HorizontalSlider } from "./widgets/horizontalSlider.js";
+import { HorizontalSlider } from "./cabbage/widgets/horizontalSlider.js";
 // @ts-ignore
-import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
+import { HorizontalRangeSlider } from "./cabbage/widgets/horizontalRangeSlider.js";
 // @ts-ignore
-import { VerticalSlider } from "./widgets/verticalSlider.js";
+import { VerticalSlider } from "./cabbage/widgets/verticalSlider.js";
 // @ts-ignore
-import { NumberSlider } from "./widgets/numberSlider.js";
+import { NumberSlider } from "./cabbage/widgets/numberSlider.js";
 // @ts-ignore
-import { Button, FileButton, OptionButton } from "./widgets/button.js";
+import { Button, FileButton, OptionButton } from "./cabbage/widgets/button.js";
 // @ts-ignore
-import { Checkbox } from "./widgets/checkBox.js";
+import { Checkbox } from "./cabbage/widgets/checkBox.js";
 // @ts-ignore
-import { ComboBox } from "./widgets/comboBox.js";
+import { ComboBox } from "./cabbage/widgets/comboBox.js";
 // @ts-ignore
-import { Label } from "./widgets/label.js";
+import { Label } from "./cabbage/widgets/label.js";
 // @ts-ignore
-import { GroupBox } from "./widgets/groupBox.js";
+import { GroupBox } from "./cabbage/widgets/groupBox.js";
 // @ts-ignore
-import { Image } from "./widgets/image.js";
+import { Image } from "./cabbage/widgets/image.js";
 // @ts-ignore
-import { ListBox } from "./widgets/listBox.js";
+import { ListBox } from "./cabbage/widgets/listBox.js";
 // @ts-ignore
-import { CsoundOutput } from "./widgets/csoundOutput.js";
+import { CsoundOutput } from "./cabbage/widgets/csoundOutput.js";
 // @ts-ignore
-import { MidiKeyboard } from "./widgets/midiKeyboard.js";
+import { MidiKeyboard } from "./cabbage/widgets/midiKeyboard.js";
 // @ts-ignore
-import { GenTable } from "./widgets/genTable.js";
+import { GenTable } from "./cabbage/widgets/genTable.js";
 // @ts-ignore
-import { TextEditor } from "./widgets/textEditor.js";
+import { TextEditor } from "./cabbage/widgets/textEditor.js";
 // @ts-ignore
-import { Form } from "./widgets/form.js";
+import { Form } from "./cabbage/widgets/form.js";
 
 export interface WidgetProps {
 	type: string;

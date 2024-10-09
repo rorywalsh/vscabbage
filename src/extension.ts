@@ -10,8 +10,9 @@ import WebSocket from 'ws';
 import path from 'path';
 import os from 'os';
 import { initialiseDefaultProps, WidgetProps } from './types';
-import { formatDocument, enterEditMode } from './commands';
+import { formatDocument, expandCabbageJSON, enterEditMode } from './commands';
 import { formatJsonObjects, updateJsonArray } from './formatting';
+import { ExtensionUtils } from './extensionUtils';
 
 let textEditor: vscode.TextEditor | undefined;
 let highlightDecorationType: vscode.TextEditorDecorationType;
@@ -19,145 +20,26 @@ let vscodeOutputChannel: vscode.OutputChannel;
 let panel: vscode.WebviewPanel | undefined = undefined;
 let dbg = false;
 
-// Create and initialize the output channel
-function createOutputChannel() {
-	if (!vscodeOutputChannel) {
-		vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
-	}
-	return vscodeOutputChannel;
-}
-
-// Define a function to initialize or update highlightDecorationType
-function initialiseHighlightDecorationType() {
-	if (!highlightDecorationType) {
-		highlightDecorationType = vscode.window.createTextEditorDecorationType({
-			backgroundColor: 'rgba(0, 0, 0, 0.1)'
-		});
-	}
-}
-
 // Setup websocket server
 const wss = new WebSocket.Server({ port: 9991 });
 let websocket: WebSocket;
 let cabbageMode = "play";
 let firstMessages: any[] = [];
-
-wss.on('connection', (ws) => {
-	console.log('Client connected');
-
-	//there are times when Cabbage will send message before the webview is ready to receive them. 
-	//so first thing to do is flush the first messages received from Cabbage
-	firstMessages.forEach((msg) => {
-		console.log(msg);
-		ws.send(JSON.stringify(msg));
-	});
-
-	firstMessages = [];
-
-	websocket = ws;
-	ws.on('message', (message) => {
-		const msg = JSON.parse(message.toString());
-		console.log(msg);
-		if (msg.hasOwnProperty("command")) {
-			//when CabbageProcessor first loads, it parses the Cabbage text and populate a vector of JSON objects.
-			//These are then sent to the webview for rendering.
-			if (msg["command"] === "widgetUpdate") {
-				if (panel) {
-					panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] })
-				}
-			}
-		}
-	});
-
-	ws.on('close', () => {
-		console.log('Client disconnected');
-	});
-
-});
-
-
-
 let processes: (cp.ChildProcess | undefined)[] = [];
+
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			return; // No open text editor
-		}
-
-		const document = editor.document;
-		const text = document.getText();
-
-		// Find the <Cabbage> and </Cabbage> tags
-		const startTag = '<Cabbage>';
-		const endTag = '</Cabbage>';
-
-		const startIndex = text.indexOf(startTag);
-		const endIndex = text.indexOf(endTag);
-
-		if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
-			vscode.window.showErrorMessage("Cabbage section not found or is invalid.");
-			return;
-		}
-
-		// Calculate the positions in the document
-		const startPos = document.positionAt(startIndex + startTag.length);
-		const endPos = document.positionAt(endIndex);
-
-		const range = new vscode.Range(startPos, endPos);
-		const cabbageContent = document.getText(range).trim();
-
-		try {
-			// Parse the JSON content to ensure it's valid
-			const jsonObject = JSON.parse(cabbageContent);
-
-			// Re-stringify the JSON content with formatting (4 spaces for indentation)
-			const formattedJson = JSON.stringify(jsonObject, null, 4);
-
-			// Replace the original Cabbage section with the formatted text
-			editor.edit(editBuilder => {
-				editBuilder.replace(range, '\n' + formattedJson + '\n');
-			});
-
-		} catch (error) {
-			vscode.window.showErrorMessage("Failed to parse and format JSON content.");
-		}
-	}));
-
-
-
-
-	createOutputChannel();
-	vscodeOutputChannel.clear();
+	vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
 	vscodeOutputChannel.show(true); // true means keep focus in the editor window
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "cabbage" is now active!');
-
+	context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', formatDocument));
-
-
-	//send text to webview for parsing if file has an extension of csd and contains valid Cabbage tags
-	function sendTextToWebView(editor: vscode.TextDocument | undefined, command: string) {
-		if (editor) {
-			if (editor.fileName.split('.').pop() === 'csd') {
-				//reload the webview
-				vscode.commands.executeCommand("workbench.action.webview.reloadWebviewAction");
-				//now check for Cabbage tags..
-				if (editor?.getText().indexOf('<Cabbage>') != -1 && editor?.getText().indexOf('</Cabbage>') != -1) {
-					if (panel)
-						panel.webview.postMessage({ command: command, text: editor?.getText() });
-				}
-			}
-		}
-	}
-
-	
+	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', enterEditMode));
 
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.launch', () => {
 		// The code you place here will be executed every time your command is executed
@@ -176,7 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
 
 		//this is a little clunky, but it seems I have to load each src individually
-		let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'main.js');
+		let onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'src/cabbage', 'main.js');
 		const mainJS = panel.webview.asWebviewUri(onDiskPath);
 		onDiskPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css');
 		const styles = panel.webview.asWebviewUri(onDiskPath);
@@ -271,7 +153,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		});
 		vscode.workspace.onDidOpenTextDocument((editor) => {
-			sendTextToWebView(editor, 'onFileChanged');
+			ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', panel);
 		});
 
 		vscode.window.tabGroups.onDidChangeTabs((tabs) => {
@@ -345,15 +227,8 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 
-	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
-		processes.forEach((p) => {
-			p?.kill("SIGKILL");
-		});
-		//sendTextToWebView(textEditor?.document, 'onEnterEditMode');
-		cabbageMode = "draggable";
-		enterEditMode(panel, websocket);
-	})
-	);
+	
+
 
 }
 
@@ -443,59 +318,7 @@ function getExternalJsonFileName(cabbageContent: string, csdFilePath: string): s
 	return '';
 }
 
-function highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageStartIndex: number, isSingleLine: boolean) {
-	if (!textEditor) {
-		return;
-	}
 
-	const document = textEditor.document;
-	const documentText = document.getText();
-	const lines = documentText.split('\n');
-
-	// Ensure highlightDecorationType is initialized
-	initialiseHighlightDecorationType();
-
-	// Clear previous decorations
-	if (highlightDecorationType) {
-		textEditor.setDecorations(highlightDecorationType, []);
-	}
-
-	if (isSingleLine) {
-		// Define regex pattern to match the line containing the "channel" property
-		const channelPattern = new RegExp(`"channel":\\s*"${updatedProps.channel}"`, 'i');
-
-		// Find the line number using the regex pattern
-		const lineNumber = lines.findIndex(line => channelPattern.test(line));
-
-		if (lineNumber >= 0) {
-			const start = new vscode.Position(lineNumber, 0);
-			const end = new vscode.Position(lineNumber, lines[lineNumber].length);
-			textEditor.setDecorations(highlightDecorationType, [
-				{ range: new vscode.Range(start, end) }
-			]);
-			textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
-		}
-	} else {
-		// Handling for multi-line objects
-		// Improved regex pattern to match a JSON object containing the specified channel
-		const pattern = new RegExp(`\\{(?:[^{}]|\\{[^{}]*\\})*?"channel":\\s*"${updatedProps.channel}"(?:[^{}]|\\{[^{}]*\\})*?\\}`, 's');
-		const match = pattern.exec(documentText);
-
-		if (match) {
-			const objectText = match[0];
-			const objectStartIndex = documentText.indexOf(objectText);
-			const objectEndIndex = objectStartIndex + objectText.length;
-
-			const startPos = document.positionAt(objectStartIndex);
-			const endPos = document.positionAt(objectEndIndex);
-
-			textEditor.setDecorations(highlightDecorationType, [
-				{ range: new vscode.Range(startPos, endPos) }
-			]);
-			textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
-		}
-	}
-}
 
 
 async function updateText(jsonText: string) {
@@ -572,7 +395,7 @@ async function updateText(jsonText: string) {
 
 				// Call the separate function to handle highlighting
 				if (cabbageMatch.index !== undefined) {
-					highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine);
+					ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType);
 				} else {
 					console.error("Cabbage match index is undefined.");
 				}
@@ -657,3 +480,39 @@ function getWebviewContent(mainJS: vscode.Uri, styles: vscode.Uri,
 </body>
 
 </html>`}
+
+
+// websocket server
+wss.on('connection', (ws) => {
+	console.log('Client connected');
+
+	//there are times when Cabbage will send message before the webview is ready to receive them. 
+	//so first thing to do is flush the first messages received from Cabbage
+	firstMessages.forEach((msg) => {
+		console.log(msg);
+		ws.send(JSON.stringify(msg));
+	});
+
+	firstMessages = [];
+
+	websocket = ws;
+	ws.on('message', (message) => {
+		const msg = JSON.parse(message.toString());
+		console.log(msg);
+		if (msg.hasOwnProperty("command")) {
+			//when CabbageProcessor first loads, it parses the Cabbage text and populate a vector of JSON objects.
+			//These are then sent to the webview for rendering.
+			if (msg["command"] === "widgetUpdate") {
+				if (panel) {
+					panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] })
+				}
+			}
+		}
+	});
+
+	ws.on('close', () => {
+		console.log('Client disconnected');
+	});
+
+});
+

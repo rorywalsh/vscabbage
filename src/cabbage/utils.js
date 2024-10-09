@@ -1,5 +1,4 @@
 export class CabbageUtils {
-
   static updateInnerHTML(channel, instance) {
     const element = document.getElementById(channel);
     if (element) {

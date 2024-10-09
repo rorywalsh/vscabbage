@@ -2,7 +2,7 @@
  * PropertyPanel Class. Lightweight component that updates its innerHTML when properties change.
  * This makes use of https://taufik-nurrohman.js.org/CP/ for colour pickers.
  */
-import { CabbageUtils } from "./utils.js";
+import { CabbageUtils } from "./cabbage/utils.js";
 
 export class PropertyPanel {
   constructor(vscode, type, properties, widgets) {

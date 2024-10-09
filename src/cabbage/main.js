@@ -46,11 +46,11 @@ const widgetConstructors = {
 const widgetTypes = Object.keys(widgetConstructors);
 
 
-import { PropertyPanel } from "./propertyPanel.js";
-import { CabbageUtils, CabbageTestUtilities, CabbageColours } from "./utils.js";
-import { Cabbage } from "./cabbage.js";
+import { PropertyPanel } from "../propertyPanel.js";
+import { CabbageUtils, CabbageTestUtilities, CabbageColours } from "../cabbage/utils.js";
+import { Cabbage } from "../cabbage/cabbage.js";
 
-console.log("main.js loaded!")
+console.log("main.js loaded!");
 
 // CabbageTestUtilities.generateIdentifierTestCsd(widgetsForTesting); // This will generate a test CSD file with the widgets
 
@@ -62,7 +62,7 @@ const widgets = [];
 if (typeof acquireVsCodeApi === 'function') {
   vscode = acquireVsCodeApi();
   try {
-    const module = await import("./widgetWrapper.js");
+    const module = await import("../widgetWrapper.js");
     const { WidgetWrapper } = module;
     // You can now use WidgetWrapper here
     widgetWrappers = new WidgetWrapper(PropertyPanel.updatePanel, selectedElements, widgets, vscode);
