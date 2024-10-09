@@ -7,11 +7,9 @@ import * as vscode from 'vscode';
 
 import * as cp from "child_process";
 import WebSocket from 'ws';
-import path from 'path';
 import os from 'os';
 import { initialiseDefaultProps, WidgetProps } from './types';
 import { formatDocument, expandCabbageJSON, enterEditMode } from './commands';
-import { formatJsonObjects, updateJsonArray } from './formatting';
 import { ExtensionUtils } from './extensionUtils';
 
 let textEditor: vscode.TextEditor | undefined;
@@ -242,81 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
 // 		.replace(/,(?!\s*?[\{\[\"\'\w])/g, ''); // remove trailing commas if any
 // }
 
-async function openOrShowTextDocument(filePath: string): Promise<vscode.TextEditor | null> {
-	try {
-		// Find the current .csd file's view column, defaulting to ViewColumn.One if not found
-		const csdEditor = vscode.window.visibleTextEditors.find(
-			editor => editor.document.fileName.endsWith('.csd')
-		);
 
-		// Default to ViewColumn.One if the .csd file's view column is not found
-		const viewColumn = csdEditor ? csdEditor.viewColumn : vscode.ViewColumn.One;
-
-		// Check if the file is already open in an editor
-		const existingEditor = vscode.window.visibleTextEditors.find(
-			editor => editor.document.fileName === filePath
-		);
-
-		if (existingEditor) {
-			// If already open, return the existing editor without changing focus
-			return existingEditor;
-		}
-
-		// Open the document without immediately showing it in the editor
-		const document = await vscode.workspace.openTextDocument(filePath);
-
-		// Show the document in the specified view column without bringing it to the front
-		return vscode.window.showTextDocument(document, { preview: false, viewColumn, preserveFocus: true });
-	} catch (error) {
-		console.error(`Failed to open document: ${filePath}`, error);
-		return null;
-	}
-}
-
-
-async function updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetProps, defaultProps: WidgetProps) {
-	const document = editor.document;
-	const jsonArray = JSON.parse(document.getText()) as WidgetProps[];
-
-	const updatedArray = updateJsonArray(jsonArray, props, defaultProps);
-	const updatedContent = JSON.stringify(updatedArray, null, 2);
-
-	await editor.edit(editBuilder => {
-		const entireRange = new vscode.Range(
-			document.positionAt(0),
-			document.positionAt(document.getText().length)
-		);
-		editBuilder.replace(entireRange, updatedContent);
-	});
-}
-
-
-function getExternalJsonFileName(cabbageContent: string, csdFilePath: string): string {
-	// Regular expression to find the include statement
-	const includeRegex = /#include\s*"([^"]+\.json)"/;
-	const includeMatch = includeRegex.exec(cabbageContent);
-
-	if (includeMatch && includeMatch[1]) {
-		const includeFilename = includeMatch[1];
-
-		// Check if the path is relative, if so resolve it relative to the csd file
-		if (!path.isAbsolute(includeFilename)) {
-			return path.resolve(path.dirname(csdFilePath), includeFilename);
-		}
-		return includeFilename; // Absolute path
-	}
-
-	// Fallback: use the same name as the .csd file but with a .json extension
-	const fallbackJsonFile = csdFilePath.replace(/\.csd$/, '.json');
-
-	// Check if the fallback file exists
-	if (require('fs').existsSync(fallbackJsonFile)) {
-		return fallbackJsonFile;
-	}
-
-	// Return an empty string if no external JSON file is found
-	return '';
-}
 
 
 
@@ -366,12 +290,12 @@ async function updateText(jsonText: string) {
 
 			// Only search for an external file if there isn't a "form" type
 			if (!hasFormType) {
-				externalFile = getExternalJsonFileName(cabbageContent, document.fileName);
+				externalFile = ExtensionUtils.getExternalJsonFileName(cabbageContent, document.fileName);
 			}
 
 			if (!externalFile) {
 				// Update the existing JSON array with the new props
-				const updatedJsonArray = updateJsonArray(cabbageJsonArray, props, defaultProps);
+				const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
 
 				// Access configuration settings for JSON formatting
 				const config = vscode.workspace.getConfiguration("cabbage");
@@ -379,7 +303,7 @@ async function updateText(jsonText: string) {
 
 				// Format the JSON array based on the user's configuration
 				const formattedArray = isSingleLine
-					? formatJsonObjects(updatedJsonArray, '    ') // Single-line formatting
+					? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ') // Single-line formatting
 					: JSON.stringify(updatedJsonArray, null, 4); // Multi-line formatting with indentation
 
 				// Recreate the Cabbage section with the formatted array
@@ -408,9 +332,9 @@ async function updateText(jsonText: string) {
 	}
 
 	if (externalFile) {
-		const externalEditor = await openOrShowTextDocument(externalFile);
+		const externalEditor = await ExtensionUtils.openOrShowTextDocument(externalFile);
 		if (externalEditor) {
-			await updateExternalJsonFile(externalEditor, props, defaultProps);
+			await ExtensionUtils.updateExternalJsonFile(externalEditor, props, defaultProps);
 		} else {
 			vscodeOutputChannel.append(`Failed to open the external JSON file: ${externalFile}`);
 		}
