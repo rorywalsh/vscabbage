@@ -1,55 +1,10 @@
-//widgets ---------------
-import { Form } from "./widgets/form.js";
-import { RotarySlider } from "./widgets/rotarySlider.js";
-import { HorizontalSlider } from "./widgets/horizontalSlider.js";
-import { HorizontalRangeSlider } from "./widgets/horizontalRangeSlider.js";
-import { VerticalSlider } from "./widgets/verticalSlider.js";
-import { NumberSlider } from "./widgets/numberSlider.js";
-import { Button, FileButton, OptionButton } from "./widgets/button.js";
-import { Checkbox } from "./widgets/checkBox.js";
-import { ComboBox } from "./widgets/comboBox.js";
-import { Label } from "./widgets/label.js";
-import { Image } from "./widgets/image.js";
-import { ListBox } from "./widgets/listBox.js";
-import { GroupBox } from "./widgets/groupBox.js";
-import { GenTable } from "./widgets/genTable.js";
-import { CsoundOutput } from "./widgets/csoundOutput.js";
-import { MidiKeyboard } from "./widgets/midiKeyboard.js";
-import { TextEditor } from "./widgets/textEditor.js";
-//------------------------
 
-
-const widgetConstructors = {
-  //add new widgets here, first the name, then the constructor
-  "rotarySlider": RotarySlider,
-  "horizontalSlider": HorizontalSlider,
-  "horizontalRangeSlider": HorizontalRangeSlider,
-  "vslider": VerticalSlider,
-  "numberSlider": NumberSlider,
-  "keyboard": MidiKeyboard,
-  "form": Form,
-  "button": Button,
-  "fileButton": FileButton,
-  "optionButton": OptionButton,
-  "genTable": GenTable,
-  "label": Label,
-  "image": Image,
-  "listBox": ListBox,
-  "comboBox": ComboBox,
-  "groupBox": GroupBox,
-  "checkBox": Checkbox,
-  "csoundOutput": CsoundOutput,
-  "textEditor": TextEditor
-};
-
-//for use by the context menu accessed when adding new widgets
-const widgetTypes = Object.keys(widgetConstructors);
 
 
 import { PropertyPanel } from "../propertyPanel.js";
 import { CabbageUtils, CabbageTestUtilities, CabbageColours } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
-
+import { widgetTypes, widgetConstructors } from "../cabbage/types.js";
 console.log("main.js loaded!");
 
 // CabbageTestUtilities.generateIdentifierTestCsd(widgetsForTesting); // This will generate a test CSD file with the widgets

@@ -32,6 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
+		processes.forEach((p) => {
+			p?.kill("SIGKILL");
+		});
 		Commands.enterEditMode(panel, websocket);
 	}));
 
@@ -156,10 +159,6 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	})
 	);
-
-
-	
-
 
 }
 
