@@ -1,22 +1,16 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-// // @ts-ignore
-
-
-
 import * as cp from "child_process";
 import WebSocket from 'ws';
-import os from 'os';
-import { initialiseDefaultProps, WidgetProps } from './types';
-import { formatDocument, expandCabbageJSON, enterEditMode } from './commands';
+import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 
 let textEditor: vscode.TextEditor | undefined;
 let highlightDecorationType: vscode.TextEditorDecorationType;
 let vscodeOutputChannel: vscode.OutputChannel;
 let panel: vscode.WebviewPanel | undefined = undefined;
-let dbg = false;
+
 
 // Setup websocket server
 const wss = new WebSocket.Server({ port: 9991 });
@@ -35,9 +29,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "cabbage" is now active!');
-	context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', expandCabbageJSON));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', formatDocument));
-	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', enterEditMode));
+	context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
+	context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
+		Commands.enterEditMode(panel, websocket);
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('cabbage.launch', () => {
 		// The code you place here will be executed every time your command is executed
@@ -84,71 +80,9 @@ export function activate(context: vscode.ExtensionContext) {
 			// sendTextToWebView(editor.document, 'onFileChanged');
 		})
 
-		//notify webview when various updates take place in editor
 		vscode.workspace.onDidSaveTextDocument(async (editor) => {
-			//sendTextToWebView(editor, 'onFileChanged');
-			if (panel) {
-				panel.webview.postMessage({ command: "onFileChanged", text: "fileChanged" })
-			}
-			else {
-				console.error("No panel found");
-			}
 			cabbageMode = "play";
-
-			let binaryName = '';
-			const platform = os.platform();
-			if (platform === 'win32') {
-				binaryName = `CabbageApp_x64.exe`;
-			} else if (platform === 'darwin') {
-				binaryName = `CabbageApp.app/Contents/MacOS/CabbageApp`;
-			} else {
-				console.log('Not implemented yet');
-			}
-
-			const command = config.get("pathToCabbageExecutable") + '/' + binaryName;
-			console.log("full command:", command);
-			const path = vscode.Uri.file(command);
-
-
-			try {
-				// Attempt to read the directory (or file)
-				await vscode.workspace.fs.stat(path);
-				vscodeOutputChannel.append("Found Cabbage service app...")
-			} catch (error) {
-				// If an error is thrown, it means the path does not exist
-				vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please check the path in the Cabbage extension settings.\n`);
-				return;
-			}
-
-			processes.forEach((p) => {
-				p?.kill("SIGKILL");
-			})
-
-			if (!dbg) {
-				if (editor.fileName.endsWith(".csd")) {
-					// Replace the extension by slicing and concatenating the new extension - we're only interested in opening CSD files
-
-					const process = cp.spawn(command, [editor.fileName], {});
-					processes.push(process);
-					process.stdout.on("data", (data) => {
-						// I've seen spurious 'ANSI reset color' sequences in some csound output
-						// which doesn't render correctly in this context. Stripping that out here.
-						vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
-					});
-					process.stderr.on("data", (data) => {
-						// It looks like all csound output is written to stderr, actually.
-						// If you want your changes to show up, change this one.
-						vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
-					});
-				} else {
-					// If no extension is found or the file name starts with a dot (hidden files), handle appropriately
-					console.error('Invalid file name or no extension found');
-					vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.');
-				}
-
-
-			}
-
+			Commands.onDidSave(panel, websocket, vscodeOutputChannel, processes, editor);
 		});
 		vscode.workspace.onDidOpenTextDocument((editor) => {
 			ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', panel);
@@ -156,7 +90,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 		vscode.window.tabGroups.onDidChangeTabs((tabs) => {
 			//triggered when tab changes
-			//console.log(tabs.changed.label);
 		});
 
 		// callback for webview messages - some of these will be fired off from the CabbageApp
@@ -166,7 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
 				switch (message.command) {
 					case 'widgetUpdate':
 						if (cabbageMode !== "play") {
-							updateText(message.text);
+							ExtensionUtils.updateText(message.text, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType);
 						}
 						return;
 
@@ -228,117 +161,6 @@ export function activate(context: vscode.ExtensionContext) {
 	
 
 
-}
-
-
-
-
-// function formatObject(obj: WidgetProps): string {
-// 	const formattedObj = sortOrderOfProperties(obj);
-// 	return JSON.stringify(formattedObj)
-// 		.replace(/"([^"]+)":/g, '"$1": ')
-// 		.replace(/,(?!\s*?[\{\[\"\'\w])/g, ''); // remove trailing commas if any
-// }
-
-
-
-
-
-
-async function updateText(jsonText: string) {
-	if (cabbageMode === "play") {
-		return;
-	}
-
-
-	let props: WidgetProps;
-	try {
-		props = JSON.parse(jsonText);
-	} catch (error) {
-		console.error("Failed to parse JSON text:", error);
-		vscodeOutputChannel.append(`Failed to parse JSON text: ${error}`);
-		return;
-	}
-
-	if (!textEditor) {
-		console.error("No text editor is available.");
-		return;
-	}
-
-	const document = textEditor.document;
-	const originalText = document.getText();
-
-	const defaultProps = await initialiseDefaultProps(props.type);
-	if (!defaultProps) {
-		return;
-	}
-
-	const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
-	const cabbageMatch = originalText.match(cabbageRegex);
-
-	let externalFile = '';
-
-	if (cabbageMatch) {
-		const cabbageContent = cabbageMatch[1].trim();
-
-		try {
-			// Attempt to parse the existing JSON array
-			const cabbageJsonArray = JSON.parse(cabbageContent) as WidgetProps[];
-
-			// Check if there's a "form" type object in the parsed JSON array
-			const hasFormType = cabbageJsonArray.some(obj => obj.type === 'form');
-
-			// Only search for an external file if there isn't a "form" type
-			if (!hasFormType) {
-				externalFile = ExtensionUtils.getExternalJsonFileName(cabbageContent, document.fileName);
-			}
-
-			if (!externalFile) {
-				// Update the existing JSON array with the new props
-				const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
-
-				// Access configuration settings for JSON formatting
-				const config = vscode.workspace.getConfiguration("cabbage");
-				const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-
-				// Format the JSON array based on the user's configuration
-				const formattedArray = isSingleLine
-					? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ') // Single-line formatting
-					: JSON.stringify(updatedJsonArray, null, 4); // Multi-line formatting with indentation
-
-				// Recreate the Cabbage section with the formatted array
-				const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
-
-				await textEditor.edit(editBuilder => editBuilder.replace(
-					new vscode.Range(
-						document.positionAt(cabbageMatch.index ?? 0),
-						document.positionAt((cabbageMatch.index ?? 0) + cabbageMatch[0].length)
-					),
-					updatedCabbageSection
-				));
-
-				// Call the separate function to handle highlighting
-				if (cabbageMatch.index !== undefined) {
-					ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType);
-				} else {
-					console.error("Cabbage match index is undefined.");
-				}
-			}
-		} catch (parseError) {
-			// console.error("Failed to parse Cabbage content as JSON:", parseError);
-			vscodeOutputChannel.append(`Failed to parse Cabbage content as JSON: ${parseError}`);
-			return;
-		}
-	}
-
-	if (externalFile) {
-		const externalEditor = await ExtensionUtils.openOrShowTextDocument(externalFile);
-		if (externalEditor) {
-			await ExtensionUtils.updateExternalJsonFile(externalEditor, props, defaultProps);
-		} else {
-			vscodeOutputChannel.append(`Failed to open the external JSON file: ${externalFile}`);
-		}
-	}
 }
 
 
