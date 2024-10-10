@@ -1,4 +1,3 @@
-
 import * as vscode from 'vscode';
 // @ts-ignore
 import { WidgetProps } from './cabbage/widgetTypes';
@@ -32,7 +31,8 @@ export class ExtensionUtils {
 
     static highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageStartIndex: number, isSingleLine: boolean,
         textEditor: vscode.TextEditor | undefined,
-        highlightDecorationType: vscode.TextEditorDecorationType) {
+        highlightDecorationType: vscode.TextEditorDecorationType,
+        shouldScroll: boolean = true) {
         if (!textEditor) {
             return;
         }
@@ -62,7 +62,9 @@ export class ExtensionUtils {
                 textEditor.setDecorations(highlightDecorationType, [
                     { range: new vscode.Range(start, end) }
                 ]);
-                textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
+                if (shouldScroll) {
+                    textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
+                }
             }
         } else {
             // Handling for multi-line objects
@@ -81,7 +83,9 @@ export class ExtensionUtils {
                 textEditor.setDecorations(highlightDecorationType, [
                     { range: new vscode.Range(startPos, endPos) }
                 ]);
-                textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+                if (shouldScroll) {
+                    textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+                }
             }
         }
     }
@@ -117,11 +121,12 @@ export class ExtensionUtils {
         }
     }
 
-    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType) {
+    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined) {
         if (cabbageMode === "play") {
             return;
         }
 
+        console.log("updateText called. textEditor:", !!textEditor, "lastSavedFileName:", lastSavedFileName);
 
         let props: WidgetProps;
         try {
@@ -132,12 +137,24 @@ export class ExtensionUtils {
             return;
         }
 
-        if (!textEditor) {
-            console.error("No text editor is available.");
+        let document: vscode.TextDocument;
+
+        if (!textEditor && lastSavedFileName) {
+            console.log("Attempting to open document:", lastSavedFileName);
+            try {
+                document = await vscode.workspace.openTextDocument(lastSavedFileName);
+                // Don't show the document, just keep it in the background
+            } catch (error) {
+                console.error("Failed to open document:", error);
+                return;
+            }
+        } else if (textEditor) {
+            document = textEditor.document;
+        } else {
+            console.error("No text editor is available and no last saved file name.");
             return;
         }
 
-        const document = textEditor.document;
         const originalText = document.getText();
 
         const defaultProps = await initialiseDefaultProps(props.type);
@@ -154,51 +171,42 @@ export class ExtensionUtils {
             const cabbageContent = cabbageMatch[1].trim();
 
             try {
-                // Attempt to parse the existing JSON array
                 const cabbageJsonArray = JSON.parse(cabbageContent) as WidgetProps[];
-
-                // Check if there's a "form" type object in the parsed JSON array
                 const hasFormType = cabbageJsonArray.some(obj => obj.type === 'form');
 
-                // Only search for an external file if there isn't a "form" type
                 if (!hasFormType) {
                     externalFile = ExtensionUtils.getExternalJsonFileName(cabbageContent, document.fileName);
                 }
 
                 if (!externalFile) {
-                    // Update the existing JSON array with the new props
                     const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
-
-                    // Access configuration settings for JSON formatting
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-
-                    // Format the JSON array based on the user's configuration
                     const formattedArray = isSingleLine
-                        ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ') // Single-line formatting
-                        : JSON.stringify(updatedJsonArray, null, 4); // Multi-line formatting with indentation
+                        ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ')
+                        : JSON.stringify(updatedJsonArray, null, 4);
 
-                    // Recreate the Cabbage section with the formatted array
                     const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
 
-                    await textEditor.edit(editBuilder => editBuilder.replace(
+                    const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
+
+                    // Always update the document content
+                    const workspaceEdit = new vscode.WorkspaceEdit();
+                    workspaceEdit.replace(
+                        document.uri,
                         new vscode.Range(
                             document.positionAt(cabbageMatch.index ?? 0),
                             document.positionAt((cabbageMatch.index ?? 0) + cabbageMatch[0].length)
                         ),
                         updatedCabbageSection
-                    ));
+                    );
+                    await vscode.workspace.applyEdit(workspaceEdit);
 
-                    // Call the separate function to handle highlighting
-                    if (cabbageMatch.index !== undefined) {
-                        ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType);
-                    } else {
-                        console.error("Cabbage match index is undefined.");
+                    if (cabbageMatch.index !== undefined && textEditor) {
+                        ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
                     }
                 }
             } catch (parseError) {
-                // console.error("Failed to parse Cabbage content as JSON:", parseError);
-                vscodeOutputChannel.append(`Failed to parse Cabbage content as JSON: ${parseError}`);
                 return;
             }
         }

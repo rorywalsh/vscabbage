@@ -148,11 +148,11 @@ export class Button {
     const stateColour = CabbageColours.darker(this.props.value === 1 ? this.props.colour.on : this.props.colour.off, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(this.props.colour.on, 0.2) : stateColour;
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
-          <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.stroke.colour}"
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none">
+          <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.stroke.colour}"
             stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-          <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
-            fill="${this.props.value === 1 ? this.props.fontColour.on : this.props.fontColour.off}" text-anchor="${svgAlign}" alignment-baseline="middle">${buttonText}</text>
+          <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
+            fill="${this.props.value === 1 ? this.props.fontColour.on : this.props.fontColour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
   }

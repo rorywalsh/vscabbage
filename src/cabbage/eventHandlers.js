@@ -9,6 +9,8 @@ import { cabbageMode, vscode, widgets } from "./sharedState.js";
 // Imports utility and property panel modules
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 
+import { WidgetManager } from "../cabbage/widgetManager.js";
+
 // Declare PropertyPanel variable and a promise to track its loading
 let PropertyPanel;
 
@@ -245,7 +247,7 @@ export function setupFormHandlers() {
 
         // Event listener for pointer down events on the form
         form.addEventListener('pointerdown', async (event) => {
-            if (event.button !== 0) return; // Ignore right clicks
+            if (event.button !== 0) {return}; // Ignore right clicks
 
             // Hide context menus when clicking
             contextMenu.style.visibility = "hidden";

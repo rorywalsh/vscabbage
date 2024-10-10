@@ -87,10 +87,11 @@ export class PropertyPanel {
     return sectionDiv;
   }
 
-  createInputElement(key, value) {
+  createInputElement(key, value, path = '') {
     let input;
+    const fullPath = path ? `${path}.${key}` : key;
 
-    if (key.toLowerCase().includes("colour")) {
+    if (fullPath.toLowerCase().includes("colour")) {
       input = document.createElement('input');
       input.value = value;
       input.style.backgroundColor = value;
@@ -133,7 +134,7 @@ export class PropertyPanel {
       }
     }
 
-    input.id = key;
+    input.id = fullPath;
     input.dataset.parent = this.properties.channel;
 
     input.addEventListener('input', this.handleInputChange.bind(this));

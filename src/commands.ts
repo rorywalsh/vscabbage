@@ -1,4 +1,3 @@
-
 import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';
@@ -26,17 +25,18 @@ export class Commands {
         message: any,
         websocket: any,
         firstMessages: any[],
-        panel: any,
+        panel: vscode.WebviewPanel,
         vscodeOutputChannel: any,
         textEditor: any,
         highlightDecorationType: any,
-        cabbageMode: string
+        cabbageMode: string,
+        lastSavedFileName: string | undefined
     ) {
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
             case 'widgetUpdate':
                 if (cabbageMode !== "play") {
-                    ExtensionUtils.updateText(message.text, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType);
+                    ExtensionUtils.updateText(message.text, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType, lastSavedFileName, panel);
                 }
                 break;
     
@@ -94,8 +94,11 @@ export class Commands {
         const panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             'Cabbage UI Editor',
-            vscode.ViewColumn.Two, // Load in second column
-            { enableScripts: true } // Enable JS scripts
+            vscode.ViewColumn.One, // Load in first column
+            { 
+                enableScripts: true,
+                retainContextWhenHidden: true // Add this line
+            }
         );
 
         // Make sure the editor currently displayed has focus
@@ -122,10 +125,17 @@ export class Commands {
     static async onDidSave(panel: vscode.WebviewPanel | undefined, 
         outputChannel: vscode.OutputChannel, 
         processes: any[], 
-        editor: vscode.TextDocument) {
-        //sendTextToWebView(editor, 'onFileChanged');
+        document: vscode.TextDocument,
+        lastSavedFileName: string | undefined) {
+        
+        lastSavedFileName = document.fileName;
+
         if (panel) {
-            panel.webview.postMessage({ command: "onFileChanged", text: "fileChanged" })
+            panel.reveal(vscode.ViewColumn.One, true);
+            
+            setTimeout(() => {
+                panel.webview.postMessage({ command: "onFileChanged", text: "fileChanged", lastSavedFileName: lastSavedFileName });
+            }, 100);
         }
         else {
             console.error("No panel found");
@@ -162,10 +172,10 @@ export class Commands {
         });
 
         if (!dbg) {
-            if (editor.fileName.endsWith(".csd")) {
+            if (document.fileName.endsWith(".csd")) {
                 // Replace the extension by slicing and concatenating the new extension - we're only interested in opening CSD files
 
-                const process = cp.spawn(command, [editor.fileName], {});
+                const process = cp.spawn(command, [document.fileName], {});
                 processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     // I've seen spurious 'ANSI reset color' sequences in some csound output

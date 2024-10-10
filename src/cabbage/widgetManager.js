@@ -60,7 +60,15 @@ export class WidgetManager {
         // Assign properties to the widget
         Object.assign(widget.props, props);
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
-            widget.props.value = props.range.defaultValue;
+            console.log(props);
+            console.log(widget.props);
+            if (props?.range && props.range.hasOwnProperty("defaultValue")) {
+                widget.props.value = props.range.defaultValue;
+            }
+            else{
+                widget.props.value = widget.props.range.defaultValue;
+            }
+
         }
 
         // Add the widget to the global widgets array

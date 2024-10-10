@@ -15,6 +15,7 @@ let highlightDecorationType: vscode.TextEditorDecorationType;
 let vscodeOutputChannel: vscode.OutputChannel;
 let panel: vscode.WebviewPanel | undefined = undefined;
 
+let lastSavedFileName: string | undefined;
 
 // Setup websocket server
 const wss = new WebSocket.Server({ port: 9991 });
@@ -22,7 +23,6 @@ let websocket: WebSocket;
 
 let firstMessages: any[] = [];
 let processes: (cp.ChildProcess | undefined)[] = [];
-
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -59,7 +59,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		vscode.workspace.onDidSaveTextDocument(async (editor) => {
 			setCabbageMode("play");
-			Commands.onDidSave(panel, vscodeOutputChannel, processes, editor);
+			lastSavedFileName = editor.fileName;
+			Commands.onDidSave(panel, vscodeOutputChannel, processes, editor, lastSavedFileName);
 		});
 		vscode.workspace.onDidOpenTextDocument((editor) => {
 			ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', panel);
@@ -79,7 +80,8 @@ export function activate(context: vscode.ExtensionContext) {
 					vscodeOutputChannel,
 					textEditor,
 					highlightDecorationType,
-					getCabbageMode());
+					getCabbageMode(),
+					lastSavedFileName);
 			}
 		);
 	})
