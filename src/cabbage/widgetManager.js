@@ -1,5 +1,5 @@
 // Import necessary modules and utilities
-import { widgetConstructors, widgetTypes } from "../cabbage/types.js";
+import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/main.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";

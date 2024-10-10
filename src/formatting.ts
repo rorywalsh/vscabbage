@@ -1,4 +1,4 @@
-import { WidgetProps } from './cabbage/types';
+import { WidgetProps } from './cabbage/widgetTypes';
 
 export function formatText(text: string, indentSpaces: number = 4): string {
 	const lines = text.split('\n');

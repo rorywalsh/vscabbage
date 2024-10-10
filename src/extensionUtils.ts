@@ -1,10 +1,10 @@
 
 import * as vscode from 'vscode';
 // @ts-ignore
-import { WidgetProps } from './cabbage/types';
+import { WidgetProps } from './cabbage/widgetTypes';
 import path from 'path';
 // @ts-ignore
-import { initialiseDefaultProps } from './cabbage/types';
+import { initialiseDefaultProps } from './cabbage/widgetTypes';
 
 export class ExtensionUtils {
     //send text to webview for parsing if file has an extension of csd and contains valid Cabbage tags
