@@ -1,4 +1,4 @@
-
+console.log("loading widgetTypes.js...");
 // // Import widgets and utilities
 // @ts-ignore
 import { RotarySlider } from "./widgets/rotarySlider.js";

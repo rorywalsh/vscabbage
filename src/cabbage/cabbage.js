@@ -1,5 +1,6 @@
 
 
+console.log("loading cabbage.js");
 
 export class Cabbage {
   
@@ -41,7 +42,7 @@ export class Cabbage {
       command: "widgetStateUpdate",
       obj:JSON.stringify(widget.props)
     };
-    if (vscode != null) {
+    if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {

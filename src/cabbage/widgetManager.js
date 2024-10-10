@@ -1,7 +1,9 @@
+console.log("Loading widgetManager.js...");
+
 // Import necessary modules and utilities
 import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
-import { vscode, cabbageMode, widgets } from "../cabbage/main.js";
+import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 
 /**
@@ -37,6 +39,7 @@ export class WidgetManager {
      * @returns {object|null} - The properties of the newly inserted widget or null on failure.
      */
     static async insertWidget(type, props) {
+        console.log("Inserting widget of type:", type);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
 
@@ -186,8 +189,9 @@ export class WidgetManager {
             console.error("MainForm not found");
         }
 
-        // Initialize form event handlers
-        if (typeof setupFormHandlers === 'function') {
+        // Initialize form event handlers if in vscode mode
+        if (typeof acquireVsCodeApi === 'function') {
+            console.log("Setting up form handlers");
             setupFormHandlers();
         }
     }

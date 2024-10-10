@@ -1,5 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+// @ts-ignore
+import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
+
 import * as vscode from 'vscode';
 import * as cp from "child_process";
 import WebSocket from 'ws';
@@ -16,7 +19,7 @@ let panel: vscode.WebviewPanel | undefined = undefined;
 // Setup websocket server
 const wss = new WebSocket.Server({ port: 9991 });
 let websocket: WebSocket;
-let cabbageMode = "play";
+
 let firstMessages: any[] = [];
 let processes: (cp.ChildProcess | undefined)[] = [];
 
@@ -39,6 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
 		processes.forEach((p) => {
 			p?.kill("SIGKILL");
 		});
+		setCabbageMode("draggable");
 		Commands.enterEditMode(panel, websocket);
 	}));
 
@@ -47,14 +51,14 @@ export function activate(context: vscode.ExtensionContext) {
 		//assign current textEditor so we can track it even if focus changes to the webview
 		panel.onDidChangeViewState(() => {
 			textEditor = vscode.window.activeTextEditor;
-		})
+		});
 
 		vscode.workspace.onDidChangeTextDocument((editor) => {
 			// sendTextToWebView(editor.document, 'onFileChanged');
-		})
+		});
 
 		vscode.workspace.onDidSaveTextDocument(async (editor) => {
-			cabbageMode = "play";
+			setCabbageMode("play");
 			Commands.onDidSave(panel, vscodeOutputChannel, processes, editor);
 		});
 		vscode.workspace.onDidOpenTextDocument((editor) => {
@@ -66,8 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 
 		// callback for webview messages - some of these will be fired off from the CabbageApp
-		panel.webview.onDidReceiveMessage(
-			message => {
+		panel.webview.onDidReceiveMessage(message => {
 				Commands.handleWebviewMessage(
 					message,
 					websocket,
@@ -76,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
 					vscodeOutputChannel,
 					textEditor,
 					highlightDecorationType,
-					cabbageMode);
+					getCabbageMode());
 			}
 		);
 	})

@@ -359,6 +359,9 @@ export class ExtensionUtils {
   <link href="${styles}" rel="stylesheet">
   <link href="${cabbageStyles}" rel="stylesheet">  
   <link href="${colourPickerStyles}" rel="stylesheet">  
+  <script>
+            window.interactJS = "${interactJS}";
+</script>
 
   <style>
   .full-height-div {

@@ -1,3 +1,17 @@
+// At the beginning of the file
+let interactPromise;
+
+export function initializeInteract(interactJSUri) {
+    console.log("Initializing interact", interactJSUri);
+    interactPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = interactJSUri;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 /**
  * This is a wrapper for all widgets. It provides the drag and drop functionality
  * for the UI designer
@@ -15,6 +29,17 @@ export class WidgetWrapper {
         this.dragEndListener = this.dragEndListener.bind(this);
         this.widgets = widgets;
         this.vscode = vscode;
+
+        // Wait for interact to load before applying the configuration
+        interactPromise.then(() => {
+            this.applyInteractConfig({
+                restriction: 'parent',
+                endOnly: true
+            });
+        }).catch(error => {
+            console.error("Failed to load interact.min.js:", error);
+        });
+
         this.applyInteractConfig(restrictions);
     }
 
@@ -22,18 +47,19 @@ export class WidgetWrapper {
         if (event.shiftKey || event.altKey) {
             return;
         }
-        console.log("drag started", event);
         const { dx, dy } = event;
         this.selectedElements.forEach(element => {
-            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx;
-            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy;
-
+            // Slow down the movement by using a fraction of dx and dy
+            const slowFactor = 0.5; // Adjust this value to change the drag speed
+            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx * slowFactor;
+            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy * slowFactor;
+    
             element.style.transform = `translate(${x}px, ${y}px)`;
             element.setAttribute('data-x', x);
             element.setAttribute('data-y', y);
         });
     }
-
+    
     dragEndListener(event) {
         const { dx, dy } = event;
 

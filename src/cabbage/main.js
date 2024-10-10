@@ -1,12 +1,20 @@
-import { PropertyPanel } from "../propertyPanel.js";
+import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
+
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 
-export let vscode = null;
-export const widgets = [];
-export let cabbageMode = 'nonDraggable';
+
+
+// Update the vscode assignment
+if (typeof acquireVsCodeApi === 'function') {
+    setVSCode(acquireVsCodeApi());
+}
+
+// Update cabbageMode assignment
+setCabbageMode('nonDraggable');
+
 let widgetWrappers = null;
 const leftPanel = document.getElementById('LeftPanel');
 const rightPanel = document.getElementById('RightPanel');
@@ -16,30 +24,50 @@ if (leftPanel) { leftPanel.className = "full-height-div nonDraggable"; }
 if (rightPanel) { rightPanel.style.visibility = "hidden"; }
 
 // Notify the plugin that Cabbage is ready to load
-Cabbage.sendCustomCommand(vscode, 'cabbageIsReadyToLoad');
 CabbageUtils.showOverlay();
 
 // Check if running in VS Code context
 if (typeof acquireVsCodeApi === 'function') {
-    vscode = acquireVsCodeApi();
     try {
-        // Dynamically load the widgetWrapper module
-        const module = await import("../widgetWrapper.js");
-        const { WidgetWrapper } = module;
+        console.log("Loading modules in main.js");
+        // Load PropertyPanel and WidgetWrapper modules concurrently
+        const [propertyPanelModule, widgetWrapperModule] = await Promise.all([
+            import("../propertyPanel.js"),
+            import("../widgetWrapper.js")
+        ]);
+
+        console.log("Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
+
+        const { PropertyPanel } = propertyPanelModule;
+        const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
+
+        console.log("PropertyPanel in main.js:", PropertyPanel);
+
+        // Initialize interact with the correct URI
+        initializeInteract(window.interactJS);
 
         // Initialize widget wrappers with necessary dependencies
         widgetWrappers = new WidgetWrapper(PropertyPanel.updatePanel, selectedElements, widgets, vscode);
+        
+        // You might want to wait for the interact script to load before proceeding
+        await widgetWrappers.interactPromise;
+        
+        console.log("Modules initialized in main.js");
     } catch (error) {
-        console.error("Error loading widgetWrapper.js:", error);
+        console.error("Error loading modules in main.js:", error);
     }
+} else {
+    console.log("Running outside of VSCode environment");
 }
 
+Cabbage.sendCustomCommand(vscode, 'cabbageIsReadyToLoad');
 /**
- * Called from the webview panel on startup, and when a user saves/updates or changes a .csd file.
+ * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
  * 
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {
+
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
@@ -61,7 +89,7 @@ window.addEventListener('message', async event => {
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
-            cabbageMode = 'nonDraggable'; // Set the mode to non-draggable
+            setCabbageMode('nonDraggable'); // Set the mode to non-draggable
             if (mainForm) {
                 mainForm.remove(); // Remove the MainForm element from the DOM
             } else {
@@ -73,7 +101,7 @@ window.addEventListener('message', async event => {
         // Called when entering edit mode. Converts existing widgets to draggable mode.
         case 'onEnterEditMode':
             CabbageUtils.hideOverlay(); // Hide the overlay
-            cabbageMode = 'draggable'; // Set the mode to draggable
+            setCabbageMode('draggable'); // Set the mode to draggable
 
             const widgetUpdatesMessages = [];
             widgets.forEach(widget => {

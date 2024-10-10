@@ -271,9 +271,9 @@ export class PropertyPanel {
 
           // gentable and form are special cases and have dedicated update methods
           if (eventType !== 'click') {
-            if (widget.props.type == "gentable") {
+            if (widget.props.type === "gentable") {
               widget.updateTable();
-            } else if (widget.props.type == "form") {
+            } else if (widget.props.type === "form") {
               widget.updateSVG();
             } else {
               const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
@@ -298,3 +298,7 @@ export class PropertyPanel {
     });
   }
 }
+
+// Add a default export as well
+export default PropertyPanel;
+console.log("PropertyPanel exported:", PropertyPanel);

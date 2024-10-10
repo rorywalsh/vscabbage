@@ -33,7 +33,6 @@ export class Commands {
         cabbageMode: string
     ) {
         const config = vscode.workspace.getConfiguration("cabbage");
-        
         switch (message.command) {
             case 'widgetUpdate':
                 if (cabbageMode !== "play") {
@@ -160,7 +159,7 @@ export class Commands {
 
         processes.forEach((p) => {
             p?.kill("SIGKILL");
-        })
+        });
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
@@ -235,7 +234,7 @@ export class Commands {
 
     static async formatDocument() {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const text = editor.document.getText();
         const formattedText = ExtensionUtils.formatText(text);  // Your formatting logic

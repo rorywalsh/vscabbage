@@ -1,12 +1,46 @@
-// Imports utility and property panel modules
-import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
-import { PropertyPanel } from "../propertyPanel.js";
+console.log("loading eventHandlers.js");
 
-// Imports variables from the main.js file
+// Imports variables from the sharedState.js file
 // - cabbageMode: Determines if widgets are draggable.
 // - vscode: Reference to the VSCode API, null in plugin mode.
 // - widgets: Array holding all the widgets in the current form.
-import { cabbageMode, vscode, widgets } from "../cabbage/main.js";
+import { cabbageMode, vscode, widgets } from "./sharedState.js";
+
+// Imports utility and property panel modules
+import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
+
+// Declare PropertyPanel variable and a promise to track its loading
+let PropertyPanel;
+
+const loadPropertyPanel = async () => {
+    if (!PropertyPanel) {
+        try {
+            const module = await import("../propertyPanel.js");
+            PropertyPanel = module.default || module.PropertyPanel;
+            console.log("PropertyPanel loaded successfully:", PropertyPanel);
+        } catch (error) {
+            console.error("Error loading PropertyPanel:", error);
+            throw error; // Re-throw to be caught by the caller
+        }
+    }
+    return PropertyPanel;
+};
+
+if (vscode !== null) {
+    console.log("Attempting to load PropertyPanel");
+    propertyPanelPromise = import("../propertyPanel.js")
+        .then(module => {
+            console.log("PropertyPanel module loaded:", module);
+            PropertyPanel = loadPropertyPanel();
+            console.log("PropertyPanel assigned:", PropertyPanel);
+            return PropertyPanel;
+        })
+        .catch(error => {
+            console.error("Error loading PropertyPanel:", error);
+        });
+} else {
+    console.log("vscode is null, not loading PropertyPanel");
+}
 
 // Global set to keep track of selected elements in the form.
 export let selectedElements = new Set();
@@ -17,7 +51,7 @@ export let selectedElements = new Set();
  * @param {PointerEvent} e - The pointer down event.
  * @param {HTMLElement} widgetDiv - The widget element being clicked.
  */
-export function handlePointerDown(e, widgetDiv) {
+export async function handlePointerDown(e, widgetDiv) {
     if (e.altKey || e.shiftKey) {
         widgetDiv.classList.toggle('selected');
         updateSelectedElements(widgetDiv);
@@ -27,6 +61,25 @@ export function handlePointerDown(e, widgetDiv) {
         selectedElements.clear();
         widgetDiv.classList.add('selected');
         selectedElements.add(widgetDiv);
+    }
+
+    // Wait for PropertyPanel to be loaded before using it
+
+    if (PropertyPanel && cabbageMode === 'draggable') {
+        try {
+            const PP = await loadPropertyPanel();
+            if (PP && typeof PP.updatePanel === 'function') {
+                await PP.updatePanel(vscode, {
+                    eventType: "click",
+                    name: CabbageUtils.findValidId(e),
+                    bounds: {}
+                }, widgets); 
+            } else {
+                console.error("PropertyPanel.updatePanel is not available");
+            }
+        } catch (error) {
+            console.error("Error while using PropertyPanel:", error);
+        }
     }
 }
 
@@ -97,7 +150,7 @@ export function setupFormHandlers() {
         let mouseDownPosition = {};
 
         if (form && contextMenu) {
-            form.addEventListener("contextmenu", (e) => {
+            form.addEventListener("contextmenu", async (e) => {
                 e.preventDefault(); // Prevent default context menu
                 e.stopImmediatePropagation();
                 e.stopPropagation();
@@ -125,12 +178,30 @@ export function setupFormHandlers() {
                 groupContextMenu.style.top = `${y}px`;
 
                 mouseDownPosition = { x: x, y: y };
-                
+
                 // Show appropriate menu based on mode and target element
                 if (cabbageMode === 'draggable' && e.target.id === "MainForm") {
                     contextMenu.style.visibility = "visible";
                 } else {
                     groupContextMenu.style.visibility = "visible";
+                }
+
+                // Wait for PropertyPanel to be loaded before using it
+                if (PropertyPanel && cabbageMode === 'draggable') {
+                    try {
+                        const PP = await loadPropertyPanel();
+                        if (PP && typeof PP.updatePanel === 'function') {
+                            await PP.updatePanel(vscode, {
+                                eventType: "click",
+                                name: CabbageUtils.findValidId(e),
+                                bounds: {}
+                            }, widgets);
+                        } else {
+                            console.error("PropertyPanel.updatePanel is not available");
+                        } 
+                    } catch (error) {
+                        console.error("Error while using PropertyPanel:", error);
+                    }
                 }
             });
 
@@ -173,7 +244,7 @@ export function setupFormHandlers() {
         let offsetY = 0;
 
         // Event listener for pointer down events on the form
-        form.addEventListener('pointerdown', (event) => {
+        form.addEventListener('pointerdown', async (event) => {
             if (event.button !== 0) return; // Ignore right clicks
 
             // Hide context menus when clicking
@@ -228,9 +299,22 @@ export function setupFormHandlers() {
                 selectedElements.clear();
             }
 
-            // Update the property panel when clicking on a widget in draggable mode
+            // In the part where PropertyPanel is used:
             if (!event.shiftKey && !event.altKey && cabbageMode === 'draggable') {
-                PropertyPanel.updatePanel(vscode, { eventType: "click", name: CabbageUtils.findValidId(event), bounds: {} }, widgets);
+                try {
+                    const PP = await loadPropertyPanel();
+                    if (PP && typeof PP.updatePanel === 'function') {
+                        await PP.updatePanel(vscode, {
+                            eventType: "click",
+                            name: CabbageUtils.findValidId(event),
+                            bounds: {}
+                        }, widgets);
+                    } else {
+                        console.error("PropertyPanel.updatePanel is not available");
+                    }
+                } catch (error) {
+                    console.error("Error while using PropertyPanel:", error);
+                }
             }
         });
 
