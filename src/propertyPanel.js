@@ -6,15 +6,16 @@ import { CabbageUtils } from "./cabbage/utils.js";
 
 export class PropertyPanel {
   constructor(vscode, type, properties, widgets) {
-    this.vscode = vscode;
-    this.type = type;
-    this.properties = properties;
-    this.widgets = widgets;
+    this.vscode = vscode;           // VSCode API instance
+    this.type = type;               // Type of the widget
+    this.properties = properties;   // Properties of the widget
+    this.widgets = widgets;         // List of widgets associated with this panel
 
-    // Create the panel and sections
+    // Create the panel and sections on initialization
     this.createPanel();
   }
 
+  // Clear input event listeners from existing inputs
   clearInputs() {
     const inputs = document.querySelectorAll('.property-panel input');
     inputs.forEach(input => {
@@ -22,10 +23,12 @@ export class PropertyPanel {
     });
   }
 
+  // Create the main property panel and its sections
   createPanel() {
     const panel = document.querySelector('.property-panel');
-    panel.innerHTML = ''; // Clear the panel
-    this.clearInputs();
+    panel.innerHTML = ''; // Clear the panel's content
+    this.clearInputs();   // Remove any previous input listeners
+
     // Create a special section for type and channel
     this.createSpecialSection(panel);
 
@@ -34,34 +37,38 @@ export class PropertyPanel {
     this.createMiscSection(this.properties, panel);
   }
 
+  // Create a special section for widget properties (Type and Channel)
   createSpecialSection(panel) {
     const specialSection = this.createSection('Widget Properties');
 
     // Add Type Property
     this.addPropertyToSection('Type', this.type, specialSection);
 
-    // Add Channel Property
+    // Add Channel Property if it exists
     if (this.properties.channel) {
       this.addPropertyToSection('Channel', this.properties.channel, specialSection);
     }
 
-    panel.appendChild(specialSection);
+    panel.appendChild(specialSection); // Append special section to panel
   }
 
+  // Create sections for each group of properties
   createSections(properties, panel) {
     Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
       if (typeof sectionProperties === 'object' && sectionProperties !== null && !Array.isArray(sectionProperties)) {
         const sectionDiv = this.createSection(sectionName);
 
+        // Add each property to the section
         Object.entries(sectionProperties).forEach(([key, value]) => {
           this.addPropertyToSection(key, value, sectionDiv, sectionName);
         });
 
-        panel.appendChild(sectionDiv);
+        panel.appendChild(sectionDiv); // Append the section to the panel
       }
     });
   }
 
+  // Create a miscellaneous section for properties not in a specific section
   createMiscSection(properties, panel) {
     const miscSection = this.createSection('Misc');
 
@@ -70,38 +77,45 @@ export class PropertyPanel {
         // Skip adding properties that belong to objects already covered
         return;
       }
-      this.addPropertyToSection(key, value, miscSection);
+      this.addPropertyToSection(key, value, miscSection); // Add miscellaneous property
     });
 
-    panel.appendChild(miscSection);
+    panel.appendChild(miscSection); // Append miscellaneous section to panel
   }
 
+  // Create a new section with a header
   createSection(name) {
     const sectionDiv = document.createElement('div');
     sectionDiv.classList.add('property-section');
 
     const header = document.createElement('h3');
-    header.textContent = name;
+    header.textContent = name; // Set the section header
     sectionDiv.appendChild(header);
 
-    return sectionDiv;
+    return sectionDiv; // Return the created section
   }
 
+  // Create an input element based on the property key and value
   createInputElement(key, value, path = '') {
     let input;
-    const fullPath = path ? `${path}.${key}` : key;
+    const fullPath = path ? `${path}.${key}` : key; // Construct full path for input id
 
+    // Handle color input
     if (fullPath.toLowerCase().includes("colour")) {
       input = document.createElement('input');
-      input.value = value;
-      input.style.backgroundColor = value;
+      input.value = value; // Set the initial color value
+      input.style.backgroundColor = value; // Set background color
+
+      // Initialize color picker
       const picker = new CP(input);
       picker.on('change', (r, g, b, a) => {
-        input.value = CP.HEX([r, g, b, a]);
-        input.style.backgroundColor = CP.HEX([r, g, b, a]);
-        this.handleInputChange(input.parentElement);
+        input.value = CP.HEX([r, g, b, a]); // Update input value to HEX
+        input.style.backgroundColor = CP.HEX([r, g, b, a]); // Update background color
+        this.handleInputChange(input.parentElement); // Trigger change handler
       });
-    } else if (key.toLowerCase().includes("family")) {
+    } 
+    // Handle font family selection
+    else if (key.toLowerCase().includes("family")) {
       input = document.createElement('select');
       const fontList = [
         'Arial', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS',
@@ -109,61 +123,73 @@ export class PropertyPanel {
         'Brush Script MT', 'Comic Sans MS', 'Impact', 'Lucida Sans',
         'Palatino', 'Century Gothic', 'Bookman', 'Candara', 'Consolas'
       ];
+
+      // Populate font family options
       fontList.forEach((font) => {
         const option = document.createElement('option');
         option.value = font;
         option.textContent = font;
         input.appendChild(option);
       });
-      input.value = value || 'Verdana';
-    } else if (key.toLowerCase() === 'align') {
+      input.value = value || 'Verdana'; // Set default value if none provided
+    } 
+    // Handle text alignment selection
+    else if (key.toLowerCase() === 'align') {
       input = document.createElement('select');
       const alignments = ['left', 'right', 'centre'];
+
+      // Populate alignment options
       alignments.forEach((align) => {
         const option = document.createElement('option');
         option.value = align;
         option.textContent = align;
         input.appendChild(option);
       });
-      input.value = value || 'centre';
-    } else {
+      input.value = value || 'centre'; // Set default value if none provided
+    } 
+    // Default case for text input
+    else {
       input = document.createElement('input');
       input.type = 'text';
-      input.value = `${value}`;
+      input.value = `${value}`; // Set the initial value
       if (key.toLowerCase() === 'type') {
-        input.readOnly = true;
+        input.readOnly = true; // Make type input read-only
       }
     }
 
-    input.id = fullPath;
-    input.dataset.parent = this.properties.channel;
+    // Set input attributes
+    input.id = fullPath; 
+    input.dataset.parent = this.properties.channel; // Set data attribute for parent channel
 
-    input.addEventListener('input', this.handleInputChange.bind(this));
+    input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
 
-    return input;
+    return input; // Return the created input element
   }
 
+  // Add a property input to a specific section
   addPropertyToSection(key, value, section, path = '') {
     const propertyDiv = document.createElement('div');
     propertyDiv.classList.add('property');
 
     const label = document.createElement('label');
     const formattedKey = key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
-    label.textContent = formattedKey;
+    label.textContent = formattedKey; // Format and set label text
     propertyDiv.appendChild(label);
 
-    const input = this.createInputElement(key, value, path);
+    const input = this.createInputElement(key, value, path); // Create input element
     propertyDiv.appendChild(input);
-    section.appendChild(propertyDiv);
+    section.appendChild(propertyDiv); // Add property div to section
   }
 
+  // Handle changes to input fields
   handleInputChange(evt) {
     let input;
+    // Determine the input source
     if (evt instanceof Event) {
-      input = evt.target;
+      input = evt.target; // Get target from event
     } else {
       input = evt;
-      const innerInput = evt.querySelector('input');
+      const innerInput = evt.querySelector('input'); // Query for input if a parent element is passed
       input = innerInput;
     }
 
@@ -172,45 +198,48 @@ export class PropertyPanel {
     console.log("Input id:", input.id);
     console.log("Input dataset parent:", input.dataset.parent);
 
+    // Update the corresponding widget property based on input changes
     this.widgets.forEach((widget) => {
       if (widget.props.channel === input.dataset.parent) {
         const inputValue = input.value;
-        let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
+        let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue); // Parse the input value
 
         // Handle nested properties
-        const propertyPath = input.id.split('.');
+        const propertyPath = input.id.split('.'); // Split id to access nested properties
         let currentObj = widget.props;
-        
+
+        // Traverse the property path
         for (let i = 0; i < propertyPath.length - 1; i++) {
           if (!(propertyPath[i] in currentObj)) {
-            console.warn(`Property ${propertyPath.slice(0, i+1).join('.')} does not exist in widget.props`);
+            console.warn(`Property ${propertyPath.slice(0, i + 1).join('.')} does not exist in widget.props`);
             return;
           }
-          currentObj = currentObj[propertyPath[i]];
+          currentObj = currentObj[propertyPath[i]]; // Move deeper into the property object
         }
 
-        const finalProperty = propertyPath[propertyPath.length - 1];
-        widget.props._updateId = Date.now(); // Add this line
+        const finalProperty = propertyPath[propertyPath.length - 1]; // Get final property name
 
+        // Update the property with the new value
         if (!(finalProperty in currentObj)) {
           console.warn(`Property ${input.id} does not exist in widget.props`);
           return;
         }
 
-        currentObj[finalProperty] = parsedValue;
+        currentObj[finalProperty] = parsedValue; // Set the new value
 
         console.log("Updated widget property:", input.id, "with value:", parsedValue);
 
-        CabbageUtils.updateBounds(widget.props, input.id);
+        CabbageUtils.updateBounds(widget.props, input.id); // Update the widget bounds
 
-        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel); // Get widget DOM element
+        // Update widget representation based on type
         if (widget.props['type'] === 'form') {
-          widget.updateSVG();
+          widget.updateSVG(); // Update SVG for form type
         } else {
-          console.log("updating widget:", widget.props._updateId);
-          widgetDiv.innerHTML = widget.getInnerHTML();
+          widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML content for other types
         }
 
+        // Send message to VSCode extension with updated widget properties
         this.vscode.postMessage({
           command: 'widgetUpdate',
           text: JSON.stringify(widget.props),
@@ -219,50 +248,57 @@ export class PropertyPanel {
     });
   }
 
+  // Static method to reattach event listeners to widgets
   static reattachListeners(widget, widgetDiv) {
+    let vscode;
     if (typeof acquireVsCodeApi === 'function') {
+      // Acquire VSCode API if not already available
       if (!vscode) {
         vscode = acquireVsCodeApi();
       }
       if (typeof widget.addVsCodeEventListeners === 'function') {
-        widget.addVsCodeEventListeners(widgetDiv, vscode);
+        widget.addVsCodeEventListeners(widgetDiv, vscode); // Attach VSCode event listeners to widget
       }
     } else if (widget.props.type !== "form") {
       if (typeof widget.addEventListeners === 'function') {
-        widget.addEventListeners(widgetDiv);
+        widget.addEventListeners(widgetDiv); // Attach standard event listeners if not a form
       }
     }
   }
+
+  // Static method to update the panel with new properties and events
   static async updatePanel(vscode, input, widgets) {
     widgets.forEach(widget => {
-      console.log("updatePane:", widget.props);
+      console.log("updatePanel:", widget.props);
     });
+
     // Ensure input is an array of objects
     this.vscode = vscode;
-    let events = Array.isArray(input) ? input : [input];
+    let events = Array.isArray(input) ? input : [input]; // Normalize input to an array
 
     console.log("input", input);
 
-
     const element = document.querySelector('.property-panel');
     if (element) {
-      element.style.visibility = "visible";
-      element.innerHTML = '';
+      element.style.visibility = "visible"; // Make the panel visible
+      element.innerHTML = ''; // Clear previous content
     }
 
     // Iterate over the array of event objects
     events.forEach(eventObj => {
-      const { eventType, name, bounds } = eventObj;
+      const { eventType, name, bounds } = eventObj; // Destructure event properties
 
       widgets.forEach((widget, index) => {
         if (widget.props.channel === name) {
-          //if (eventType !== 'click') {
+          // Update widget size based on bounds if available
           if (typeof widget.props?.size === 'object' && widget.props.size !== null) {
             if (bounds.w > 0 && bounds.h > 0) {
               widget.props.size.width = Math.floor(bounds.w);
               widget.props.size.height = Math.floor(bounds.h);
             }
           }
+
+          // Update widget bounds if available
           if (typeof widget.props?.bounds === 'object' && widget.props.bounds !== null) {
             if (Object.keys(bounds).length === 4) {
               if (bounds.w > 0 && bounds.h > 0) {
@@ -274,36 +310,36 @@ export class PropertyPanel {
             }
           }
 
-          // gentable and form are special cases and have dedicated update methods
+          // Handle specific widget types with dedicated update methods
           if (eventType !== 'click') {
             if (widget.props.type === "gentable") {
-              widget.updateTable();
+              widget.updateTable(); // Update table for gentable type
             } else if (widget.props.type === "form") {
-              widget.updateSVG();
+              widget.updateSVG(); // Update SVG for form type
             } else {
               const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-              widgetDiv.innerHTML = widget.getInnerHTML();
+              widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
             }
           }
+          // Create a new PropertyPanel instance for the widget
           new PropertyPanel(vscode, widget.props.type, widget.props, widgets);
           if (!this.vscode) {
             console.error("not valid");
           }
 
-          //firing these off in one go causes the vs-code editor to react slowly
+          // Delay sending messages to VSCode to avoid slow responses
           setTimeout(() => {
             this.vscode.postMessage({
               command: 'widgetUpdate',
               text: JSON.stringify(widget.props),
             });
-          }, (index + 1) * 150);
-          //}
+          }, (index + 1) * 150); // Delay increases with index
         }
       });
     });
   }
 }
 
-// Add a default export as well
+// Add a default export for the PropertyPanel class
 export default PropertyPanel;
 console.log("PropertyPanel exported:", PropertyPanel);

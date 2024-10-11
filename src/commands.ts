@@ -30,6 +30,7 @@ export class Commands {
         textEditor: any,
         highlightDecorationType: any,
         cabbageMode: string,
+        processes: any[],
         lastSavedFileName: string | undefined,
         context: vscode.ExtensionContext  // Add this parameter
     ) {
