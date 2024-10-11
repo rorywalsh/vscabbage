@@ -98,6 +98,7 @@ export class PropertyPanel {
       const picker = new CP(input);
       picker.on('change', (r, g, b, a) => {
         input.value = CP.HEX([r, g, b, a]);
+        input.style.backgroundColor = CP.HEX([r, g, b, a]);
         this.handleInputChange(input.parentElement);
       });
     } else if (key.toLowerCase().includes("family")) {

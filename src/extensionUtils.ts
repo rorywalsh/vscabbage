@@ -121,7 +121,7 @@ export class ExtensionUtils {
         }
     }
 
-    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined) {
+    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3): Promise<void> {
         if (cabbageMode === "play") {
             return;
         }
@@ -200,10 +200,20 @@ export class ExtensionUtils {
                         ),
                         updatedCabbageSection
                     );
-                    await vscode.workspace.applyEdit(workspaceEdit);
+                    try {
+                        const success = await vscode.workspace.applyEdit(workspaceEdit);
+                        if (!success && retryCount > 0) {
+                            // If the edit failed, wait a bit and try again
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType, lastSavedFileName, panel, retryCount - 1);
+                        }
 
-                    if (cabbageMatch.index !== undefined && textEditor) {
-                        ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
+                        if (cabbageMatch.index !== undefined && textEditor) {
+                            ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
+                        }
+                    } catch (error) {
+                        console.error("Failed to apply edit:", error);
+                        vscodeOutputChannel.append(`Failed to apply edit: ${error}`);
                     }
                 }
             } catch (parseError) {
@@ -304,7 +314,7 @@ export class ExtensionUtils {
 
     static deepEqual(obj1: any, obj2: any): boolean {
         // If both are the same instance (including primitives)
-        if (obj1 === obj2) return true;
+        if (obj1 === obj2) {return true};
 
         // If either is not an object, they are not equal
         if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
@@ -314,11 +324,11 @@ export class ExtensionUtils {
         // Compare the number of keys (early return if different)
         const keys1 = Object.keys(obj1);
         const keys2 = Object.keys(obj2);
-        if (keys1.length !== keys2.length) return false;
+        if (keys1.length !== keys2.length) {return false;}
 
         // Recursively compare properties
         for (let key of keys1) {
-            if (!ExtensionUtils.deepEqual(obj1[key], obj2[key])) return false;
+            if (!ExtensionUtils.deepEqual(obj1[key], obj2[key])) {return false;}
         }
 
         return true;
@@ -327,22 +337,54 @@ export class ExtensionUtils {
     //this function will merge incoming properties (from the props object) into an existing JSON array, while removing any 
     //properties that match the default values defined in the defaultProps object.
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
-
-        for (let i = 0; i < jsonArray.length; i++) {
-            let jsonObject = jsonArray[i];
-            if (jsonObject.channel === props.channel) {
-                let newObject = { ...jsonObject, ...props };
-
+        // If the new object is a form, we need to handle it differently
+        if (props.type === 'form') {
+            // Find existing form object
+            const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
+            if (formIndex !== -1) {
+                // Update existing form object
+                let newFormObject = { ...jsonArray[formIndex], ...props };
                 for (let key in defaultProps) {
-                    // Check for deep equality when comparing objects
-                    if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                        delete newObject[key]; // Remove matching property or object
+                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
+                        delete newFormObject[key];
                     }
                 }
-
-                jsonArray[i] = ExtensionUtils.sortOrderOfProperties(newObject);
-                break;
+                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(newFormObject);
+            } else {
+                // Add new form object if it doesn't exist
+                let newFormObject = { ...props };
+                for (let key in defaultProps) {
+                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
+                        delete newFormObject[key];
+                    }
+                }
+                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(newFormObject)); // Add form to the beginning
             }
+            return jsonArray;
+        }
+
+        // For non-form objects, proceed as before
+        let existingObject = jsonArray.find(obj => obj.channel === props.channel);
+
+        if (existingObject) {
+            // Update existing object
+            let newObject = { ...existingObject, ...props };
+            for (let key in defaultProps) {
+                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
+                    delete newObject[key];
+                }
+            }
+            const index = jsonArray.findIndex(obj => obj.channel === props.channel);
+            jsonArray[index] = ExtensionUtils.sortOrderOfProperties(newObject);
+        } else {
+            // Add new object
+            let newObject = { ...props };
+            for (let key in defaultProps) {
+                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
+                    delete newObject[key];
+                }
+            }
+            jsonArray.push(ExtensionUtils.sortOrderOfProperties(newObject));
         }
 
         return jsonArray;

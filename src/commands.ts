@@ -33,6 +33,7 @@ export class Commands {
         lastSavedFileName: string | undefined
     ) {
         const config = vscode.workspace.getConfiguration("cabbage");
+        console.warn("Received message:", message);
         switch (message.command) {
             case 'widgetUpdate':
                 if (cabbageMode !== "play") {
@@ -91,10 +92,16 @@ export class Commands {
 
     static setupWebViewPanel(context: vscode.ExtensionContext) {
         // Create the webview panel
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const launchInNewColumn = config.get("launchInNewColumn");
+        console.log("launchInNewColumn:", launchInNewColumn);
+        // Determine the ViewColumn based on the launchInNewColumn setting
+        const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+
         const panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             'Cabbage UI Editor',
-            vscode.ViewColumn.One, // Load in first column
+            viewColumn, // Use the determined ViewColumn
             { 
                 enableScripts: true,
                 retainContextWhenHidden: true // Add this line
