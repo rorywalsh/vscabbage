@@ -11,7 +11,11 @@ import { VerticalSlider } from "./widgets/verticalSlider.js";
 // @ts-ignore
 import { NumberSlider } from "./widgets/numberSlider.js";
 // @ts-ignore
-import { Button, FileButton, OptionButton } from "./widgets/button.js";
+import { Button } from "./widgets/button.js";
+// @ts-ignore
+import { FileButton } from "./widgets/fileButton.js";
+// @ts-ignore
+import { OptionButton } from "./widgets/optionButton.js";
 // @ts-ignore
 import { Checkbox } from "./widgets/checkBox.js";
 // @ts-ignore
@@ -27,7 +31,7 @@ import { ListBox } from "./widgets/listBox.js";
 // @ts-ignore
 import { CsoundOutput } from "./widgets/csoundOutput.js";
 // @ts-ignore
-import { MidiKeyboard } from "./widgets/midiKeyboard.js";
+import { MidiKeyboard } from "./widgets/keyboard.js";
 // @ts-ignore
 import { GenTable } from "./widgets/genTable.js";
 // @ts-ignore
@@ -41,7 +45,7 @@ export const widgetConstructors = {
 	"rotarySlider": RotarySlider,
 	"horizontalSlider": HorizontalSlider,
 	"horizontalRangeSlider": HorizontalRangeSlider,
-	"vslider": VerticalSlider,
+	"verticalSlider": VerticalSlider,
 	"numberSlider": NumberSlider,
 	"keyboard": MidiKeyboard,
 	"form": Form,
@@ -57,6 +61,12 @@ export const widgetConstructors = {
 	"checkBox": Checkbox,
 	"csoundOutput": CsoundOutput,
 	"textEditor": TextEditor
+};
+
+export const WidgetProps = {
+	"type": "",
+	"channel": "",
+	"key": ""
 };
 
 // Extract widget types directly from keys

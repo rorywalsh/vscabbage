@@ -28,7 +28,7 @@ export class NumberSlider {
             },
             "textOffsetY": 0,
             "valueTextBox": 0,
-            "colour": '#93d200',
+            "colour": "#93d200",
             "fontColour": "#dddddd",
             "stroke": {
                 "colour": "#525252",
@@ -42,7 +42,7 @@ export class NumberSlider {
             "automatable": 1,
             "valuePrefix": "",
             "valuePostfix": "",
-            "presetIgnore": 0,
+            "presetIgnore": 0
         };
 
         this.isDragging = false;

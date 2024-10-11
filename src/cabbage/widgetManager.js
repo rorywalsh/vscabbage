@@ -39,6 +39,7 @@ export class WidgetManager {
      * @returns {object|null} - The properties of the newly inserted widget or null on failure.
      */
     static async insertWidget(type, props) {
+        console.trace()
         console.log("Inserting widget of type:", type);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
@@ -58,6 +59,13 @@ export class WidgetManager {
         }
 
         // Assign properties to the widget
+        if (props.top !== undefined && props.left !== undefined) {
+            widget.props.bounds = widget.props.bounds || {};
+            widget.props.bounds.top = props.top;
+            widget.props.bounds.left = props.left;
+            delete props.top;
+            delete props.left;
+        }
         Object.assign(widget.props, props);
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
             console.log(props);
@@ -234,7 +242,7 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static updateWidget(obj) {
-
+        console.warn("Updating widget", obj);
         const channel = obj['channel'];
         let widgetFound = false;
 

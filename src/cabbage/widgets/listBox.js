@@ -10,7 +10,7 @@ export class ListBox {
             "width": 200,
             "height": 300
             },
-            "type": "listbox",
+            "type": "listBox",
             "backgroundColour": "#ffffff",
             "fontColour": "#000000",
             "highlightedItemColour": "#dddddd",
@@ -21,8 +21,7 @@ export class ListBox {
             "channelType": "number",
             "min":0,
             "max":3
-        }
-
+        };
     }
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;

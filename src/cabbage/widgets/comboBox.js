@@ -28,7 +28,7 @@ export class ComboBox {
             "max": 3,
             "visible": 1,
             "type": "comboBox",
-            "value": 0,
+            "value": 0, 
             "automatable": 1,
             "active": 1,
             "channelType": "number",
@@ -44,33 +44,41 @@ export class ComboBox {
     }
 
     pointerDown(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+
         if (this.props.active === 0) {
             return '';
         }
 
-        this.isOpen = true;//!this.isOpen;
-        console.log("Pointer down", this.isOpen);
+        // Check if the click is on a dropdown item
+        if (evt.target.closest('.combobox-item')) {
+            return; // Let the click event handle item selection
+        }
+
+        this.isOpen = !this.isOpen;
         this.isMouseInside = true;
         CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
 
     handleItemClick(item) {
-        this.selectedItem = item.trim();
-        const items = this.props.items.split(",");
+        this.selectedItem = item;
+        const items = this.props.items.split(",").map(i => i.trim());
         const index = items.indexOf(this.selectedItem);
-        const normalValue = CabbageUtils.map(index, 0, items.length, 0, 1);
+        this.props.value = index; // Update the value property
+        const normalValue = CabbageUtils.map(index, 0, items.length - 1, 0, 1);
 
         const msg = {
-            paramIdx: this.parameterIndex, channel: this.props.channel,
+            paramIdx: this.parameterIndex,
+            channel: this.props.channel,
             value: this.props.channelType === "string" ? this.selectedItem : normalValue,
             channelType: this.props.channelType
-        }
-        Cabbage.sendParameterUpdate(this.vscode, msg);
+        };
 
+        Cabbage.sendParameterUpdate(this.vscode, msg);
 
         this.isOpen = false;
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
-        widgetDiv.style.transform = 'translate(' + this.props.bounds.left + 'px,' + this.props.bounds.top + 'px)';
         CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
 
@@ -81,10 +89,19 @@ export class ComboBox {
 
     addEventListeners(widgetDiv) {
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        document.body.addEventListener("click", this.handleClickOutside.bind(this));
+        document.addEventListener("pointerdown", this.handleClickOutside.bind(this));
+        
+        // Add a global event listener for combobox item selection
+        document.addEventListener("click", (event) => {
+            const target = event.target.closest('[data-combobox-select]');
+            if (target && target.getAttribute('data-combobox-select') === this.props.channel) {
+                const selectedItem = target.getAttribute('data-item');
+                this.handleItemClick(selectedItem);
+            }
+        });
+
         widgetDiv.ComboBoxInstance = this;
     }
-
 
     handleClickOutside(event) {
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
@@ -97,16 +114,15 @@ export class ComboBox {
     }
 
     getInnerHTML() {
+
         if (this.props.visible === 0) {
             return '';
         }
 
-        const items = this.props.items.split(",");
+        const items = this.props.items.split(",").map(item => item.trim());
 
-        // Ensure selectedItem is up-to-date with the items list
-        if (!items.includes(this.selectedItem)) {
-            this.selectedItem = items.length > 0 ? items[0].trim() : "";
-        }
+        // Ensure selectedItem is up-to-date with the current value
+        this.selectedItem = items[this.props.value] || items[0];
 
         const alignMap = {
             'left': 'start',
@@ -119,39 +135,27 @@ export class ComboBox {
         const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
 
         let totalHeight = this.props.bounds.height;
-        const itemHeight = this.props.bounds.height * 0.8; // Scale back item height to 80% of the original height
+        const itemHeight = this.props.bounds.height * 0.8;
         let dropdownItems = "";
 
+        // Always render dropdown items for debugging
         if (this.isOpen) {
             items.forEach((item, index) => {
                 dropdownItems += `
-                    <div style="height:${itemHeight}px; display:flex; align-items:center; justify-content:center; cursor:pointer; background-color:${CabbageColours.darker(this.props.colour, 0.2)};"
+                    <div class="combobox-item" 
+                        data-channel="${this.props.channel}" 
+                        data-item="${item}"
+                        style="height:${itemHeight}px; display:flex; align-items:center; justify-content:center; cursor:pointer; background-color:${CabbageColours.darker(this.props.colour, 0.2)};"
                         onmouseover="this.style.backgroundColor='${CabbageColours.lighter(this.props.colour, 0.2)}'"
                         onmouseout="this.style.backgroundColor='${CabbageColours.darker(this.props.colour, 0.2)}'"
-                        onmousedown="document.getElementById('${this.props.channel}').ComboBoxInstance.handleItemClick('${item}')">
-                        <span style="font-family:${this.props.font.family}; font-size:${this.props.font.size}px; color:${this.props.fontColour};">${item.trim()}</span>
+                        data-combobox-select="${this.props.channel}">
+                        <span style="font-family:${this.props.font.family}; font-size:${fontSize}px; color:${this.props.fontColour};">${item}</span>
                     </div>
                 `;
             });
-
-            // Calculate the total dropdown height
-            const dropdownHeight = items.length * itemHeight;
-            totalHeight += dropdownHeight;
-
-            // Check available space
-            const mainForm = CabbageUtils.getWidgetDiv("MainForm");
-            const widgetDiv = mainForm.querySelector(`#${this.props.channel}`);
-            const widgetRect = widgetDiv.getBoundingClientRect();
-            const mainFormRect = mainForm.getBoundingClientRect();
-            const spaceBelow = mainFormRect.bottom - widgetRect.bottom;
-            const spaceAbove = widgetRect.top - mainFormRect.top;
-
-            // Determine max height for the dropdown
-            const maxDropdownHeight = Math.min(dropdownHeight, Math.max(spaceBelow, spaceAbove));
-
-            // Adjust total height
-            totalHeight = this.props.bounds.height + maxDropdownHeight;
         }
+
+        totalHeight += items.length * itemHeight;
 
         const arrowWidth = 10; // Width of the arrow
         const arrowHeight = 6; // Height of the arrow
@@ -173,30 +177,17 @@ export class ComboBox {
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour}" stroke="${this.props.stroke.colour}"
                     stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 
-                    onmousedown="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
+                    onclick="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
                 ${this.isOpen ? `
                     <foreignObject x="0" y="${this.props.bounds.height}" width="${this.props.bounds.width}" height="${totalHeight - this.props.bounds.height}">
-                        <div xmlns="http://www.w3.org/1999/xhtml" style="max-height:${totalHeight - this.props.bounds.height}px; overflow-y:auto; scrollbar-width: thin; scrollbar-color: ${CabbageColours.darker(this.props.colour, 0.2)} ${this.props.colour};">
-                            <style>
-                                /* Custom scrollbar for Webkit browsers */
-                                div::-webkit-scrollbar {
-                                    width: 8px;
-                                }
-                                div::-webkit-scrollbar-track {
-                                    background: ${this.props.colour};
-                                }
-                                div::-webkit-scrollbar-thumb {
-                                    background-color: ${CabbageColours.darker(this.props.colour, 0.2)};
-                                    border-radius: 4px;
-                                }
-                            </style>
+                        <div xmlns="http://www.w3.org/1999/xhtml" style="max-height:${totalHeight - this.props.bounds.height}px; overflow-y:auto;">
                             ${dropdownItems}
                         </div>
                     </foreignObject>` : ''}
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                    fill="${this.props.fontColour}" text-anchor="${svgAlign}" alignment-baseline="middle" style="${this.isOpen ? 'display: none;' : ''}"
+                    fill="${this.props.fontColour}" text-anchor="${svgAlign}" alignment-baseline="middle"
                     style="pointer-events: none;">${this.selectedItem}</text>
             </svg>
         `;

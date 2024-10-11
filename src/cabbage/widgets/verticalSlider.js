@@ -45,7 +45,7 @@ export class VerticalSlider {
       "automatable": 1,
       "valuePrefix": "",
       "valuePostfix": "",
-      "presetIgnore": 0,
+      "presetIgnore": 0
     };
 
     this.moveListener = this.pointerMove.bind(this);

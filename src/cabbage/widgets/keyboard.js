@@ -26,8 +26,8 @@ export class MidiKeyboard {
       "whiteNoteColour": "#ffffff",
       "keySeparatorColour": "#000000",
       "arrowBackgroundColour": "#0295cf",
-      "mouseoverKeyColour": '#93d200',
-      "keydownColour": '#93d200',
+      "mouseoverKeyColour": "#93d200",
+      "keydownColour": "#93d200",
       "automatable": 0,
       "octaves": 5
     };

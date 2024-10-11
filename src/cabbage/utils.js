@@ -228,22 +228,31 @@ export class CabbageUtils {
   }
   
   static updateBounds(props, identifier) {
+    console.log('updateBounds called with:', JSON.stringify(props), identifier);
     const element = document.getElementById(props.channel);
-    if (element) {
+    if (element && props.bounds) {
       switch (identifier) {
-        case 'left':
-          element.style.left = props.left + "px";
+        case 'bounds.left':
+          element.style.left = props.bounds.left + "px";
+          console.log('Updated left to:', props.bounds.left);
           break;
-        case 'top':
-          element.style.top = props.top + "px";
+        case 'bounds.top':
+          element.style.top = props.bounds.top + "px";
+          console.log('Updated top to:', props.bounds.top);
           break;
-        case 'width':
-          element.style.width = props.width + "px";
+        case 'bounds.width':
+          element.style.width = props.bounds.width + "px";
+          console.log('Updated width to:', props.bounds.width);
           break;
-        case 'height':
-          element.style.height = props.height + "px";
+        case 'bounds.height':
+          element.style.height = props.bounds.height + "px";
+          console.log('Updated height to:', props.bounds.height);
           break;
+        default:
+          console.log('Unhandled identifier:', identifier);
       }
+    } else {
+      console.log('Element or bounds not found:', props.channel, props.bounds);
     }
   }
 }
@@ -268,12 +277,13 @@ export class CabbageColours {
         }
       } catch (e) {
         // Catch and ignore SecurityError: The operation is insecure.
-        if (e.name !== 'SecurityError') throw e;
+        if (e.name !== 'SecurityError') {throw e;}
       }
     }
   }
 
   static invertColor(hex) {
+    console.trace();
     // Remove the hash at the start if it's there
     hex = hex.replace('#', '');
 

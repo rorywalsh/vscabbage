@@ -27,7 +27,7 @@ export class Checkbox {
       },
       "fontColour": {
         "on": "#dddddd",
-        "off": "#000000",
+        "off": "#000000"
       },
       "stroke": {
         "colour": "#dddddd",

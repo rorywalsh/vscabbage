@@ -23,7 +23,7 @@ export class Label {
             "visible": 1,
             "text": "Default Label",
             "automatable": 0
-        }
+        };
 
     }
 
