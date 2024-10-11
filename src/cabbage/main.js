@@ -59,8 +59,6 @@ if (typeof acquireVsCodeApi === 'function') {
         const { PropertyPanel } = propertyPanelModule;
         const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
 
-        console.log("PropertyPanel in main.js:", PropertyPanel);
-
         // Initialize interact with the correct URI
         initializeInteract(window.interactJS);
 
@@ -69,8 +67,6 @@ if (typeof acquireVsCodeApi === 'function') {
 
         // You might want to wait for the interact script to load before proceeding
         await widgetWrappers.interactPromise;
-
-        console.log("Modules initialized in main.js");
     } catch (error) {
         console.error("Error loading modules in main.js:", error);
     }

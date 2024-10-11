@@ -125,8 +125,6 @@ export class Button {
       return '';
     }
 
-    console.log("updating button:", this.props._updateId);
-    console.trace();
     const alignMap = {
       'left': 'start',
       'center': 'middle',

@@ -78,7 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
                     message,
                     websocket,
                     firstMessages,
-                    panel,
+                    panel!,
                     vscodeOutputChannel,
                     textEditor,
                     highlightDecorationType,
@@ -90,6 +90,13 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         }
     }));
+}
+
+// This method is called when your extension is deactivated
+export function deactivate() {
+	processes.forEach((p) => {
+		p?.kill("SIGKILL");
+	});
 }
 
 // websocket server

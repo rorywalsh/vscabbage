@@ -227,8 +227,6 @@ export class PropertyPanel {
 
         currentObj[finalProperty] = parsedValue; // Set the new value
 
-        console.log("Updated widget property:", input.id, "with value:", parsedValue);
-
         CabbageUtils.updateBounds(widget.props, input.id); // Update the widget bounds
 
         const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel); // Get widget DOM element
@@ -268,15 +266,11 @@ export class PropertyPanel {
 
   // Static method to update the panel with new properties and events
   static async updatePanel(vscode, input, widgets) {
-    widgets.forEach(widget => {
-      console.log("updatePanel:", widget.props);
-    });
 
     // Ensure input is an array of objects
     this.vscode = vscode;
     let events = Array.isArray(input) ? input : [input]; // Normalize input to an array
 
-    console.log("input", input);
 
     const element = document.querySelector('.property-panel');
     if (element) {
@@ -342,4 +336,4 @@ export class PropertyPanel {
 
 // Add a default export for the PropertyPanel class
 export default PropertyPanel;
-console.log("PropertyPanel exported:", PropertyPanel);
+

@@ -21,7 +21,7 @@ export class Commands {
     }
 
     // Function to handle webview messages
-    static handleWebviewMessage(
+    static async handleWebviewMessage(
         message: any,
         websocket: any,
         firstMessages: any[],
@@ -86,13 +86,39 @@ export class Commands {
                 break;
     
             case 'saveFromUIEditor':
-                const document = vscode.workspace.textDocuments.find(doc => doc.fileName === message.lastSavedFileName);
-                if (document) {
-                    document.save().then(() => {
-                        Commands.onDidSave(panel, vscodeOutputChannel, processes, document, message.lastSavedFileName);
-                        // Refresh the webview panel
-                        panel = Commands.setupWebViewPanel(context);
-                    });
+                let documentToSave: vscode.TextDocument | undefined;
+
+                // First, check for an active text editor
+                if (vscode.window.activeTextEditor) {
+                    documentToSave = vscode.window.activeTextEditor.document;
+                } else {
+                    // If no active editor, find the first .csd file among open documents
+                    documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith('.csd'));
+                }
+
+                if (documentToSave) {
+                    try {
+                        await documentToSave.save();
+                        console.log('File saved successfully:', documentToSave.fileName);
+                        
+                        // Instead of recreating the panel, just update it
+                        if (panel) {
+                            panel.webview.postMessage({ 
+                                command: "onFileChanged", 
+                                text: "fileSaved", 
+                                lastSavedFileName: documentToSave.fileName 
+                            });
+                        }
+
+                        // Call onDidSave without recreating the panel
+                        Commands.onDidSave(panel, vscodeOutputChannel, processes, documentToSave, documentToSave.fileName);
+                    } catch (error) {
+                        console.error('Error saving file:', error);
+                        vscode.window.showErrorMessage('Failed to save the file. Please try again.');
+                    }
+                } else {
+                    console.error('No suitable document found to save');
+                    vscode.window.showErrorMessage('No .csd file found to save. Please ensure a .csd file is open.');
                 }
                 break;
 
@@ -163,7 +189,7 @@ export class Commands {
             // Send a message to the webview to update its state
             panel.webview.postMessage({ 
                 command: "onFileChanged", 
-                text: "fileChanged", 
+                text: "fileSaved", 
                 lastSavedFileName: lastSavedFileName 
             });
         }
