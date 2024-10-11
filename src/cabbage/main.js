@@ -5,7 +5,25 @@ import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 
+let currentFileName = '';
 
+document.addEventListener('keydown', function (event) {
+    if (typeof acquireVsCodeApi === 'function') {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+            event.preventDefault(); // Prevent the default save behavior
+            saveFromUIEditor();
+        }
+    }
+});
+
+function saveFromUIEditor() {
+    if (typeof acquireVsCodeApi === 'function') {
+        vscode.postMessage({
+            command: 'saveFromUIEditor',
+            lastSavedFileName: currentFileName // You'll need to keep track of this
+        });
+    }
+}
 
 // Update the vscode assignment
 if (typeof acquireVsCodeApi === 'function') {
@@ -48,10 +66,10 @@ if (typeof acquireVsCodeApi === 'function') {
 
         // Initialize widget wrappers with necessary dependencies
         widgetWrappers = new WidgetWrapper(PropertyPanel.updatePanel, selectedElements, widgets, vscode);
-        
+
         // You might want to wait for the interact script to load before proceeding
         await widgetWrappers.interactPromise;
-        
+
         console.log("Modules initialized in main.js");
     } catch (error) {
         console.error("Error loading modules in main.js:", error);
@@ -96,6 +114,7 @@ window.addEventListener('message', async event => {
                 console.error("MainForm not found");
             }
             widgets.length = 0; // Clear the widgets array
+            currentFileName = message.lastSavedFileName; // Update the current file name
             break;
 
         // Called when entering edit mode. Converts existing widgets to draggable mode.
@@ -137,6 +156,10 @@ window.addEventListener('message', async event => {
                     csoundOutput.appendText(message.text); // Append new console message
                 }
             }
+            break;
+
+        case 'saveFromUIEditor':
+            Cabbage.sendCustomCommand(vscode, 'saveFromUIEditor', { lastSavedFileName: message.lastSavedFileName });
             break;
 
         default:

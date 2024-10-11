@@ -5,10 +5,10 @@ export class Button {
   constructor() {
     this.props = {
       "bounds": {
-      "top": 10,
-      "left": 10,
-      "width": 80,
-      "height": 30
+        "top": 10,
+        "left": 10,
+        "width": 80,
+        "height": 30
       },
       "channel": "button",
       "corners": 2,
@@ -16,26 +16,26 @@ export class Button {
       "max": 1,
       "value": 0,
       "text": {
-      "on": "On",
-      "off": "Off"
+        "on": "On",
+        "off": "Off"
       },
       "alpha": 1,
       "font": {
-      "family": "Verdana",
-      "size": 0,
-      "align": "centre"
+        "family": "Verdana",
+        "size": 0,
+        "align": "centre"
       },
       "colour": {
-      "on": "#0295cf",
-      "off": "#0295cf"
+        "on": "#0295cf",
+        "off": "#0295cf"
       },
       "fontColour": {
-      "on": "#dddddd",
-      "off": "#dddddd"
-      }, 
+        "on": "#dddddd",
+        "off": "#dddddd"
+      },
       "stroke": {
-      "colour": "#dddddd",
-      "width": 2
+        "colour": "#dddddd",
+        "width": 2
       },
       "name": "",
       "value": 0,
@@ -90,7 +90,7 @@ export class Button {
   }
 
   handleMouseMove(evt) {
-    const rect = document.getElementById(this.props.channel).getBoundingClientRect();
+    const rect = evt.currentTarget.getBoundingClientRect();
     const isInside = (
       evt.clientX >= rect.left &&
       evt.clientX <= rect.right &&
@@ -98,13 +98,10 @@ export class Button {
       evt.clientY <= rect.bottom
     );
 
-    if (!isInside) {
-      this.isMouseInside = false;
-    } else {
-      this.isMouseInside = true;
+    if (this.isMouseInside !== isInside) {
+      this.isMouseInside = isInside;
+      CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
-
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
   }
 
   addVsCodeEventListeners(widgetDiv, vs) {
@@ -116,8 +113,11 @@ export class Button {
   addEventListeners(widgetDiv) {
     widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    window.addEventListener("mousemove", this.handleMouseMove.bind(this));
-    widgetDiv.VerticalSliderInstance = this;
+    widgetDiv.addEventListener("mousemove", this.throttledHandleMouseMove);
+    widgetDiv.addEventListener("mouseleave", () => {
+      this.isMouseInside = false;
+      CabbageUtils.updateInnerHTML(this.props.channel, this);
+    });
   }
 
   getInnerHTML() {
@@ -125,6 +125,8 @@ export class Button {
       return '';
     }
 
+    console.log("updating button:", this.props._updateId);
+    console.trace();
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -138,15 +140,16 @@ export class Button {
 
     let textX;
     if (this.props.font.align === 'left') {
-      textX = this.props.corners; 
+      textX = this.props.corners;
     } else if (this.props.font.align === 'right') {
       textX = this.props.bounds.width - this.props.corners - padding;
     } else {
       textX = this.props.bounds.width / 2;
     }
     const buttonText = this.props.type === "filebutton" ? this.props.text : (this.props.value === 1 ? this.props.text.on : this.props.text.off);
-    const stateColour = CabbageColours.darker(this.props.value === 1 ? this.props.colour.on : this.props.colour.off, this.isMouseInside ? 0.2 : 0);
-    const currentColour = this.isMouseDown ? CabbageColours.lighter(this.props.colour.on, 0.2) : stateColour;
+    const baseColour = this.props.colour.on !== this.props.colour.off ? (this.props.value === 1 ? this.props.colour.on : this.props.colour.off) : this.props.colour.on;
+    const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
+    const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none">
           <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.stroke.colour}"

@@ -54,7 +54,7 @@ export class PropertyPanel {
         const sectionDiv = this.createSection(sectionName);
 
         Object.entries(sectionProperties).forEach(([key, value]) => {
-          this.addPropertyToSection(key, value, sectionDiv);
+          this.addPropertyToSection(key, value, sectionDiv, sectionName);
         });
 
         panel.appendChild(sectionDiv);
@@ -143,7 +143,7 @@ export class PropertyPanel {
     return input;
   }
 
-  addPropertyToSection(key, value, section) {
+  addPropertyToSection(key, value, section, path = '') {
     const propertyDiv = document.createElement('div');
     propertyDiv.classList.add('property');
 
@@ -152,7 +152,7 @@ export class PropertyPanel {
     label.textContent = formattedKey;
     propertyDiv.appendChild(label);
 
-    const input = this.createInputElement(key, value);
+    const input = this.createInputElement(key, value, path);
     propertyDiv.appendChild(input);
     section.appendChild(propertyDiv);
   }
@@ -166,48 +166,51 @@ export class PropertyPanel {
       const innerInput = evt.querySelector('input');
       input = innerInput;
     }
-  
+
     console.log("handleInputChange called");
     console.log("Input value:", input.value);
     console.log("Input id:", input.id);
     console.log("Input dataset parent:", input.dataset.parent);
-  
+
     this.widgets.forEach((widget) => {
       if (widget.props.channel === input.dataset.parent) {
         const inputValue = input.value;
         let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
-  
-        // Check if the property exists in the widget's props
-        if (!(input.id in widget.props)) {
+
+        // Handle nested properties
+        const propertyPath = input.id.split('.');
+        let currentObj = widget.props;
+        
+        for (let i = 0; i < propertyPath.length - 1; i++) {
+          if (!(propertyPath[i] in currentObj)) {
+            console.warn(`Property ${propertyPath.slice(0, i+1).join('.')} does not exist in widget.props`);
+            return;
+          }
+          currentObj = currentObj[propertyPath[i]];
+        }
+
+        const finalProperty = propertyPath[propertyPath.length - 1];
+        widget.props._updateId = Date.now(); // Add this line
+
+        if (!(finalProperty in currentObj)) {
           console.warn(`Property ${input.id} does not exist in widget.props`);
           return;
         }
-  
-        // Handle nested properties
-        if (typeof widget.props[input.id] === 'object' && widget.props[input.id] !== null) {
-          console.log(`Updating nested property ${input.id}`);
-          // Assuming the input.id is in the format "property.subProperty"
-          const [property, subProperty] = input.id.split('.');
-          if (subProperty && widget.props[property]) {
-            widget.props[property][subProperty] = parsedValue;
-          } else {
-            console.warn(`SubProperty ${subProperty} does not exist in widget.props[${property}]`);
-            return;
-          }
-        } else {
-          console.log("Updating widget property:", input.id, "with value:", parsedValue);
-          widget.props[input.id] = parsedValue;
-        }
-  
+
+        currentObj[finalProperty] = parsedValue;
+
+        console.log("Updated widget property:", input.id, "with value:", parsedValue);
+
         CabbageUtils.updateBounds(widget.props, input.id);
-  
+
         const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
         if (widget.props['type'] === 'form') {
           widget.updateSVG();
         } else {
+          console.log("updating widget:", widget.props._updateId);
           widgetDiv.innerHTML = widget.getInnerHTML();
         }
-  
+
         this.vscode.postMessage({
           command: 'widgetUpdate',
           text: JSON.stringify(widget.props),

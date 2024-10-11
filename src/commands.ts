@@ -30,7 +30,8 @@ export class Commands {
         textEditor: any,
         highlightDecorationType: any,
         cabbageMode: string,
-        lastSavedFileName: string | undefined
+        lastSavedFileName: string | undefined,
+        context: vscode.ExtensionContext  // Add this parameter
     ) {
         const config = vscode.workspace.getConfiguration("cabbage");
         console.warn("Received message:", message);
@@ -83,6 +84,17 @@ export class Commands {
                 });
                 break;
     
+            case 'saveFromUIEditor':
+                const document = vscode.workspace.textDocuments.find(doc => doc.fileName === message.lastSavedFileName);
+                if (document) {
+                    document.save().then(() => {
+                        Commands.onDidSave(panel, vscodeOutputChannel, processes, document, message.lastSavedFileName);
+                        // Refresh the webview panel
+                        panel = Commands.setupWebViewPanel(context);
+                    });
+                }
+                break;
+
             default:
                 if (websocket) {
                     websocket.send(JSON.stringify(message));
@@ -124,6 +136,7 @@ export class Commands {
         // Set webview HTML content using the provided getWebviewContent function
         panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
     
+
         // Return the created panel for further use if needed
         return panel;
     }
@@ -135,17 +148,23 @@ export class Commands {
         document: vscode.TextDocument,
         lastSavedFileName: string | undefined) {
         
+        console.log("onDidSave", document.fileName);
+        // Update lastSavedFileName regardless of which editor is in focus
         lastSavedFileName = document.fileName;
 
         if (panel) {
-            panel.reveal(vscode.ViewColumn.One, true);
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const launchInNewColumn = config.get("launchInNewColumn");
+            const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
             
-            setTimeout(() => {
-                panel.webview.postMessage({ command: "onFileChanged", text: "fileChanged", lastSavedFileName: lastSavedFileName });
-            }, 100);
-        }
-        else {
-            console.error("No panel found");
+            panel.reveal(viewColumn, true);
+            
+            // Send a message to the webview to update its state
+            panel.webview.postMessage({ 
+                command: "onFileChanged", 
+                text: "fileChanged", 
+                lastSavedFileName: lastSavedFileName 
+            });
         }
 
         let binaryName = '';

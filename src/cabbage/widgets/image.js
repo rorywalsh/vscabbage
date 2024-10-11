@@ -20,7 +20,7 @@ export class Image {
             "corners": 4,
             "visible": 1,
             "automatable": 0
-        }
+        };
 
         this.children = {};
     }

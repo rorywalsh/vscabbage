@@ -71,7 +71,8 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 
 		// callback for webview messages - some of these will be fired off from the CabbageApp
-		panel.webview.onDidReceiveMessage(message => {
+		if (panel) {
+			panel.webview.onDidReceiveMessage(message => {
 				Commands.handleWebviewMessage(
 					message,
 					websocket,
@@ -81,11 +82,12 @@ export function activate(context: vscode.ExtensionContext) {
 					textEditor,
 					highlightDecorationType,
 					getCabbageMode(),
-					lastSavedFileName);
-			}
-		);
-	})
-	);
+					lastSavedFileName,
+					context  // Add this parameter
+				);
+			});
+		}
+	}));
 }
 
 
