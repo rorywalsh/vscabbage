@@ -170,6 +170,8 @@ export function setupFormHandlers() {
 
                 contextMenu.style.left = `${x}px`;
                 contextMenu.style.top = `${y}px`;
+                //set menu width
+                contextMenu.style.width = '200px'; // Or any desired width
 
                 // Calculate and display the group context menu
                 x = e.clientX;

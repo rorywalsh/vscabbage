@@ -1,51 +1,58 @@
 import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';
-let dbg = false;
 import * as cp from "child_process";
 import os from 'os';
+// @ts-ignore
+import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
+let dbg = false;
 
 export class Commands {
-    static enterEditMode(panel: vscode.WebviewPanel | undefined, 
-        websocket: WebSocket | undefined) {
-        if (!panel) {
-            return; // Exit if no panel is available
-        }
+    private static vscodeOutputChannel: vscode.OutputChannel;
+    private static processes: (cp.ChildProcess | undefined)[] = [];
+    private static lastSavedFileName: string | undefined;
+    private static highlightDecorationType: vscode.TextEditorDecorationType;
+    private static panel: vscode.WebviewPanel | undefined;
 
-        const msg = { command: "stopCsound" };
-
-        if (websocket) {
-            websocket.send(JSON.stringify(msg)); // Send the stop message to the WebSocket
+    static initialize(context: vscode.ExtensionContext) {
+        if (!this.vscodeOutputChannel) {
+            this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
         }
-        panel.webview.postMessage({ command: "onEnterEditMode", text: "onEnterEditMode" });
+        this.highlightDecorationType = vscode.window.createTextEditorDecorationType({
+            backgroundColor: 'rgba(0, 0, 0, 0.1)'
+        });
+    }
+
+    static enterEditMode(websocket: WebSocket | undefined) {
+        setCabbageMode("draggable");
+        this.processes.forEach((p) => {
+            p?.kill("SIGKILL");
+        });
+        if (this.panel) {
+            this.panel.webview.postMessage({ command: 'onEnterEditMode' });
+        }
     }
 
     // Function to handle webview messages
     static async handleWebviewMessage(
         message: any,
-        websocket: any,
+        websocket: WebSocket | undefined,
         firstMessages: any[],
-        panel: vscode.WebviewPanel,
-        vscodeOutputChannel: any,
-        textEditor: any,
-        highlightDecorationType: any,
-        cabbageMode: string,
-        processes: any[],
-        lastSavedFileName: string | undefined,
-        context: vscode.ExtensionContext  // Add this parameter
+        textEditor: vscode.TextEditor | undefined,
+        context: vscode.ExtensionContext
     ) {
         const config = vscode.workspace.getConfiguration("cabbage");
         console.warn("Received message:", message);
         switch (message.command) {
             case 'widgetUpdate':
-                if (cabbageMode !== "play") {
-                    ExtensionUtils.updateText(message.text, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType, lastSavedFileName, panel);
+                if (getCabbageMode() !== "play") {
+                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, textEditor, this.highlightDecorationType, this.lastSavedFileName, this.panel);
                 }
                 break;
     
             case 'widgetStateUpdate': //trigger when webview is open
                 firstMessages.push(message);
-                websocket.send(JSON.stringify(message));
+                websocket?.send(JSON.stringify(message));
                 break;
     
             case 'cabbageSetupComplete':
@@ -54,9 +61,9 @@ export class Commands {
                     text: JSON.stringify({})
                 };
                 firstMessages.push(msg);
-                websocket.send(JSON.stringify(msg));
-                if (panel) {
-                    panel.webview.postMessage({ command: "snapToSize", text: config.get("snapToSize") });
+                websocket?.send(JSON.stringify(msg));
+                if (this.panel) {
+                    this.panel.webview.postMessage({ command: "snapToSize", text: config.get("snapToSize") });
                 }
                 break;
     
@@ -80,7 +87,7 @@ export class Commands {
                             command: "fileOpenFromVSCode",
                             text: JSON.stringify(m)
                         };
-                        websocket.send(JSON.stringify(msg));
+                        websocket?.send(JSON.stringify(msg));
                     }
                 });
                 break;
@@ -102,8 +109,8 @@ export class Commands {
                         console.log('File saved successfully:', documentToSave.fileName);
                         
                         // Instead of recreating the panel, just update it
-                        if (panel) {
-                            panel.webview.postMessage({ 
+                        if (this.panel) {
+                            this.panel.webview.postMessage({ 
                                 command: "onFileChanged", 
                                 text: "fileSaved", 
                                 lastSavedFileName: documentToSave.fileName 
@@ -111,7 +118,7 @@ export class Commands {
                         }
 
                         // Call onDidSave without recreating the panel
-                        Commands.onDidSave(panel, vscodeOutputChannel, processes, documentToSave, documentToSave.fileName);
+                        Commands.onDidSave(documentToSave, context);
                     } catch (error) {
                         console.error('Error saving file:', error);
                         vscode.window.showErrorMessage('Failed to save the file. Please try again.');
@@ -130,20 +137,18 @@ export class Commands {
     }
 
     static setupWebViewPanel(context: vscode.ExtensionContext) {
-        // Create the webview panel
         const config = vscode.workspace.getConfiguration("cabbage");
         const launchInNewColumn = config.get("launchInNewColumn");
-        console.log("launchInNewColumn:", launchInNewColumn);
         // Determine the ViewColumn based on the launchInNewColumn setting
         const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
-        const panel = vscode.window.createWebviewPanel(
+        this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             'Cabbage UI Editor',
-            viewColumn, // Use the determined ViewColumn
+            viewColumn,
             { 
                 enableScripts: true,
-                retainContextWhenHidden: true // Add this line
+                retainContextWhenHidden: true
             }
         );
 
@@ -152,45 +157,51 @@ export class Commands {
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
     
         // Load resources
-        const mainJS = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src/cabbage', 'main.js'));
-        const styles = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css'));
-        const cabbageStyles = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'cabbage.css'));
-        const interactJS = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'interact.min.js'));
-        const widgetWrapper = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'widgetWrapper.js'));
-        const colourPickerJS = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
-        const colourPickerStyles = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.css'));
+        const mainJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src/cabbage', 'main.js'));
+        const styles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css'));
+        const cabbageStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'cabbage.css'));
+        const interactJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'interact.min.js'));
+        const widgetWrapper = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'widgetWrapper.js'));
+        const colourPickerJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
+        const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.css'));
     
-        // Set webview HTML content using the provided getWebviewContent function
-        panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
-    
+        // Set webview HTML content
+        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
 
-        // Return the created panel for further use if needed
-        return panel;
+        // Set up message handler for the panel
+        this.panel.webview.onDidReceiveMessage(message => {
+            this.handleWebviewMessage(message, undefined, [], vscode.window.activeTextEditor, context);
+        });
+
+        return this.panel;
     }
     
-    
-    static async onDidSave(panel: vscode.WebviewPanel | undefined, 
-        outputChannel: vscode.OutputChannel, 
-        processes: any[], 
-        document: vscode.TextDocument,
-        lastSavedFileName: string | undefined) {
-        
-        console.log("onDidSave", document.fileName);
-        // Update lastSavedFileName regardless of which editor is in focus
-        lastSavedFileName = document.fileName;
+    static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
+        console.log("onDidSave", editor.fileName);
+        this.lastSavedFileName = editor.fileName;
 
-        if (panel) {
+        // Use the output channel
+        this.getOutputChannel().appendLine(`Saving file: ${editor.fileName}`);
+
+        if (!this.panel) {
+            this.setupWebViewPanel(context);
+        }
+
+        if (this.panel) {
             const config = vscode.workspace.getConfiguration("cabbage");
             const launchInNewColumn = config.get("launchInNewColumn");
             const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
             
-            panel.reveal(viewColumn, true);
+            this.panel.reveal(viewColumn, true);
             
-            // Send a message to the webview to update its state
-            panel.webview.postMessage({ 
+            // Load the content of the saved file
+            const fileContent = editor.getText();
+            
+            // Send the file content to the webview
+            this.panel.webview.postMessage({ 
                 command: "onFileChanged", 
-                text: "fileSaved", 
-                lastSavedFileName: lastSavedFileName 
+                text: fileContent, 
+                lastSavedFileName: this.lastSavedFileName 
             });
         }
 
@@ -209,47 +220,44 @@ export class Commands {
         console.log("full command:", command);
         const path = vscode.Uri.file(command);
 
-
         try {
             // Attempt to read the directory (or file)
             await vscode.workspace.fs.stat(path);
-            outputChannel.append("Found Cabbage service app...")
+            this.vscodeOutputChannel.append("Found Cabbage service app...")
         } catch (error) {
             // If an error is thrown, it means the path does not exist
-            outputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please check the path in the Cabbage extension settings.\n`);
+            this.vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please check the path in the Cabbage extension settings.\n`);
             return;
         }
 
-        processes.forEach((p) => {
+        this.processes.forEach((p) => {
             p?.kill("SIGKILL");
         });
 
         if (!dbg) {
-            if (document.fileName.endsWith(".csd")) {
+            if (editor.fileName.endsWith(".csd")) {
                 // Replace the extension by slicing and concatenating the new extension - we're only interested in opening CSD files
 
-                const process = cp.spawn(command, [document.fileName], {});
-                processes.push(process);
+                const process = cp.spawn(command, [editor.fileName], {});
+                this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     // I've seen spurious 'ANSI reset color' sequences in some csound output
                     // which doesn't render correctly in this context. Stripping that out here.
-                    outputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
+                    this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
                 });
                 process.stderr.on("data", (data: { toString: () => string; }) => {
                     // It looks like all csound output is written to stderr, actually.
                     // If you want your changes to show up, change this one.
-                    outputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
+                    this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
                 });
             } else {
                 // If no extension is found or the file name starts with a dot (hidden files), handle appropriately
                 console.error('Invalid file name or no extension found');
-                outputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.');
+                this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.');
             }
-
-
         }
-
     }
+
     static expandCabbageJSON() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -307,5 +315,19 @@ export class Commands {
         await vscode.workspace.applyEdit(edit);
     }
 
+    static async hasCabbageTags(document: vscode.TextDocument): Promise<boolean> {
+        const text = document.getText();
+        return text.includes('<Cabbage>') && text.includes('</Cabbage>');
+    }
 
+    static getPanel(): vscode.WebviewPanel | undefined {
+        return this.panel;
+    }
+
+    static getOutputChannel(): vscode.OutputChannel {
+        if (!this.vscodeOutputChannel) {
+            this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
+        }
+        return this.vscodeOutputChannel;
+    }
 }

@@ -10,12 +10,8 @@ import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 
-let textEditor: vscode.TextEditor | undefined;
-let highlightDecorationType: vscode.TextEditorDecorationType;
 let vscodeOutputChannel: vscode.OutputChannel;
-let panel: vscode.WebviewPanel | undefined = undefined;
 
-let lastSavedFileName: string | undefined;
 
 // Setup websocket server
 const wss: WebSocketServer = new WebSocket.Server({ port: 9991 });
@@ -27,76 +23,59 @@ let processes: (cp.ChildProcess | undefined)[] = [];
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext): void {
+    Commands.initialize(context);
     Settings.readSettingsFile(context);
-    vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
-
-    vscodeOutputChannel.show(true); // true means keep focus in the editor window
+    
+    // Get the output channel from Commands class
+    const vscodeOutputChannel = Commands.getOutputChannel();
+    vscodeOutputChannel.show(true);
 
     console.log('Congratulations, your extension "cabbage" is now active!');
+    vscodeOutputChannel.appendLine('Cabbage extension is now active!');
 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
-
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
-
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
-        processes.forEach((p) => {
-            p?.kill("SIGKILL");
-        });
-        setCabbageMode("draggable");
-        Commands.enterEditMode(panel, websocket);
+        Commands.enterEditMode(websocket);
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.launch', () => {
-        panel = Commands.setupWebViewPanel(context);
-        // assign current textEditor so we can track it even if focus changes to the webview
-        panel.onDidChangeViewState(() => {
-            textEditor = vscode.window.activeTextEditor;
-        });
-
-        vscode.workspace.onDidChangeTextDocument((editor) => {
-            // sendTextToWebView(editor.document, 'onFileChanged');
-        });
-
-        vscode.workspace.onDidSaveTextDocument(async (editor) => {
+    vscode.workspace.onDidSaveTextDocument(async (editor) => {
+        if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
             setCabbageMode("play");
-            lastSavedFileName = editor.fileName;
-            await Commands.onDidSave(panel, vscodeOutputChannel, processes, editor, lastSavedFileName);
-        });
-
-        vscode.workspace.onDidOpenTextDocument((editor) => {
-            ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', panel);
-        });
-
-        vscode.window.tabGroups.onDidChangeTabs((tabs) => {
-            // triggered when tab changes
-        });
-
-        // callback for webview messages - some of these will be fired off from the CabbageApp
-        if (panel) {
-            panel.webview.onDidReceiveMessage(message => {
-                Commands.handleWebviewMessage(
-                    message,
-                    websocket,
-                    firstMessages,
-                    panel!,
-                    vscodeOutputChannel,
-                    textEditor,
-                    highlightDecorationType,
-                    getCabbageMode(),
-                    processes,
-                    lastSavedFileName,
-                    context  // Add this parameter
-                );
-            });
+            if (!Commands.getPanel()) {
+                Commands.setupWebViewPanel(context);
+            }
+            await Commands.onDidSave(editor, context);
         }
-    }));
+    });
+
+    vscode.workspace.onDidOpenTextDocument((editor) => {
+        ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', Commands.getPanel());
+    });
+
+    vscode.window.tabGroups.onDidChangeTabs((tabs) => {
+        // triggered when tab changes
+    });
+
+    // callback for webview messages - some of these will be fired off from the CabbageApp
+    if (Commands.getPanel()) {
+        Commands.getPanel()!.webview.onDidReceiveMessage(message => {
+            Commands.handleWebviewMessage(
+                message,
+                websocket,
+                firstMessages,
+                vscode.window.activeTextEditor,
+                context
+            );
+        });
+    }
 }
 
 // This method is called when your extension is deactivated
 export function deactivate() {
-	processes.forEach((p) => {
-		p?.kill("SIGKILL");
-	});
+	        processes.forEach((p) => {
+            p?.kill("SIGKILL");
+        });
 }
 
 // websocket server
@@ -120,6 +99,7 @@ wss.on('connection', (ws: WebSocket) => {
             // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
             // These are then sent to the webview for rendering.
             if (msg["command"] === "widgetUpdate") {
+                const panel = Commands.getPanel();
                 if (panel) {
                     panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
                 }
