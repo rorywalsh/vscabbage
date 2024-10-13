@@ -84,7 +84,7 @@ window.addEventListener('message', async event => {
 
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
-
+    console.log("onMsessage", message);
     // Handle different commands based on the message received
     switch (message.command) {
 

@@ -85,7 +85,6 @@ export class RotarySlider {
 
     this.isMouseDown = true;
     this.startY = evt.clientY;
-    console.log(this.props.value);
     this.startValue = this.props.value;
     window.addEventListener("pointermove", this.moveListener);
     window.addEventListener("pointerup", this.upListener);
@@ -152,7 +151,6 @@ export class RotarySlider {
   }
 
   addEventListeners(widgetDiv) {
-    console.log(JSON.stringify(this.props, null, 2));
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));

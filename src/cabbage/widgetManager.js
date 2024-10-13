@@ -39,7 +39,6 @@ export class WidgetManager {
      * @returns {object|null} - The properties of the newly inserted widget or null on failure.
      */
     static async insertWidget(type, props) {
-        console.trace()
         console.log("Inserting widget of type:", type);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
@@ -68,8 +67,6 @@ export class WidgetManager {
         }
         Object.assign(widget.props, props);
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
-            console.log(props);
-            console.log(widget.props);
             if (props?.range && props.range.hasOwnProperty("defaultValue")) {
                 widget.props.value = props.range.defaultValue;
             }
@@ -80,6 +77,8 @@ export class WidgetManager {
         }
 
         // Add the widget to the global widgets array
+
+        console.log("Pushing widget to widgets array", widget);
         widgets.push(widget);
         widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
 
@@ -143,57 +142,60 @@ export class WidgetManager {
      * @param {object} widget - The "form" widget to set up.
      */
     static setupFormWidget(widget) {
-        const formDiv = document.createElement('div');
-        formDiv.id = 'MainForm';
+        let formDiv = document.getElementById('MainForm');
+        if (!formDiv) {
+            formDiv = document.createElement('div');
+            formDiv.id = 'MainForm';
 
-        // Setup for VSCode mode
-        if (vscode) {
-            formDiv.className = "form resizeOnly";
+            // Setup for VSCode mode
+            if (vscode) {
+                formDiv.className = "form resizeOnly";
 
-            // Create the structure inside the form
-            const wrapperDiv = document.createElement('div');
-            wrapperDiv.className = 'wrapper';
+                // Create the structure inside the form
+                const wrapperDiv = document.createElement('div');
+                wrapperDiv.className = 'wrapper';
 
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'content';
-            contentDiv.style.overflowY = 'auto';
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'content';
+                contentDiv.style.overflowY = 'auto';
 
-            const ulMenu = document.createElement('ul');
-            ulMenu.className = 'menu';
+                const ulMenu = document.createElement('ul');
+                ulMenu.className = 'menu';
 
-            // Populate the menu with widget types
-            let menuItems = "";
-            widgetTypes.forEach((widget) => {
-                menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
-            });
+                // Populate the menu with widget types
+                let menuItems = "";
+                widgetTypes.forEach((widget) => {
+                    menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
+                });
 
-            ulMenu.innerHTML = menuItems;
+                ulMenu.innerHTML = menuItems;
 
-            // Append the inner elements to the form
-            contentDiv.appendChild(ulMenu);
-            wrapperDiv.appendChild(contentDiv);
-            formDiv.appendChild(wrapperDiv);
+                // Append the inner elements to the form
+                contentDiv.appendChild(ulMenu);
+                wrapperDiv.appendChild(contentDiv);
+                formDiv.appendChild(wrapperDiv);
 
-            // Append the MainForm to the LeftPanel in VSCode
-            const leftPanel = document.getElementById('LeftPanel');
-            if (leftPanel) {
-                leftPanel.appendChild(formDiv);
+                // Append the MainForm to the LeftPanel in VSCode
+                const leftPanel = document.getElementById('LeftPanel');
+                if (leftPanel) {
+                    leftPanel.appendChild(formDiv);
+                } else {
+                    console.error("LeftPanel not found");
+                }
             } else {
-                console.error("LeftPanel not found");
+                // Fallback for non-VSCode mode
+                formDiv.className = "form nonDraggable";
+                document.body.appendChild(formDiv);
             }
-        } else {
-            // Fallback for non-VSCode mode
-            formDiv.className = "form nonDraggable";
-            document.body.appendChild(formDiv);
         }
 
         // Set MainForm styles and properties
-        const form = document.getElementById('MainForm');
-        if (form) {
-            form.style.width = widget.props.size.width + "px";
-            form.style.height = widget.props.size.height + "px";
-            form.style.top = '0px';
-            form.style.left = '0px';
+        if (formDiv) {
+            console.log("Setting form size to:", widget.props.size.width, widget.props.size.height);
+            formDiv.style.width = widget.props.size.width + "px";
+            formDiv.style.height = widget.props.size.height + "px";
+            formDiv.style.top = '0px';
+            formDiv.style.left = '0px';
 
             // Update SVG if needed
             if (typeof widget.updateSVG === 'function') {
@@ -241,50 +243,56 @@ export class WidgetManager {
     * If the widget is not found, it attempts to create a new widget based on the provided data.
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
-    static updateWidget(obj) {
-        console.warn("Updating widget", obj);
-        const channel = obj['channel'];
+    static async updateWidget(obj) {
+        const data = JSON.parse(obj.data);
+        const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
+        if (widget) {
+            // Update widget properties
+            Object.assign(widget.props, data);
+            widgetFound = true;
+            if (widget.props.type === "form") {
+                // Special handling for form widget
+                const form = document.getElementById('MainForm');
+                if (form) {
+                    form.style.width = widget.props.size.width + "px";
+                    form.style.height = widget.props.size.height + "px";
+                    console.log("Form size updated to:", form.style.width, form.style.height);
+                    // Update the SVG viewBox if it exists
+                    const svg = form.querySelector('svg');
+                    if (svg) {
+                        svg.setAttribute('viewBox', `0 0 ${widget.props.size.width} ${widget.props.size.height}`);
+                        svg.setAttribute('width', widget.props.size.width);
+                        svg.setAttribute('height', widget.props.size.height);
+                    }
 
-        // Loop through the existing widgets to find the one with the matching channel
-        for (const widget of widgets) {
-            if (widget.props.channel === channel) {
-                widgetFound = true;
-
-                // If the 'data' property exists in the object, update the widget's properties from the parsed JSON data
-                if (obj.hasOwnProperty('data')) {
-                    widget.props = JSON.parse(obj["data"]);
-                } else {
-                    // If no 'data' property, update only the 'value' property of the widget
-                    widget.props.value = obj.value;
-                }
-
-                // Get the corresponding HTML element for the widget
-                const widgetElement = CabbageUtils.getWidgetDiv(widget.props.channel);
-                if (widgetElement) {
-                    // Update the widget's position based on its bounds
-                    widgetElement.style.transform = 'translate(' + widget.props.bounds.left + 'px,' + widget.props.bounds.top + 'px)';
-
-                    widgetElement.setAttribute('data-x', widget.props.bounds.left);
-                    widgetElement.setAttribute('data-y', widget.props.bounds.top);
-
-                    // Update the inner HTML if the widget is not of type 'form'
-                    if (widget.props.type !== "form") {
-                        widgetElement.innerHTML = widget.getInnerHTML();
+                    // Call updateSVG method if it exists
+                    if (typeof widget.updateSVG === 'function') {
+                        widget.updateSVG();
                     }
                 } else {
-                    console.error("Widget not found:", widget.props.channel);
+                    console.error("MainForm not found");
                 }
-
-                // Handle special cases for 'gentable' and 'form' widgets
-                if (widget.props.type === "gentable") {
-                    widget.updateTable();
-                } else if (widget.props.type == "form") {
-                    widget.updateSVG();
+            } else {
+                // Existing code for other widget types
+                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                if (widgetDiv) {
+                    widgetDiv.innerHTML = widget.getInnerHTML();
+                    
+                    // Update widget position and size for non-form widgets
+                    if (widget.props.bounds) {
+                        widgetDiv.style.left = widget.props.bounds.left + "px";
+                        widgetDiv.style.top = widget.props.bounds.top + "px";
+                        widgetDiv.style.width = widget.props.bounds.width + "px";
+                        widgetDiv.style.height = widget.props.bounds.height + "px";
+                    }
+                } else {
+                    console.error(`Widget div for channel ${widget.props.channel} not found`);
                 }
             }
+        } else {
+            console.error(`Widget with channel ${obj.channel} not found`);
         }
-
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound && obj.hasOwnProperty('data')) {
             try {
@@ -297,7 +305,7 @@ export class WidgetManager {
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
-                    WidgetManager.insertWidget(p.type, p, widgets);
+                    await WidgetManager.insertWidget(p.type, p, widgets);
                 }
             } catch (error) {
                 console.error("Error parsing JSON data:", error, obj.data);

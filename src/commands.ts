@@ -180,7 +180,6 @@ export class Commands {
         console.log("onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
 
-        // Use the output channel
         this.getOutputChannel().appendLine(`Saving file: ${editor.fileName}`);
 
         if (!this.panel) {
@@ -194,13 +193,11 @@ export class Commands {
             
             this.panel.reveal(viewColumn, true);
             
-            // Load the content of the saved file
             const fileContent = editor.getText();
             
-            // Send the file content to the webview
             this.panel.webview.postMessage({ 
                 command: "onFileChanged", 
-                text: fileContent, 
+                text: fileContent,
                 lastSavedFileName: this.lastSavedFileName 
             });
         }
@@ -322,6 +319,10 @@ export class Commands {
 
     static getPanel(): vscode.WebviewPanel | undefined {
         return this.panel;
+    }
+
+    static getProcesses(): (cp.ChildProcess | undefined)[] {
+        return this.processes;
     }
 
     static getOutputChannel(): vscode.OutputChannel {

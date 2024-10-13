@@ -10,22 +10,20 @@ import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 
-let vscodeOutputChannel: vscode.OutputChannel;
-
 
 // Setup websocket server
 const wss: WebSocketServer = new WebSocket.Server({ port: 9991 });
 let websocket: WebSocket | undefined;
 
 let firstMessages: any[] = [];
-let processes: (cp.ChildProcess | undefined)[] = [];
+
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext): void {
     Commands.initialize(context);
     Settings.readSettingsFile(context);
-    
+
     // Get the output channel from Commands class
     const vscodeOutputChannel = Commands.getOutputChannel();
     vscodeOutputChannel.show(true);
@@ -73,9 +71,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
 // This method is called when your extension is deactivated
 export function deactivate() {
-	        processes.forEach((p) => {
-            p?.kill("SIGKILL");
-        });
+    Commands.getProcesses().forEach((p) => {
+        p?.kill("SIGKILL");
+    });
 }
 
 // websocket server
