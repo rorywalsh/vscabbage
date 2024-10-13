@@ -2,7 +2,7 @@ import { Cabbage } from "../cabbage.js";
 import { CabbageUtils, CabbageColours } from "../utils.js";
 
 /**
- * Horizontal Slider (hslider) class
+ * Horizontal Slider class
  */
 export class HorizontalSlider {
   constructor() {
@@ -43,7 +43,7 @@ export class HorizontalSlider {
       "markerThickness": 0.2,
       "markerStart": 0.1,
       "markerEnd": 0.9,
-      "type": "hslider",
+      "type": "horizontalSlider",
       "decimalPlaces": 1,
       "velocity": 0,
       "visible": 1,
@@ -130,7 +130,7 @@ export class HorizontalSlider {
         popup.classList.remove('right');
       }
 
-      const popupTop = rect.top + this.props.top; // Adjust top position relative to the form's top
+      const popupTop = rect.top + this.props.bounds.top; // Adjust top position relative to the form's top
 
       // Set the calculated position
       popup.style.left = `${popupLeft}px`;

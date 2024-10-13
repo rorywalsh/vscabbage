@@ -124,12 +124,13 @@ export class RotarySlider {
         popup.classList.remove('right');
       }
 
-      const popupTop = rect.top + this.props.top + this.props.bounds.height * .5; // Adjust top position relative to the form's top
+      const popupTop = rect.top + this.props.bounds.top + this.props.bounds.height * .5; // Adjust top position relative to the form's top
 
       // Set the calculated position
       popup.style.left = `${popupLeft}px`;
       popup.style.top = `${popupTop}px`;
       popup.style.display = 'block';
+      console.log("Popup left", popup.style.left, "Popup top", popup.style.top);
       popup.classList.add('show');
       popup.classList.remove('hide');
     }

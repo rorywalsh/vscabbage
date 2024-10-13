@@ -2,7 +2,7 @@ import { Cabbage } from "../cabbage.js";
 import { CabbageUtils, CabbageColours } from "../utils.js";
 
 /**
- * Horizontal Slider (hslider) class
+ * Horizontal Range Slider class
  */
 export class HorizontalRangeSlider {
   constructor() {

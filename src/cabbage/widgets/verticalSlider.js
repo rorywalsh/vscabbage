@@ -130,7 +130,7 @@ export class VerticalSlider {
         popup.classList.remove('right');
       }
 
-      const popupTop = rect.top + this.props.top + this.props.bounds.height * .45; // Adjust top position relative to the form's top
+      const popupTop = rect.top + this.props.bounds.top + this.props.bounds.height * .45; // Adjust top position relative to the form's top
 
       // Set the calculated position
       popup.style.left = `${popupLeft}px`;
