@@ -20,15 +20,16 @@ let firstMessages: any[] = [];
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+
     Commands.initialize(context);
-    Settings.readSettingsFile(context);
+
 
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    
+
     // Set the text and icon for the status bar item
     statusBarItem.text = `$(unmute) Cabbage`;
-    
+
     // Optional: Set a tooltip for the item
     statusBarItem.tooltip = 'Click to activate extension';
 
@@ -45,8 +46,23 @@ export function activate(context: vscode.ExtensionContext): void {
     const vscodeOutputChannel = Commands.getOutputChannel();
     vscodeOutputChannel.show(true);
 
-    console.log('Congratulations, your extension "cabbage" is now active!');
     vscodeOutputChannel.appendLine('Cabbage extension is now active!');
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectSamplingRate', async () => {
+        await Settings.selectSamplingRate();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectBufferSize', async () => {
+        await Settings.selectBufferSize();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectAudioOutputDevice', async () => {
+        await Settings.selectAudioDevice('output');
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectAudioInputDevice', async () => {
+        await Settings.selectAudioDevice('input');
+    }));
 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
