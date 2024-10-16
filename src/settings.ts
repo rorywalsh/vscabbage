@@ -126,4 +126,43 @@ export class Settings {
         }
     }
     
+    static async selectMidiDevice(type: 'input' | 'output') {
+        const config = vscode.workspace.getConfiguration('cabbage');
+        let settings = await Settings.getCabbageSettings();
+    
+        // Check if the type is valid
+        if (type !== 'input' && type !== 'output') {
+            vscode.window.showErrorMessage('Invalid MIDI device type. Must be "input" or "output".');
+            return;
+        }
+    
+        // Get the list of available MIDI devices based on the type
+        const midiDevices = Object.keys(type === 'output' 
+            ? settings.systemAudioMidiIOListing.midiOutputDevices 
+            : settings.systemAudioMidiIOListing.midiInputDevices || {});
+    
+        // Check if there are any MIDI devices available
+        if (midiDevices.length === 0) {
+            vscode.window.showWarningMessage(`No MIDI ${type} devices available.`);
+            return;
+        }
+    
+        // Show available MIDI devices in a drop-down (QuickPick)
+        const selectedMidiDevice = await vscode.window.showQuickPick(
+            midiDevices.map(device => device.toString()), // Convert to string for display
+            { placeHolder: `Select a MIDI ${type} device` }
+        );
+    
+        // If a valid MIDI device is selected, update the configuration and save settings
+        if (selectedMidiDevice) {
+            await config.update(`midi${type.charAt(0).toUpperCase() + type.slice(1)}Device`, selectedMidiDevice, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`Selected MIDI ${type} device: ${selectedMidiDevice}`);
+            settings['currentConfig']['midi'][`${type}Device`] = selectedMidiDevice;
+            await Settings.setCabbageSettings(settings);
+        } else {
+            vscode.window.showWarningMessage(`No MIDI ${type} device selected.`);
+        }
+    }
+    
+    
 }

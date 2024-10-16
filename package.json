@@ -33,6 +33,16 @@
           "default": "Default",
           "description": "Selected audio input device"
         },
+        "cabbage.midiOutputDevice": {
+          "type": "string",
+          "default": "Default",
+          "description": "Selected midi output device"
+        },
+        "cabbage.midiInputDevice": {
+          "type": "string",
+          "default": "Default",
+          "description": "Selected midi input device"
+        },
         "cabbage.audioSampleRate": {
           "type": "string",
           "default": "44100",
@@ -107,6 +117,16 @@
       {
         "command": "cabbage.selectAudioInputDevice",
         "title": "Select Audio Input Device",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.selectMidiInputDevice",
+        "title": "Select MIDI Input Device",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.selectMidiOutputDevice",
+        "title": "Select MIDI Output Device",
         "category": "Cabbage"
       }
       

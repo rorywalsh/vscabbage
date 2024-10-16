@@ -64,6 +64,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await Settings.selectAudioDevice('input');
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectMidiOutputDevice', async () => {
+        await Settings.selectMidiDevice('output');
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectMidiInputDevice', async () => {
+        await Settings.selectMidiDevice('input');
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
