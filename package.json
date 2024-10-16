@@ -50,7 +50,6 @@
         },
         "cabbage.audioBufferSize": {
           "type": "string",
-          "scope": "machine",
           "default": "32 samples",
           "description": "Selected buffer size. Use command palette to change."
         },
