@@ -26,32 +26,33 @@
         "cabbage.audioOutputDevice": {
           "type": "string",
           "default": "Default",
-          "description": "Selected audio output device"
+          "description": "Selected audio output device. Use command palette to change."
         },
         "cabbage.audioInputDevice": {
           "type": "string",
           "default": "Default",
-          "description": "Selected audio input device"
+          "description": "Selected audio input device. Use command palette to change."
         },
         "cabbage.midiOutputDevice": {
           "type": "string",
           "default": "Default",
-          "description": "Selected midi output device"
+          "description": "Selected midi output device. Use command palette to change."
         },
         "cabbage.midiInputDevice": {
           "type": "string",
           "default": "Default",
-          "description": "Selected midi input device"
+          "description": "Selected midi input device. Use command palette to change."
         },
         "cabbage.audioSampleRate": {
           "type": "string",
           "default": "44100",
-          "description": "Selected sampling rate"
+          "description": "Selected sampling rate. Use command palette to change."
         },
         "cabbage.audioBufferSize": {
           "type": "string",
+          "scope": "machine",
           "default": "32 samples",
-          "description": "Selected buffer size"
+          "description": "Selected buffer size. Use command palette to change."
         },
         "cabbage.snapToSize": {
           "type": "number",
@@ -62,6 +63,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable automatic saving of external JSON when compiling .csd file."
+        },
+        "cabbage.showUIOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Display UI each time a Cabbage .csd file is saved."
         },
         "cabbage.defaultJsonFormatting": {
           "type": "string",

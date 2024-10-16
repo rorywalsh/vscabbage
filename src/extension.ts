@@ -81,8 +81,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidSaveTextDocument(async (editor) => {
         if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
             setCabbageMode("play");
-            if (!Commands.getPanel()) {
-                Commands.setupWebViewPanel(context);
+            const config = vscode.workspace.getConfiguration('cabbage');
+            if (config.get('showUIOnSave')) {
+                if (!Commands.getPanel()) {
+                    Commands.setupWebViewPanel(context);
+                }
             }
             await Commands.onDidSave(editor, context);
         }
