@@ -14,22 +14,22 @@ export class MidiKeyboard {
         "height": 300
       },
       "type": "keyboard",
-      "colour": "#888888",
       "channel": "keyboard",
-      "blackNoteColour": "#000000",
       "value": "36",
       "font": {
         "family": "Verdana",
         "size": 0,
         "align": "centre"
       },
+      "opacity": 1,
       "whiteNoteColour": "#ffffff",
       "keySeparatorColour": "#000000",
       "arrowBackgroundColour": "#0295cf",
       "mouseoverKeyColour": "#93d200",
       "keydownColour": "#93d200",
+      "blackNoteColour": "#000000",
       "automatable": 0,
-      "octaves": 5
+      "octaves": 3
     };
 
     this.isMouseDown = false; // Track the state of the mouse button
@@ -228,7 +228,7 @@ export class MidiKeyboard {
       <div id="${this.props.channel}" style="display: flex; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
         <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.arrowBackgroundColour};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width * scaleFactor} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width * scaleFactor} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>

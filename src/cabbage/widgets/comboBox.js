@@ -28,12 +28,15 @@ export class ComboBox {
             "max": 3,
             "visible": 1,
             "type": "comboBox",
-            "value": 0, 
+            "value": 0,
             "automatable": 1,
             "active": 1,
             "channelType": "number",
-            "currentDirectory": "",
-            "fileType": ""
+            "populate": {
+                "directory": "",
+                "fileType": ""
+            },
+            "opacity": 1
         };
 
         this.isMouseInside = false;
@@ -90,7 +93,7 @@ export class ComboBox {
     addEventListeners(widgetDiv) {
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
         document.addEventListener("pointerdown", this.handleClickOutside.bind(this));
-        
+
         // Add a global event listener for combobox item selection
         document.addEventListener("click", (event) => {
             const target = event.target.closest('[data-combobox-select]');
@@ -114,7 +117,6 @@ export class ComboBox {
     }
 
     getInnerHTML() {
-
         if (this.props.visible === 0) {
             return '';
         }
@@ -173,7 +175,7 @@ export class ComboBox {
         const selectedItemTextY = this.props.bounds.height / 2;
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${totalHeight}" width="${this.props.bounds.width}" height="${totalHeight}" preserveAspectRatio="none">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${totalHeight}" width="${this.props.bounds.width}" height="${totalHeight}" preserveAspectRatio="none" opacity="${this.props.opacity}">
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour}" stroke="${this.props.stroke.colour}"
                     stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 

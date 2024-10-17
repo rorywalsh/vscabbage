@@ -212,6 +212,7 @@ export class VerticalSlider {
       return '';
     }
 
+    console.log(this.props.value);
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;

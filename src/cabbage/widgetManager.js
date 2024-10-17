@@ -244,10 +244,24 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-        const data = JSON.parse(obj.data);
+
+        // Check if 'data' exists, otherwise use 'value'
+        const data = obj.data ? JSON.parse(obj.data) : obj.value;
+
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
+            //if only updating value..
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+                widget.props.value = obj.value; // Update the value property
+                // Call getInnerHTML to refresh the widget's display
+                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                if (widgetDiv) {
+                    widgetDiv.innerHTML = widget.getInnerHTML();
+                }
+                console.log(`Widget ${widget.props.channel} updated with value: ${widget.props.value}`);
+                return; // Early return
+            }
             // Update widget properties
             Object.assign(widget.props, data);
             widgetFound = true;
@@ -294,14 +308,9 @@ export class WidgetManager {
             console.error(`Widget with channel ${obj.channel} not found`);
         }
         // If the widget is not found, attempt to create a new widget from the provided data
-        if (!widgetFound && obj.hasOwnProperty('data')) {
+        if (!widgetFound) {
             try {
-                let p = JSON.parse(obj.data);
-
-                // If the parsed data is still a string, parse it again
-                if (typeof p === 'string') {
-                    p = JSON.parse(p);
-                }
+                let p = typeof data === 'string' ? JSON.parse(data) : data;
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
