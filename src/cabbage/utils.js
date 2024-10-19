@@ -10,7 +10,7 @@ export class CabbageUtils {
     return fullPath.split(/[/\\]/).pop();
   }
 
-  
+
   /**
    * this function will return the number of plugin parameter in our widgets array
    */
@@ -87,13 +87,14 @@ export class CabbageUtils {
    * @returns number of decimal places in value
    */
   static getDecimalPlaces(num) {
-    const numString = num.toString();
-    if (numString.includes('.')) {
-      return numString.split('.')[1].length;
-    } else {
-      return 0;
+    if (typeof num !== 'number' || isNaN(num)) {
+        console.warn('Invalid input to getDecimalPlaces:', num);
+        return 0; // or some default value
     }
-  }
+    const str = num.toString();
+    const decimalIndex = str.indexOf('.');
+    return decimalIndex === -1 ? 0 : str.length - decimalIndex - 1;
+}
 
   /**
    * Returns a unique channel name based on the type and number
@@ -161,8 +162,7 @@ export class CabbageUtils {
   static getWidgetFromChannel(channel, widgets) {
     widgets.forEach((widget) => {
       console.log("widget channel", widget.channel);
-      if (widget["channel"] === channel)
-        {return widget;}
+      if (widget["channel"] === channel) { return widget; }
     });
     return null;
   }
@@ -196,11 +196,11 @@ export class CabbageUtils {
   }
 
   static getNumberBoxWidth(props) {
-    // Get the number of decimal places in props.increment
-    const decimalPlaces = CabbageUtils.getDecimalPlaces(props.increment);
+    // Get the number of decimal places in props.range.increment
+    const decimalPlaces = CabbageUtils.getDecimalPlaces(props.range.increment);
 
     // Format props.max with the correct number of decimal places
-    const maxNumber = props.max.toFixed(decimalPlaces);
+    const maxNumber = props.range.max.toFixed(decimalPlaces);
 
     // Calculate the width of the string representation of maxNumber
     const maxNumberWidth = CabbageUtils.getStringWidth(maxNumber, props);
@@ -227,7 +227,7 @@ export class CabbageUtils {
       }
     }
   }
-  
+
   static updateBounds(props, identifier) {
     console.log('updateBounds called with:', JSON.stringify(props), identifier);
     const element = document.getElementById(props.channel);
@@ -260,16 +260,45 @@ export class CabbageUtils {
 
 export class CabbageColours {
 
+  /**
+     * Converts various color formats to a hex string.
+     * @param {string|array} color - The color to convert (RGBA array, RGB array, hex string, or CSS color name).
+     * @returns {string} - The hex string representation of the color.
+     */
+  static toHex(color) {
+    if (Array.isArray(color)) {
+      // Handle RGBA or RGB array
+      if (color.length === 3) {
+        // RGB
+        return `#${((1 << 24) + (color[0] << 16) + (color[1] << 8) + color[2]).toString(16).slice(1)}`;
+      } else if (color.length === 4) {
+        // RGBA
+        return `#${((1 << 24) + (color[0] << 16) + (color[1] << 8) + color[2]).toString(16).slice(1)}`;
+      }
+    } else if (typeof color === 'string') {
+      // Handle hex string
+      if (color.startsWith('#')) {
+        return color.length === 7 ? color : color + color.slice(1); // Expand shorthand hex
+      }
+      // Handle CSS color name
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.fillStyle = color;
+      return context.fillStyle; // This will return the hex value
+    }
+    throw new Error('Invalid color format');
+  }
+
   static changeSelectedBorderColor(newColor) {
     // Loop through all stylesheets
     for (let i = 0; i < document.styleSheets.length; i++) {
       const styleSheet = document.styleSheets[i];
-      
+
       try {
         // Loop through all rules in the stylesheet
         for (let j = 0; j < styleSheet.cssRules.length; j++) {
           const rule = styleSheet.cssRules[j];
-          
+
           if (rule.selectorText && rule.selectorText.trim() === '.selected') {
             // Modify the border color
             rule.style.borderColor = newColor;
@@ -278,7 +307,7 @@ export class CabbageColours {
         }
       } catch (e) {
         // Catch and ignore SecurityError: The operation is insecure.
-        if (e.name !== 'SecurityError') {throw e;}
+        if (e.name !== 'SecurityError') { throw e; }
       }
     }
   }
@@ -311,28 +340,28 @@ export class CabbageColours {
    * @return {string} The new hex color with the specified alpha value.
    */
   static adjustAlpha(hex, alpha) {
-  // Ensure hex is in the format '#RRGGBB' or '#RRGGBBAA'
-  hex = hex.replace('#', '');
+    // Ensure hex is in the format '#RRGGBB' or '#RRGGBBAA'
+    hex = hex.replace('#', '');
 
-  if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join(''); // Convert shorthand '#RGB' to '#RRGGBB'
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join(''); // Convert shorthand '#RGB' to '#RRGGBB'
+    }
+
+    // Ensure alpha is within the valid range
+    alpha = Math.min(1, Math.max(0, alpha));
+
+    // Convert alpha to a two-digit hex value
+    const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
+
+    // Return the new hex color
+    if (hex.length === 6) {
+      return `#${hex}${alphaHex}`;
+    } else if (hex.length === 8) {
+      return `#${hex.slice(0, 6)}${alphaHex}`;
+    } else {
+      throw new Error('Invalid hex color format');
+    }
   }
-
-  // Ensure alpha is within the valid range
-  alpha = Math.min(1, Math.max(0, alpha));
-
-  // Convert alpha to a two-digit hex value
-  const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
-
-  // Return the new hex color
-  if (hex.length === 6) {
-    return `#${hex}${alphaHex}`;
-  } else if (hex.length === 8) {
-    return `#${hex.slice(0, 6)}${alphaHex}`;
-  } else {
-    throw new Error('Invalid hex color format');
-  }
-}
   static getColour(colourName) {
     const colourMap = {
       "blue": "#0295cf",
@@ -387,11 +416,11 @@ export class CabbageTestUtilities {
 
   static createWidgetInstances(widgetConstructors) {
     const widgetInstances = {};
-    
+
     for (const [key, Constructor] of Object.entries(widgetConstructors)) {
       widgetInstances[key] = new Constructor();
     }
-    
+
     return widgetInstances;
   }
 
@@ -405,13 +434,13 @@ export class CabbageTestUtilities {
       widgets[key] = new Constructor();
       console.log(widgets[key]);
     }
-  
+
     let widgetTypes = '{';
     for (const widget of Object.values(widgets)) {
       widgetTypes += `"${widget.props.type}", `;
     }
     widgetTypes = widgetTypes.slice(0, -2) + "};";
-  
+
     let cppCode = `
   #pragma once
   
@@ -431,7 +460,7 @@ export class CabbageTestUtilities {
   
       static nlohmann::json get(std::string widgetType) {
   `;
-  
+
     // Generate the widget descriptors for each widget type
     for (const widget of Object.values(widgets)) {
       const jsonString = JSON.stringify(widget.props, null, 2).split('\n').map(line => `            ${line}`).join('\n');
@@ -443,16 +472,16 @@ export class CabbageTestUtilities {
               return nlohmann::json::parse(jsonString);
           }`;
     }
-  
+
     cppCode += `
           cabAssert(false, "Invalid widget type");
       }
   };
   `;
-  
+
     console.error(cppCode);
   }
-  
+
 
   /*
   * Generate a CSD file from the widgets array and tests all identifiers. For now this only tests numeric values

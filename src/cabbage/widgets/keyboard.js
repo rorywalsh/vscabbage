@@ -152,7 +152,7 @@ export class MidiKeyboard {
       const key = document.querySelector(`[data-note="${noteName}"]`);
       key.setAttribute('fill', this.props.keydownColour);
       console.log(`Key down: ${note} ${noteName}`);
-    } else if (midiData.status == 128) {
+    } else if (midiData.status === 128) {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);

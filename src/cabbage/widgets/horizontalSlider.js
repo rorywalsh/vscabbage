@@ -115,17 +115,16 @@ export class HorizontalSlider {
       const formLeft = rect.left;
       const formWidth = rect.width;
 
-      // Determine if the popup should be on the right or left side of the slider
-      const sliderCenter = formLeft + (formWidth / 2);
-      let popupLeft;
-      if (sliderLeft + (sliderWidth) > sliderCenter) {
-        // Place popup on the left of the slider thumb
-        popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
+      // Default position for the popup to the right of the slider
+      let popupLeft = formLeft + sliderLeft + sliderWidth + 10; // 10px padding to the right
+
+      // Check if the popup goes out of bounds on the right
+      if (popupLeft + popup.offsetWidth > formLeft + formWidth) {
+        // If it does, place it on the left of the slider
+        popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10; // 10px padding to the left
         console.log("Pointer on the left");
         popup.classList.add('right');
       } else {
-        // Place popup on the right of the slider thumb
-        popupLeft = formLeft + sliderLeft + sliderWidth + 10;
         console.log("Pointer on the right");
         popup.classList.remove('right');
       }
