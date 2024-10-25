@@ -5,7 +5,7 @@ import * as cp from "child_process";
 import os from 'os';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
-let dbg = true;
+let dbg = false;
 
 export class Commands {
     private static vscodeOutputChannel: vscode.OutputChannel;
