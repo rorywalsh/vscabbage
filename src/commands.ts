@@ -168,10 +168,6 @@ export class Commands {
         // Set webview HTML content
         this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
 
-        // Set up message handler for the panel
-        this.panel.webview.onDidReceiveMessage(message => {
-            this.handleWebviewMessage(message, undefined, [], vscode.window.activeTextEditor, context);
-        });
 
         return this.panel;
     }

@@ -18,8 +18,13 @@ let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
 
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+/**
+ * Activates the Cabbage extension, setting up commands, configuration change listeners,
+ * and event handlers for saving documents, opening documents, and changing tabs.
+ * Also sets up a status bar item and initializes the WebSocket server.
+ * 
+ * @param context The extension context for managing VS Code subscriptions.
+ */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     Commands.initialize(context);
@@ -78,13 +83,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Add the listener to the context subscriptions so it's disposed automatically
     context.subscriptions.push(configurationChangeListener);
-    
+
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
         Commands.enterEditMode(websocket);
     }));
 
+    /**
+     * Event handler triggered when a text document is saved.
+     * - Checks if the saved document is a .csd file with Cabbage-specific tags.
+     * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open if the "showUIOnSave" setting is enabled.
+     * - Waits for the WebSocket connection to be ready before handling any messages from the webview.
+     * - Listens for messages from the webview and processes them via WebSocket if available.
+     * 
+     * @param editor The text editor containing the saved document.
+     */
     vscode.workspace.onDidSaveTextDocument(async (editor) => {
         if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
             setCabbageMode("play");
@@ -95,6 +109,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 }
             }
             await Commands.onDidSave(editor, context);
+            await waitForWebSocket();  // Wait until the WebSocket is ready!
+            Commands.getPanel()!.webview.onDidReceiveMessage(message => {
+                if (websocket) {
+                    Commands.handleWebviewMessage(
+                        message,
+                        websocket,
+                        firstMessages,
+                        vscode.window.activeTextEditor,
+                        context
+                    );
+                }
+                else {
+                    console.warn("websocket fucked");
+                }
+            });
         }
     });
 
@@ -106,30 +135,41 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // triggered when tab changes
     });
 
-    // callback for webview messages - some of these will be fired off from the CabbageApp
-    if (Commands.getPanel()) {
-        Commands.getPanel()!.webview.onDidReceiveMessage(message => {
-            Commands.handleWebviewMessage(
-                message,
-                websocket,
-                firstMessages,
-                vscode.window.activeTextEditor,
-                context
-            );
-        });
-    }
 }
 
-// This method is called when your extension is deactivated
+/**
+ * Deactivates the Cabbage extension by terminating any active child processes
+ * associated with the Commands module. This ensures that all processes are cleaned up
+ * when the extension is disabled.
+ */
 export function deactivate() {
     Commands.getProcesses().forEach((p) => {
         p?.kill("SIGKILL");
     });
 }
 
+/**
+ * Waits until the WebSocket connection is established and resolves the promise
+ * with the WebSocket instance once it is ready. This function is useful to ensure
+ * the WebSocket is available before performing operations that depend on it.
+ * 
+ * @returns A promise that resolves with the WebSocket instance when ready.
+ */
+function waitForWebSocket(): Promise<WebSocket> {
+    return new Promise((resolve) => {
+        const interval = setInterval(() => {
+            if (websocket) {
+                clearInterval(interval);  // Stop checking once websocket is valid
+                resolve(websocket);       // Resolve the promise with the WebSocket
+            }
+        }, 100); // Check every 100 ms
+    });
+}
+
+//=================================================================================
 // websocket server
 wss.on('connection', (ws: WebSocket) => {
-    console.log('Client connected');
+    console.warn('Client connected');
 
     // There are times when Cabbage will send messages before the webview is ready to receive them. 
     // So first thing to do is flush the first messages received from Cabbage
@@ -160,3 +200,4 @@ wss.on('connection', (ws: WebSocket) => {
         console.log('Client disconnected');
     });
 });
+
