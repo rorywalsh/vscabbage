@@ -3,8 +3,6 @@ const os = require('os');
 const path = require('path');
 
 
-
-
 export class Settings {
 
     static async getCabbageSettings() {
@@ -31,10 +29,15 @@ export class Settings {
     }
 
     static async setCabbageSettings(newSettings: object) {
-        // Get the current user's home directory
+        // Get the path to the settings file
+        let settingsPath = '';
         const homeDir = os.homedir();
-        // Build your path dynamically
-        const settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+        if (os.platform() === 'darwin') {
+            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
+        } else {
+            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+        }
+
         const fileUri = vscode.Uri.file(settingsPath);
         try {
             // Convert the JSON object to a string
@@ -129,6 +132,17 @@ export class Settings {
         } else {
             vscode.window.showWarningMessage(`No ${type} device selected.`);
         }
+    }
+
+    static async updatePath(event: vscode.ConfigurationChangeEvent) {
+        let settings = await Settings.getCabbageSettings();
+        if(event.affectsConfiguration('cabbage.pathToJsSource'))
+        {
+            const newPath = vscode.workspace.getConfiguration('cabbage').get('pathToJsSource');
+            settings['currentConfig']['jsSourceDir'] = newPath;
+            await Settings.setCabbageSettings(settings);
+        }
+        
     }
 
     static async selectMidiDevice(type: 'input' | 'output') {

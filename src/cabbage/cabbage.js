@@ -9,7 +9,7 @@ export class Cabbage {
       command: "parameterChange",
       obj: JSON.stringify(message)
     };
-    if (vscode != null) {
+    if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {
@@ -26,7 +26,7 @@ export class Cabbage {
       text: JSON.stringify({})
     };
     console.log("sending custom command from UI", msg);
-    if (vscode != null) {
+    if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {      
@@ -65,7 +65,7 @@ export class Cabbage {
     };
 
     console.log("sending midi message from UI", message);
-    if (vscode != null) {
+    if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {
@@ -88,7 +88,7 @@ export class Cabbage {
       command: "fileOpen",
       obj: JSON.stringify(message)
     };
-    if (vscode != null) {
+    if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {

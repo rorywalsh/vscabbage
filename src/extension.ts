@@ -72,6 +72,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await Settings.selectMidiDevice('input');
     }));
 
+    const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
+        Settings.updatePath(event);
+    });
+
+    // Add the listener to the context subscriptions so it's disposed automatically
+    context.subscriptions.push(configurationChangeListener);
+    
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => {
