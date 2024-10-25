@@ -23,6 +23,11 @@
           "default": "/Users/rwalsh/sourcecode/cabbage3/icabbage/cabbage/build/Debug",
           "description": "Path to Cabbage service app (path only, don't pass the file name)."
         },
+        "cabbage.pathToJsSource": {
+          "type": "string",
+          "default": "/Users/rwalsh/sourcecode/vscabbage/src",
+          "description": "Path to Cabbage Javascript directory."
+        },
         "cabbage.audioOutputDevice": {
           "type": "string",
           "default": "Default",
