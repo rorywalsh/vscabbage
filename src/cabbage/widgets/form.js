@@ -12,7 +12,7 @@ export class Form {
       "type": "form",
       "colour": "#888888",
       "channel": "MainForm"
-    }
+    };
 
   }
 

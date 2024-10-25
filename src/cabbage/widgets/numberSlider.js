@@ -147,7 +147,7 @@ export class NumberSlider {
         if (this.props.visible === 0) {
             return '';
         }
-
+    
         const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
         const alignMap = {
             'left': 'end',
@@ -157,9 +157,9 @@ export class NumberSlider {
         };
         const svgAlign = alignMap[this.props.font.align] || 'middle';
         const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
-
+    
         return `
-            <div id="slider-${this.props.channel}" style="position: relative; width: 100%; height: 100%;">
+            <div id="slider-${this.props.channel}" style="position: relative; width: 100%; height: 100%; user-select: none;"> <!-- Prevent text selection -->
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
@@ -170,7 +170,7 @@ export class NumberSlider {
                 <!-- Text SVG with proper alignment -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
-                    <text id="slider-text-${this.props.channel}" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
+                    <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
                         fill="${this.props.fontColour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
                         style="pointer-events: none;">${valueText}</text>
                 </svg>
