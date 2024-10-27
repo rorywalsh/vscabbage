@@ -35,9 +35,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Set the text and icon for the status bar item
     statusBarItem.text = `$(unmute) Cabbage`;
 
-    // Optional: Set a tooltip for the item
-    statusBarItem.tooltip = 'Click to activate extension';
-
     // Optional: Make the status bar item clickable (command)
     statusBarItem.command = 'cabbage.showCommands';
 
@@ -121,7 +118,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                     );
                 }
                 else {
-                    console.warn("websocket fucked");
+                    console.warn("websocket is undefined?");
                 }
             });
         }
@@ -174,23 +171,27 @@ wss.on('connection', (ws: WebSocket) => {
     // There are times when Cabbage will send messages before the webview is ready to receive them. 
     // So first thing to do is flush the first messages received from Cabbage
     firstMessages.forEach((msg) => {
-        console.log(msg);
         ws.send(JSON.stringify(msg));
     });
 
     firstMessages = [];
 
     websocket = ws;
+    // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
     ws.on('message', (message: WebSocket.Data) => {
         const msg = JSON.parse(message.toString());
-        console.log(msg);
         if (msg.hasOwnProperty("command")) {
             // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
             // These are then sent to the webview for rendering.
             if (msg["command"] === "widgetUpdate") {
                 const panel = Commands.getPanel();
                 if (panel) {
-                    panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
+                    if(msg.hasOwnProperty("data")){
+                        panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
+                    }
+                    else if(msg.hasOwnProperty("value")){
+                        panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
+                    }
                 }
             }
         }

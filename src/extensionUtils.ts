@@ -6,21 +6,25 @@ import path from 'path';
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
 
 export class ExtensionUtils {
-    //send text to webview for parsing if file has an extension of csd and contains valid Cabbage tags
+
+    /**
+     * Sends text to the webview for parsing, only if the file has a `.csd` extension
+     * and includes valid Cabbage tags.
+     */
     static sendTextToWebView(editor: vscode.TextDocument | undefined, command: string, panel: vscode.WebviewPanel | undefined) {
         if (editor) {
             if (editor.fileName.split('.').pop() === 'csd') {
-                //reload the webview
                 vscode.commands.executeCommand("workbench.action.webview.reloadWebviewAction");
-                //now check for Cabbage tags..
-                if (editor?.getText().indexOf('<Cabbage>') !== -1 && editor?.getText().indexOf('</Cabbage>') !== -1) {
-                    if (panel) { panel.webview.postMessage({ command: command, text: editor?.getText() }); }
+                if (editor.getText().includes('<Cabbage>') && editor.getText().includes('</Cabbage>')) {
+                    panel?.webview.postMessage({ command, text: editor.getText() });
                 }
             }
         }
     }
 
-    // Define a function to initialize or update highlightDecorationType
+    /**
+     * Initializes or updates the highlight decoration type, used for highlighting in editors.
+     */
     static initialiseHighlightDecorationType(highlightDecorationType: vscode.TextEditorDecorationType | undefined) {
         if (!highlightDecorationType) {
             highlightDecorationType = vscode.window.createTextEditorDecorationType({
@@ -29,91 +33,61 @@ export class ExtensionUtils {
         }
     }
 
+    /**
+     * Highlights and scrolls to an object within the document based on updated properties.
+     * Supports both single-line and multi-line objects.
+     */
     static highlightAndScrollToUpdatedObject(updatedProps: WidgetProps, cabbageStartIndex: number, isSingleLine: boolean,
         textEditor: vscode.TextEditor | undefined,
         highlightDecorationType: vscode.TextEditorDecorationType,
         shouldScroll: boolean = true) {
-        if (!textEditor) {
-            return;
-        }
+        if (!textEditor) return;
 
         const document = textEditor.document;
         const documentText = document.getText();
         const lines = documentText.split('\n');
-
-        // Ensure highlightDecorationType is initialized
         ExtensionUtils.initialiseHighlightDecorationType(highlightDecorationType);
 
-        // Clear previous decorations
-        if (highlightDecorationType) {
-            textEditor.setDecorations(highlightDecorationType, []);
-        }
+        textEditor.setDecorations(highlightDecorationType, []);
 
         if (isSingleLine) {
-            // Define regex pattern to match the line containing the "channel" property
             const channelPattern = new RegExp(`"channel":\\s*"${updatedProps.channel}"`, 'i');
-
-            // Find the line number using the regex pattern
             const lineNumber = lines.findIndex(line => channelPattern.test(line));
 
             if (lineNumber >= 0) {
                 const start = new vscode.Position(lineNumber, 0);
                 const end = new vscode.Position(lineNumber, lines[lineNumber].length);
-                textEditor.setDecorations(highlightDecorationType, [
-                    { range: new vscode.Range(start, end) }
-                ]);
-                if (shouldScroll) {
-                    textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
-                }
+                textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(start, end) }]);
+                if (shouldScroll) textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
             }
         } else {
-            // Handling for multi-line objects
-            // Improved regex pattern to match a JSON object containing the specified channel
             const pattern = new RegExp(`\\{(?:[^{}]|\\{[^{}]*\\})*?"channel":\\s*"${updatedProps.channel}"(?:[^{}]|\\{[^{}]*\\})*?\\}`, 's');
             const match = pattern.exec(documentText);
 
             if (match) {
-                const objectText = match[0];
-                const objectStartIndex = documentText.indexOf(objectText);
-                const objectEndIndex = objectStartIndex + objectText.length;
-
+                const objectStartIndex = documentText.indexOf(match[0]);
+                const objectEndIndex = objectStartIndex + match[0].length;
                 const startPos = document.positionAt(objectStartIndex);
                 const endPos = document.positionAt(objectEndIndex);
-
-                textEditor.setDecorations(highlightDecorationType, [
-                    { range: new vscode.Range(startPos, endPos) }
-                ]);
-                if (shouldScroll) {
-                    textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
-                }
+                textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(startPos, endPos) }]);
+                if (shouldScroll) textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
             }
         }
     }
 
+    /**
+     * Opens or shows a text document, ensuring it appears in the correct view column
+     * and that focus remains on the previously active document.
+     */
     static async openOrShowTextDocument(filePath: string): Promise<vscode.TextEditor | null> {
         try {
-            // Find the current .csd file's view column, defaulting to ViewColumn.One if not found
-            const csdEditor = vscode.window.visibleTextEditors.find(
-                editor => editor.document.fileName.endsWith('.csd')
-            );
-
-            // Default to ViewColumn.One if the .csd file's view column is not found
+            const csdEditor = vscode.window.visibleTextEditors.find(editor => editor.document.fileName.endsWith('.csd'));
             const viewColumn = csdEditor ? csdEditor.viewColumn : vscode.ViewColumn.One;
+            const existingEditor = vscode.window.visibleTextEditors.find(editor => editor.document.fileName === filePath);
 
-            // Check if the file is already open in an editor
-            const existingEditor = vscode.window.visibleTextEditors.find(
-                editor => editor.document.fileName === filePath
-            );
+            if (existingEditor) { return existingEditor; }
 
-            if (existingEditor) {
-                // If already open, return the existing editor without changing focus
-                return existingEditor;
-            }
-
-            // Open the document without immediately showing it in the editor
             const document = await vscode.workspace.openTextDocument(filePath);
-
-            // Show the document in the specified view column without bringing it to the front
             return vscode.window.showTextDocument(document, { preview: false, viewColumn, preserveFocus: true });
         } catch (error) {
             console.error(`Failed to open document: ${filePath}`, error);
@@ -121,6 +95,10 @@ export class ExtensionUtils {
         }
     }
 
+    /**
+     * Updates JSON text in the document based on the current mode, highlight, and properties.
+     * Handles both external file references and in-line JSON updates within `<Cabbage>` tags.
+     */
     static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3): Promise<void> {
         if (cabbageMode === "play") {
             return;
@@ -231,7 +209,10 @@ export class ExtensionUtils {
         }
     }
 
-
+    /**
+     * Formats the given text based on indentation and special formatting rules for `<Cabbage>` sections.
+     * Uses custom indentation for control structures like `if`, `else`, `instr`, and `opcode`.
+     */
     static formatText(text: string, indentSpaces: number = 4): string {
         const lines = text.split('\n');
         let indents = 0;
@@ -312,82 +293,125 @@ export class ExtensionUtils {
         return formattedText;
     }
 
+    /**
+     * Compares two objects for deep equality.
+     * @param obj1 - The first object to compare.
+     * @param obj2 - The second object to compare.
+     * @returns true if the objects are deeply equal, false otherwise.
+     */
     static deepEqual(obj1: any, obj2: any): boolean {
         // If both are the same instance (including primitives)
-        if (obj1 === obj2) {return true};
-
-        // If either is not an object, they are not equal
-        if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
-            return false;
+        if (obj1 === obj2) {
+            return true; // They are equal
         }
 
-        // Compare the number of keys (early return if different)
+        // If either is not an object or is null, they are not equal
+        if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
+            return false; // They are not equal
+        }
+
+        // Get the keys of both objects
         const keys1 = Object.keys(obj1);
         const keys2 = Object.keys(obj2);
-        if (keys1.length !== keys2.length) {return false;}
+
+        // If the number of keys is different, the objects are not equal
+        if (keys1.length !== keys2.length) {
+            return false; // They are not equal
+        }
 
         // Recursively compare properties
         for (let key of keys1) {
-            if (!ExtensionUtils.deepEqual(obj1[key], obj2[key])) {return false;}
+            // If the values for the current key are not deeply equal, return false
+            if (!ExtensionUtils.deepEqual(obj1[key], obj2[key])) {
+                return false; // They are not equal
+            }
         }
 
+        // All checks passed; objects are deeply equal
         return true;
     }
 
-    //this function will merge incoming properties (from the props object) into an existing JSON array, while removing any 
-    //properties that match the default values defined in the defaultProps object.
+    /**
+     * Updates a JSON array with new properties while removing defaults.
+     * Merges incoming properties (from the props object) into an existing JSON array,
+     * while removing any properties that match the default values defined in the defaultProps object.
+     * @param jsonArray - The array of existing widget properties.
+     * @param props - The new properties to merge into the array.
+     * @param defaultProps - The default properties to compare against.
+     * @returns The updated JSON array with merged properties.
+     */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
-        // If the new object is a form, we need to handle it differently
+        // Check if the new object is of type 'form'
         if (props.type === 'form') {
-            // Find existing form object
+            // Find the index of the existing form object in the array
             const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
+
+            // If a form already exists, update it
             if (formIndex !== -1) {
-                // Update existing form object
+                // Merge existing form object with new properties
                 let newFormObject = { ...jsonArray[formIndex], ...props };
+
+                // Remove properties that match default values
                 for (let key in defaultProps) {
+                    // If the property value is deeply equal to the default, delete it
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
                         delete newFormObject[key];
                     }
                 }
+
+                // Update the existing form object in the array
                 jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(newFormObject);
             } else {
-                // Add new form object if it doesn't exist
+                // If no form exists, create a new form object
                 let newFormObject = { ...props };
+
+                // Remove properties that match default values
                 for (let key in defaultProps) {
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
                         delete newFormObject[key];
                     }
                 }
-                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(newFormObject)); // Add form to the beginning
+
+                // Add the new form object to the beginning of the array
+                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(newFormObject));
             }
-            return jsonArray;
+            return jsonArray; // Return the updated array
         }
 
-        // For non-form objects, proceed as before
+        // For non-form objects, look for an existing object based on the channel
         let existingObject = jsonArray.find(obj => obj.channel === props.channel);
 
+        // If an existing object is found, update it
         if (existingObject) {
-            // Update existing object
+            // Merge existing object with new properties
             let newObject = { ...existingObject, ...props };
+
+            // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
                     delete newObject[key];
                 }
             }
+
+            // Find the index of the existing object and update it in the array
             const index = jsonArray.findIndex(obj => obj.channel === props.channel);
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(newObject);
         } else {
-            // Add new object
+            // If no existing object is found, create a new object
             let newObject = { ...props };
+
+            // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
                     delete newObject[key];
                 }
             }
+
+            // Add the new object to the end of the array
             jsonArray.push(ExtensionUtils.sortOrderOfProperties(newObject));
         }
 
-        return jsonArray;
+        return jsonArray; // Return the updated array
     }
 
     /**

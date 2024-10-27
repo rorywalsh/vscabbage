@@ -7,6 +7,11 @@ import os from 'os';
 import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 let dbg = false;
 
+/**
+ * The Commands class encapsulates the functionalities of the VSCode extension,
+ * managing WebSocket communications, document manipulations, UI interactions,
+ * and processes related to the Cabbage extension.
+ */
 export class Commands {
     private static vscodeOutputChannel: vscode.OutputChannel;
     private static processes: (cp.ChildProcess | undefined)[] = [];
@@ -14,6 +19,11 @@ export class Commands {
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
 
+    /**
+     * Initializes the Commands class by creating an output channel for logging
+     * and setting up the highlight decoration for text editor elements.
+     * @param context The extension context provided by VSCode.
+     */
     static initialize(context: vscode.ExtensionContext) {
         if (!this.vscodeOutputChannel) {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
@@ -23,6 +33,11 @@ export class Commands {
         });
     }
 
+    /**
+     * Activates edit mode by setting Cabbage mode to "draggable", terminating
+     * active processes, and notifying the webview panel.
+     * @param websocket The WebSocket connection to the Cabbage backend.
+     */
     static enterEditMode(websocket: WebSocket | undefined) {
         setCabbageMode("draggable");
         this.processes.forEach((p) => {
@@ -33,7 +48,15 @@ export class Commands {
         }
     }
 
-    // Function to handle webview messages
+    /**
+     * Handles incoming messages from the webview and performs actions based
+     * on the message type.
+     * @param message The message from the webview.
+     * @param websocket The WebSocket connection to the Cabbage backend.
+     * @param firstMessages A queue of initial messages to be sent after connection.
+     * @param textEditor The active text editor in VSCode.
+     * @param context The extension context provided by VSCode.
+     */
     static async handleWebviewMessage(
         message: any,
         websocket: WebSocket | undefined,
@@ -50,7 +73,7 @@ export class Commands {
                 }
                 break;
     
-            case 'widgetStateUpdate': //trigger when webview is open
+            case 'widgetStateUpdate':
                 firstMessages.push(message);
                 websocket?.send(JSON.stringify(message));
                 break;
@@ -95,11 +118,9 @@ export class Commands {
             case 'saveFromUIEditor':
                 let documentToSave: vscode.TextDocument | undefined;
 
-                // First, check for an active text editor
                 if (vscode.window.activeTextEditor) {
                     documentToSave = vscode.window.activeTextEditor.document;
                 } else {
-                    // If no active editor, find the first .csd file among open documents
                     documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith('.csd'));
                 }
 
@@ -108,7 +129,6 @@ export class Commands {
                         await documentToSave.save();
                         console.log('File saved successfully:', documentToSave.fileName);
                         
-                        // Instead of recreating the panel, just update it
                         if (this.panel) {
                             this.panel.webview.postMessage({ 
                                 command: "onFileChanged", 
@@ -117,7 +137,6 @@ export class Commands {
                             });
                         }
 
-                        // Call onDidSave without recreating the panel
                         Commands.onDidSave(documentToSave, context);
                     } catch (error) {
                         console.error('Error saving file:', error);
@@ -136,10 +155,14 @@ export class Commands {
         }
     }
 
+    /**
+     * Sets up the Cabbage UI editor webview panel and loads necessary resources.
+     * @param context The extension context provided by VSCode.
+     * @returns The created webview panel.
+     */
     static setupWebViewPanel(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration("cabbage");
         const launchInNewColumn = config.get("launchInNewColumn");
-        // Determine the ViewColumn based on the launchInNewColumn setting
         const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
         this.panel = vscode.window.createWebviewPanel(
@@ -152,11 +175,9 @@ export class Commands {
             }
         );
 
-        // Make sure the editor currently displayed has focus
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
     
-        // Load resources
         const mainJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src/cabbage', 'main.js'));
         const styles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css'));
         const cabbageStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'cabbage.css'));
@@ -165,13 +186,17 @@ export class Commands {
         const colourPickerJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
         const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.css'));
     
-        // Set webview HTML content
         this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
-
 
         return this.panel;
     }
     
+    /**
+     * Event handler for saving a .csd document, sets up the Cabbage editor panel if needed
+     * and starts the Cabbage process if the document is a valid .csd file.
+     * @param editor The VSCode document being saved.
+     * @param context The extension context provided by VSCode.
+     */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
         console.log("onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
@@ -214,11 +239,9 @@ export class Commands {
         const path = vscode.Uri.file(command);
 
         try {
-            // Attempt to read the directory (or file)
             await vscode.workspace.fs.stat(path);
-            this.vscodeOutputChannel.append("Found Cabbage service app...")
+            this.vscodeOutputChannel.append("Found Cabbage service app...");
         } catch (error) {
-            // If an error is thrown, it means the path does not exist
             this.vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please check the path in the Cabbage extension settings.\n`);
             return;
         }
@@ -229,38 +252,33 @@ export class Commands {
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
-                // Replace the extension by slicing and concatenating the new extension - we're only interested in opening CSD files
-
                 const process = cp.spawn(command, [editor.fileName], {});
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
-                    // I've seen spurious 'ANSI reset color' sequences in some csound output
-                    // which doesn't render correctly in this context. Stripping that out here.
                     this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
                 });
                 process.stderr.on("data", (data: { toString: () => string; }) => {
-                    // It looks like all csound output is written to stderr, actually.
-                    // If you want your changes to show up, change this one.
                     this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
                 });
             } else {
-                // If no extension is found or the file name starts with a dot (hidden files), handle appropriately
                 console.error('Invalid file name or no extension found');
                 this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.');
             }
         }
     }
 
+    /**
+     * Expands and formats a JSON block within Cabbage tags in the active editor.
+     */
     static expandCabbageJSON() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            return; // No open text editor
+            return;
         }
 
         const document = editor.document;
         const text = document.getText();
 
-        // Find the <Cabbage> and </Cabbage> tags
         const startTag = '<Cabbage>';
         const endTag = '</Cabbage>';
 
@@ -272,7 +290,6 @@ export class Commands {
             return;
         }
 
-        // Calculate the positions in the document
         const startPos = document.positionAt(startIndex + startTag.length);
         const endPos = document.positionAt(endIndex);
 
@@ -280,13 +297,10 @@ export class Commands {
         const cabbageContent = document.getText(range).trim();
 
         try {
-            // Parse the JSON content to ensure it's valid
             const jsonObject = JSON.parse(cabbageContent);
 
-            // Re-stringify the JSON content with formatting (4 spaces for indentation)
             const formattedJson = JSON.stringify(jsonObject, null, 4);
 
-            // Replace the original Cabbage section with the formatted text
             editor.edit(editBuilder => {
                 editBuilder.replace(range, '\n' + formattedJson + '\n');
             });
@@ -296,31 +310,51 @@ export class Commands {
         }
     }
 
+    /**
+     * Formats the document content by applying predefined formatting rules.
+     */
     static async formatDocument() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {return;}
 
         const text = editor.document.getText();
-        const formattedText = ExtensionUtils.formatText(text);  // Your formatting logic
+        const formattedText = ExtensionUtils.formatText(text);
 
         const edit = new vscode.WorkspaceEdit();
         edit.replace(editor.document.uri, new vscode.Range(0, 0, editor.document.lineCount, 0), formattedText);
         await vscode.workspace.applyEdit(edit);
     }
 
+    /**
+     * Checks if the provided document contains Cabbage tags.
+     * @param document The document to check.
+     * @returns True if the document contains Cabbage tags, false otherwise.
+     */
     static async hasCabbageTags(document: vscode.TextDocument): Promise<boolean> {
         const text = document.getText();
         return text.includes('<Cabbage>') && text.includes('</Cabbage>');
     }
 
+    /**
+     * Retrieves the Webview panel for the UI editor if it exists.
+     * @returns The Webview panel or undefined.
+     */
     static getPanel(): vscode.WebviewPanel | undefined {
         return this.panel;
     }
 
+    /**
+     * Retrieves the list of processes managed by the Commands class.
+     * @returns An array of active or undefined child processes.
+     */
     static getProcesses(): (cp.ChildProcess | undefined)[] {
         return this.processes;
     }
 
+    /**
+     * Retrieves the output channel for the extension, initializing it if necessary.
+     * @returns The output channel for Cabbage output.
+     */
     static getOutputChannel(): vscode.OutputChannel {
         if (!this.vscodeOutputChannel) {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");

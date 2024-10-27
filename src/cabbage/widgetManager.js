@@ -20,7 +20,8 @@ export class WidgetManager {
         const WidgetClass = widgetConstructors[type];
         if (WidgetClass) {
             const widget = new WidgetClass();
-            if (type === "gentable") {
+            //special case for genTable..
+            if (type === "genTable") {
                 widget.createCanvas(); // Special logic for "gentable" widget
             }
             return widget;
@@ -93,7 +94,8 @@ export class WidgetManager {
             WidgetManager.appendToMainForm(widgetDiv);
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
-        } else if (widget.props.type === "gentable") {
+        } else if (widget.props.type === "genTable") {
+            console.log("updating table");
             widget.updateTable(); // Special handling for "gentable" widgets
         }
 
@@ -244,15 +246,14 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+                console.warn("Updating widget value only");
                 widget.props.value = obj.value; // Update the value property
                 // Call getInnerHTML to refresh the widget's display
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
@@ -287,7 +288,8 @@ export class WidgetManager {
                 } else {
                     console.error("MainForm not found");
                 }
-            } else {
+            } 
+            else {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widgetDiv) {
@@ -300,12 +302,16 @@ export class WidgetManager {
                         widgetDiv.style.width = widget.props.bounds.width + "px";
                         widgetDiv.style.height = widget.props.bounds.height + "px";
                     }
+
+                    if(widget.props.type === "genTable"){
+                        widget.updateTable();
+                    }
                 } else {
                     console.error(`Widget div for channel ${widget.props.channel} not found`);
                 }
             }
         } else {
-            console.error(`Widget with channel ${obj.channel} not found`);
+            // console.log(`Widget with channel ${obj.channel} not found - going to create it now`);
         }
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound) {

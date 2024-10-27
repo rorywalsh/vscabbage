@@ -5,7 +5,6 @@ import { CabbageUtils } from "../utils.js";
  */
 export class GenTable {
     constructor() {
-        console.log("Creating GenTable widget");
         this.props = {
             "bounds": {
                 "top": 0,
@@ -14,21 +13,25 @@ export class GenTable {
                 "height": 100
             },
             "type": "genTable",
-            "colour": "#888888",
+            "colour": { 
+                "fill": "#a8d388", 
+                "background": "#ffffff00"
+            },
             "stroke": {
                 "colour": "#dddddd",
                 "width": 1
             },
             "channel": "gentable",
-            "backgroundColour": "#a8d388",
             "fontColour": "#dddddd",
             "font": {
                 "family": "Verdana",
                 "size": 0,
                 "align": "left"
             },
-            "startSample": -1,
-            "endSample": -1,
+            "sample": {
+                "start": -1,
+                "end": -1
+            },
             "file": "",
             "corners": 4,
             "visible": 1,
@@ -37,7 +40,6 @@ export class GenTable {
             "samples": [],
             "automatable": 0
         };
-
     }
 
     createCanvas() {
@@ -66,13 +68,14 @@ export class GenTable {
     }
 
     updateTable() {
+        console.warn("updating table");
         this.canvas.width = this.props.bounds.width;
         this.canvas.height = this.props.bounds.height;
         // Clear canvas
         this.ctx.clearRect(0, 0, this.props.bounds.width, this.props.bounds.height);
 
-        // Draw background with rounded corners
-        this.ctx.fillStyle = this.props.backgroundColour;
+        // Draw background with rounded corners using the new background property
+        this.ctx.fillStyle = this.props.colour.background; // Use the new background property
         this.ctx.beginPath();
         this.ctx.moveTo(this.props.corners, 0);
         this.ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, this.props.corners);
@@ -95,9 +98,12 @@ export class GenTable {
         } else {
             for (let i = 0; i < this.props.samples.length; i += sampleIncrement) {
                 const x = CabbageUtils.map(i, 0, this.props.samples.length, 0, this.props.bounds.width);
+                if (x > this.props.bounds.width) {
+                    continue; // Skip drawing if x exceeds bounds
+                }
                 const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
                 // Draw line to sample value
-                this.ctx.strokeStyle = this.props.colour;
+                this.ctx.strokeStyle = this.props.colour.fill;
                 this.ctx.beginPath();
                 this.ctx.moveTo(x, this.props.bounds.height / 2);
                 this.ctx.lineTo(x, y);
@@ -128,7 +134,7 @@ export class GenTable {
             'centre': 'center',
             'right': 'right',
         };
-        const svgAlign = alignMap[this.props.font.align] || 'start';
+
         const textAlign = canvasAlignMap[this.props.font.align] || 'left';
         this.ctx.font = `${fontSize}px ${this.props.font.family}`;
         this.ctx.fillStyle = this.props.fontColour;
@@ -141,8 +147,9 @@ export class GenTable {
 
         // Update DOM with the canvas
         const widgetElement = document.getElementById(this.props.channel);
-        if (widgetElement) {
-            widgetElement.style.transform = `translate(${this.props.bounds.left}px, ${this.props.bounds.top}px)`;
+        if (widgetElement) {            
+            widgetElement.style.left = '0px';
+            widgetElement.style.top =  '0px';
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content
