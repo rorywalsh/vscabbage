@@ -95,7 +95,7 @@ export class HorizontalSlider {
 
   mouseEnter(evt) {
     if (this.props.active === 0) {
-      return '';
+        return '';
     }
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
@@ -103,38 +103,44 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+        popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
 
-      // Calculate the position for the popup
-      const sliderLeft = this.props.bounds.left;
-      const sliderWidth = this.props.bounds.width;
-      const formLeft = rect.left;
-      const formWidth = rect.width;
+        // Calculate the position for the popup
+        const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
+        const sliderHeight = this.props.bounds.height; // Height of the slider
+        const mainFormHeight = rect.height; // Height of the main form
 
-      // Default position for the popup to the right of the slider
-      let popupLeft = formLeft + sliderLeft + sliderWidth + 10; // 10px padding to the right
+        // Default position for the popup to the bottom of the slider
+        let popupTop = sliderTop + sliderHeight + 5; // 5px padding below the slider
+        console.log("SliderTop" + popupTop);
+        console.log("ForHeight" +  mainFormHeight);
 
-      // Check if the popup goes out of bounds on the right
-      if (popupLeft + popup.offsetWidth > formLeft + formWidth) {
-        // If it does, place it on the left of the slider
-        popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10; // 10px padding to the left
-        console.log("Pointer on the left");
-        popup.classList.add('right');
-      } else {
-        console.log("Pointer on the right");
-        popup.classList.remove('right');
-      }
+        let popupLeft = rect.left + this.props.bounds.left + (this.props.bounds.width / 2) - (popup.offsetWidth / 2); // Center the popup
 
-      const popupTop = rect.top + this.props.bounds.top; // Adjust top position relative to the form's top
 
-      // Set the calculated position
-      popup.style.left = `${popupLeft}px`;
-      popup.style.top = `${popupTop}px`;
-      popup.style.display = 'block';
-      popup.classList.add('show');
-      popup.classList.remove('hide');
+        // Check if there is enough space below the slider for the popup
+        if (popupTop > (mainFormHeight - this.props.bounds.height)) {
+            // Position above with 5px padding
+            popupTop = sliderTop - popup.offsetHeight + 5; 
+            popup.classList.remove('below');
+            popup.classList.add('above');
+            console.warn('popup pos above');
+        } else {
+            // Position below
+            popup.classList.remove('above');
+            popup.classList.add('below');
+            console.warn('popup pos below');
+        }
+
+        // Ensure the popup is centered horizontally
+        popup.style.left = `${popupLeft}px`;
+        popup.style.top = `${popupTop}px`;
+        popup.style.display = 'block';
+        popup.classList.add('show');
+        popup.classList.remove('hide');
     }
-  }
+}
+
 
   mouseLeave(evt) {
     if (this.props.active === 0) {
