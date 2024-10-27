@@ -26,7 +26,8 @@ export class HorizontalSlider {
       "font": {
         "family": "Verdana",
         "size": 0,
-        "align": "centre"
+        "align": "centre",
+        "colour": "#dddddd" // Added colour property to font
       },
       "colour": "#0295cf",
       "valueTextBox": 0,
@@ -34,7 +35,6 @@ export class HorizontalSlider {
         "colour": "#93d200",
         "background": "#ffffff"
       },
-      "fontColour": "#dddddd",
       "stroke": {
         "colour": "#222222",
         "width": 1
@@ -247,7 +247,7 @@ export class HorizontalSlider {
 
     const textElement = this.props.text ? `
       <svg x="0" y="0" width="${textWidth}" height="${this.props.bounds.height}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">
-        <text text-anchor="${svgAlign}" x="${svgAlign === 'end' ? textWidth - padding : (svgAlign === 'middle' ? (textWidth - padding) / 2 : 0)}" y="${textY}" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.fontColour}">
+        <text text-anchor="${svgAlign}" x="${svgAlign === 'end' ? textWidth - padding : (svgAlign === 'middle' ? (textWidth - padding) / 2 : 0)}" y="${textY}" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}"> <!-- Updated to use this.props.font.colour -->
           ${this.props.text}
         </text>
       </svg>
@@ -264,7 +264,7 @@ export class HorizontalSlider {
     const valueTextElement = this.props.valueTextBox ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
-        style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.fontColour}; background:none; border:none; padding:0; margin:0;"
+        style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${this.props.channel}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';

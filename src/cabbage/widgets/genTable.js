@@ -22,11 +22,11 @@ export class GenTable {
                 "width": 1
             },
             "channel": "gentable",
-            "fontColour": "#dddddd",
             "font": {
                 "family": "Verdana",
                 "size": 0,
-                "align": "left"
+                "align": "left",
+                "colour": "#dddddd"
             },
             "sample": {
                 "start": -1,
@@ -141,7 +141,7 @@ export class GenTable {
 
         const textAlign = canvasAlignMap[this.props.font.align] || 'left';
         this.ctx.font = `${fontSize}px ${this.props.font.family}`;
-        this.ctx.fillStyle = this.props.fontColour;
+        this.ctx.fillStyle = this.props.font.colour;
         this.ctx.textAlign = textAlign;
         this.ctx.textBaseline = 'bottom';
 
