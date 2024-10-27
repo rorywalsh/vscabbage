@@ -38,7 +38,8 @@ export class GenTable {
             "text": "",
             "tableNumber": 1,
             "samples": [],
-            "automatable": 0
+            "automatable": 0,
+            "opacity": 1 // Add opacity property (default to 1)
         };
     }
 
@@ -73,6 +74,9 @@ export class GenTable {
         this.canvas.height = this.props.bounds.height;
         // Clear canvas
         this.ctx.clearRect(0, 0, this.props.bounds.width, this.props.bounds.height);
+
+        // Set the global alpha for the canvas context
+        this.ctx.globalAlpha = this.props.opacity; // Apply opacity
 
         // Draw background with rounded corners using the new background property
         this.ctx.fillStyle = this.props.colour.background; // Use the new background property
