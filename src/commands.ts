@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';
 import * as cp from "child_process";
+import { Settings } from './settings';
 import os from 'os';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
@@ -72,12 +73,12 @@ export class Commands {
                     ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, textEditor, this.highlightDecorationType, this.lastSavedFileName, this.panel);
                 }
                 break;
-    
+
             case 'widgetStateUpdate':
                 firstMessages.push(message);
                 websocket?.send(JSON.stringify(message));
                 break;
-    
+
             case 'cabbageSetupComplete':
                 const msg = {
                     command: "cabbageSetupComplete",
@@ -89,7 +90,7 @@ export class Commands {
                     this.panel.webview.postMessage({ command: "snapToSize", text: config.get("snapToSize") });
                 }
                 break;
-    
+
             case 'fileOpen':
                 const jsonText = JSON.parse(message.text);
                 vscode.window.showOpenDialog({
@@ -114,7 +115,7 @@ export class Commands {
                     }
                 });
                 break;
-    
+
             case 'saveFromUIEditor':
                 let documentToSave: vscode.TextDocument | undefined;
 
@@ -128,12 +129,12 @@ export class Commands {
                     try {
                         await documentToSave.save();
                         console.log('File saved successfully:', documentToSave.fileName);
-                        
+
                         if (this.panel) {
-                            this.panel.webview.postMessage({ 
-                                command: "onFileChanged", 
-                                text: "fileSaved", 
-                                lastSavedFileName: documentToSave.fileName 
+                            this.panel.webview.postMessage({
+                                command: "onFileChanged",
+                                text: "fileSaved",
+                                lastSavedFileName: documentToSave.fileName
                             });
                         }
 
@@ -169,7 +170,7 @@ export class Commands {
             'cabbageUIEditor',
             'Cabbage UI Editor',
             viewColumn,
-            { 
+            {
                 enableScripts: true,
                 retainContextWhenHidden: true
             }
@@ -177,7 +178,7 @@ export class Commands {
 
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
-    
+
         const mainJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src/cabbage', 'main.js'));
         const styles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'vscode.css'));
         const cabbageStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'cabbage.css'));
@@ -185,12 +186,12 @@ export class Commands {
         const widgetWrapper = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'widgetWrapper.js'));
         const colourPickerJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
         const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.css'));
-    
+
         this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
 
         return this.panel;
     }
-    
+
     /**
      * Event handler for saving a .csd document, sets up the Cabbage editor panel if needed
      * and starts the Cabbage process if the document is a valid .csd file.
@@ -211,15 +212,15 @@ export class Commands {
             const config = vscode.workspace.getConfiguration("cabbage");
             const launchInNewColumn = config.get("launchInNewColumn");
             const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
-            
+
             this.panel.reveal(viewColumn, true);
-            
+
             const fileContent = editor.getText();
-            
-            this.panel.webview.postMessage({ 
-                command: "onFileChanged", 
+
+            this.panel.webview.postMessage({
+                command: "onFileChanged",
                 text: fileContent,
-                lastSavedFileName: this.lastSavedFileName 
+                lastSavedFileName: this.lastSavedFileName
             });
         }
 
@@ -234,21 +235,23 @@ export class Commands {
         }
 
         const config = vscode.workspace.getConfiguration("cabbage");
-        const command = config.get("pathToCabbageExecutable") + '/' + binaryName;
+        const command = config.get("pathToCabbageBinary") + '/' + binaryName;
         console.log("full command:", command);
         const path = vscode.Uri.file(command);
 
         try {
             await vscode.workspace.fs.stat(path);
-            this.vscodeOutputChannel.append("Found Cabbage service app...");
+            this.vscodeOutputChannel.append(`Cabbage service app: ${command}\n`);
         } catch (error) {
-            this.vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please check the path in the Cabbage extension settings.\n`);
+            this.vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please set the binary path from the command palette.\n`);
             return;
         }
 
         this.processes.forEach((p) => {
             p?.kill("SIGKILL");
         });
+
+        let settings = await Settings.getCabbageSettings();
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
@@ -261,9 +264,18 @@ export class Commands {
                     this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
                 });
             } else {
-                console.error('Invalid file name or no extension found');
-                this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.');
+                console.error('Invalid file name or no extension found\n');
+                this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.\n');
             }
+        }
+        if (Object.keys(settings).length === 0 || settings["currentConfig"]["jsSourceDir"].length === 0) {
+            setTimeout(() => {
+                this.processes.forEach((p) => {
+                    p?.kill("SIGKILL");
+                });
+                console.error('No Cabbage source path found');
+            this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
+            }, 2000);
         }
     }
 
@@ -315,7 +327,7 @@ export class Commands {
      */
     static async formatDocument() {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) {return;}
+        if (!editor) { return; }
 
         const text = editor.document.getText();
         const formattedText = ExtensionUtils.formatText(text);

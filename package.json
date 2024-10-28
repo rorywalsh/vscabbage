@@ -18,14 +18,14 @@
     "configuration": {
       "title": "Cabbage",
       "properties": {
-        "cabbage.pathToCabbageExecutable": {
+        "cabbage.pathToCabbageBinary": {
           "type": "string",
-          "default": "/Users/rwalsh/sourcecode/cabbage3/icabbage/cabbage/build/Debug",
-          "description": "Path to Cabbage service app (path only, don't pass the file name)."
+          "default": "",
+          "description": "Path to Cabbage service app (use command palette to browse for directory)."
         },
         "cabbage.pathToJsSource": {
           "type": "string",
-          "default": "/Users/rwalsh/sourcecode/vscabbage/src",
+          "default": "",
           "description": "Path to Cabbage Javascript directory."
         },
         "cabbage.audioOutputDevice": {
@@ -138,6 +138,16 @@
         "command": "cabbage.selectMidiOutputDevice",
         "title": "Select MIDI Output Device",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setCabbageSourcePath",
+        "title": "Set Cabbage source path",
+        "category": "Cabbage"   
+      },
+      {
+        "command": "cabbage.setCabbageBinaryPath",
+        "title": "Set path to the Cabbage binary",
+        "category": "Cabbage"   
       }
       
     ]

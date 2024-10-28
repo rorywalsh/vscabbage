@@ -74,6 +74,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await Settings.selectMidiDevice('input');
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.setCabbageSourcePath', async () => {
+        await Settings.selectCabbageJavascriptSourcePath();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.setCabbageBinaryPath', async () => {
+        await Settings.selectCabbageBinaryPath();
+    }));
+
     const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
         Settings.updatePath(event);
     });

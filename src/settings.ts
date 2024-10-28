@@ -141,10 +141,43 @@ export class Settings {
             const newPath = vscode.workspace.getConfiguration('cabbage').get('pathToJsSource');
             settings['currentConfig']['jsSourceDir'] = newPath;
             await Settings.setCabbageSettings(settings);
-        }
-        
+        }        
     }
 
+    static async selectCabbageJavascriptSourcePath() {
+        const config = vscode.workspace.getConfiguration('cabbage');
+        let settings = await Settings.getCabbageSettings();
+        const selectedPath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select Cabbage JavaScript path'
+        });
+
+        if(selectedPath && selectedPath.length > 0)
+        {
+            settings['currentConfig']['jsSourceDir'] = selectedPath[0].fsPath;
+            await Settings.setCabbageSettings(settings);
+        }        
+    }
+
+    static async selectCabbageBinaryPath() {
+        // Load the configuration for the correct section and key
+        const config = vscode.workspace.getConfiguration('cabbage');
+        
+        const cabbagePath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select Cabbage binary path'
+        });
+    
+        if (cabbagePath && cabbagePath.length > 0) {
+            // Use the correct key name that matches your package.json configuration
+            await config.update('pathToCabbageBinary', cabbagePath[0].fsPath, vscode.ConfigurationTarget.Global);
+        }        
+    }
+    
     static async selectMidiDevice(type: 'input' | 'output') {
         const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();
