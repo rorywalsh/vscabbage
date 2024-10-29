@@ -243,7 +243,8 @@ export class Commands {
             await vscode.workspace.fs.stat(path);
             this.vscodeOutputChannel.append(`Cabbage service app: ${command}\n`);
         } catch (error) {
-            this.vscodeOutputChannel.append(`ERROR: Could not locate Cabbage service app at ${path.fsPath}. Please set the binary path from the command palette.\n`);
+            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found. Please set the binary path from the command palette.\n`);
+            this.checkForCabbageSrcDirectory();
             return;
         }
 
@@ -251,7 +252,6 @@ export class Commands {
             p?.kill("SIGKILL");
         });
 
-        let settings = await Settings.getCabbageSettings();
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
@@ -266,19 +266,26 @@ export class Commands {
             } else {
                 console.error('Invalid file name or no extension found\n');
                 this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.\n');
+                return;
             }
+
+            this.checkForCabbageSrcDirectory();
         }
-        if (Object.keys(settings).length === 0 || settings["currentConfig"]["jsSourceDir"].length === 0) {
+    }
+
+
+    static async checkForCabbageSrcDirectory() {
+        let settings = await Settings.getCabbageSettings();
+        if (settings["currentConfig"]["jsSourceDir"].length === 0) {
             setTimeout(() => {
                 this.processes.forEach((p) => {
                     p?.kill("SIGKILL");
                 });
                 console.error('No Cabbage source path found');
             this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
-            }, 2000);
+            }, 500);
         }
     }
-
     /**
      * Expands and formats a JSON block within Cabbage tags in the active editor.
      */

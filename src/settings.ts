@@ -4,6 +4,22 @@ const path = require('path');
 
 
 export class Settings {
+    private static defaultSettings = `
+    {
+        "currentConfig": {
+            "audio": {},
+            "jsSourceDir": "",
+            "midi": {}
+        },
+        "systemAudioMidiIOListing": {
+            "audioDrivers": "",
+            "audioInputDevices": {},
+            "audioOutputDevices": {},
+            "midiInputDevices": {},
+            "midiOutputDevices": {}
+        }
+    }
+    `;
 
     static async getCabbageSettings() {
         // Get the current user's home directory
@@ -17,16 +33,40 @@ export class Settings {
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
         const fileUri = vscode.Uri.file(settingsPath);
+
         try {
+            // Try to read the settings file
             const fileData = await vscode.workspace.fs.readFile(fileUri);
             const fileContent = new TextDecoder('utf-8').decode(fileData);
-            return JSON.parse(fileContent); // Now you have the file contents as a string
+            return JSON.parse(fileContent); // Return the parsed JSON content if file exists
         } catch (error) {
-            console.error('Error reading file:', error);
+            if (error instanceof Error && (error as any).code === 'FileNotFound') {
+                console.log('Settings file not found. Creating a new one with default settings.');
+
+                // Ensure the directory structure exists
+                const directoryUri = vscode.Uri.file(path.dirname(settingsPath));
+                try {
+                    await vscode.workspace.fs.createDirectory(directoryUri);
+                } catch (dirError) {
+                    console.error('Error creating settings directory:', dirError);
+                }
+
+                // Write default settings to the new file
+                try {
+                    const fileContent = new TextEncoder().encode(Settings.defaultSettings);
+                    await vscode.workspace.fs.writeFile(fileUri, fileContent);
+                    return JSON.parse(Settings.defaultSettings); // Return the default settings as JSON
+                } catch (writeError) {
+                    console.error('Error writing default settings to file:', writeError);
+                }
+            } else {
+                console.error('Error reading file:', error);
+            }
         }
 
-        return {};
+        return {}; // Return empty object if file cannot be read or created
     }
+
 
     static async setCabbageSettings(newSettings: object) {
         // Get the path to the settings file
@@ -136,12 +176,11 @@ export class Settings {
 
     static async updatePath(event: vscode.ConfigurationChangeEvent) {
         let settings = await Settings.getCabbageSettings();
-        if(event.affectsConfiguration('cabbage.pathToJsSource'))
-        {
+        if (event.affectsConfiguration('cabbage.pathToJsSource')) {
             const newPath = vscode.workspace.getConfiguration('cabbage').get('pathToJsSource');
             settings['currentConfig']['jsSourceDir'] = newPath;
             await Settings.setCabbageSettings(settings);
-        }        
+        }
     }
 
     static async selectCabbageJavascriptSourcePath() {
@@ -154,30 +193,30 @@ export class Settings {
             openLabel: 'Select Cabbage JavaScript path'
         });
 
-        if(selectedPath && selectedPath.length > 0)
-        {
+        if (selectedPath && selectedPath.length > 0) {
+            await config.update('pathToJsSource', selectedPath[0].fsPath, vscode.ConfigurationTarget.Global);
             settings['currentConfig']['jsSourceDir'] = selectedPath[0].fsPath;
             await Settings.setCabbageSettings(settings);
-        }        
+        }
     }
 
     static async selectCabbageBinaryPath() {
         // Load the configuration for the correct section and key
         const config = vscode.workspace.getConfiguration('cabbage');
-        
+
         const cabbagePath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
             openLabel: 'Select Cabbage binary path'
         });
-    
+
         if (cabbagePath && cabbagePath.length > 0) {
             // Use the correct key name that matches your package.json configuration
             await config.update('pathToCabbageBinary', cabbagePath[0].fsPath, vscode.ConfigurationTarget.Global);
-        }        
+        }
     }
-    
+
     static async selectMidiDevice(type: 'input' | 'output') {
         const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();
