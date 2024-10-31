@@ -99,26 +99,32 @@ export class Settings {
         console.log('Settings:', settings);
         let currentDevice = settings['currentConfig']['audio']['outputDevice'];
         console.log('Current device:', currentDevice);
-
+    
         // Get the list of available sampling rates for the current device
         let samplingRates = settings['systemAudioMidiIOListing']['audioOutputDevices'][currentDevice]['sampleRates'];
-
+    
         // Show available sample rates in a drop-down (QuickPick)
-        const selectedRate = await vscode.window.showQuickPick(
+        const selectedRateStr = await vscode.window.showQuickPick(
             samplingRates.map((rate: { toString: () => any; }) => rate.toString()), // Convert to string for display
             { placeHolder: 'Select a sampling rate from the list' }
         );
-
-        // If a valid sampling rate is selected, update the configuration
-        if (selectedRate) {
-            await config.update('audioSampleRate', selectedRate, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedRate}`);
-            settings['currentConfig']['audio']['sr'] = selectedRate;
-            await Settings.setCabbageSettings(settings);
+    
+        // If a valid sampling rate is selected, parse it to an integer and update the configuration
+        if (selectedRateStr) {
+            const selectedRate = Number(selectedRateStr); // Parse as a number
+            if (!isNaN(selectedRate)) { // Ensure the selected rate is a valid number
+                await config.update('audioSampleRate', selectedRate, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedRate}`);
+                settings['currentConfig']['audio']['sr'] = selectedRate;
+                await Settings.setCabbageSettings(settings);
+            } else {
+                vscode.window.showErrorMessage('Invalid sampling rate selected.');
+            }
         } else {
             vscode.window.showWarningMessage('No sampling rate selected.');
         }
     }
+    
 
     static async selectBufferSize() {
         const config = vscode.workspace.getConfiguration('cabbage');

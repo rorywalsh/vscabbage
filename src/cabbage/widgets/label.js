@@ -13,11 +13,11 @@ export class Label {
             "type": "label",
             "colour": "#88888800",
             "channel": "label",
-            "fontColour": "#dddddd",
             "font": {
                 "family": "Verdana",
                 "size": 0,
-                "align": "centre"
+                "align": "centre",
+                "colour": "#dddddd"
             },
             "corners": 4,
             "visible": 1,
@@ -67,7 +67,7 @@ export class Label {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
                     <text x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-                        fill="${this.props.fontColour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
+                        fill="${this.props.font.colour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
                         style="pointer-events: none;">${this.props.text}</text>
                 </svg>
             </div>
