@@ -22,7 +22,8 @@ export class Label {
             "corners": 4,
             "visible": 1,
             "text": "Default Label",
-            "automatable": 0
+            "automatable": 0,
+            "opacity": 1
         };
 
     }
@@ -55,7 +56,7 @@ export class Label {
         const svgAlign = alignMap[this.props.font.align] || 'middle';
     
         return `
-            <div style="position: relative; width: 100%; height: 100%;">
+            <div style="position: relative; width: 100%; height: 100%; opacity: ${this.props.opacity};">
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
