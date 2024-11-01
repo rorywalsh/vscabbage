@@ -15,16 +15,17 @@ export class CsoundOutput {
             "type": "csoundOutput",
             "colour": "#000000",
             "channel": "csoundoutput",
-            "fontColour": "#dddddd",
             "font": {
                 "family": "Verdana",
                 "size": 14,
-                "align": "left"
+                "align": "left",
+                "colour": "#dddddd"
             },
             "corners": 4,
             "visible": 1,
             "text": "Csound Output",
-            "automatable": 0
+            "automatable": 0,
+            "opacity": 1
         };
 
     }
@@ -53,8 +54,8 @@ export class CsoundOutput {
 
         return `
                 <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.colour}; 
-                color: ${this.props.fontColour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none;">
+                color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.opacity};">
 ${this.props.text}
                 </textarea>
         `;
