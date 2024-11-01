@@ -71,7 +71,15 @@ export class PropertyPanel {
 
                 // Add each property to the section
                 Object.entries(sectionProperties).forEach(([key, value]) => {
-                    this.addPropertyToSection(key, value, sectionDiv, sectionName);
+                    // Check if the value is an object
+                    if (typeof value === 'object' && value !== null) {
+                        // Handle nested properties (like colour)
+                        Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, sectionName);
+                        });
+                    } else {
+                        this.addPropertyToSection(key, value, sectionDiv, sectionName);
+                    }
                 });
 
                 panel.appendChild(sectionDiv); // Append the section to the panel

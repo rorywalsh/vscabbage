@@ -19,15 +19,15 @@ export class Checkbox {
       "font": {
         "family": "Verdana",
         "size": 0,
-        "align": "left"
+        "align": "left",
+        "colour": { // Updated to be an object with on and off properties
+          "on": "#dddddd",
+          "off": "#000000"
+        }
       },
       "colour": {
         "on": "#93d200",
         "off": "#ffffff"
-      },
-      "fontColour": {
-        "on": "#dddddd",
-        "off": "#000000"
       },
       "stroke": {
         "colour": "#dddddd",
@@ -36,7 +36,8 @@ export class Checkbox {
       "type": "checkBox",
       "visible": 1,
       "automatable": 1,
-      "presetIgnore": 0
+      "presetIgnore": 0,
+      "opacity": 1 // Added opacity property
     };
 
     this.vscode = null;
@@ -91,7 +92,7 @@ export class Checkbox {
     return `
       <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
         <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colour.on : this.props.colour.off}" stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.fontColour[this.props.value === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
+        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.font.colour[this.props.value === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
       </svg>
     `;
   }

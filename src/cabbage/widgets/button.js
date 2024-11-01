@@ -23,15 +23,15 @@ export class Button {
       "font": {
         "family": "Verdana",
         "size": 0,
-        "align": "centre"
+        "align": "centre",
+        "colour": {
+          "on": "#dddddd",
+          "off": "#dddddd"
+        }
       },
       "colour": {
         "on": "#0295cf",
         "off": "#0295cf"
-      },
-      "fontColour": {
-        "on": "#dddddd",
-        "off": "#dddddd"
       },
       "stroke": {
         "colour": "#dddddd",
@@ -113,7 +113,7 @@ export class Button {
   addEventListeners(widgetDiv) {
     widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    widgetDiv.addEventListener("mousemove", this.throttledHandleMouseMove);
+    widgetDiv.addEventListener("mousemove", this.handleMouseMove.bind(this));
     widgetDiv.addEventListener("mouseleave", () => {
       this.isMouseInside = false;
       CabbageUtils.updateInnerHTML(this.props.channel, this);
@@ -148,13 +148,14 @@ export class Button {
     const baseColour = this.props.colour.on !== this.props.colour.off ? (this.props.value === 1 ? this.props.colour.on : this.props.colour.off) : this.props.colour.on;
     const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;
+
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
            width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
         <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.stroke.colour}"
           stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-          fill="${this.props.value === 1 ? this.props.fontColour.on : this.props.fontColour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
+          fill="${this.props.value === 1 ? this.props.font.colour.on : this.props.font.colour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
   }
