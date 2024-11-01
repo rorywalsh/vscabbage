@@ -25,15 +25,12 @@ export class OptionButton {
       "font": {
         "family": "Verdana",
         "size": 0,
-        "align": "centre"
+        "align": "centre",
+        "colour": "#dddddd"
       },
       "colour": {
         "on": "#0295cf",
         "off": "#0295cf"
-      },
-      "fontColour": {
-        "on": "#dddddd",
-        "off": "#dddddd"
       },
       "stroke": {
         "colour": "#dddddd",
@@ -156,11 +153,11 @@ export class OptionButton {
     const stateColour = CabbageColours.darker(this.props.value === 1 ? this.props.colour.on : this.props.colour.off, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(this.props.colour.on, 0.2) : stateColour;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"  opacity="${this.props.opacity}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}">
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.stroke.colour}"
                   stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                  fill="${this.props.fontColour.off}" text-anchor="${svgAlign}" alignment-baseline="middle">${items[this.props.value]}</text>
+                  fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle">${items[this.props.value]}</text>
             </svg>
         `;
   }

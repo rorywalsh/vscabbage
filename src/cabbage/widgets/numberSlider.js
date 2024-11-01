@@ -24,12 +24,12 @@ export class NumberSlider {
             "font": {
                 "family": "Verdana",
                 "size": 0,
-                "align": "centre"
+                "align": "centre",
+                "colour": "#dddddd"
             },
             "textOffsetY": 0,
             "valueTextBox": 0,
             "colour": "#93d200",
-            "fontColour": "#dddddd",
             "stroke": {
                 "colour": "#525252",
                 "width": 2
@@ -42,7 +42,8 @@ export class NumberSlider {
             "automatable": 1,
             "valuePrefix": "",
             "valuePostfix": "",
-            "presetIgnore": 0
+            "presetIgnore": 0,
+            "opacity": 1
         };
 
         this.isDragging = false;
@@ -164,14 +165,14 @@ export class NumberSlider {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour}" 
-                        pointer-events="all"></rect>
+                        pointer-events="all" opacity="${this.props.opacity}"></rect>
                 </svg>
     
                 <!-- Text SVG with proper alignment -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
                     <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-                        fill="${this.props.fontColour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
+                        fill="${this.props.font.colour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
                         style="pointer-events: none;">${valueText}</text>
                 </svg>
             </div>

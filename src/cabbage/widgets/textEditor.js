@@ -1,7 +1,7 @@
 import { CabbageUtils } from "../utils.js";
 
 /**
- * CsoundOutput class
+ * TextEditor class
  */
 export class TextEditor {
     constructor() {
@@ -15,18 +15,18 @@ export class TextEditor {
             "type": "textEditor",
             "colour": "#dddddd",
             "channel": "texteditor",
-            "fontColour": "#222222",
             "font": {
                 "family": "Verdana",
                 "size": 14,
-                "align": "left"
+                "align": "left",
+                "colour": "#222222"
             },
             "corners": 4,
             "visible": 1,
             "text": "",
-            "automatable": 0
+            "automatable": 0,
+            "opacity": 1
         };
-
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -53,8 +53,8 @@ export class TextEditor {
 
         return `
                 <textarea style="width: 100%; height: 100%; background-color: ${this.props.colour}; 
-                color: ${this.props.fontColour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute">
+                color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity};">
 ${this.props.text}
                 </textarea>
         `;
