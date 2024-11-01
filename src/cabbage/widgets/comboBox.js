@@ -15,11 +15,11 @@ export class ComboBox {
             "font": {
                 "family": "Verdana",
                 "size": 0,
-                "align": "centre"
+                "align": "centre",
+                "colour": "#dddddd"
             },
             "colour": "#0295cf",
             "items": "One, Two, Three",
-            "fontColour": "#dddddd",
             "stroke": {
                 "colour": "#dddddd",
                 "width": 0
@@ -151,7 +151,7 @@ export class ComboBox {
                         onmouseover="this.style.backgroundColor='${CabbageColours.lighter(this.props.colour, 0.2)}'"
                         onmouseout="this.style.backgroundColor='${CabbageColours.darker(this.props.colour, 0.2)}'"
                         data-combobox-select="${this.props.channel}">
-                        <span style="font-family:${this.props.font.family}; font-size:${fontSize}px; color:${this.props.fontColour};">${item}</span>
+                        <span style="font-family:${this.props.font.family}; font-size:${fontSize}px; color:${this.props.font.colour};">${item}</span>
                     </div>
                 `;
             });
@@ -189,7 +189,7 @@ export class ComboBox {
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                    fill="${this.props.fontColour}" text-anchor="${svgAlign}" alignment-baseline="middle"
+                    fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle"
                     style="pointer-events: none;">${this.selectedItem}</text>
             </svg>
         `;
