@@ -15,9 +15,9 @@ export class GroupBox {
             "font": {
                 "family": "Verdana",
                 "size": 0,
-                "align": "centre"
+                "align": "centre",
+                "colour": "#dddddd"
             },
-            "fontColour": "#dddddd",
             "colour": "#888888",
             "channel": "groupbox",
             "stroke": {
@@ -26,7 +26,8 @@ export class GroupBox {
             },
             "corners": 4,
             "visible": 1,
-            "automatable": 0
+            "automatable": 0,
+            "opacity": 1
         };
 
         this.children = {};
@@ -100,7 +101,7 @@ export class GroupBox {
                 
                 <!-- Text at the top with alignment support -->
                 <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
-                      font-family="${this.props.font.family}" font-size="${textSize}" fill="${this.props.fontColour}">
+                      font-family="${this.props.font.family}" font-size="${textSize}" fill="${this.props.font.colour}">
                     ${this.props.text}
                 </text>
                 
