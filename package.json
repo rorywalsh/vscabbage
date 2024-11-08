@@ -1,13 +1,19 @@
 {
-  "name": "cabbage",
+  "name": "vscabbage",
   "displayName": "cabbage",
   "description": "A Visual Studio extension for Cabbage",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.88.0"
   },
+  "repository": {
+  "type": "git",
+  "url": "https://github.com/rorywalsh/vscabbage"
+  },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Other",
+    "Education"
   ],
   "activationEvents": [
     "onLanguage:csound-csd",
@@ -142,14 +148,13 @@
       {
         "command": "cabbage.setCabbageSourcePath",
         "title": "Set Cabbage source path",
-        "category": "Cabbage"   
+        "category": "Cabbage"
       },
       {
         "command": "cabbage.setCabbageBinaryPath",
         "title": "Set path to the Cabbage binary",
-        "category": "Cabbage"   
+        "category": "Cabbage"
       }
-      
     ]
   },
   "scripts": {
@@ -179,6 +184,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@vscode/vsce": "^3.2.1",
     "interactjs": "^1.10.27",
     "ws": "^8.16.0"
   }
