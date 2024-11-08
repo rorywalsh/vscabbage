@@ -313,6 +313,12 @@
 	pointer-events: none; /* Prevent pointer events while hidden */
 }
 
+.popup-value {
+    user-select: none; /* Prevent text selection */
+    -webkit-user-select: none; /* For Safari */
+    -moz-user-select: none; /* For Firefox */
+    -ms-user-select: none; /* For Internet Explorer/Edge */
+}
 
 .popup::after {
 	content: '';
@@ -331,6 +337,31 @@
 	border-color: transparent transparent transparent #333; /* Arrow pointing right */
 }
 
+
+.popup.above::after {
+    content: ''; /* Ensure the pseudo-element is created */
+    position: absolute;
+    top: 24px; /* Position the arrow at the top of the popup */
+    left: 50%; /* Center the arrow horizontally */
+    margin-left: -10px; /* Center the arrow by adjusting its position */
+    width: 0; /* No width */
+    height: 0; /* No height */
+    clip-path: polygon(50% 100%, 0% 50%, 100% 50%); /* Arrow shape pointing up */
+    background-color: #333; /* Color of the arrow */
+}
+
+.popup.below::after {
+    content: ''; /* Ensure the pseudo-element is created */
+    position: absolute;
+    top: 3px; /* Position the arrow at the top of the popup */
+    left: 50%; /* Center the arrow horizontally */
+    margin-left: -10px; /* Center the arrow by adjusting its position */
+    width: 0; /* No width */
+    height: 0; /* No height */
+    clip-path: polygon(50% 0%, 0% 70%, 100% 70%); /* Arrow shape pointing up */
+    background-color: #333; /* Color of the arrow */
+}
+
 .popup.show {
 	opacity: 1;
 }
@@ -338,4 +369,3 @@
 .popup.hide {
 	opacity: 0;
 }
-

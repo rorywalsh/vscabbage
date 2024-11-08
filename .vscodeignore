@@ -15,5 +15,5 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 
 # Explicitly include everything from the 'src/cabbage' directory
-!src/cabbage/**
+!src/
 

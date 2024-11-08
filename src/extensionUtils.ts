@@ -45,7 +45,7 @@ export class ExtensionUtils {
         textEditor: vscode.TextEditor | undefined,
         highlightDecorationType: vscode.TextEditorDecorationType,
         shouldScroll: boolean = true) {
-        if (!textEditor) return;
+        if (!textEditor) {return;}
 
         const document = textEditor.document;
         const documentText = document.getText();
@@ -62,7 +62,7 @@ export class ExtensionUtils {
                 const start = new vscode.Position(lineNumber, 0);
                 const end = new vscode.Position(lineNumber, lines[lineNumber].length);
                 textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(start, end) }]);
-                if (shouldScroll) textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);
+                if (shouldScroll) {textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);}
             }
         } else {
             const pattern = new RegExp(`\\{(?:[^{}]|\\{[^{}]*\\})*?"channel":\\s*"${updatedProps.channel}"(?:[^{}]|\\{[^{}]*\\})*?\\}`, 's');
