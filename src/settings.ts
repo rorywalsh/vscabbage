@@ -6,13 +6,13 @@ import * as vscode from 'vscode';
 const os = require('os');
 const path = require('path');
 
-
 export class Settings {
+    
     private static defaultSettings = `
     {
         "currentConfig": {
             "audio": {},
-            "jsSourceDir": "",
+            "jsSourceDir": "${Settings.getJsSourceDir()}",
             "midi": {}
         },
         "systemAudioMidiIOListing": {
@@ -25,6 +25,15 @@ export class Settings {
     }
     `;
 
+    private static getJsSourceDir(): string {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (extension) {
+            // Construct the path to the src/cabbage directory
+            return path.join(extension.extensionPath, 'src', 'cabbage');
+        }
+        return ''; // Return an empty string if the extension is not found
+    }
+
     static async getCabbageSettings() {
         // Get the current user's home directory
         const homeDir = os.homedir();
@@ -32,8 +41,7 @@ export class Settings {
         let settingsPath = "";
         if (os.platform() === 'darwin') {
             settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
-        }
-        else {
+        } else {
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
         const fileUri = vscode.Uri.file(settingsPath);
@@ -70,7 +78,6 @@ export class Settings {
 
         return {}; // Return empty object if file cannot be read or created
     }
-
 
     static async setCabbageSettings(newSettings: object) {
         // Get the path to the settings file

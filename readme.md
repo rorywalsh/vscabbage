@@ -1,17 +1,26 @@
 # vscabbage 
 
-This repository contains the source code for the vscabbage extension, which provides an interface to the Cabbage plugin development framework for Csound within Visual Studio Code. vscabbage allows users to create, edit, and test Cabbage instrument definitions interactively. 
+> Cabbage 3 and the associated Visual Studio Code extension are currently in ***Alpha*** development. These releases are experimental and may undergo significant changes. Features are not final, and stability or performance may vary. Use at your own discretion, and expect frequent updates and potential breaking changes.
 
+This repository contains the source code for the Cabbage Visual Studio Code extension, which provides an interface to the Cabbage plugin development framework for Csound within Visual Studio Code. The extension allows users to create, edit, and test Cabbage instruments directly within VS Code. 
+
+## Table of Contents
+- [Installing](#installing)
+- [Features Overview](#features-overview)
+- [Working with the Instrument UI](#working-with-the-instrument-ui)
+- [Key Steps for Using vscabbage](#key-steps-for-using-vscabbage)
+- [List of Commands](#list-of-commands)
+- [Configuration Properties](#configuration-properties)
+- [Building](#building)
 
 ## Installing 
 The `vscabbage` extension is not yet available from the VS Code marketplace. Therefore it must be installed locally. Here is a step by step guide:
 
 #### 1. Access the GitHub Actions Artifacts
 
-Go to the GitHub Repository: Open the GitHub repository for the vscabbage extension.
-* Navigate to Actions: Click on the Actions tab at the top of the repository page. This will show you a list of recent workflows that have been run.
+* Navigate to Actions: Click on the Actions tab at the top of the this page. This will show you a list of recent workflows that have been run.
 
-* Find the Workflow Run: Look for a workflow run that produced the latest build. This could be labeled something like "Build" or "Package." Select the latest successful workflow run (marked with a green checkmark).
+* Find the Workflow Run: Look for and select the latest successful workflow run (marked with a green checkmark).
 
 * Download the Artifact: Scroll down to the Artifacts section of the workflow run page.
 You should see a downloadable artifact, usually named after the workflow step that created it, like vscabbage.vsix.
@@ -31,12 +40,6 @@ In the file picker, locate and select the downloaded vscabbage.vsix file.
 The `vscabbage` extension should now be installed and active in your local VS Code environment! You can find it in the Extensions list and test it as if it were installed from the Marketplace.
 
 
-
-
-
-
-
-
 ## Features Overview
 Once vscabbage is enabled in Visual Studio Code, the extension will automatically attempt to load any Cabbage 3 instrument definitions in a preview web panel each time you save a .csd file (Cabbage Sound Document). This live preview allows you to view and interact with the instrument's user interface as it would appear in a Cabbage application, giving you immediate feedback on your design.
 
@@ -49,6 +52,8 @@ Once you’re satisfied with your changes, save the .csd file. Saving will close
 
 * Enable the Extension: Ensure vscabbage is enabled in Visual Studio Code.
 
+* Set the path to the Cabbage binary via the command palette (details below).
+
 * Edit and Save: Edit your .csd files, and vscabbage will load the instrument in a preview web panel on each save.
 
 * Switch to Edit Mode: Use the command palette to enter Edit Mode and adjust UI widget properties.
@@ -56,7 +61,6 @@ Once you’re satisfied with your changes, save the .csd file. Saving will close
 * Return to Performance Mode: Save the file to exit Edit Mode and test the instrument in its final state.
 
 This extension provides a streamlined workflow for designing and testing instruments within Visual Studio Code, with full access to Cabbage's powerful UI and audio capabilities.
-
 
 ## List of commands
 
@@ -98,10 +102,11 @@ Once the command palette is open, you can start typing the name of the command y
     - Opens a prompt to select the MIDI output device.
 
 11. **Set Cabbage source path**
-    - Opens a dialog to set the path to the Cabbage source directory.
+    - Opens a dialog to set the path to the Cabbage JS source directory. 
+    > This is set to the extension path by default and should not be overridden unless you know what you are doing!
 
 12. **Set path to the Cabbage binary**
-    - Opens a dialog to set the path to the Cabbage binary executable.
+    - Opens a dialog to set the path to the Cabbage binary executable, that is CabbageApp.app on MacOS and CabbageApp.exe on Windows. 
 
 ## Configuration Properties
 
@@ -142,6 +147,7 @@ The following configuration properties can be set in the settings for the Cabbag
 
 - **cabbage.defaultJsonFormatting**: 
   - Choose an option for JSON formatting, either "Single line objects" or "Multiline objects".
+
 
 ## Building
 
