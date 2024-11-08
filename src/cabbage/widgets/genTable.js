@@ -84,7 +84,7 @@ export class GenTable {
         this.ctx.globalAlpha = this.props.opacity; // Apply opacity
 
         // Draw background with rounded corners using the new background property
-        this.ctx.fillStyle = this.props.colour.background; // Use the new background property
+        this.ctx.fillStyle = this.props.colour.fill; 
         this.ctx.beginPath();
         this.ctx.moveTo(this.props.corners, 0);
         this.ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, this.props.corners);
@@ -112,7 +112,7 @@ export class GenTable {
                 }
                 const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
                 // Draw line to sample value
-                this.ctx.strokeStyle = this.props.colour.fill;
+                this.ctx.strokeStyle = this.props.colour.stroke.colour;
                 this.ctx.beginPath();
                 this.ctx.moveTo(x, this.props.bounds.height / 2);
                 this.ctx.lineTo(x, y);
