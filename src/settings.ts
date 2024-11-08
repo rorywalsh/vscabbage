@@ -29,7 +29,7 @@ export class Settings {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
             // Construct the path to the src/cabbage directory
-            return path.join(extension.extensionPath, 'src', 'cabbage');
+            return path.join(extension.extensionPath, 'src');
         }
         return ''; // Return an empty string if the extension is not found
     }
