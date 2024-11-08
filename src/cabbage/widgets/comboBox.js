@@ -22,12 +22,14 @@ export class ComboBox {
                 "align": "centre",
                 "colour": "#dddddd"
             },
-            "colour": "#0295cf",
-            "items": "One, Two, Three",
-            "stroke": {
-                "colour": "#dddddd",
-                "width": 0
+            "colour": {
+                "fill": "#0295cf",
+                "stroke": {
+                    "colour": "#dddddd",
+                    "width": 1
+                }
             },
+            "items": "One, Two, Three",
             "min": 0,
             "max": 3,
             "visible": 1,
@@ -150,9 +152,9 @@ export class ComboBox {
                     <div class="combobox-item" 
                         data-channel="${this.props.channel}" 
                         data-item="${item}"
-                        style="height:${itemHeight}px; display:flex; align-items:center; justify-content:center; cursor:pointer; background-color:${CabbageColours.darker(this.props.colour, 0.2)};"
-                        onmouseover="this.style.backgroundColor='${CabbageColours.lighter(this.props.colour, 0.2)}'"
-                        onmouseout="this.style.backgroundColor='${CabbageColours.darker(this.props.colour, 0.2)}'"
+                        style="height:${itemHeight}px; display:flex; align-items:center; justify-content:center; cursor:pointer; background-color:${CabbageColours.darker(this.props.colour.fill, 0.2)};"
+                        onmouseover="this.style.backgroundColor='${CabbageColours.lighter(this.props.colour.fill, 0.2)}'"
+                        onmouseout="this.style.backgroundColor='${CabbageColours.darker(this.props.colour.fill, 0.2)}'"
                         data-combobox-select="${this.props.channel}">
                         <span style="font-family:${this.props.font.family}; font-size:${fontSize}px; color:${this.props.font.colour};">${item}</span>
                     </div>
@@ -179,7 +181,7 @@ export class ComboBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${totalHeight}" width="${this.props.bounds.width}" height="${totalHeight}" preserveAspectRatio="none" opacity="${this.props.opacity}">
-                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour}" stroke="${this.props.stroke.colour}"
+                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour.fill}" stroke="${this.props.colour.stroke.colour}"
                     stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 
                     onclick="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
@@ -190,7 +192,7 @@ export class ComboBox {
                         </div>
                     </foreignObject>` : ''}
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
-                    fill="${this.props.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
+                    fill="${this.props.colour.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
                     fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle"
                     style="pointer-events: none;">${this.selectedItem}</text>

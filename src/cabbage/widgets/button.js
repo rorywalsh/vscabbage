@@ -34,16 +34,23 @@ export class Button {
         }
       },
       "colour": {
-        "on": "#0295cf",
-        "off": "#0295cf"
-      },
-      "stroke": {
-        "colour": "#dddddd",
-        "width": 2
+        "on": {
+          "fill": "#0295cf",
+          "stroke": {
+            "colour": "#dddddd",
+            "width": 2
+          }
+        },
+        "off": {
+          "fill": "#a8d388",
+          "stroke": {
+            "colour": "#dddddd",
+            "width": 2
+          }
+        }
       },
       "name": "",
-      "value": 0,
-      "type": "button",
+      "type":"button",
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0
@@ -149,15 +156,15 @@ export class Button {
       textX = this.props.bounds.width / 2;
     }
     const buttonText = this.props.type === "filebutton" ? this.props.text : (this.props.value === 1 ? this.props.text.on : this.props.text.off);
-    const baseColour = this.props.colour.on !== this.props.colour.off ? (this.props.value === 1 ? this.props.colour.on : this.props.colour.off) : this.props.colour.on;
+    const baseColour = this.props.colour.on.fill !== this.props.colour.off.fill ? (this.props.value === 1 ? this.props.colour.on.fill : this.props.colour.off.fill) : this.props.colour.on.fill;
     const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
            width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
-        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.stroke.colour}"
-          stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
+        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.colour.on.stroke.colour}"
+          stroke-width="${this.props.colour.on.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
           fill="${this.props.value === 1 ? this.props.font.colour.on : this.props.font.colour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>

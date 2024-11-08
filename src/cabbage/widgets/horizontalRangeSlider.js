@@ -34,16 +34,7 @@ export class HorizontalRangeSlider {
         "colour": "#dddddd" // Added colour property to font
       },
       "valueTextBox": 0,
-      "colour": "#0295cf",
-      "trackerColour": "#93d200",
-      "trackerBackgroundColour": "#ffffff",
-      "trackerOutlineColour": "#525252",
-      "stroke": {
-        "colour": "#999999",
-        "width": 1
-      },
-      "textBoxColour": "#555555",
-      "trackerOutlineWidth": 1,
+      
       "markerThickness": 0.2,
       "markerStart": 0.1,
       "markerEnd": 0.9,

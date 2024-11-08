@@ -35,20 +35,18 @@ export class RotarySlider {
       },
       "textOffsetY": 0,
       "valueTextBox": 1,
-      "colour": "#0295cf",
-      "tracker": {
-        "colour": "#93d200",
-        "background": "#ffffff",
-        "width": 20,
-        "colour": "#dddddd"
+      "colour": {
+        "fill": "#0295cf",
+        "stroke": {
+          "colour": "#525252",
+          "width": 2
+        },
+        "tracker": {
+          "fill": "#93d200",
+          "background": "#ffffff"
+        }
       },
-      "stroke": {
-        "colour": "#525252",
-        "width": 2
-      },
-      "textBoxOutlineColour": "#999999",
-      "textBoxColour": "#555555",
-      "markerColour": "#222222",
+      "trackerWidth": 20,
       "type": "rotarySlider",
       "decimalPlaces": 1,
       "velocity": 0,
@@ -233,13 +231,13 @@ export class RotarySlider {
     }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
-    const innerTrackerWidth = this.props.tracker.width - this.props.stroke.width; // Updated reference
-    const innerTrackerEndPoints = this.props.stroke.width * 0.5;
-    const trackerOutlineColour = this.props.stroke.width === 0 ? this.props.tracker.background : this.props.stroke.colour;
+    const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference
+    const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;
+    const trackerOutlineColour = this.props.colour.stroke.width === 0 ? this.props.colour.tracker.background : this.props.colour.stroke.colour;
 
-    const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.tracker.width / this.props.bounds.width / 2)), -130, 132); // Updated reference
-    const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.tracker.width / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
-    const trackerArcPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.tracker.width / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints)); // Updated reference
+    const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
+    const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
+    const trackerArcPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints)); // Updated reference
 
     // Calculate proportional font size if this.props.fontSize is 0
     let fontSize = this.props.font.size > 0 ? this.props.font.size : w * 0.24;
@@ -272,13 +270,13 @@ export class RotarySlider {
       const inputX = 0;
 
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"  opacity="${this.props.opacity}>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"  opacity="${this.props.opacity}">
         <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
-        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.stroke.width} />
-        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.tracker.background} stroke-width=${innerTrackerWidth} />
-        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.tracker.colour} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.tracker.width * 0.65} stroke=${this.props.stroke.colour} fill="${this.props.colour}" stroke-width=${this.props.stroke.width} /> <!-- Updated fill color -->
+        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
+        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
+        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
         </g>
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${this.props.bounds.width}" height="${fontSize * 2}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(decimalPlaces)}"
@@ -291,11 +289,11 @@ export class RotarySlider {
     }
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none"  opacity="${this.props.opacity}>
-      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.stroke.width} />
-      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.tracker.background} stroke-width=${innerTrackerWidth} />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none"  opacity="${this.props.opacity}">
+      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
+      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.tracker.colour} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.tracker.width * 0.65} stroke=${this.props.stroke.colour} fill="${this.props.colour}" stroke-width=${this.props.stroke.width} /> <!-- Updated fill color -->
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
       <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
       </svg>
     `;

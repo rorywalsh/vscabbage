@@ -15,7 +15,9 @@ export class Label {
                 "height": 30
             },
             "type": "label",
-            "colour": "#88888800",
+            "colour": {
+                "fill": "#888888"
+            },
             "channel": "label",
             "font": {
                 "family": "Verdana",
@@ -64,7 +66,7 @@ export class Label {
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
-                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour}" 
+                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" 
                         pointer-events="all"></rect>
                 </svg>
     

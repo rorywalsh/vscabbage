@@ -28,17 +28,19 @@ export class VerticalSlider {
         "family": "Verdana",
         "size": 0,
         "align": "centre",
-        "colour": "#dddddd" // Added colour property to font
+        "colour": "#dddddd"
       },
       "valueTextBox": 0,
-      "colour": "#0295cf",
-      "tracker": {
-        "colour": "#93d200",
-        "background": "#ffffff"
-      },
-      "stroke": {
-        "colour": "#222222",
-        "width": 1
+      "colour": {
+        "fill": "#0295cf",
+        "stroke": {
+          "colour": "#525252",
+          "width": 2
+        },
+        "tracker": {
+          "fill": "#93d200",
+          "background": "#ffffff"
+        }
       },
       "type": "verticalSlider",
       "decimalPlaces": 1,
@@ -249,9 +251,9 @@ export class VerticalSlider {
 
     const sliderElement = `
     <svg x="0" y="${this.props.valueTextBox ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-      <rect x="${this.props.bounds.width * 0.4}" y="1" width="${this.props.bounds.width * 0.2}" height="${sliderHeight * 0.95}" rx="2" fill="${this.props.tracker.background}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/>
-      <rect x="${this.props.bounds.width * 0.4}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95) - 1}" height="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1) * sliderHeight * 0.95}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.tracker.colour}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/> 
-      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/>
+      <rect x="${this.props.bounds.width * 0.4}" y="1" width="${this.props.bounds.width * 0.2}" height="${sliderHeight * 0.95}" rx="2" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+      <rect x="${this.props.bounds.width * 0.4}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95) - 1}" height="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1) * sliderHeight * 0.95}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
     </svg>
     `;
 

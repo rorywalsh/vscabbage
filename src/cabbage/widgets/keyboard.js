@@ -25,13 +25,13 @@ export class MidiKeyboard {
         "size": 0,
         "align": "centre"
       },
+      "colour": {
+        "whiteNote": "#ffffff",
+        "arrowBackground": "#0295cf",
+        "keydown": "#93d200",
+        "blackNote": "#000000"
+      },
       "opacity": 1,
-      "whiteNoteColour": "#ffffff",
-      "keySeparatorColour": "#000000",
-      "arrowBackgroundColour": "#0295cf",
-      "mouseoverKeyColour": "#93d200",
-      "keydownColour": "#93d200",
-      "blackNoteColour": "#000000",
       "automatable": 0,
       "octaves": 3
     };
@@ -96,7 +96,7 @@ export class MidiKeyboard {
     const note = keyElement.dataset.note;
     if (!this.activeNotes.has(note)) {
       this.activeNotes.add(note);
-      keyElement.setAttribute('fill', this.props.keydownColour);
+      keyElement.setAttribute('fill', this.props.colour.keydown);
       console.log(`Key down: ${this.noteMap[note]}`);
       Cabbage.sendMidiMessageFromUI(this.vscode, 0x90, this.noteMap[note], 127);
     }
@@ -106,7 +106,7 @@ export class MidiKeyboard {
     const note = keyElement.dataset.note;
     if (this.activeNotes.has(note)) {
       this.activeNotes.delete(note);
-      keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? this.props.whiteNoteColour : this.props.blackNoteColour);
+      keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? this.props.colour.whiteNote : this.props.colour.blackNote);
       console.log(`Key up: ${this.noteMap[note]}`);
       Cabbage.sendMidiMessageFromUI(this.vscode, 0x80, this.noteMap[note], 0);
     }
@@ -154,7 +154,7 @@ export class MidiKeyboard {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
-      key.setAttribute('fill', this.props.keydownColour);
+      key.setAttribute('fill', this.props.colour.keydown);
       console.log(`Key down: ${note} ${noteName}`);
     } else if (midiData.status === 128) {
       const note = midiData.data1;
@@ -209,17 +209,17 @@ export class MidiKeyboard {
         const height = whiteKeyHeight - strokeWidth;
         const xOffset = octave * whiteKeys.length * whiteKeyWidth + i * whiteKeyWidth;
 
-        whiteSvgKeys += `<rect x="${xOffset}" y="0" width="${width}" height="${height}" fill="${this.props.whiteNoteColour}" stroke="${this.props.keySeparatorColour}" stroke-width="${strokeWidth}" data-note="${note}" class="white-key" style="height: ${whiteKeyHeight}px;" />`;
+        whiteSvgKeys += `<rect x="${xOffset}" y="0" width="${width}" height="${height}" fill="${this.props.colour.whiteNote}" stroke="${this.props.keySeparatorColour}" stroke-width="${strokeWidth}" data-note="${note}" class="white-key" style="height: ${whiteKeyHeight}px;" />`;
 
         if (blackKeys[key]) {
           const note = blackKeys[key] + (octave + this.octaveOffset);
-          blackSvgKeys += `<rect x="${xOffset + whiteKeyWidth * 0.75 - strokeWidth / 2}" y="${strokeWidth / 2}" width="${blackKeyWidth}" height="${blackKeyHeight + strokeWidth}" fill="${this.props.blackNoteColour}" stroke="${this.props.keySeparatorColour}"  stroke-width="${strokeWidth}" data-note="${note}" class="black-key" />`;
+          blackSvgKeys += `<rect x="${xOffset + whiteKeyWidth * 0.75 - strokeWidth / 2}" y="${strokeWidth / 2}" width="${blackKeyWidth}" height="${blackKeyHeight + strokeWidth}" fill="${this.props.colour.blackNote}" stroke="${this.props.keySeparatorColour}"  stroke-width="${strokeWidth}" data-note="${note}" class="black-key" />`;
         }
 
         if (i === 0) { // First white key of the octave
           const textX = xOffset + whiteKeyWidth / 2; // Position text in the middle of the white key
           const textY = whiteKeyHeight * 0.8; // Position text in the middle vertically
-          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.font.family}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.blackNoteColour}" style="pointer-events: none;">${note}</text>`;
+          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.font.family}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.colour.blackNote}" style="pointer-events: none;">${note}</text>`;
         }
       }
     }
@@ -230,14 +230,14 @@ export class MidiKeyboard {
 
     return `
       <div id="${this.props.channel}" style="display: flex; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
-        <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.arrowBackgroundColour};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
+        <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.colour.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width * scaleFactor} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>
         </div>
-        <button id="octave-up" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.arrowBackgroundColour};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">+</button>
+        <button id="octave-up" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.colour.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">+</button>
       </div>
     `;
   }

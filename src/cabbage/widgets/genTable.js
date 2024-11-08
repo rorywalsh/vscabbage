@@ -18,13 +18,13 @@ export class GenTable {
                 "height": 100
             },
             "type": "genTable",
-            "colour": { 
-                "fill": "#a8d388", 
-                "background": "#ffffff00"
-            },
-            "stroke": {
-                "colour": "#dddddd",
-                "width": 1
+            "colour": {
+                "fill": "#a8d388",
+                "background": "#ffffff00",
+                "stroke": {
+                    "colour": "#dddddd",
+                    "width": 1
+                },
             },
             "channel": "gentable",
             "font": {
@@ -95,8 +95,8 @@ export class GenTable {
         this.ctx.fill();
 
         // Draw waveform
-        this.ctx.strokeStyle = this.props.stroke.colour;
-        this.ctx.lineWidth = this.props.stroke.width;
+        this.ctx.strokeStyle = this.props.colour.stroke.colour;
+        this.ctx.lineWidth = this.props.colour.stroke.width;
         this.ctx.beginPath();
         this.ctx.moveTo(0, this.props.bounds.height / 2);
 
@@ -120,8 +120,8 @@ export class GenTable {
 
                 // Draw vertical lines for outline
                 if (i > 0) {
-                    this.ctx.strokeStyle = this.props.stroke.colour;
-                    this.ctx.lineWidth = this.props.stroke.width;
+                    this.ctx.strokeStyle = this.props.colour.stroke.colour;
+                    this.ctx.lineWidth = this.props.colour.stroke.width;
                     this.ctx.lineTo(x, y);
                 }
             }
@@ -156,9 +156,9 @@ export class GenTable {
 
         // Update DOM with the canvas
         const widgetElement = document.getElementById(this.props.channel);
-        if (widgetElement) {            
+        if (widgetElement) {
             widgetElement.style.left = '0px';
-            widgetElement.style.top =  '0px';
+            widgetElement.style.top = '0px';
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content

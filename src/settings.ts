@@ -29,7 +29,7 @@ export class Settings {
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
-            // Construct the path to the src/cabbage directory
+            // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             return returnPath;
         }

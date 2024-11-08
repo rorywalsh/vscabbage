@@ -33,13 +33,12 @@ export class OptionButton {
         "colour": "#dddddd"
       },
       "colour": {
-        "on": "#0295cf",
-        "off": "#0295cf"
-      },
-      "stroke": {
-        "colour": "#dddddd",
-        "width": 2
-      },
+        "fill": "#0295cf",
+        "stroke": {
+            "colour": "#dddddd",
+            "width": 1
+        }
+    },
       "name": "",
       "value": 0,
       "type": "optionButton",
@@ -154,12 +153,11 @@ export class OptionButton {
       textX = this.props.bounds.width / 2;
     }
 
-    const stateColour = CabbageColours.darker(this.props.value === 1 ? this.props.colour.on : this.props.colour.off, this.isMouseInside ? 0.2 : 0);
-    const currentColour = this.isMouseDown ? CabbageColours.lighter(this.props.colour.on, 0.2) : stateColour;
+    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.colour.fill, 0.2) : this.props.colour.fill;
     return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}">
-                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.stroke.colour}"
-                  stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
+                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.colour.stroke.colour}"
+                  stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
                   fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle">${items[this.props.value]}</text>
             </svg>

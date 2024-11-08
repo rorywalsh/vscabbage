@@ -118,6 +118,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
             await Commands.onDidSave(editor, context);
             await waitForWebSocket();  // Wait until the WebSocket is ready!
+
             Commands.getPanel()!.webview.onDidReceiveMessage(message => {
                 if (websocket) {
                     Commands.handleWebviewMessage(
@@ -197,10 +198,10 @@ wss.on('connection', (ws: WebSocket) => {
             if (msg["command"] === "widgetUpdate") {
                 const panel = Commands.getPanel();
                 if (panel) {
-                    if(msg.hasOwnProperty("data")){
+                    if (msg.hasOwnProperty("data")) {
                         panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
                     }
-                    else if(msg.hasOwnProperty("value")){
+                    else if (msg.hasOwnProperty("value")) {
                         panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
                     }
                 }
@@ -211,5 +212,26 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('close', () => {
         console.log('Client disconnected');
     });
+});
+
+// Add an error event listener to check if the server encounters an issue
+wss.on('error', (error) => {
+    const vscodeOutputChannel = Commands.getOutputChannel();
+    if ((error as any).code === 'EADDRINUSE') {
+        console.error('Port 9991 is already in use.');
+        vscodeOutputChannel.appendLine('Port 9991 is already in use.');
+    } else {
+        console.error('Failed to initialize WebSocket server:', error);
+        vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
+    }
+    // Optional: shut down the server if initialization failed
+    wss.close();
+});
+
+// Add a listening event to confirm the server started successfully
+wss.on('listening', () => {
+    const vscodeOutputChannel = Commands.getOutputChannel();
+    vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
+    console.log('WebSocket server successfully started on port 9991');
 });
 

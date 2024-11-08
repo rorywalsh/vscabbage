@@ -31,17 +31,19 @@ export class HorizontalSlider {
         "family": "Verdana",
         "size": 0,
         "align": "centre",
-        "colour": "#dddddd" // Added colour property to font
+        "colour": "#dddddd"
       },
-      "colour": "#0295cf",
       "valueTextBox": 0,
-      "tracker": {
-        "colour": "#93d200",
-        "background": "#ffffff"
-      },
-      "stroke": {
-        "colour": "#222222",
-        "width": 1
+      "colour": {
+        "fill": "#0295cf",
+        "stroke": {
+          "colour": "#525252",
+          "width": 2
+        },
+        "tracker": {
+          "fill": "#93d200",
+          "background": "#ffffff"
+        }
       },
       "type": "horizontalSlider",
       "decimalPlaces": 1,
@@ -259,9 +261,9 @@ export class HorizontalSlider {
 
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.tracker.background}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/>
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.tracker.colour}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/> 
-        <rect x="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour}" stroke-width="${this.props.stroke.width}" stroke="${this.props.stroke.colour}"/>
+        <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+        <rect x="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
       </svg>
     `;
 

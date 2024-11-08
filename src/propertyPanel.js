@@ -137,8 +137,8 @@ export class PropertyPanel {
         let input;
         const fullPath = path ? `${path}.${key}` : key; // Construct full path for input id
 
-        // Handle color input
-        if (fullPath.toLowerCase().includes("colour")) {
+        // Handle color input for properties that are specifically color values
+        if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width")) {
             input = document.createElement('input');
             input.value = value; // Set the initial color value
             input.style.backgroundColor = value; // Set background color
@@ -150,6 +150,13 @@ export class PropertyPanel {
                 input.style.backgroundColor = CP.HEX([r, g, b, a]); // Update background color
                 this.handleInputChange(input.parentElement); // Trigger change handler
             });
+        } 
+        // Handle numeric input for stroke width and other numeric properties
+        else if (fullPath.includes("stroke.width") || typeof value === 'number') {
+            input = document.createElement('input');
+            input.type = 'number'; // Set input type to number
+            input.value = value; // Set the initial value
+            input.min = 0; // Set minimum value if applicable
         } 
         // Handle font family selection
         else if (key.toLowerCase().includes("family")) {

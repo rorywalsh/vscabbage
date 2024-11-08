@@ -17,7 +17,13 @@ export class CsoundOutput {
                 "height": 300
             },
             "type": "csoundOutput",
-            "colour": "#000000",
+            "colour": {
+                "fill": "#0295cf",
+                "stroke": {
+                    "colour": "#dddddd",
+                    "width": 1
+                }
+            },
             "channel": "csoundoutput",
             "font": {
                 "family": "Verdana",
@@ -57,7 +63,7 @@ export class CsoundOutput {
         const textAlign = alignMap[this.props.font.align] || 'start';
 
         return `
-                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.colour}; 
+                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.colour.fill}; 
                 color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
                 text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.opacity};">
 ${this.props.text}

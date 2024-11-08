@@ -14,8 +14,7 @@ export class FileButton extends Button {
       super();
       this.props.channel = "fileButton";
   
-      this.props.colour.on = this.props.colour.off;
-      this.props.fontColour.on = this.props.fontColour.off;
+      this.props.colour.on.fill = this.props.colour.off.fill;
       this.props.mode = "file";
       delete this.props.text.off;
       delete this.props.text.on;

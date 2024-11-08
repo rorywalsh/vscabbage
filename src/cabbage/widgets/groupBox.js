@@ -22,12 +22,14 @@ export class GroupBox {
                 "align": "centre",
                 "colour": "#dddddd"
             },
-            "colour": "#888888",
-            "channel": "groupbox",
-            "stroke": {
-                "colour": "#000000",
-                "width": 1
+            "colour": {
+                "fill": "#888888",
+                "stroke": {
+                    "colour": "#dddddd",
+                    "width": 1
+                }
             },
+            "channel": "groupbox",
             "corners": 4,
             "visible": 1,
             "automatable": 0,
@@ -55,7 +57,7 @@ export class GroupBox {
             return '';
         }
 
-        const outlineOffset = this.props.stroke.width / 2;
+        const outlineOffset = this.props.colour.stroke.width / 2;
         const textSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.3;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
@@ -94,14 +96,14 @@ export class GroupBox {
                  width="100%" height="100%" preserveAspectRatio="none"
                  style="position: absolute; top: 0; left: 0;">
                 <!-- Transparent rectangle as the background -->
-                <rect width="${this.props.bounds.width - this.props.stroke.width}" height="${this.props.bounds.height - this.props.stroke.width}" 
+                <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" 
                       x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="transparent"></rect>
                 
                 <!-- Top border lines with gap adjusted for text alignment -->
                 <line x1="0" y1="${outlineOffset + yOffset}" x2="${gapStart}" y2="${outlineOffset + yOffset}" 
-                      stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" />
+                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
                 <line x1="${gapEnd}" y1="${outlineOffset + yOffset}" x2="${this.props.bounds.width}" y2="${outlineOffset + yOffset}" 
-                      stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" />
+                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
                 
                 <!-- Text at the top with alignment support -->
                 <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
@@ -111,13 +113,13 @@ export class GroupBox {
                 
                 <!-- Bottom border line -->
                 <line x1="0" y1="${this.props.bounds.height - outlineOffset}" x2="${this.props.bounds.width}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" />
+                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
                 
                 <!-- Left and right border lines adjusted to start at yOffset -->
                 <line x1="${outlineOffset}" y1="${yOffset}" x2="${outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" />
+                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
                 <line x1="${this.props.bounds.width - outlineOffset}" y1="${yOffset}" x2="${this.props.bounds.width - outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.stroke.colour}" stroke-width="${this.props.stroke.width}" />
+                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
             </svg>
         `;
     }
