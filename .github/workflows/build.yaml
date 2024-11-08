@@ -25,7 +25,7 @@ jobs:
         run: npm install
 
       - name: Install vsce on Windows
-        run: npm install -g @vscode/vsce
+        run: npm install @vscode/vsce
 
       - name: Build and package extension on Windows
         run: vsce package
@@ -52,7 +52,7 @@ jobs:
         run: npm install
 
       - name: Install vsce on macOS
-        run: npm install -g @vscode/vsce
+        run: npm install @vscode/vsce
 
       - name: Build and package extension on macOS
         run: vsce package
