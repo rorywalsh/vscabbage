@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 export class CabbageUtils {
   static updateInnerHTML(channel, instance) {
     const element = document.getElementById(channel);
@@ -133,7 +137,7 @@ export class CabbageUtils {
       target = target.parentNode;
     }
 
-    return null
+    return null;
   }
 
   static getElementByIdInChildren(parentElement, targetId) {

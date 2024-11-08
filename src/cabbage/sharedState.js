@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 export let vscode = null;
 export const widgets = [];
 export let cabbageMode = 'nonDraggable';

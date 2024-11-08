@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';

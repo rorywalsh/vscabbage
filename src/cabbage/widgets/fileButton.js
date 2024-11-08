@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 import { Button } from './button.js';
 import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";

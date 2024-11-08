@@ -16,16 +16,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Node.js on Windows
+      - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
 
       - name: Install dependencies on Windows
         run: npm install
 
       - name: Install vsce on Windows
-        run: npm install @vscode/vsce
+        run: npm install -g @vscode/vsce
 
       - name: Build and package extension on Windows
         run: vsce package
@@ -43,13 +43,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Node.js on macOS
+      - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
 
       - name: Install dependencies on macOS
         run: npm install
+
+      - name: Install vsce on macOS
+        run: npm install -g @vscode/vsce
 
       - name: Build and package extension on macOS
         run: vsce package

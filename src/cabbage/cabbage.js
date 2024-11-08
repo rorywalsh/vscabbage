@@ -1,4 +1,6 @@
-
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
 
 console.log("loading cabbage.js");
 

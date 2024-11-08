@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 import * as vscode from 'vscode';
 const os = require('os');
 const path = require('path');

@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 console.log("Loading widgetManager.js...");
 
 // Import necessary modules and utilities

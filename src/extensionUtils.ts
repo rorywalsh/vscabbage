@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 import * as vscode from 'vscode';
 // @ts-ignore
 import { WidgetProps } from './cabbage/widgetTypes';

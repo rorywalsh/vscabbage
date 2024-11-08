@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 /**
  * PropertyPanel Class. Lightweight component that updates its innerHTML when properties change.
  * This makes use of https://taufik-nurrohman.js.org/CP/ for colour pickers.

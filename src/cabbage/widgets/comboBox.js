@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
 
@@ -81,7 +85,6 @@ export class ComboBox {
         Cabbage.sendParameterUpdate(this.vscode, msg);
 
         this.isOpen = false;
-        const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
         CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
 

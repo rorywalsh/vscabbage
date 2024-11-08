@@ -1,10 +1,13 @@
+// MIT License
+// Copyright (c) 2024 rory Walsh
+// See the LICENSE file for details.
+
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 // @ts-ignore
 import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 
 import * as vscode from 'vscode';
-import * as cp from "child_process";
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
