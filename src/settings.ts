@@ -8,7 +8,8 @@ const path = require('path');
 
 export class Settings {
     
-    private static defaultSettings = `
+    private static getDefaultSettings(){
+        return `
     {
         "currentConfig": {
             "audio": {},
@@ -23,13 +24,14 @@ export class Settings {
             "midiOutputDevices": {}
         }
     }
-    `;
+    `};
 
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
             // Construct the path to the src/cabbage directory
-            return path.join(extension.extensionPath, 'src');
+            const returnPath = path.join(extension.extensionPath, 'src');
+            return returnPath;
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -65,9 +67,9 @@ export class Settings {
 
                 // Write default settings to the new file
                 try {
-                    const fileContent = new TextEncoder().encode(Settings.defaultSettings);
+                    const fileContent = new TextEncoder().encode(Settings.getDefaultSettings());
                     await vscode.workspace.fs.writeFile(fileUri, fileContent);
-                    return JSON.parse(Settings.defaultSettings); // Return the default settings as JSON
+                    return JSON.parse(Settings.getDefaultSettings()); // Return the default settings as JSON
                 } catch (writeError) {
                     console.error('Error writing default settings to file:', writeError);
                 }
