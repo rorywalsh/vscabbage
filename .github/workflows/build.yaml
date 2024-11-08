@@ -51,9 +51,6 @@ jobs:
       - name: Install dependencies on macOS
         run: npm install
 
-      - name: Install vsce on macOS
-        run: npm install @vscode/vsce
-
       - name: Build and package extension on macOS
         run: vsce package
 
