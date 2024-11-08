@@ -6,6 +6,7 @@
   "engines": {
     "vscode": "^1.88.0"
   },
+  "publisher": "cabbageaudio",
   "repository": {
   "type": "git",
   "url": "https://github.com/rorywalsh/vscabbage"
@@ -15,6 +16,7 @@
     "Other",
     "Education"
   ],
+  "icon": "assets/cabbage_transparent.svg", 
   "activationEvents": [
     "onLanguage:csound-csd",
     "workspaceContains:**/*.csd"
