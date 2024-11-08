@@ -1,3 +1,4 @@
+# Ignore everything in the workspace by default
 .vscode/**
 .vscode-test/**
 out/**
@@ -12,3 +13,7 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+
+# Explicitly include everything from the 'src/cabbage' directory
+!src/cabbage/**
+
