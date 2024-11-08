@@ -9,5 +9,6 @@ Thumbs.db
 tsconfig.lsif.json
 *.lsif
 *.db
+*.vsix
 ._*
 node_modules

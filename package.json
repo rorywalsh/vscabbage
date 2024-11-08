@@ -16,7 +16,7 @@
     "Other",
     "Education"
   ],
-  "icon": "assets/cabbage_transparent.svg", 
+  "icon": "assets/cabbage_transparent.png", 
   "activationEvents": [
     "onLanguage:csound-csd",
     "workspaceContains:**/*.csd"
