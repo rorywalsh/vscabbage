@@ -2,7 +2,7 @@
 
 > Cabbage 3 and the associated Visual Studio Code extension are currently in ***Alpha*** development. These releases are experimental and may undergo significant changes. Features are not final, and stability or performance may vary. Use at your own discretion, and expect frequent updates and potential breaking changes.
 
-This repository contains the source code for the Cabbage Visual Studio Code extension, which provides an interface to the Cabbage plugin development framework for Csound within Visual Studio Code. The extension allows users to create, edit, and test Cabbage instruments directly within VS Code. 
+This repository contains the source code for the Cabbage Visual Studio Code extension, which provides an interface to the Cabbage plugin development framework for Csound within Visual Studio Code. The extension allows users to create, edit, and test Cabbage instruments directly within VS Code. The extension will not function without having the Cabbage service app and plugin package which are available as a separate download from the [Cabbage3 GitHub Actions](https://github.com/rorywalsh/cabbage3/actions). Details about how to connect the VS Code extension to the service app are provided in the [Key Steps for Using vscabbage](#key-steps-for-using-vscabbage) section.  
 
 ## Table of Contents
 - [Installing](#installing)
@@ -14,6 +14,7 @@ This repository contains the source code for the Cabbage Visual Studio Code exte
 - [Building](#building)
 
 ## Installing 
+
 The `vscabbage` extension is not yet available from the VS Code marketplace. Therefore it must be installed locally. Here is a step by step guide:
 
 #### 1. Access the GitHub Actions Artifacts
@@ -52,7 +53,7 @@ Once you’re satisfied with your changes, save the .csd file. Saving will close
 
 * Enable the Extension: Ensure vscabbage is enabled in Visual Studio Code.
 
-* Set the path to the Cabbage binary via the command palette (details below).
+* Set the path to the Cabbage binary via the command palette (details on using the command palette are provide below).
 
 * Edit and Save: Edit your .csd files, and vscabbage will load the instrument in a preview web panel on each save.
 
