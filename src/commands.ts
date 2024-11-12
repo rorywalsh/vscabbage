@@ -277,7 +277,9 @@ export class Commands {
         }
     }
 
-
+    /**
+     * Checks for the existence of a Cabbage source directory in the settings.
+     */
     static async checkForCabbageSrcDirectory() {
         let settings = await Settings.getCabbageSettings();
         if (settings["currentConfig"]["jsSourceDir"].length === 0) {
@@ -383,5 +385,12 @@ export class Commands {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
         }
         return this.vscodeOutputChannel;
+    }
+
+    /**
+     * Export instrument
+     */
+    static async exportInstrument(type:string) {
+        
     }
 }

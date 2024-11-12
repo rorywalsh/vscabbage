@@ -1,5 +1,5 @@
 // MIT License
-// Copyright (c) 2024 rory Walsh
+// Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
