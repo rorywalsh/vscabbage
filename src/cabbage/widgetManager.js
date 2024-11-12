@@ -206,7 +206,7 @@ export class WidgetManager {
             // Update SVG if needed
             if (typeof widget.updateSVG === 'function') {
                 widget.updateSVG();
-                const selectionColour = CabbageColours.invertColor(widget.props.colour);
+                const selectionColour = CabbageColours.invertColor(widget.props.colour.fill);
                 CabbageColours.changeSelectedBorderColor(selectionColour);
             }
         } else {

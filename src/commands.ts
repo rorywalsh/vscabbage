@@ -288,7 +288,7 @@ export class Commands {
                     p?.kill("SIGKILL");
                 });
                 console.error('No Cabbage source path found');
-            this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
+                this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
             }, 500);
         }
     }
@@ -390,7 +390,18 @@ export class Commands {
     /**
      * Export instrument
      */
-    static async exportInstrument(type:string) {
-        
+    static async exportInstrument(type: string) {
+        /**
+         * This need to
+         * a) Save the current file
+         * b) Bundle the JS source files along with the csd file
+         * c) Notify the user of the location of the exported file 
+         */
+        switch (type) {
+            case 'vst3Effect':
+                break;
+            default:
+                return;
+        }
     }
 }

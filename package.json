@@ -113,6 +113,26 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.exportVST3Effect",
+        "title": "Export as VST3 Effect",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportVST3Synth",
+        "title": "Export as VST3 Synth",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportAUEffect",
+        "title": "Export as AU Effect",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportAUSynth",
+        "title": "Export as AU Synth",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.expandCabbageJSON",
         "title": "Expand Cabbage section",
         "category": "Cabbage"

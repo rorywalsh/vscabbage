@@ -222,8 +222,14 @@ export class PropertyPanel {
         propertyDiv.classList.add('property');
 
         const label = document.createElement('label');
-        const formattedKey = key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
-        label.textContent = formattedKey; // Format and set label text
+        
+        // Format the key for display
+        const formattedKey = key
+            .split('.') // Split by dot notation
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1)) // Capitalize the first letter of each part
+            .join(' '); // Join parts with a space
+
+        label.textContent = formattedKey; // Set the formatted label text
         propertyDiv.appendChild(label);
 
         const input = this.createInputElement(key, value, path); // Create input element
