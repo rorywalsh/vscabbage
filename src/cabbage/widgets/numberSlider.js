@@ -52,6 +52,7 @@ export class NumberSlider {
         this.startY = 0;
         this.startValue = 0;
         this.parameterIndex = 0;
+        this.vscode = null;
         this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
     }
 

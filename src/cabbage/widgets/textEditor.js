@@ -31,6 +31,7 @@ export class TextEditor {
             "automatable": 0,
             "opacity": 1
         };
+        this.vscode = null;
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {

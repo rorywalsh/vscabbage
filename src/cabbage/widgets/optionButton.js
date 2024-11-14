@@ -47,6 +47,7 @@ export class OptionButton {
       "presetIgnore": 0
     };
 
+    this.vscode = null;
     this.isMouseDown = false;
     this.isMouseInside = false;
     this.parameterIndex = 0;

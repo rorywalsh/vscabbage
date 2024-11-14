@@ -29,6 +29,7 @@ export class Image {
         };
 
         this.children = {};
+        this.vscode = null;
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {

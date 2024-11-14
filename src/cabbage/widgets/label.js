@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
-
+import { Cabbage } from "../cabbage.js";
 /**
  * Label class
  */
@@ -16,22 +16,25 @@ export class Label {
             },
             "type": "label",
             "colour": {
-                "fill": "#888888"
+                "fill": "#00000000"
             },
             "channel": "label",
             "font": {
                 "family": "Verdana",
                 "size": 0,
                 "align": "centre",
-                "colour": "#dddddd"
+                "colour": "#4444443"
             },
             "corners": 4,
             "visible": 1,
             "text": "Default Label",
             "automatable": 0,
-            "opacity": 1
+            "opacity": 1,
+            "value": 0,
+            "min": 0,
+            "max": 1
         };
-
+        this.vscode = null;
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -45,6 +48,9 @@ export class Label {
 
     pointerDown() {
         console.log("Label clicked!");
+        this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
+        const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
+        Cabbage.sendParameterUpdate(this.vscode, msg);
     }
 
     getInnerHTML() {

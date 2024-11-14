@@ -254,7 +254,7 @@ export function setupFormHandlers() {
 
         // Event listener for pointer down events on the form
         form.addEventListener('pointerdown', async (event) => {
-            if (event.button !== 0) {return}; // Ignore right clicks
+            if (event.button !== 0 || cabbageMode !== 'draggable') {return;}; // Ignore right clicks
 
             // Hide context menus when clicking
             contextMenu.style.visibility = "hidden";
