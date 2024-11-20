@@ -26,7 +26,10 @@ export class Image {
             "file": "",
             "corners": 4,
             "visible": 1,
-            "automatable": 0
+            "automatable": 0,
+            "value": 0,
+            "min": 0,
+            "max": 1
         };
 
         this.children = {};
@@ -43,7 +46,9 @@ export class Image {
     }
 
     pointerDown() {
-        console.log("Label clicked!");
+        this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
+        const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
+        Cabbage.sendParameterUpdate(this.vscode, msg);
     }
 
     getInnerHTML() {
