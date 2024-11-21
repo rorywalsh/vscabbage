@@ -46,6 +46,14 @@ export class RotarySlider {
           "background": "#ffffff"
         }
       },
+      "filmStrip": {
+        "file": "",
+        "frames": {
+          "count": 64,
+          "width": 64,
+          "height": 64
+        },
+      },
       "trackerWidth": 20,
       "type": "rotarySlider",
       "decimalPlaces": 1,
@@ -220,6 +228,32 @@ export class RotarySlider {
     }
   }
 
+  // New function to draw the film strip
+  drawFilmStrip() {
+    if (!this.props.filmStrip.file) return '';
+
+    const img = new Image();
+    img.src = this.props.filmStrip.file;
+
+    const frameWidth = this.props.filmStrip.frames.width;
+    const frameHeight = this.props.filmStrip.frames.height;
+    const totalFrames = this.props.filmStrip.frames.count;
+
+    // Determine the current frame based on the slider value
+    const frameIndex = Math.round(CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, totalFrames - 1));
+
+    // Check the orientation of the film strip
+    const isHorizontal = frameWidth > frameHeight; // true if horizontal, false if vertical
+
+    // Calculate the offset based on orientation
+    const offsetX = isHorizontal ? frameIndex * frameWidth : 0; // Only offset X for horizontal
+    const offsetY = isHorizontal ? 0 : frameIndex * frameHeight; // Only offset Y for vertical
+
+    return `
+      <image href="${this.props.filmStrip.file}" x="${-offsetX}" y="${-offsetY}" width="${isHorizontal ? totalFrames * frameWidth : frameWidth}" height="${isHorizontal ? frameHeight : totalFrames * frameHeight}" />
+  `;
+  }
+
   getInnerHTML() {
     if (this.props.visible === 0) {
       return '';
@@ -228,6 +262,18 @@ export class RotarySlider {
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+    }
+
+    // Use the filmStrip if it's defined
+    const filmStripElement = this.drawFilmStrip();
+
+    if (filmStripElement) {
+      return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+      ${filmStripElement}
+      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+    </svg>
+  `;
     }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
