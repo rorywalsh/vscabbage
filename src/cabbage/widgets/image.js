@@ -23,6 +23,7 @@ export class Image {
                     "width": 1
                 }
             },
+            "file": "",
             "corners": 4,
             "visible": 1,
             "automatable": 0,
@@ -45,7 +46,6 @@ export class Image {
     }
 
     pointerDown() {
-        console.log("Image clicked!");
         this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
         const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
         Cabbage.sendParameterUpdate(this.vscode, msg);
@@ -57,6 +57,13 @@ export class Image {
         }
 
         const outlineOffset = this.props.colour.stroke.width / 2;
+
+        if (this.props.file) {
+            console.log("setting file");
+            return `
+                <img src="${this.props.file}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: all;" />
+            `;
+        }
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
