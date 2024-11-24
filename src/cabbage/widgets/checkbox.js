@@ -49,7 +49,7 @@ export class Checkbox {
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0,
-      "opacity": 1 // Added opacity property
+      "opacity": 1
     };
 
     this.vscode = null;
