@@ -37,6 +37,7 @@ if (typeof acquireVsCodeApi === 'function') {
 setCabbageMode('nonDraggable');
 
 let widgetWrappers = null;
+
 const leftPanel = document.getElementById('LeftPanel');
 const rightPanel = document.getElementById('RightPanel');
 
@@ -78,6 +79,13 @@ if (typeof acquireVsCodeApi === 'function') {
 }
 
 Cabbage.sendCustomCommand(vscode, 'cabbageIsReadyToLoad');
+const msg = {
+    command: "cabbageIsReadyToLoad",
+    obj: JSON.stringify("loaded")
+};
+if (vscode !== null) {
+    vscode.postMessage(msg);
+}
 /**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
  * This function is also called whenever a widget is updated through Csound
@@ -102,6 +110,7 @@ window.addEventListener('message', async event => {
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
             console.log("widgetUpdate", updateMsg);
+
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 

@@ -10,11 +10,38 @@ export class CabbageUtils {
     }
   }
 
+  static getMediaPath(fileName) {
+    // Iterate over the mediaResources array to find the matching URI
+    
+  }
+
   static getFileNameFromPath(fullPath) {
     return fullPath.split(/[/\\]/).pop();
   }
 
+  // Helper function to track the path of the property in a nested object
+  static getPath(obj, key) {
+    const path = [];
 
+    function findKey(currentObject, currentPath) {
+      for (const k in currentObject) {
+        const newPath = currentPath ? `${currentPath}.${k}` : k; // Build the new path
+        if (k === key) {
+          path.push(newPath); // Found the key, add the path
+          return true; // Stop searching
+        }
+        if (typeof currentObject[k] === 'object' && currentObject[k] !== null) {
+          if (findKey(currentObject[k], newPath)) {
+            return true; // Stop searching if found in nested object
+          }
+        }
+      }
+      return false; // Key not found in this branch
+    }
+
+    findKey(obj, '');
+    return path.length > 0 ? path[0] : ''; // Return the first found path or an empty string
+  }
   /**
    * this function will return the number of plugin parameter in our widgets array
    */
@@ -92,13 +119,13 @@ export class CabbageUtils {
    */
   static getDecimalPlaces(num) {
     if (typeof num !== 'number' || isNaN(num)) {
-        console.warn('Invalid input to getDecimalPlaces:', num);
-        return 0; // or some default value
+      console.warn('Invalid input to getDecimalPlaces:', num);
+      return 0; // or some default value
     }
     const str = num.toString();
     const decimalIndex = str.indexOf('.');
     return decimalIndex === -1 ? 0 : str.length - decimalIndex - 1;
-}
+  }
 
   /**
    * Returns a unique channel name based on the type and number

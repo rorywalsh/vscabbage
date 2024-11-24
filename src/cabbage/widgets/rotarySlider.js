@@ -52,7 +52,7 @@ export class RotarySlider {
           "count": 64,
           "width": 64,
           "height": 64
-        },
+        }
       },
       "trackerWidth": 20,
       "type": "rotarySlider",
@@ -66,6 +66,9 @@ export class RotarySlider {
       "opacity": 1
     };
 
+    this.imageWidth = 0;
+    this.imageHeight = 0;
+    this.isImageLoaded = false;
     this.moveListener = this.pointerMove.bind(this);
     this.upListener = this.pointerUp.bind(this);
     this.startY = 0;
@@ -74,6 +77,66 @@ export class RotarySlider {
     this.isMouseDown = false;
     this.decimalPlaces = 0;
     this.parameterIndex = 0;
+
+    // Create a Proxy to listen for changes
+    this.props = new Proxy(this.props, {
+      set: (target, key, value) => {
+        const oldValue = target[key];
+        // Track the path of the key being set, including the parent object
+        const path = CabbageUtils.getPath(target, key);
+
+        // Custom logic: trigger your onPropertyChange method with the path
+        if (this.onPropertyChange) {
+          this.onPropertyChange(path, key, value, oldValue);  // Pass the full path and value
+        }
+
+        // Set the value as usual
+        target[key] = value;
+        return true;
+      }
+    });
+    this.loadFilmStripImage();
+  }
+
+  onPropertyChange(path, key, newValue, oldValue) {
+    if (typeof oldValue === 'object') {
+      oldValue = JSON.stringify(oldValue);
+      newValue = JSON.stringify(newValue);
+    }
+
+    //console.error(`Path ${path}, key ${key}, changed from ${oldValue} to ${newValue}`);
+    if(path.indexOf('filmStrip') > -1){
+      this.loadFilmStripImage();
+    }
+    // Handle the change, e.g., update UI, trigger events, etc.
+  }
+
+  async loadFilmStripImage() {
+    if (!this.props.filmStrip.file) {
+      console.warn("Filmstrip file not found");
+      return;
+    }
+    console.warn(this.mediaResources);
+    // try {
+    //   const imagePath = await CabbageUtils.getMediaPath(this.props.filmStrip.file);
+    //   const img = new Image();
+    //   img.src = imagePath;
+    //   console.warn("File path: ", img.src);
+
+    //   img.onload = () => {
+    //     this.imageWidth = img.width;
+    //     this.imageHeight = img.height;
+    //     this.isImageLoaded = true;
+    //     console.log("Loaded film strip image dimensions:", img.width, img.height);
+    //     CabbageUtils.updateInnerHTML(this.props.channel, this);
+    //   };
+
+    //   img.onerror = () => {
+    //     console.error("Error loading film strip image");
+    //   };
+    // } catch (error) {
+    //   console.error("Failed to load film strip image:", error);
+    // }
   }
 
   pointerUp() {
@@ -228,30 +291,49 @@ export class RotarySlider {
     }
   }
 
-  // New function to draw the film strip
-  drawFilmStrip() {
-    if (!this.props.filmStrip.file) return '';
+  async drawFilmStrip() {
+    if (!this.isImageLoaded) {
+      console.warn("Image dimensions not available yet.");
+      return '';
+    }
 
-    const img = new Image();
-    img.src = this.props.filmStrip.file;
-
-    const frameWidth = this.props.filmStrip.frames.width;
-    const frameHeight = this.props.filmStrip.frames.height;
     const totalFrames = this.props.filmStrip.frames.count;
+    const originalFrameWidth = this.props.filmStrip.frames.width;
+    const originalFrameHeight = this.props.filmStrip.frames.height;
+
+    // Use the stored image dimensions
+    const imgWidth = this.imageWidth;
+    const imgHeight = this.imageHeight;
+
+    // Determine the orientation based on the loaded image dimensions
+    const isHorizontal = imgWidth > imgHeight; // true if horizontal, false if vertical
+    console.log("Original image:", imgWidth, imgHeight);
 
     // Determine the current frame based on the slider value
     const frameIndex = Math.round(CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, totalFrames - 1));
 
-    // Check the orientation of the film strip
-    const isHorizontal = frameWidth > frameHeight; // true if horizontal, false if vertical
+    // Set the width and height based on the slider dimensions
+    const sliderWidth = this.props.bounds.width;
+    const sliderHeight = this.props.bounds.height;
+
+    // Set the image dimensions based on orientation
+    const frameHeight = originalFrameHeight * ((sliderHeight / originalFrameHeight));
+    const frameWidth = originalFrameWidth * ((sliderWidth / originalFrameWidth));
+    const imageWidth = !isHorizontal ? sliderWidth : frameWidth * totalFrames; // Match slider width for horizontal
+    const imageHeight = !isHorizontal ? frameHeight * totalFrames : sliderHeight; // Match slider height for vertical
 
     // Calculate the offset based on orientation
     const offsetX = isHorizontal ? frameIndex * frameWidth : 0; // Only offset X for horizontal
     const offsetY = isHorizontal ? 0 : frameIndex * frameHeight; // Only offset Y for vertical
 
+    // Log the calculated values for debugging
+    console.log("Frame Index:", frameIndex, "Frame width", frameWidth, "Frame height", frameHeight);
+    console.log("Offset X:", offsetX, "Offset Y:", offsetY);
+    console.log("Image Width:", imageWidth, "Image Height:", imageHeight);
+    const imagePath = CabbageUtils.getMediaPath(this.props.filmStrip.file);
     return `
-      <image href="${this.props.filmStrip.file}" x="${-offsetX}" y="${-offsetY}" width="${isHorizontal ? totalFrames * frameWidth : frameWidth}" height="${isHorizontal ? frameHeight : totalFrames * frameHeight}" />
-  `;
+      <image href="${imagePath}" x="${-offsetX}" y="${-offsetY}" width="${imageWidth}" height="${imageHeight}" />
+    `;
   }
 
   getInnerHTML() {
@@ -264,16 +346,20 @@ export class RotarySlider {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
 
-    // Use the filmStrip if it's defined
+    if (!this.isImageLoaded) {
+      console.warn("Image dimensions not available yet.");
+      return '';
+    }
+
     const filmStripElement = this.drawFilmStrip();
 
     if (filmStripElement) {
       return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
-      ${filmStripElement}
-      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
-    </svg>
-  `;
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+          ${filmStripElement}
+          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+        </svg>
+      `;
     }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;

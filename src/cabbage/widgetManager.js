@@ -7,7 +7,7 @@ console.log("Loading widgetManager.js...");
 // Import necessary modules and utilities
 import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
-import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
+import { vscode, cabbageMode, widgets, mediaResources } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 
 /**
@@ -250,11 +250,17 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
+        console.warn("Media Resource", mediaResources);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
+            // add media resources array. When running as a vscode extensions this will contain a list ogf
+            // all the media files founds in the media folder within the .csd directory. In plugin mode, this
+            // will be empty. We can use relative paths to the server root 
+            widget.mediaResources = mediaResources;
+
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
                 console.warn("Updating widget value only");

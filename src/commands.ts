@@ -9,7 +9,8 @@ import * as cp from "child_process";
 import { Settings } from './settings';
 import os from 'os';
 // @ts-ignore
-import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
+import { setCabbageMode, getCabbageMode, setVSCode, addMediaResources } from './cabbage/sharedState.js';
+import * as path from 'path';
 let dbg = false;
 
 /**
@@ -23,6 +24,7 @@ export class Commands {
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
+    private static mediaFileWebUris: string[] = [];
 
     /**
      * Initializes the Commands class by creating an output channel for logging
@@ -130,6 +132,7 @@ export class Commands {
                 }
 
                 if (documentToSave) {
+                    await Commands.loadMediaFiles(documentToSave);
                     try {
                         await documentToSave.save();
                         console.log('File saved successfully:', documentToSave.fileName);
@@ -165,20 +168,30 @@ export class Commands {
      * @param context The extension context provided by VSCode.
      * @returns The created webview panel.
      */
-    static setupWebViewPanel(context: vscode.ExtensionContext) {
+    static async setupWebViewPanel(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration("cabbage");
         const launchInNewColumn = config.get("launchInNewColumn");
         const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
-
+        setVSCode(vscode);
+        // Extract the directory path
+        const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
+        const directoryPath = fullPath ? path.dirname(fullPath) : '';
+        console.warn('directoryPath',directoryPath);
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             'Cabbage UI Editor',
             viewColumn,
             {
                 enableScripts: true,
-                retainContextWhenHidden: true
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    vscode.Uri.file(path.join(directoryPath, 'media')),
+                    vscode.Uri.file(path.join(context.extensionPath, 'media')),
+                    vscode.Uri.file(path.join(context.extensionPath, 'src'))
+                ]
             }
         );
+
 
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
@@ -191,9 +204,9 @@ export class Commands {
         const colourPickerJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
         const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'color-picker.css'));
 
-        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
-
+        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);        
         return this.panel;
+        
     }
 
     /**
@@ -203,14 +216,17 @@ export class Commands {
      * @param context The extension context provided by VSCode.
      */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
+        console.error('dfghl,.');
         console.log("onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
-
         this.getOutputChannel().appendLine(`Saving file: ${editor.fileName}`);
 
+
         if (!this.panel) {
-            this.setupWebViewPanel(context);
+            await this.setupWebViewPanel(context);
         }
+
+        await Commands.loadMediaFiles(editor);
 
         if (this.panel) {
             const config = vscode.workspace.getConfiguration("cabbage");
@@ -220,7 +236,6 @@ export class Commands {
             this.panel.reveal(viewColumn, true);
 
             const fileContent = editor.getText();
-
             this.panel.webview.postMessage({
                 command: "onFileChanged",
                 text: fileContent,
@@ -241,10 +256,10 @@ export class Commands {
         const config = vscode.workspace.getConfiguration("cabbage");
         const command = config.get("pathToCabbageBinary") + '/' + binaryName;
         console.log("full command:", command);
-        const path = vscode.Uri.file(command);
+        const cabbagePath = vscode.Uri.file(command);
 
         try {
-            await vscode.workspace.fs.stat(path);
+            await vscode.workspace.fs.stat(cabbagePath);
             this.vscodeOutputChannel.append(`Cabbage service app: ${command}\n`);
         } catch (error) {
             this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found. Please set the binary path from the command palette.\n`);
@@ -402,6 +417,39 @@ export class Commands {
                 break;
             default:
                 return;
+        }
+    }
+
+    /**
+     * Reads the media folder and populates the mediaFileWebUris array.
+     * @param editor The VSCode document being saved.
+     */
+    private static async loadMediaFiles(editor: vscode.TextDocument) {
+        const fullPath = editor.uri.fsPath; // Get the full path of the current file
+        const parentDirectory = path.dirname(fullPath); // Get the parent directory
+        const mediaFolderPath = path.join(parentDirectory, 'media'); // Construct the media folder path
+
+        try {
+            // Read the contents of the media folder
+            const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(mediaFolderPath));
+
+            // Filter and create web URIs for each file
+            if (this.panel) { // Ensure the panel is defined
+                for (const [fileName, fileType] of files) {
+                    if (fileType === vscode.FileType.File) { // Only include files
+                        const fileUri = vscode.Uri.file(path.join(mediaFolderPath, fileName));
+                        const webUri = this.panel.webview.asWebviewUri(fileUri); // Convert to webview URI
+                        this.mediaFileWebUris.push(webUri.toString());
+                        console.warn(webUri.toString());
+                    }
+                }
+                addMediaResources(this.mediaFileWebUris);
+            } else {
+                console.warn("Webview panel is not defined.");
+            }
+        } catch (error) {
+            console.error('Error reading media folder:', error);
+            vscode.window.showErrorMessage('Failed to read media folder. Please check if it exists.');
         }
     }
 }
