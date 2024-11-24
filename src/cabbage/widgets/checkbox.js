@@ -24,7 +24,7 @@ export class Checkbox {
         "family": "Verdana",
         "size": 0,
         "align": "left",
-        "colour": { // Updated to be an object with on and off properties
+        "colour": { 
           "on": "#dddddd",
           "off": "#000000"
         }
