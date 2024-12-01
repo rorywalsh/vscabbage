@@ -586,4 +586,63 @@ export class ExtensionUtils {
         return '';
     }
 
+    static getIndexHtml(){
+        return `
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Cabbage</title>
+    <link rel="stylesheet" href="cabbage.css">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            user-select: none;
+            /* Prevent text selection globally */
+            -webkit-user-select: none;
+            /* For Safari */
+            -moz-user-select: none;
+            /* For Firefox */
+            -ms-user-select: none;
+            /* For Internet Explorer/Edge */
+            /* Prevent scrollbars */
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="cabbage/widgets/rotarySlider.js"></script>
+    <script type="module" src="cabbage/widgets/csoundOutput.js"></script>
+    <script type="module" src="cabbage/widgets/fileButton.js"></script>
+    <script type="module" src="cabbage/widgets/genTable.js"></script>
+    <script type="module" src="cabbage/widgets/groupBox.js"></script>
+    <script type="module" src="cabbage/widgets/image.js"></script>
+    <script type="module" src="cabbage/widgets/keyboard.js"></script>
+    <script type="module" src="cabbage/widgets/numberSlider.js"></script>
+    <script type="module" src="cabbage/widgets/optionButton.js"></script>
+    <script type="module" src="cabbage/widgets/textEditor.js"></script>
+    <script type="module" src="cabbage/widgets/form.js"></script>
+    <script type="module" src="cabbage/widgets/label.js"></script>
+    <script type="module" src="cabbage/widgets/button.js"></script>
+    <script type="module" src="cabbage/widgets/verticalSlider.js"></script>
+    <script type="module" src="cabbage/widgets/horizontalSlider.js"></script>
+    <script type="module" src="cabbage/widgets/horizontalRangeSlider.js"></script>
+    <script type="module" src="cabbage/widgets/comboBox.js"></script>
+    <script type="module" src="cabbage/widgets/checkBox.js"></script>
+    <script type="module" src="cabbage/widgets/listbox.js"></script>
+    <script type="module" src="cabbage/utils.js"></script>
+    <script type="module" src="cabbage/cabbage.js"></script>
+    <script type="module" src="cabbage/main.js"></script>
+
+    <span class="popup" id="popupValue">50</span>
+    <!-- <div id="MainForm" class="form nonDraggable">
+    </div> -->
+</body>
+</html>`
+    }
 }

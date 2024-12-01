@@ -291,6 +291,7 @@
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	user-select: none; /* Prevent text selection in the full-screen div */
 }
 
 .full-screen-div svg {
@@ -311,6 +312,7 @@
 	opacity: 0;
 	transition: opacity 0.3s ease-in-out;
 	pointer-events: none; /* Prevent pointer events while hidden */
+	user-select: none; /* Prevent text selection in the popup */
 }
 
 .popup-value {
@@ -318,6 +320,12 @@
     -webkit-user-select: none; /* For Safari */
     -moz-user-select: none; /* For Firefox */
     -ms-user-select: none; /* For Internet Explorer/Edge */
+    
+    /* Font properties */
+    font-family: 'Verdana', sans-serif; /* Change to your desired font */
+    font-size: 14px; /* Change to your desired font size */
+    color: #ffffff; /* Change to your desired text color */
+    /* Add any other font properties you want, such as font-weight, line-height, etc. */
 }
 
 .popup::after {

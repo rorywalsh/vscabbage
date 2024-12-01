@@ -1,4 +1,4 @@
-name: Build and Package VS Code Extension
+name: Build and Package Extensions
 
 on:
   push:
@@ -9,39 +9,78 @@ on:
       - main
 
 jobs:
-  build_windows:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Node.js (v18) on Windows
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies on Windows
-        run: npm install
-
-      - name: Install vsce on Windows
-        run: npm install -g @vscode/vsce
-
-      - name: Build and package extension on Windows
-        run: vsce package
-
-      - name: Upload VSIX artifact from Windows
-        uses: actions/upload-artifact@v3
-        with:
-          name: vscabbage-extension-windows
-          path: '*.vsix'
-
   build_macos:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout source code for cabbage3
+        uses: actions/checkout@v1
+        with:
+          repository: rorywalsh/cabbage3
+          path: cabbage3
+          fetch-depth: 1
+          submodules: true
+
+      - name: Set Up Signing Certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+      - name: Download CsoundLib64 Package
+        run: |
+          # Download the package using curl
+          curl -L -o CsoundLib64-7.0-vanilla-universal.pkg "https://www.dropbox.com/scl/fi/8afz58gvjvwsa0u0nwr9g/CsoundLib64-7.0-vanilla-universal.pkg?rlkey=6kw4upth3olvmymhfjsndwgt9&st=mcxkg1hx&dl=1"
+          
+          # Verify the file exists
+          ls -l CsoundLib64-7.0-vanilla-universal.pkg
+
+          # Make the downloaded file executable
+          chmod +x CsoundLib64-7.0-vanilla-universal.pkg
+
+          # Install the package
+          sudo installer -pkg CsoundLib64-7.0-vanilla-universal.pkg -target /
+
+      - name: Configure build for cabbage3
+        run: |
+          cd cabbage3
+          cmake -GXcode -B build -S . -DCABBAGE_BUILD_TARGET=CabbageApp -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
+
+      - name: Build macOS app for cabbage3
+        run: |
+          cd cabbage3
+          cmake --build build --config Debug
+
+      - name: Sign binaries
+        env:
+          APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
+        run: |
+          cd cabbage3/build
+          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
+          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
+          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
+          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
+
+
+      - name: Copy CabbageApp to vscabbage src directory
+        run: |
+          mkdir -p ../vscabbage/src/CabbageBundle
+          cd build
+          cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ../vscabbage/src/CabbageBundle/CabbageAUv2Effect.component
+          cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ../vscabbage/src/CabbageBundle/CabbageAUv2Synth.component
+          cp -r CabbageApp/out/CabbageApp.app ../vscabbage/src/CabbageBundle/C
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
+          cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ../vscabbage/src/CabbageBundle/CabbageVST3Effect.vst3
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
+
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+          submodules: true
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
@@ -61,4 +100,42 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: vscabbage-extension-macos
+          path: '*.vsix'
+
+  build_windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Set Up Signing Certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+      - name: Set up Node.js (v18) on Windows
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies on Windows
+        run: npm install
+
+      - name: Install vsce on Windows
+        run: npm install -g @vscode/vsce
+
+      - name: Build and package extension on Windows
+        run: vsce package
+
+      - name: Upload VSIX artifact from Windows
+        uses: actions/upload-artifact@v3
+        with:
+          name: vscabbage-extension-windows
           path: '*.vsix'
