@@ -38,7 +38,7 @@ jobs:
           security unlock-keychain -p "$CERTIFICATE_PASSWORD" build.keychain
 
 
-     - name: Verify Signing Identity
+      - name: Verify Signing Identity
         run: |
           security find-identity -v -p codesigning
 
