@@ -24,7 +24,7 @@ export class Checkbox {
         "family": "Verdana",
         "size": 0,
         "align": "left",
-        "colour": { // Updated to be an object with on and off properties
+        "colour": { 
           "on": "#dddddd",
           "off": "#000000"
         }
@@ -49,7 +49,7 @@ export class Checkbox {
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0,
-      "opacity": 1 // Added opacity property
+      "opacity": 1
     };
 
     this.vscode = null;
