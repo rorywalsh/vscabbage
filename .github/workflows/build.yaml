@@ -91,7 +91,7 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: CabbageStandaloneAppDuplicate.app
+          name: CabbageStandaloneApp.app
           path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
           if-no-files-found: ignore
 
@@ -103,14 +103,24 @@ jobs:
           submodules: true
 
       # Download and copy the required artifacts into the vscabbage src directory
-      - name: Download and copy artifacts to vscabbage/src
+      - name: Download artifacts and copy to vscabbage/src
         run: |
           mkdir -p ./src/CabbageBundle
-          for artifact in CabbageAUv2Effect.component CabbageAUv2Synth.component CabbageApp.app \
-                         CabbageStandaloneApp.app CabbageVST3Effect.vst3 CabbageStandaloneAppDuplicate.app; do
+          artifacts=("CabbageAUv2Effect.component" "CabbageAUv2Synth.component" "CabbageApp.app" \
+                     "CabbageStandaloneApp.app" "CabbageVST3Effect.vst3" "CabbageStandaloneAppDuplicate.app")
+          
+          for artifact in "${artifacts[@]}"; do
               echo "Downloading $artifact..."
-              artifact_path=$(find ../artifacts -name $artifact -type f)
-              [ -n "$artifact_path" ] && cp "$artifact_path" "./src/CabbageBundle"
+              # Download each artifact
+              mkdir -p "./temp-artifact"
+              gh artifact download $artifact --dir ./temp-artifact || echo "$artifact not found"
+              
+              # Copy the artifact to the target directory if it exists
+              artifact_path=$(find ./temp-artifact -name "$artifact" -type f)
+              [ -n "$artifact_path" ] && cp -r "$artifact_path" ./src/CabbageBundle/
+              
+              # Clean up temporary directory
+              rm -rf ./temp-artifact
           done
 
       - name: Set up Node.js (v18) on macOS
