@@ -57,6 +57,15 @@ jobs:
           cd cabbage3/build
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
 
+      # Cache the cabbage3 build directory
+      - name: Cache cabbage3 build directory
+        uses: actions/cache@v3
+        with:
+          path: cabbage3/build
+          key: ${{ runner.os }}-cabbage3-build-${{ hashFiles('cabbage3/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cabbage3-build-
+
       # Checkout source code for vscabbage before copying the files
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v1
@@ -64,23 +73,26 @@ jobs:
           fetch-depth: 1
           submodules: true
 
-      # Copy Cabbage build directory files into vscabbage/src
+      # Restore the cache for cabbage3 build directory
+      - name: Restore cabbage3 build directory from cache
+        uses: actions/cache@v3
+        with:
+          path: cabbage3/build
+          key: ${{ runner.os }}-cabbage3-build-${{ hashFiles('cabbage3/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cabbage3-build-
+
+      # Copy Cabbage build directory files into vscabbage src directory
       - name: Copy CabbageApp to vscabbage src directory
         run: |
-          pwd
           mkdir -p ./src/CabbageBundle
-          ls
-          cd ..
-          pwd
-          ls
-          cd ../cabbage3/build  # We need to go back to the cabbage3/build directory, which is outside vscabbage
+          cd cabbage3/build  # Ensure we're in the right directory
           cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ./src/CabbageBundle/CabbageAUv2Effect.component
           cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ./src/CabbageBundle/CabbageAUv2Synth.component
           cp -r CabbageApp/out/CabbageApp.app ./src/CabbageBundle/CabbageApp.app
           cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ./src/CabbageBundle/CabbageStandaloneApp.app
           cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ./src/CabbageBundle/CabbageVST3Effect.vst3
           cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ./src/CabbageBundle/CabbageStandaloneApp.app
-
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
