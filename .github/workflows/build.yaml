@@ -33,7 +33,7 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
           echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
 
       # - name: Verify Signing Identity
       #   run: |
