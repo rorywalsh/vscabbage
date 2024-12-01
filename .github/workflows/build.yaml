@@ -34,11 +34,11 @@ jobs:
       #   run: |
       #     echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
       #     security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
-
-      uses: apple-actions/import-codesign-certs@v3
-      with: 
-        p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
-        p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+      - name: Set Up Signing Certificate  
+        uses: apple-actions/import-codesign-certs@v3
+        with: 
+          p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
 
       - name: Verify Signing Identity
         run: |
