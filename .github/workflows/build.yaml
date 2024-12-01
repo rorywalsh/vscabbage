@@ -81,6 +81,7 @@ jobs:
           key: ${{ runner.os }}-cabbage3-build-${{ hashFiles('cabbage3/CMakeLists.txt') }}
           restore-keys: |
             ${{ runner.os }}-cabbage3-build-
+            ${{ runner.os }}-cabbage3-build
 
       # Copy Cabbage build directory files into vscabbage src directory
       - name: Copy CabbageApp to vscabbage src directory
@@ -113,6 +114,7 @@ jobs:
         with:
           name: vscabbage-extension-macos
           path: '*.vsix'
+
 
   # build_windows:
   #   runs-on: windows-latest
