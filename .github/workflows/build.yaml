@@ -57,14 +57,12 @@ jobs:
           cd cabbage3/build
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
 
-      # Cache the cabbage3 build directory
-      - name: Cache cabbage3 build directory
-        uses: actions/cache@v3
+      # Upload the cabbage3 build directory as an artifact
+      - name: Upload cabbage3 build directory as artifact
+        uses: actions/upload-artifact@v3
         with:
+          name: cabbage3-build
           path: cabbage3/build
-          key: ${{ runner.os }}-cabbage3-build-${{ hashFiles('cabbage3/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-cabbage3-build-
 
       # Checkout source code for vscabbage before copying the files
       - name: Checkout source code for vscabbage
@@ -73,15 +71,11 @@ jobs:
           fetch-depth: 1
           submodules: true
 
-      # Restore the cache for cabbage3 build directory
-      - name: Restore cabbage3 build directory from cache
-        uses: actions/cache@v3
+      # Download the cabbage3 build directory artifact
+      - name: Download cabbage3 build directory artifact
+        uses: actions/download-artifact@v3
         with:
-          path: cabbage3/build
-          key: ${{ runner.os }}-cabbage3-build-${{ hashFiles('cabbage3/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-cabbage3-build-
-            ${{ runner.os }}-cabbage3-build
+          name: cabbage3-build
 
       # Copy Cabbage build directory files into vscabbage src directory
       - name: Copy CabbageApp to vscabbage src directory
@@ -115,6 +109,7 @@ jobs:
           name: vscabbage-extension-macos
           path: '*.vsix'
 
+ 
 
   # build_windows:
   #   runs-on: windows-latest
