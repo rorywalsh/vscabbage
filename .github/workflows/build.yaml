@@ -22,6 +22,11 @@ jobs:
           fetch-depth: 1
           submodules: true
 
+      - name: Verify cabbage3 directory
+        run: |
+          ls -l
+          ls -l cabbage3
+          
       - name: Set Up Signing Certificate
         env:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
