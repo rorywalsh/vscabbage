@@ -27,19 +27,13 @@ jobs:
           ls -l
           ls -l cabbage3
           
-      - name: Import Apple Developer Certificate
+      - name: Set Up Signing Certificate
         env:
-          APPLE_CERTIFICATE: ${{ secrets.CERTIFICATE_P12 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
-          KEYCHAIN_PASSWORD=password
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          security find-identity -v -p codesigning build.keychain
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
 
       # - name: Verify Signing Identity
       #   run: |
@@ -75,7 +69,6 @@ jobs:
         run: |
           cd cabbage3/build
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
-        
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
