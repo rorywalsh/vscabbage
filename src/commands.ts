@@ -12,6 +12,9 @@ import os from 'os';
 import { setCabbageMode, getCabbageMode, setVSCode, addMediaResources } from './cabbage/sharedState.js';
 import * as path from 'path';
 let dbg = false;
+import fs from 'fs';
+import * as xml2js from 'xml2js';
+
 
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
@@ -20,6 +23,7 @@ let dbg = false;
  */
 export class Commands {
     private static vscodeOutputChannel: vscode.OutputChannel;
+    private static extensionContext: vscode.ExtensionContext;
     private static processes: (cp.ChildProcess | undefined)[] = [];
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
@@ -38,6 +42,8 @@ export class Commands {
         this.highlightDecorationType = vscode.window.createTextEditorDecorationType({
             backgroundColor: 'rgba(0, 0, 0, 0.1)'
         });
+
+        Commands.extensionContext = context;
     }
 
     /**
@@ -176,7 +182,7 @@ export class Commands {
         // Extract the directory path
         const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
         const directoryPath = fullPath ? path.dirname(fullPath) : '';
-        console.warn('directoryPath',directoryPath);
+        console.warn('directoryPath', directoryPath);
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             'Cabbage UI Editor',
@@ -204,9 +210,9 @@ export class Commands {
         const colourPickerJS = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'color-picker.js'));
         const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'color-picker.css'));
 
-        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);        
+        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles);
         return this.panel;
-        
+
     }
 
     /**
@@ -406,17 +412,172 @@ export class Commands {
      * Export instrument
      */
     static async exportInstrument(type: string) {
-        /**
-         * This need to
-         * a) Save the current file
-         * b) Bundle the JS source files along with the csd file
-         * c) Notify the user of the location of the exported file 
-         */
+        await Commands.copyPluginBinaryFile(type);
+    }
+
+    /**
+     * Copies and configures a VST3 plugin to a user-specified location.
+     * Handles copying the binary, updating the CabbageAudio folder, and modifying configuration files.
+     * @param {string} type - The type of plugin to export (VST3Effect, VST3Synth, etc.)
+     * @returns {Promise<void>} A promise that resolves when the copy operation is complete
+     * @throws {Error} If there are issues with file operations or configuration updates
+     */
+    static async copyPluginBinaryFile(type: string): Promise<void> {
+        const fileUri = await vscode.window.showSaveDialog({
+            saveLabel: 'Save Plugin',
+            filters: {
+                'VST3 Plugin': ['vst3']
+            }
+        });
+
+        if (!fileUri) {
+            console.log('No file selected.');
+            return;
+        }
+
+        this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
+        const config = vscode.workspace.getConfiguration('cabbage');        
+        const destinationPath = fileUri.fsPath;
+        const indexDotHtml = ExtensionUtils.getIndexHtml();
+        const pluginName = path.basename(destinationPath, '.vst3');
+        const jsSource = config.get<string>('pathToJsSource');
+        let pathToCabbageJsSource = '';
+        let cabbageCSS = '';
+        if(jsSource){
+            pathToCabbageJsSource = path.join(jsSource, 'cabbage');
+            cabbageCSS = path.join(jsSource, 'media', 'cabbage.css');
+        }
+
+
+        let binaryFile = '';
         switch (type) {
-            case 'vst3Effect':
+            case 'VST3Effect':
+                binaryFile = config.get("pathToCabbageBinary") + '/CabbageVST3Effect.vst3';
+                break;
+            case 'VST3Synth':
+                binaryFile = config.get("pathToCabbageBinary") + '/CabbageVST3Synth.vst3';
+                break;
+            case 'AUv2Effect':
+                binaryFile = config.get("pathToCabbageBinary") + '/CabbageAUv2Effect.component';
+                break;
+            case 'AUv2Synth':
+                binaryFile = config.get("pathToCabbageBinary") + '/CabbageAUv2Synth.component';
+                break;
+            case 'Standalone':
+                //todo
                 break;
             default:
+                console.error('Not valid type provided for export');
+                break;
+        }
+
+        // Check if destination folder exists and ask for overwrite permission
+        if (fs.existsSync(destinationPath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Folder ${pluginName} already exists. Do you want to replace it?`,
+                'Yes', 'No'
+            );
+            if (overwrite !== 'Yes') {
+                console.log('Operation cancelled by user');
                 return;
+            }
+            // Remove existing directory
+            await fs.promises.rm(destinationPath, { recursive: true });
+        }
+
+        try {
+            // 1. Create the export directory
+            await fs.promises.mkdir(destinationPath, { recursive: true });
+            console.log('Created export directory:', destinationPath);
+
+            // 2. Copy JS source files
+            await Commands.copyDirectory(pathToCabbageJsSource, destinationPath);
+            console.log('Copied JS source files');
+
+            // 3. Create and write index.html
+            const indexHtmlPath = path.join(destinationPath, 'index.html');
+            await fs.promises.writeFile(indexHtmlPath, indexDotHtml);
+            console.log('Created index.html');
+
+            // 4. Copy CSS file
+            const cssFileName = path.basename(cabbageCSS);
+            const cssDestPath = path.join(destinationPath, cssFileName);
+            await fs.promises.copyFile(cabbageCSS, cssDestPath);
+            console.log('Copied CSS file');
+
+            // Copy the VST3 plugin
+            await Commands.copyDirectory(binaryFile, destinationPath);
+            console.log('Plugin successfully copied to:', destinationPath);
+
+            // Rename and update the .csd file
+            const oldCsdPath = path.join(destinationPath, 'CabbageVST3Effect.csd');
+            const newCsdPath = path.join(destinationPath, `${pluginName}.csd`);
+            
+            if (this.lastSavedFileName) {
+                const newContent = await fs.promises.readFile(this.lastSavedFileName, 'utf8');
+                await fs.promises.writeFile(newCsdPath, newContent);
+                await fs.promises.unlink(oldCsdPath);
+                console.log('CSD file updated and renamed');
+            }
+
+            // Rename the executable file inside the folder
+            const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+            const originalFilePath = path.join(macOSDirPath, 'CabbageVST3Effect');
+            const newFilePath = path.join(macOSDirPath, pluginName);
+            await fs.promises.rename(originalFilePath, newFilePath);
+            console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
+
+            // Modify the plist file
+            const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
+            const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
+            const parser = new xml2js.Parser();
+            const builder = new xml2js.Builder();
+
+            parser.parseString(plistData, async (err, result) => {
+                if (err) {
+                    throw new Error('Error parsing plist file: ' + err);
+                }
+                const dict = result.plist.dict[0].key;
+                const executableIndex = dict.indexOf('CFBundleExecutable');
+                if (executableIndex !== -1) {
+                    result.plist.dict[0].string[executableIndex] = pluginName;
+                }
+                const updatedPlist = builder.buildObject(result);
+                await fs.promises.writeFile(plistFilePath, updatedPlist);
+                console.log(`CFBundleExecutable updated to "${pluginName}" in Info.plist`);
+            });
+
+        } catch (err) {
+            console.error('Error during plugin copy process:', err);
+            throw err;
+        }
+    }
+
+    /**
+     * Recursively copies a directory and its contents to a new location.
+     * @param {string} src - The source directory path to copy from
+     * @param {string} dest - The destination directory path to copy to
+     * @returns {Promise<void>} A promise that resolves when the directory copy is complete
+     * @throws {Error} If there are issues with file system operations
+     */
+    static async copyDirectory(src: string, dest: string): Promise<void> {
+        // Ensure the destination folder exists
+        await fs.promises.mkdir(dest, { recursive: true });
+
+        // Read the contents of the source directory
+        const entries = await fs.promises.readdir(src, { withFileTypes: true });
+
+        for (const entry of entries) {
+            const srcPath = path.join(src, entry.name);
+            const destPath = path.join(dest, entry.name);
+
+            if (entry.isDirectory()) {
+                // If the entry is a directory, call copyDirectory recursively
+                await Commands.copyDirectory(srcPath, destPath);
+            } else {
+                // If it's a file, copy it using fs.promises.copyFile
+                await fs.promises.copyFile(srcPath, destPath);
+            }
         }
     }
 
@@ -448,8 +609,8 @@ export class Commands {
                 console.warn("Webview panel is not defined.");
             }
         } catch (error) {
-            console.error('Error reading media folder:', error);
-            vscode.window.showErrorMessage('Failed to read media folder. Please check if it exists.');
+            // console.error('Error reading media folder:', error);
+            // vscode.window.showErrorMessage('Failed to read media folder. Please check if it exists.');
         }
     }
 }

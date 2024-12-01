@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define the target directory
-TARGET_DIR="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/cabbage/"
-TARGET_CSS_DIR="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/"
+TARGET_DIR="/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/cabbage/"
+TARGET_CSS_DIR="/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/"
 
 # Check if the target directory exists, and create it if it doesn't
 if [ ! -d "$TARGET_DIR" ]; then

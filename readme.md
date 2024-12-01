@@ -72,17 +72,24 @@ The following commands are all accessible from the command palette. To access th
 
 Once the command palette is open, you can start typing the name of the command you want to execute. For example, you can type "Cabbage" to filter the commands related to the Cabbage extension. Select the desired command from the list to execute it. Below are the commands currently provided. 
 
+### Running
+
 1. **Launch Cabbage**
-   - Launches the Cabbage application.
+   - Hitting save on any .csd file that contains a valid Cabbage JSON section will launch teh instrument UI in a new tab.
 
 2. **Edit Mode**
-   - Toggles the edit mode for the Cabbage interface.
+   - Toggles the edit mode for the Cabbage interface. When in edit mode users can right-click to show the context menu, whereupon they can select a widget to add to the UI.
+
+
+### Formatting
 
 3. **Format Document**
    - Formats the current document according to Cabbage formatting rules.
 
 4. **Expand Cabbage section**
    - Expands the Cabbage section in the current document for easier editing.
+
+### Configuration
 
 5. **Select Sampling Rate**
    - Opens a prompt to select the audio sampling rate for the project.
@@ -109,9 +116,25 @@ Once the command palette is open, you can start typing the name of the command y
 12. **Set path to the Cabbage binary**
     - Opens a dialog to set the path to the Cabbage binary executable, that is CabbageApp.app on MacOS and CabbageApp.exe on Windows. 
 
+### Exporting
+
+13. **Export as VST3 Effect**
+    - Opens a file dialogue and let users export the current project as a VST3 effect plugin. 
+
+14. **Export as VST3 Synth**
+    - Opens a file dialogue and let users export the current project as a VST3 synthesizer plugin.
+
+15. **Export as AUv2 Effect**
+    - Opens a file dialogue and let users export the current project as an AUv2 effect plugin.
+
+16. **Export as AUv2 Synth**
+    - Opens a file dialogue and let users export the current project as an AUv2 synthesizer plugin.
+
+> Exporting creates a new plugin binary and saves it to the specified location. Unlike in Cabbage 2, the .csd file is no longer placed inside the plugin bundle. Instead, it is added to a separate directory along with all the necessary JavaScript, HTML, and CSS files required to support your web-based UI. When the plugin is loaded in a DAW it will serve the contents of folder using its in-build live server. Each plugin will run on a unique port.
+
 ## Configuration Properties
 
-The following configuration properties can be set in the settings for the Cabbage extension:
+The following configuration properties should be set using the command shown above:
 
 - **cabbage.pathToCabbageBinary**: 
   - Path to the Cabbage service app (use command palette to browse for directory).

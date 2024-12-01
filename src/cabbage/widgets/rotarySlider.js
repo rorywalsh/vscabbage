@@ -346,21 +346,21 @@ export class RotarySlider {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
 
-    if (!this.isImageLoaded) {
-      console.warn("Image dimensions not available yet.");
-      return '';
-    }
+    // if (!this.isImageLoaded) {
+    //   console.warn("Image dimensions not available yet.");
+    //   return '';
+    // }
 
-    const filmStripElement = this.drawFilmStrip();
+    // const filmStripElement = this.drawFilmStrip();
 
-    if (filmStripElement) {
-      return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
-          ${filmStripElement}
-          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
-        </svg>
-      `;
-    }
+    // if (filmStripElement) {
+    //   return `
+    //     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+    //       ${filmStripElement}
+    //       <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+    //     </svg>
+    //   `;
+    // }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference

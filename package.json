@@ -8,15 +8,15 @@
   },
   "publisher": "cabbageaudio",
   "repository": {
-  "type": "git",
-  "url": "https://github.com/rorywalsh/vscabbage"
+    "type": "git",
+    "url": "https://github.com/rorywalsh/vscabbage"
   },
   "categories": [
     "Programming Languages",
     "Other",
     "Education"
   ],
-  "icon": "assets/cabbage_transparent.png", 
+  "icon": "assets/cabbage_transparent.png",
   "activationEvents": [
     "onLanguage:csound-csd",
     "workspaceContains:**/*.csd"
@@ -124,12 +124,12 @@
       },
       {
         "command": "cabbage.exportAUEffect",
-        "title": "Export as AU Effect",
+        "title": "Export as AUv2 Effect",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.exportAUSynth",
-        "title": "Export as AU Synth",
+        "title": "Export as AUv2 Synth",
         "category": "Cabbage"
       },
       {
@@ -195,6 +195,7 @@
     "@types/node": "18.x",
     "@types/vscode": "^1.88.0",
     "@types/ws": "^8.5.10",
+    "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.4.0",
     "@vscode/test-cli": "^0.0.8",
