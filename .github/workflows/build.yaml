@@ -67,11 +67,12 @@ jobs:
       # Copy Cabbage build directory files into vscabbage/src
       - name: Copy CabbageApp to vscabbage src directory
         run: |
+          pwd
           mkdir -p ./src/CabbageBundle
           ls
           cd ..
+          pwd
           ls
-          tree
           cd ../cabbage3/build  # We need to go back to the cabbage3/build directory, which is outside vscabbage
           cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ./src/CabbageBundle/CabbageAUv2Effect.component
           cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ./src/CabbageBundle/CabbageAUv2Synth.component
