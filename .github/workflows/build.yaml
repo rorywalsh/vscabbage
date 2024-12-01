@@ -35,9 +35,9 @@ jobs:
           echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
           security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
 
-      # - name: Verify Signing Identity
-      #   run: |
-      #     security find-identity -v -p codesigning
+      - name: Verify Signing Identity
+        run: |
+          security find-identity -v -p codesigning
 
       - name: Download CsoundLib64 Package
         run: |
@@ -68,7 +68,7 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
-          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
+          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
