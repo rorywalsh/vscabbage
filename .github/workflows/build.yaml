@@ -18,6 +18,7 @@ jobs:
         with:
           repository: rorywalsh/cabbage3
           path: cabbage3
+          ref: develop
           fetch-depth: 1
           submodules: true
 
