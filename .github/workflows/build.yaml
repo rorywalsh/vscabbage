@@ -26,36 +26,18 @@ jobs:
         run: |
           ls -l
           ls -l cabbage3
-          
-      # - name: Set Up Signing Certificate
-      #   env:
-      #     CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
-      #     CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-      #   run: |
-      #     echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-      #     security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
+
       - name: Set Up Signing Certificate  
         uses: apple-actions/import-codesign-certs@v3
         with: 
           p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
           p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
 
-      # - name: Verify Signing Identity
-      #   run: |
-      #     security find-identity -v -p codesigning
-
       - name: Download CsoundLib64 Package
         run: |
-          # Download the package using curl
           curl -L -o CsoundLib64-7.0-vanilla-universal.pkg "https://www.dropbox.com/scl/fi/8afz58gvjvwsa0u0nwr9g/CsoundLib64-7.0-vanilla-universal.pkg?rlkey=6kw4upth3olvmymhfjsndwgt9&st=mcxkg1hx&dl=1"
-          
-          # Verify the file exists
           ls -l CsoundLib64-7.0-vanilla-universal.pkg
-
-          # Make the downloaded file executable
           chmod +x CsoundLib64-7.0-vanilla-universal.pkg
-
-          # Install the package
           sudo installer -pkg CsoundLib64-7.0-vanilla-universal.pkg -target /
 
       - name: Configure build for cabbage3
@@ -74,30 +56,25 @@ jobs:
         run: |
           cd cabbage3/build
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Synth.vst3
-          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
 
-
-      - name: Copy CabbageApp to vscabbage src directory
-        run: |
-          mkdir -p ../vscabbage/src/CabbageBundle
-          cd build
-          cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ../vscabbage/src/CabbageBundle/CabbageAUv2Effect.component
-          cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ../vscabbage/src/CabbageBundle/CabbageAUv2Synth.component
-          cp -r CabbageApp/out/CabbageApp.app ../vscabbage/src/CabbageBundle/C
-          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
-          cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ../vscabbage/src/CabbageBundle/CabbageVST3Effect.vst3
-          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
-
+      # Checkout source code for vscabbage before copying the files
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v1
         with:
           fetch-depth: 1
           submodules: true
+
+      # Copy Cabbage build directory files into vscabbage/src
+      - name: Copy CabbageApp to vscabbage src directory
+        run: |
+          mkdir -p ../vscabbage/src/CabbageBundle
+          cd cabbage3/build
+          cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ../vscabbage/src/CabbageBundle/CabbageAUv2Effect.component
+          cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ../vscabbage/src/CabbageBundle/CabbageAUv2Synth.component
+          cp -r CabbageApp/out/CabbageApp.app ../vscabbage/src/CabbageBundle/CabbageApp.app
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
+          cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ../vscabbage/src/CabbageBundle/CabbageVST3Effect.vst3
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
