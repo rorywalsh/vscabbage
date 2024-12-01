@@ -35,9 +35,9 @@ jobs:
           echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
           security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 
-      - name: Verify Signing Identity
-        run: |
-          security find-identity -v -p codesigning
+      # - name: Verify Signing Identity
+      #   run: |
+      #     security find-identity -v -p codesigning
 
       - name: Download CsoundLib64 Package
         run: |
@@ -68,11 +68,12 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
-          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
-          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
-          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
-          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
-          codesign --deep --force --verify --verbose --sign "Developer ID Application: ${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
+          echo "APPLE_DEVELOPER_TEAM_ID: ${APPLE_DEVELOPER_TEAM_ID}"
+          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
+          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
+          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
+          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
 
 
       - name: Copy CabbageApp to vscabbage src directory
