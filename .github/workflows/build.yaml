@@ -69,8 +69,6 @@ jobs:
         run: |
           cd cabbage3/build
           ls -l
-
-          echo "APPLE_DEVELOPER_TEAM_ID: ${APPLE_DEVELOPER_TEAM_ID}"
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
