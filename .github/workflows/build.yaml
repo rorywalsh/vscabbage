@@ -35,7 +35,7 @@ jobs:
           echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
           security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 
-     - name: Verify Signing Identity
+      - name: Verify Signing Identity
         run: |
           security find-identity -v -p codesigning
 
