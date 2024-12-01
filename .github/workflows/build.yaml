@@ -56,7 +56,7 @@ jobs:
       - name: Configure build for cabbage3
         run: |
           cd cabbage3
-          cmake -GXcode -B build -S . -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
+          cmake -GXcode -B build -S . -DCABBAGE_BUILD_TARGET=CabbageApp -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
 
       - name: Build macOS app for cabbage3
         run: |
@@ -68,6 +68,12 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
+          ls -l CabbageAUv2Effect/out
+          ls -l CabbageAUv2Synth/out
+          ls -l CabbageApp/out
+          ls -l CabbageStandaloneApp/out
+          ls -l CabbageVST3Effect/out
+          
           echo "APPLE_DEVELOPER_TEAM_ID: ${APPLE_DEVELOPER_TEAM_ID}"
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
