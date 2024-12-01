@@ -67,14 +67,15 @@ jobs:
       # Copy Cabbage build directory files into vscabbage/src
       - name: Copy CabbageApp to vscabbage src directory
         run: |
-          mkdir -p ../vscabbage/src/CabbageBundle
-          cd cabbage3/build
-          cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ../vscabbage/src/CabbageBundle/CabbageAUv2Effect.component
-          cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ../vscabbage/src/CabbageBundle/CabbageAUv2Synth.component
-          cp -r CabbageApp/out/CabbageApp.app ../vscabbage/src/CabbageBundle/CabbageApp.app
-          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
-          cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ../vscabbage/src/CabbageBundle/CabbageVST3Effect.vst3
-          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ../vscabbage/src/CabbageBundle/CabbageStandaloneApp.app
+          mkdir -p ./src/CabbageBundle
+          cd ../cabbage3/build  # We need to go back to the cabbage3/build directory, which is outside vscabbage
+          cp -r CabbageAUv2Effect/out/CabbageAUv2Effect.component ./src/CabbageBundle/CabbageAUv2Effect.component
+          cp -r CabbageAUv2Synth/out/CabbageAUv2Synth.component ./src/CabbageBundle/CabbageAUv2Synth.component
+          cp -r CabbageApp/out/CabbageApp.app ./src/CabbageBundle/CabbageApp.app
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ./src/CabbageBundle/CabbageStandaloneApp.app
+          cp -r CabbageVST3Effect/out/CabbageVST3Effect.vst3 ./src/CabbageBundle/CabbageVST3Effect.vst3
+          cp -r CabbageStandaloneApp/out/CabbageStandaloneApp.app ./src/CabbageBundle/CabbageStandaloneApp.app
+
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
