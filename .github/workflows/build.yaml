@@ -27,13 +27,18 @@ jobs:
           ls -l
           ls -l cabbage3
           
-      - name: Set Up Signing Certificate
-        env:
-          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-        run: |
-          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
+      # - name: Set Up Signing Certificate
+      #   env:
+      #     CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+      #     CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      #   run: |
+      #     echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+      #     security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -A
+
+      uses: apple-actions/import-codesign-certs@v3
+      with: 
+        p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
+        p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
 
       - name: Verify Signing Identity
         run: |
