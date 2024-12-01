@@ -74,10 +74,12 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
-          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
-          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
-          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
-          codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
+          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}}" -v CabbageAUv2Effect/out/CabbageAUv2Effect.component --deep --strict --options=runtime --timestamp
+        
+          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
+          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageApp/out/CabbageApp.app
+          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Effect.vst3
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageVST3Effect/out/CabbageVST3Synth.vst3
           # codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
 
