@@ -32,8 +32,15 @@ jobs:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
-          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security create-keychain -p "$CERTIFICATE_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s build.keychain
+          security unlock-keychain -p "$CERTIFICATE_PASSWORD" build.keychain
+
+
+     - name: Verify Signing Identity
+        run: |
+          security find-identity -v -p codesigning
 
       - name: Download CsoundLib64 Package
         run: |
