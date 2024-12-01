@@ -56,7 +56,7 @@ jobs:
       - name: Configure build for cabbage3
         run: |
           cd cabbage3
-          cmake -GXcode -B build -S . -DCABBAGE_BUILD_TARGET=CabbageApp -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
+          cmake -GXcode -B build -S . -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
 
       - name: Build macOS app for cabbage3
         run: |
@@ -113,40 +113,40 @@ jobs:
           name: vscabbage-extension-macos
           path: '*.vsix'
 
-  build_windows:
-    runs-on: windows-latest
+  # build_windows:
+  #   runs-on: windows-latest
 
-    steps:
-      - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
-          submodules: true
+  #   steps:
+  #     - name: Checkout source code for vscabbage
+  #       uses: actions/checkout@v1
+  #       with:
+  #         fetch-depth: 1
+  #         submodules: true
 
-      - name: Set Up Signing Certificate
-        env:
-          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-        run: |
-          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+  #     - name: Set Up Signing Certificate
+  #       env:
+  #         CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+  #         CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+  #       run: |
+  #         echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+  #         security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 
-      - name: Set up Node.js (v18) on Windows
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+  #     - name: Set up Node.js (v18) on Windows
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
 
-      - name: Install dependencies on Windows
-        run: npm install
+  #     - name: Install dependencies on Windows
+  #       run: npm install
 
-      - name: Install vsce on Windows
-        run: npm install -g @vscode/vsce
+  #     - name: Install vsce on Windows
+  #       run: npm install -g @vscode/vsce
 
-      - name: Build and package extension on Windows
-        run: vsce package
+  #     - name: Build and package extension on Windows
+  #       run: vsce package
 
-      - name: Upload VSIX artifact from Windows
-        uses: actions/upload-artifact@v3
-        with:
-          name: vscabbage-extension-windows
-          path: '*.vsix'
+  #     - name: Upload VSIX artifact from Windows
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: vscabbage-extension-windows
+  #         path: '*.vsix'
