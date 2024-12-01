@@ -68,12 +68,13 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
+          ls -l
           ls -l CabbageAUv2Effect/out
           ls -l CabbageAUv2Synth/out
           ls -l CabbageApp/out
           ls -l CabbageStandaloneApp/out
           ls -l CabbageVST3Effect/out
-          
+
           echo "APPLE_DEVELOPER_TEAM_ID: ${APPLE_DEVELOPER_TEAM_ID}"
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Effect/out/CabbageAUv2Effect.component
           codesign --deep --force --verify --verbose --sign "${APPLE_DEVELOPER_TEAM_ID}" CabbageAUv2Synth/out/CabbageAUv2Synth.component
