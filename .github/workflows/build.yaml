@@ -57,7 +57,7 @@ jobs:
           cd cabbage3/build
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageApp/out/CabbageApp.app --deep --strict --options=runtime --timestamp
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageVST3Effect/out/CabbageVST3Effect.vst3 --deep --strict --options=runtime --timestamp
-          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageStandaloneApp/out/CabbageStandaloneApp.app --deep --strict --options=runtime --timestamp
+          # codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageStandaloneApp/out/CabbageStandaloneApp.app --deep --strict --options=runtime --timestamp
 
       # Upload only the required files as individual artifacts
       - name: Upload Cabbage build files as artifacts
