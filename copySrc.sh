@@ -1,16 +1,22 @@
 #!/bin/bash
 
-# Set the source directories
-SRC_DIR="./src/*"
-CSS_FILE="./media/cabbage.css"
-
-# Check if running on Windows (CYGWIN, MSYS, or WSL) or macOS/Linux
+# Define the target directory
 if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* || "$OSTYPE" == "win32" || "$OSTYPE" == "win64" ]]; then
-    DEST_DIR="/c/ProgramData/CabbageAudio/CabbagePluginEffect"
+    TARGET_DIR="/c/ProgramData/CabbageAudio/CabbageVST3Effect/cabbage/"
+    TARGET_CSS_DIR="/c/ProgramData/CabbageAudio/CabbageVST3Effect/"
 else
-    DEST_DIR="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect"
+    TARGET_DIR="/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/cabbage/"
+    TARGET_CSS_DIR="/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/"
 fi
 
-# Copy files from the source directory to the destination
-cp -rfv $SRC_DIR "$DEST_DIR"
-cp -rfv $CSS_FILE "$DEST_DIR"
+# Check if the target directory exists, and create it if it doesn't
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "Target directory $TARGET_DIR does not exist. Creating it."
+    mkdir -p "$TARGET_DIR"
+else
+    echo "Target directory $TARGET_DIR already exists."
+fi
+
+# Copy the source files
+cp -rfv ./src/cabbage/* "$TARGET_DIR"
+cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR"

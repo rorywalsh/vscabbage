@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
-
+import { Cabbage } from "../cabbage.js";
 /**
  * Label class
  */

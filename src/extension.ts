@@ -90,10 +90,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Add the listener to the context subscriptions so it's disposed automatically
     context.subscriptions.push(configurationChangeListener);
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', () => { Commands.exportInstrument('vst3Effect'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', () => { Commands.exportInstrument('vst3Synth'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', () => { Commands.exportInstrument('auSynth'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUEffect', () => { Commands.exportInstrument('auEffect'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', () => { Commands.exportInstrument('VST3Effect'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', () => { Commands.exportInstrument('VST3Synth'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', () => { Commands.exportInstrument('AUv2Synth'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUEffect', () => { Commands.exportInstrument('AUv2Effect'); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
