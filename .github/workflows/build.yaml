@@ -105,42 +105,42 @@ jobs:
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
         run: |
-          mkdir -p $GITHUB_WORKSPACE/src/CabbageBundle
+          mkdir -p "${GITHUB_WORKSPACE}/src/CabbageBundle"
 
       # Download and copy the required artifacts into the vscabbage src directory
       - name: Downloading CabbageApp
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp.app
-          path: $GITHUB_WORKSPACE/src/CabbageApp/CabbageApp.app
+          path: "${GITHUB_WORKSPACE}/src/CabbageApp/CabbageApp.app"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
-          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Effect.vst3
+          path: "${GITHUB_WORKSPACE}/src/CabbageBundle/CabbageVST3Effect.vst3"
         continue-on-error: true
 
       # - name: Downloading CabbageAUv2Synth
       #   uses: actions/download-artifact@v4
       #   with:
       #     name: CabbageAUv2Synth.component
-      #     path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Synth.component
+      #     path: "${GITHUB_WORKSPACE}/src/CabbageBundle/CabbageAUv2Synth.component"
       #   continue-on-error: true
 
       - name: Downloading CabbageAUv2Effect
         uses: actions/download-artifact@v4
         with:
           name: CabbageAUv2Effect.component
-          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Effect.component
+          path: "${GITHUB_WORKSPACE}/src/CabbageBundle/CabbageAUv2Effect.component"
         continue-on-error: true
 
       # - name: Downloading CabbageVST3Synth
       #   uses: actions/download-artifact@v4
       #   with:
       #     name: CabbageVST3Synth.vst3
-      #     path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Synth.vst3
+      #     path: "${GITHUB_WORKSPACE}/src/CabbageBundle/CabbageVST3Synth.vst3"
       #   continue-on-error: true
 
       - name: Set up Node.js (v18) on macOS
