@@ -29,12 +29,12 @@
         "cabbage.pathToCabbageBinary": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage service app (use command palette to browse for directory)."
+          "description": "Path to Cabbage service app. Leave empty to use default location\nor use command palette to browse for custom build directory."
         },
         "cabbage.pathToJsSource": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage Javascript directory."
+          "description": "Path to Cabbage Javascript directory. Leave empty to use default location\nor use command palette to browse for custom JS directory."
         },
         "cabbage.audioOutputDevice": {
           "type": "string",

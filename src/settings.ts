@@ -7,8 +7,8 @@ const os = require('os');
 const path = require('path');
 
 export class Settings {
-    
-    private static getDefaultSettings(){
+
+    private static getDefaultSettings() {
         return `
     {
         "currentConfig": {
@@ -32,6 +32,41 @@ export class Settings {
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             return returnPath;
+        }
+        return ''; // Return an empty string if the extension is not found
+    }
+
+    static getCabbageBinaryPath(type: string): string {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        const config = vscode.workspace.getConfiguration("cabbage");
+        let binaryPath = config.get<string>("pathToCabbageBinary") || '';
+        if (extension) {
+            if(binaryPath === ''){
+                binaryPath  = path.join(extension.extensionPath, 'src', 'CabbageBundle');
+            }
+            // Construct the path to the src directory
+            if (os.platform() === 'darwin') {
+                switch (type) {
+                    case 'CabbageApp':
+                        ////for windows CabbageApp_x64.exe
+                        return path.join(binaryPath, 'CabbageApp.app/Contents/MacOS/CabbageApp');
+                    case 'CabbageVST3Effect':
+                        return path.join(binaryPath, 'CabbageVST3Effect.vst3');
+                    case 'CabbageVST3Synth':
+                        return path.join(binaryPath, 'CabbageVST3Synth.vst3');
+                    case 'CabbageAUv2Effect':
+                        return path.join(binaryPath, 'CabbageAUv2Effect.component');
+                    case 'CabbageAUv2Synth':
+                        return path.join(binaryPath, 'CabbageAUv2Synth.component');
+                    case 'CabbageStandaloneApp':
+                        return path.join(binaryPath, 'CabbageStandaloneApp.app');
+                    default:
+                        return '';
+                }
+            }
+            else {
+
+            }
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -112,16 +147,16 @@ export class Settings {
         console.log('Settings:', settings);
         let currentDevice = settings['currentConfig']['audio']['outputDevice'];
         console.log('Current device:', currentDevice);
-    
+
         // Get the list of available sampling rates for the current device
         let samplingRates = settings['systemAudioMidiIOListing']['audioOutputDevices'][currentDevice]['sampleRates'];
-    
+
         // Show available sample rates in a drop-down (QuickPick)
         const selectedRateStr = await vscode.window.showQuickPick(
             samplingRates.map((rate: { toString: () => any; }) => rate.toString()), // Convert to string for display
             { placeHolder: 'Select a sampling rate from the list' }
         );
-    
+
         // If a valid sampling rate is selected, parse it to an integer and update the configuration
         if (selectedRateStr) {
             const selectedRate = Number(selectedRateStr); // Parse as a number
@@ -137,7 +172,7 @@ export class Settings {
             vscode.window.showWarningMessage('No sampling rate selected.');
         }
     }
-    
+
 
     static async selectBufferSize() {
         const config = vscode.workspace.getConfiguration('cabbage');

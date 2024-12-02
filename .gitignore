@@ -8,8 +8,10 @@ Thumbs.db
 /dist
 */.vs/
 tsconfig.lsif.json
+/src/CabbageBundle
 *.lsif
 *.db
 *.vsix
 ._*
+.secrets
 node_modules

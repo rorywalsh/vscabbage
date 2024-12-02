@@ -222,7 +222,7 @@ export class Commands {
      * @param context The extension context provided by VSCode.
      */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
-        console.error('dfghl,.');
+
         console.log("onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
         this.getOutputChannel().appendLine(`Saving file: ${editor.fileName}`);
@@ -249,30 +249,31 @@ export class Commands {
             });
         }
 
-        let binaryName = '';
-        const platform = os.platform();
-        if (platform === 'win32') {
-            binaryName = `CabbageApp_x64.exe`;
-        } else if (platform === 'darwin') {
-            binaryName = `CabbageApp.app/Contents/MacOS/CabbageApp`;
-        } else {
-            console.log('Not implemented yet');
-        }
-
-        const config = vscode.workspace.getConfiguration("cabbage");
-        const command = config.get("pathToCabbageBinary") + '/' + binaryName;
+        const command = Settings.getCabbageBinaryPath('CabbageApp');
         console.log("full command:", command);
         const cabbagePath = vscode.Uri.file(command);
 
         try {
             await vscode.workspace.fs.stat(cabbagePath);
-            this.vscodeOutputChannel.append(`Cabbage service app: ${command}\n`);
+            this.vscodeOutputChannel.append(`Cabbage service app found: ${command}\n`);
         } catch (error) {
             this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found. Please set the binary path from the command palette.\n`);
             this.checkForCabbageSrcDirectory();
             return;
         }
 
+        // Check and update file permissions if necessary
+        try {
+            const stats = fs.statSync(command);
+            if (!(stats.mode & fs.constants.X_OK)) {
+                fs.chmodSync(command, '755');
+                this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
+            }
+        } catch (error) {
+            this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
+            return;
+        }
+        
         this.processes.forEach((p) => {
             p?.kill("SIGKILL");
         });
@@ -435,15 +436,15 @@ export class Commands {
             return;
         }
 
-        this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
-        const config = vscode.workspace.getConfiguration('cabbage');        
+        //this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
+        const config = vscode.workspace.getConfiguration('cabbage');
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
         const jsSource = config.get<string>('pathToJsSource');
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
-        if(jsSource){
+        if (jsSource) {
             pathToCabbageJsSource = path.join(jsSource, 'cabbage');
             cabbageCSS = path.join(jsSource, 'media', 'cabbage.css');
         }
@@ -452,16 +453,16 @@ export class Commands {
         let binaryFile = '';
         switch (type) {
             case 'VST3Effect':
-                binaryFile = config.get("pathToCabbageBinary") + '/CabbageVST3Effect.vst3';
+                binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Effect');
                 break;
             case 'VST3Synth':
-                binaryFile = config.get("pathToCabbageBinary") + '/CabbageVST3Synth.vst3';
+                binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Synth');
                 break;
             case 'AUv2Effect':
-                binaryFile = config.get("pathToCabbageBinary") + '/CabbageAUv2Effect.component';
+                binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Effect');
                 break;
             case 'AUv2Synth':
-                binaryFile = config.get("pathToCabbageBinary") + '/CabbageAUv2Synth.component';
+                binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Synth');
                 break;
             case 'Standalone':
                 //todo
@@ -512,7 +513,7 @@ export class Commands {
             // Rename and update the .csd file
             const oldCsdPath = path.join(destinationPath, 'CabbageVST3Effect.csd');
             const newCsdPath = path.join(destinationPath, `${pluginName}.csd`);
-            
+
             if (this.lastSavedFileName) {
                 const newContent = await fs.promises.readFile(this.lastSavedFileName, 'utf8');
                 await fs.promises.writeFile(newCsdPath, newContent);
