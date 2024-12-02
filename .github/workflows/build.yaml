@@ -114,7 +114,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp.app
-          path: "./src/CabbageApp/CabbageApp.app"
+          path: "./src/CabbageBundle/CabbageApp.app"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Effect
