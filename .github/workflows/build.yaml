@@ -59,31 +59,31 @@ jobs:
 
       # Upload only the required files as individual artifacts
       - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: CabbageAUv2Effect.component
           path: cabbage3/build/CabbageAUv2Effect/out/CabbageAUv2Effect.component
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: CabbageAUv2Synth.component
           path: cabbage3/build/CabbageAUv2Synth/out/CabbageAUv2Synth.component
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: CabbageApp.app
           path: cabbage3/build/CabbageApp/out/CabbageApp.app
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: CabbageStandaloneApp.app
           path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
           path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
@@ -102,26 +102,46 @@ jobs:
           fetch-depth: 1
           submodules: true
 
-      # Download and copy the required artifacts into the vscabbage src directory
-      - name: Download artifacts and copy to vscabbage/src
+      # Create CabbageBundle folder
+      - name: Create CabbageBundle folder
         run: |
-          mkdir -p ./src/CabbageBundle
-          artifacts=("CabbageAUv2Effect.component" "CabbageAUv2Synth.component" "CabbageApp.app" \
-                     "CabbageStandaloneApp.app" "CabbageVST3Effect.vst3" "CabbageStandaloneAppDuplicate.app")
-          
-          for artifact in "${artifacts[@]}"; do
-              echo "Downloading $artifact..."
-              # Download each artifact
-              mkdir -p "./temp-artifact"
-              gh artifact download $artifact --dir ./temp-artifact || echo "$artifact not found"
-              
-              # Copy the artifact to the target directory if it exists
-              artifact_path=$(find ./temp-artifact -name "$artifact" -type f)
-              [ -n "$artifact_path" ] && cp -r "$artifact_path" ./src/CabbageBundle/
-              
-              # Clean up temporary directory
-              rm -rf ./temp-artifact
-          done
+          mkdir -p $GITHUB_WORKSPACE/src/CabbageBundle
+
+      # Download and copy the required artifacts into the vscabbage src directory
+      - name: Downloading CabbageApp
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageApp.app
+          path: $GITHUB_WORKSPACE/src/CabbageApp/CabbageApp.app
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Effect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageVST3Effect.vst3
+          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Effect.vst3
+        continue-on-error: true
+
+      - name: Downloading CabbageAUv2Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageAUv2Synth.component
+          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Synth.component
+        continue-on-error: true
+
+      - name: Downloading CabbageAUv2Effect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageAUv2Effect.component
+          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Effect.component
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageVST3Synth.vst3
+          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Synth.vst3
+        continue-on-error: true
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
