@@ -55,7 +55,7 @@ jobs:
           APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
         run: |
           cd cabbage3/build
-          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageAUv2Effect/out/CabbageApp.app --deep --strict --options=runtime --timestamp
+          codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageApp/out/CabbageApp.app --deep --strict --options=runtime --timestamp
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageVST3Effect/out/CabbageVST3Effect.component --deep --strict --options=runtime --timestamp
           codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageStandaloneApp/out/CabbageStandaloneApp.app --deep --strict --options=runtime --timestamp
 
@@ -65,6 +65,7 @@ jobs:
         with:
           name: CabbageAUv2Effect.component
           path: cabbage3/build/CabbageAUv2Effect/out/CabbageAUv2Effect.component
+          retention-days: 1
           if-no-files-found: ignore
 
       # - uses: actions/upload-artifact@v4
@@ -77,24 +78,28 @@ jobs:
         with:
           name: CabbageApp.app
           path: cabbage3/build/CabbageApp/out/CabbageApp.app
+          retention-days: 1
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
           name: CabbageStandaloneApp.app
           path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          retention-days: 1
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
           path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
+          retention-days: 1
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v3
         with:
           name: CabbageStandaloneApp.app
           path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          retention-days: 1
           if-no-files-found: ignore
 
       # Checkout source code for vscabbage
