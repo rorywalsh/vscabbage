@@ -65,11 +65,11 @@ jobs:
           path: cabbage3/build/CabbageAUv2Effect/out/CabbageAUv2Effect.component
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbageAUv2Synth.component
-          path: cabbage3/build/CabbageAUv2Synth/out/CabbageAUv2Synth.component
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: CabbageAUv2Synth.component
+      #     path: cabbage3/build/CabbageAUv2Synth/out/CabbageAUv2Synth.component
+      #     if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
@@ -122,12 +122,12 @@ jobs:
           path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Effect.vst3
         continue-on-error: true
 
-      - name: Downloading CabbageAUv2Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbageAUv2Synth.component
-          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Synth.component
-        continue-on-error: true
+      # - name: Downloading CabbageAUv2Synth
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: CabbageAUv2Synth.component
+      #     path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Synth.component
+      #   continue-on-error: true
 
       - name: Downloading CabbageAUv2Effect
         uses: actions/download-artifact@v4
@@ -136,12 +136,12 @@ jobs:
           path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageAUv2Effect.component
         continue-on-error: true
 
-      - name: Downloading CabbageVST3Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbageVST3Synth.vst3
-          path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Synth.vst3
-        continue-on-error: true
+      # - name: Downloading CabbageVST3Synth
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: CabbageVST3Synth.vst3
+      #     path: $GITHUB_WORKSPACE/src/CabbageBundle/CabbageVST3Synth.vst3
+      #   continue-on-error: true
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
