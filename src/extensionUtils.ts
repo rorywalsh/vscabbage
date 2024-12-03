@@ -418,6 +418,25 @@ export class ExtensionUtils {
         return jsonArray; // Return the updated array
     }
 
+    // Function to find a free port
+    static async findFreePort(startPort: number, endPort: number): Promise<number> {
+        return new Promise((resolve, reject) => {
+            const server = require('net').createServer();
+            server.unref();
+            server.on('error', (err: any) => {
+                if (err.code === 'EADDRINUSE' && startPort < endPort) {
+                    resolve(ExtensionUtils.findFreePort(startPort + 1, endPort));
+                } else {
+                    reject(err);
+                }
+            });
+            server.listen(startPort, () => {
+                const port = server.address().port;
+                server.close(() => resolve(port));
+            });
+        });
+    }
+
     /**
     * Returns html text to use in webview - various scripts get passed as vscode.Uri's
     */

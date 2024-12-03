@@ -12,13 +12,85 @@ import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket t
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
+import * as cp from 'child_process';
+
+
 
 
 // Setup websocket server
-const wss: WebSocketServer = new WebSocket.Server({ port: 9991 });
+let freePort: number;
+let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 
 let firstMessages: any[] = [];
+
+async function setupWebSocketServer() {
+    // Find a free port
+    freePort = await ExtensionUtils.findFreePort(9991, 10000);
+    wss = new WebSocket.Server({ port: freePort });
+
+    // Add WebSocket server event listeners here
+    wss.on('connection', (ws: WebSocket) => {
+        console.warn('Client connected');
+
+        // There are times when Cabbage will send messages before the webview is ready to receive them. 
+        // So first thing to do is flush the first messages received from Cabbage
+        firstMessages.forEach((msg) => {
+            ws.send(JSON.stringify(msg));
+        });
+
+        firstMessages = [];
+
+        websocket = ws;
+        // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
+        ws.on('message', (message: WebSocket.Data) => {
+            const msg = JSON.parse(message.toString());
+            if (msg.hasOwnProperty("command")) {
+                // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
+                // These are then sent to the webview for rendering.
+                if (msg["command"] === "widgetUpdate") {
+                    const panel = Commands.getPanel();
+                    if (panel) {
+                        if (msg.hasOwnProperty("data")) {
+                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
+                        }
+                        else if (msg.hasOwnProperty("value")) {
+                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
+                        }
+                    }
+                }
+            }
+        });
+
+        ws.on('close', () => {
+            console.log('Client disconnected');
+        });
+    });
+
+    // Add an error event listener to check if the server encounters an issue
+    wss.on('error', (error) => {
+        const vscodeOutputChannel = Commands.getOutputChannel();
+        if ((error as any).code === 'EADDRINUSE') {
+            console.error('Port 9991 is already in use.');
+            vscodeOutputChannel.appendLine('Port 9991 is already in use.');
+        } else {
+            console.error('Failed to initialize WebSocket server:', error);
+            vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
+        }
+        // Optional: shut down the server if initialization failed
+        wss.close();
+    });
+
+    // Add a listening event to confirm the server started successfully
+    wss.on('listening', () => {
+        const vscodeOutputChannel = Commands.getOutputChannel();
+        vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
+        console.log('WebSocket server successfully started on port 9991');
+    });
+}
+
+// Call the async function to setup the WebSocket server
+setupWebSocketServer();
 
 
 /**
@@ -30,7 +102,23 @@ let firstMessages: any[] = [];
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 
-    Commands.initialize(context);
+    Commands.initialize(context, freePort);
+
+    const currentVersion = vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
+    const previousVersion = context.globalState.get<string>('extensionVersion');
+
+    if (!previousVersion) {
+        // First-time install
+        vscode.window.showInformationMessage('Thank you for installing Cabbage extension!');
+        onInstall();
+    } else if (previousVersion !== currentVersion) {
+        // Extension updated
+        vscode.window.showInformationMessage(`Extension updated to version ${currentVersion}`);
+        onUpdate(previousVersion, currentVersion);
+    }
+
+    // Update the stored version
+    context.globalState.update('extensionVersion', currentVersion);
 
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
@@ -146,6 +234,39 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 }
 
+/* 
+ * Logic to execute when the extension is installed for the first time. On MacOS we need to sign the Csound 
+ * library if it is not already signed. If it's only adhoc signed, we sign it again.
+ */
+function onInstall() {
+    // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already signed
+    if (process.platform === 'darwin') {
+        const output = cp.execSync('codesign -dvv /Applications/Csound/CsoundLib64.framework').toString();
+        if (!output.includes('Authority=Apple Development')) {
+            return;
+        }
+        else {
+            try {
+                cp.execSync('codesign --force --deep --sign - /Applications/Csound/CsoundLib64.framework');
+                Commands.getOutputChannel().append('Ad-hoc signed /Applications/Csound/CsoundLib64.framework\n');
+            } catch (signError) {
+                Commands.getOutputChannel().append('ERROR: Failed to ad-hoc sign /Applications/Csound/CsoundLib64.framework\n');
+                return;
+            }
+        }
+    }
+}
+
+
+/*
+ * Logic to execute when the extension is updated to a new version.
+ */
+function onUpdate(previousVersion: string, currentVersion: string) {
+    // Logic to execute on update
+    console.log(`Extension updated from version ${previousVersion} to ${currentVersion}`);
+}
+
+
 /**
  * Deactivates the Cabbage extension by terminating any active child processes
  * associated with the Commands module. This ensures that all processes are cleaned up
@@ -177,61 +298,61 @@ function waitForWebSocket(): Promise<WebSocket> {
 
 //=================================================================================
 // websocket server
-wss.on('connection', (ws: WebSocket) => {
-    console.warn('Client connected');
+// wss.on('connection', (ws: WebSocket) => {
+//     console.warn('Client connected');
 
-    // There are times when Cabbage will send messages before the webview is ready to receive them. 
-    // So first thing to do is flush the first messages received from Cabbage
-    firstMessages.forEach((msg) => {
-        ws.send(JSON.stringify(msg));
-    });
+//     // There are times when Cabbage will send messages before the webview is ready to receive them. 
+//     // So first thing to do is flush the first messages received from Cabbage
+//     firstMessages.forEach((msg) => {
+//         ws.send(JSON.stringify(msg));
+//     });
 
-    firstMessages = [];
+//     firstMessages = [];
 
-    websocket = ws;
-    // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
-    ws.on('message', (message: WebSocket.Data) => {
-        const msg = JSON.parse(message.toString());
-        if (msg.hasOwnProperty("command")) {
-            // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
-            // These are then sent to the webview for rendering.
-            if (msg["command"] === "widgetUpdate") {
-                const panel = Commands.getPanel();
-                if (panel) {
-                    if (msg.hasOwnProperty("data")) {
-                        panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
-                    }
-                    else if (msg.hasOwnProperty("value")) {
-                        panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
-                    }
-                }
-            }
-        }
-    });
+//     websocket = ws;
+//     // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
+//     ws.on('message', (message: WebSocket.Data) => {
+//         const msg = JSON.parse(message.toString());
+//         if (msg.hasOwnProperty("command")) {
+//             // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
+//             // These are then sent to the webview for rendering.
+//             if (msg["command"] === "widgetUpdate") {
+//                 const panel = Commands.getPanel();
+//                 if (panel) {
+//                     if (msg.hasOwnProperty("data")) {
+//                         panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
+//                     }
+//                     else if (msg.hasOwnProperty("value")) {
+//                         panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
+//                     }
+//                 }
+//             }
+//         }
+//     });
 
-    ws.on('close', () => {
-        console.log('Client disconnected');
-    });
-});
+//     ws.on('close', () => {
+//         console.log('Client disconnected');
+//     });
+// });
 
-// Add an error event listener to check if the server encounters an issue
-wss.on('error', (error) => {
-    const vscodeOutputChannel = Commands.getOutputChannel();
-    if ((error as any).code === 'EADDRINUSE') {
-        console.error('Port 9991 is already in use.');
-        vscodeOutputChannel.appendLine('Port 9991 is already in use.');
-    } else {
-        console.error('Failed to initialize WebSocket server:', error);
-        vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
-    }
-    // Optional: shut down the server if initialization failed
-    wss.close();
-});
+// // Add an error event listener to check if the server encounters an issue
+// wss.on('error', (error) => {
+//     const vscodeOutputChannel = Commands.getOutputChannel();
+//     if ((error as any).code === 'EADDRINUSE') {
+//         console.error('Port 9991 is already in use.');
+//         vscodeOutputChannel.appendLine('Port 9991 is already in use.');
+//     } else {
+//         console.error('Failed to initialize WebSocket server:', error);
+//         vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
+//     }
+//     // Optional: shut down the server if initialization failed
+//     wss.close();
+// });
 
-// Add a listening event to confirm the server started successfully
-wss.on('listening', () => {
-    const vscodeOutputChannel = Commands.getOutputChannel();
-    vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
-    console.log('WebSocket server successfully started on port 9991');
-});
+// // Add a listening event to confirm the server started successfully
+// wss.on('listening', () => {
+//     const vscodeOutputChannel = Commands.getOutputChannel();
+//     vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
+//     console.log('WebSocket server successfully started on port 9991');
+// });
 

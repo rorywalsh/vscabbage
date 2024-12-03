@@ -23,7 +23,7 @@ import * as xml2js from 'xml2js';
  */
 export class Commands {
     private static vscodeOutputChannel: vscode.OutputChannel;
-    private static extensionContext: vscode.ExtensionContext;
+    private static portNumber:number = 0;
     private static processes: (cp.ChildProcess | undefined)[] = [];
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
@@ -35,16 +35,17 @@ export class Commands {
      * and setting up the highlight decoration for text editor elements.
      * @param context The extension context provided by VSCode.
      */
-    static initialize(context: vscode.ExtensionContext) {
+    static initialize(context: vscode.ExtensionContext, port: number) {
         if (!this.vscodeOutputChannel) {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
         }
         this.highlightDecorationType = vscode.window.createTextEditorDecorationType({
             backgroundColor: 'rgba(0, 0, 0, 0.1)'
         });
-
-        Commands.extensionContext = context;
+        this.portNumber = port;
     }
+
+
 
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
@@ -281,7 +282,7 @@ export class Commands {
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
-                const process = cp.spawn(command, [editor.fileName], {});
+                const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
