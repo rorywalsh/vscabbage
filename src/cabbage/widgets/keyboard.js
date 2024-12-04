@@ -2,6 +2,7 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
+import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
 
 /**
