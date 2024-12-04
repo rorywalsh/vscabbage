@@ -7,7 +7,6 @@ import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';
 import * as cp from "child_process";
 import { Settings } from './settings';
-import os from 'os';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode, addMediaResources } from './cabbage/sharedState.js';
 import * as path from 'path';
