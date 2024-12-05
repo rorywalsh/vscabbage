@@ -22,7 +22,7 @@ export class NumberSlider {
                 "skew": 1,
                 "increment": 0.001
             },
-            "value": 0,
+            "value": null,
             "index": 0,
             "text": "",
             "font": {

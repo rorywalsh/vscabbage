@@ -25,7 +25,7 @@ export class HorizontalRangeSlider {
         "skew": 1,
         "increment": 0.001
       },
-      "value": 0,
+      "value": null,
       "text": "",
       "font": {
         "family": "Verdana",
@@ -33,8 +33,7 @@ export class HorizontalRangeSlider {
         "align": "centre",
         "colour": "#dddddd" // Added colour property to font
       },
-      "valueTextBox": 0,
-      
+      "valueTextBox": 0,      
       "markerThickness": 0.2,
       "markerStart": 0.1,
       "markerEnd": 0.9,

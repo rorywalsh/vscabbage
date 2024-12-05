@@ -401,43 +401,6 @@ export class Commands {
         }
     }
 
-
-    // Function to make files read-only
-    static makeFilesReadOnly(files: string[]) {
-        files.forEach(file => {
-            try {
-                fs.chmodSync(file, '444'); // Set file to read-only
-            } catch (error) {
-                vscode.window.showErrorMessage(`Failed to set file as read-only: ${file}. Error: ${error.message}`);
-            }
-        });
-    }
-
-    // Function to check if a file is a protected example file
-    static isProtectedExample(filePath: string): boolean {
-        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
-        if (!extension) {
-            return false;
-        }
-        const examplesPath = path.join(extension.extensionPath, 'examples');
-        return filePath.startsWith(examplesPath);
-    }
-
-    // Function to revert changes if the file is a protected example
-    static async revertChangesIfProtected(editor: vscode.TextDocument) {
-        if (Commands.isProtectedExample(editor.fileName)) {
-            const fileContent = fs.readFileSync(editor.fileName, 'utf-8');
-            console.log(fileContent);
-            if (fileContent !== editor.getText()) {
-                const document = await vscode.workspace.openTextDocument(editor.fileName);
-                const edit = new vscode.WorkspaceEdit();
-                edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), fileContent);
-                await vscode.workspace.applyEdit(edit);
-                vscode.window.showInformationMessage('Changes to protected example files are not allowed. Reverting to original content.');
-            }
-        }
-    }
-
     /**
      * Provides a dropdown list of example for the user to open
      */

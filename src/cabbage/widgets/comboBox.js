@@ -114,7 +114,12 @@ export class ComboBox {
     handleClickOutside(event) {
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
 
-        if (!widgetDiv.contains(event.target)) {
+        if (!widgetDiv) {
+            console.warn("widgetDiv is null. Channel:", this.props.channel);
+            return; // Exit early if widgetDiv is null
+        }
+
+        if (widgetDiv && !widgetDiv.contains(event.target)) {
             this.isOpen = false;
             widgetDiv.style.transform = 'translate(' + this.props.bounds.left + 'px,' + this.props.bounds.top + 'px)';
             CabbageUtils.updateInnerHTML(this.props.channel, this);
@@ -182,7 +187,7 @@ export class ComboBox {
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${totalHeight}" width="${this.props.bounds.width}" height="${totalHeight}" preserveAspectRatio="none" opacity="${this.props.opacity}">
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour.fill}" stroke="${this.props.colour.stroke.colour}"
-                    stroke-width="${this.props.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
+                    stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 
                     onclick="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
                 ${this.isOpen ? `
