@@ -131,8 +131,8 @@ export class MidiKeyboard {
 
   changeOctave(offset) {
     this.octaveOffset += offset;
-    if (this.octaveOffset < 1) this.octaveOffset = 1; // Limit lower octave bound
-    if (this.octaveOffset > 7) this.octaveOffset = 7; // Limit upper octave bound
+    if (this.octaveOffset < 1) {this.octaveOffset = 1;} // Limit lower octave bound
+    if (this.octaveOffset > 7) {this.octaveOffset = 7;} // Limit upper octave bound
     CabbageUtils.updateInnerHTML(this.props.channel, this);
   }
 
@@ -190,7 +190,7 @@ export class MidiKeyboard {
     const totalWhiteKeys = this.props.octaves * 7; // Total number of white keys to display
     const whiteKeyWidth = (this.props.bounds.width / totalWhiteKeys) * scaleFactor; // Adjust width based on total white keys
     const whiteKeyHeight = this.props.bounds.height * scaleFactor;
-    const blackKeyWidth = whiteKeyWidth * 0.4;
+    const blackKeyWidth = whiteKeyWidth * 0.5;
     const blackKeyHeight = whiteKeyHeight * 0.6;
     const strokeWidth = 0.5 * scaleFactor;
 
