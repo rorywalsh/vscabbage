@@ -176,6 +176,21 @@
         "command": "cabbage.setCabbageBinaryPath",
         "title": "Set path to the Cabbage binary",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.openCabbageExample",
+        "title": "Open a sample Cabbage file",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.createNewCabbageEffect",
+        "title": "Create a new Cabbage Effect file",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.createNewCabbageSynth",
+        "title": "Create a new Cabbage Synth file",
+        "category": "Cabbage"
       }
     ]
   },
@@ -208,6 +223,7 @@
   },
   "dependencies": {
     "@vscode/vsce": "^3.2.1",
+    "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
     "ws": "^8.16.0"
   }

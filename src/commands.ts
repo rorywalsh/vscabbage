@@ -22,7 +22,7 @@ import * as xml2js from 'xml2js';
  */
 export class Commands {
     private static vscodeOutputChannel: vscode.OutputChannel;
-    private static portNumber:number = 0;
+    private static portNumber: number = 0;
     private static processes: (cp.ChildProcess | undefined)[] = [];
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
@@ -273,7 +273,7 @@ export class Commands {
             this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
             return;
         }
-        
+
         this.processes.forEach((p) => {
             p?.kill("SIGKILL");
         });
@@ -358,6 +358,21 @@ export class Commands {
     }
 
     /**
+     * Creates a new file with predefined content based on the type and opens it in a new tab.
+     * 
+     * @param type The type of the new file to create.
+     */
+    static async createNewCabbageFile(type:string) {
+        // Get the new file contents based on the type
+        const newFileContents = ExtensionUtils.getNewCabbageFile(type);
+        // Create a new untitled document with the new file contents
+        const document = await vscode.workspace.openTextDocument({ content: newFileContents, language: 'plaintext' });
+
+        // Open the new document in a new editor tab
+        await vscode.window.showTextDocument(document);
+    }
+
+    /**
      * Formats the document content by applying predefined formatting rules.
      */
     static async formatDocument() {
@@ -370,6 +385,87 @@ export class Commands {
         const edit = new vscode.WorkspaceEdit();
         edit.replace(editor.document.uri, new vscode.Range(0, 0, editor.document.lineCount, 0), formattedText);
         await vscode.workspace.applyEdit(edit);
+    }
+
+    // Function to get all .csd files in a directory
+    // Function to get all .csd files in a directory with full absolute paths
+    static getCsdFiles(directory: string): string[] {
+        try {
+            const files = fs.readdirSync(directory);
+            return files
+                .filter(file => file.endsWith('.csd'))
+                .map(file => path.join(directory, file)); // Construct full absolute paths
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to read directory: ${directory}`);
+            return [];
+        }
+    }
+
+
+    // Function to make files read-only
+    static makeFilesReadOnly(files: string[]) {
+        files.forEach(file => {
+            try {
+                fs.chmodSync(file, '444'); // Set file to read-only
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to set file as read-only: ${file}. Error: ${error.message}`);
+            }
+        });
+    }
+
+    // Function to check if a file is a protected example file
+    static isProtectedExample(filePath: string): boolean {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (!extension) {
+            return false;
+        }
+        const examplesPath = path.join(extension.extensionPath, 'examples');
+        return filePath.startsWith(examplesPath);
+    }
+
+    // Function to revert changes if the file is a protected example
+    static async revertChangesIfProtected(editor: vscode.TextDocument) {
+        if (Commands.isProtectedExample(editor.fileName)) {
+            const fileContent = fs.readFileSync(editor.fileName, 'utf-8');
+            console.log(fileContent);
+            if (fileContent !== editor.getText()) {
+                const document = await vscode.workspace.openTextDocument(editor.fileName);
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), fileContent);
+                await vscode.workspace.applyEdit(edit);
+                vscode.window.showInformationMessage('Changes to protected example files are not allowed. Reverting to original content.');
+            }
+        }
+    }
+
+    /**
+     * Provides a dropdown list of example for the user to open
+     */
+    static async openCabbageExample() {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (!extension) {
+            vscode.window.showErrorMessage('Cabbage extension not found.');
+            return;
+        }
+        const examplesPath = path.join(extension.extensionPath, 'examples');
+        const csdFiles = Commands.getCsdFiles(examplesPath);
+
+
+        // Show available examples in a drop-down (QuickPick)
+        const selectedExample = await vscode.window.showQuickPick(
+            csdFiles.map(file => path.basename(file)), // Display only the filenames
+            { placeHolder: 'Select a Cabbage example to open' }
+        );
+
+        if (selectedExample) {
+            const selectedExamplePath = csdFiles.find(file => path.basename(file) === selectedExample);
+            if (selectedExamplePath) {
+                const document = await vscode.workspace.openTextDocument(selectedExamplePath);
+                await vscode.window.showTextDocument(document);
+            }
+        } else {
+            vscode.window.showWarningMessage('No example file selected.');
+        }
     }
 
     /**

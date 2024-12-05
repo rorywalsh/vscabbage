@@ -130,12 +130,10 @@ export class HorizontalSlider {
             popupTop = sliderTop - popup.offsetHeight + 5; 
             popup.classList.remove('below');
             popup.classList.add('above');
-            console.warn('popup pos above');
         } else {
             // Position below
             popup.classList.remove('above');
             popup.classList.add('below');
-            console.warn('popup pos below');
         }
 
         // Ensure the popup is centered horizontally

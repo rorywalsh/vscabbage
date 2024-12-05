@@ -44,7 +44,7 @@ export class WidgetManager {
      * @returns {object|null} - The properties of the newly inserted widget or null on failure.
      */
     static async insertWidget(type, props) {
-        console.log("Inserting widget of type:", type);
+        console.warn("Inserting widget of type:", type);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
 
@@ -253,7 +253,7 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        console.warn('Data', data);
+        // console.warn('Data', data);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
@@ -302,6 +302,7 @@ export class WidgetManager {
             } 
             else {
                 // Existing code for other widget types
+                console.warn(`Updating widget ${widget.props.channel} with data:`, data);
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
@@ -332,6 +333,9 @@ export class WidgetManager {
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
                     await WidgetManager.insertWidget(p.type, p, widgets);
+                }
+                else{
+                    console.error("No type property found in data", p);
                 }
             } catch (error) {
                 console.error("Error parsing JSON data:", error, obj.data);

@@ -19,12 +19,12 @@ export class GenTable {
             },
             "type": "genTable",
             "colour": {
-                "fill": "#a8d388",
-                "background": "#ffffff00",
+                "fill": "#93d200",
+                "background": "#00000022",
                 "stroke": {
                     "colour": "#dddddd",
                     "width": 1
-                },
+                }
             },
             "channel": "gentable",
             "font": {
@@ -44,7 +44,8 @@ export class GenTable {
             "tableNumber": 1,
             "samples": [],
             "automatable": 0,
-            "opacity": 1 // Add opacity property (default to 1)
+            "opacity": 1,
+            "fill": 1
         };
     }
 
@@ -84,7 +85,7 @@ export class GenTable {
         this.ctx.globalAlpha = this.props.opacity; // Apply opacity
 
         // Draw background with rounded corners using the new background property
-        this.ctx.fillStyle = this.props.colour.fill; 
+        this.ctx.fillStyle = this.props.colour.background;
         this.ctx.beginPath();
         this.ctx.moveTo(this.props.corners, 0);
         this.ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, this.props.corners);
@@ -94,40 +95,43 @@ export class GenTable {
         this.ctx.closePath();
         this.ctx.fill();
 
-        // Draw waveform
-        this.ctx.strokeStyle = this.props.colour.stroke.colour;
-        this.ctx.lineWidth = this.props.colour.stroke.width;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, this.props.bounds.height / 2);
-
-        const sampleIncrement = Math.floor(this.props.samples.length / this.props.bounds.width);
-
-        if (!Array.isArray(this.props.samples) || this.props.samples.length === 0) {
-            console.warn('No samples to draw.');
-        } else {
-            for (let i = 0; i < this.props.samples.length; i += sampleIncrement) {
+        // Draw waveform - First, handle the fill
+        if (this.props.fill === 1) {
+            this.ctx.strokeStyle = this.props.colour.fill; // Set fill color for vertical lines
+            this.ctx.lineWidth = 2; // Line width for the filled waveform
+            for (let i = 0; i < this.props.samples.length; i += Math.floor(this.props.samples.length / this.props.bounds.width)) {
                 const x = CabbageUtils.map(i, 0, this.props.samples.length, 0, this.props.bounds.width);
                 if (x > this.props.bounds.width) {
                     continue; // Skip drawing if x exceeds bounds
                 }
                 const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
-                // Draw line to sample value
-                this.ctx.strokeStyle = this.props.colour.stroke.colour;
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, this.props.bounds.height / 2);
-                this.ctx.lineTo(x, y);
-                this.ctx.stroke();
 
-                // Draw vertical lines for outline
-                if (i > 0) {
-                    this.ctx.strokeStyle = this.props.colour.stroke.colour;
-                    this.ctx.lineWidth = this.props.colour.stroke.width;
-                    this.ctx.lineTo(x, y);
-                }
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, this.props.bounds.height / 2); // Move to middle
+                this.ctx.lineTo(x, y); // Draw to the sample point
+                this.ctx.stroke(); // Apply stroke
             }
         }
 
-        this.ctx.closePath();
+        // Second phase: Draw outline (stroke)
+        this.ctx.strokeStyle = this.props.colour.stroke.colour; // Set stroke color for outline
+        this.ctx.lineWidth = this.props.colour.stroke.width; // Set stroke width for outline
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.props.bounds.height / 2); // Start at the middle of the canvas
+
+        const sampleIncrement = Math.floor(this.props.samples.length / this.props.bounds.width);
+        for (let i = 0; i < this.props.samples.length; i += sampleIncrement) {
+            const x = CabbageUtils.map(i, 0, this.props.samples.length, 0, this.props.bounds.width);
+            if (x > this.props.bounds.width) {
+                continue; // Skip drawing if x exceeds bounds
+            }
+            const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
+            this.ctx.lineTo(x, y); // Draw line to the sample point for the outline
+        }
+
+        this.ctx.stroke(); // Apply stroke to complete the outline
+        this.ctx.closePath(); // Close the path to finalize the outline
+
 
         // Draw text
         const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.1, 12);

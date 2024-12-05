@@ -40,6 +40,7 @@ export class MidiKeyboard {
     this.octaveOffset = 3;
     this.noteMap = {};
     this.activeNotes = new Set(); // Track active notes
+    this.vscode = null;
 
     // Define an array of note names
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

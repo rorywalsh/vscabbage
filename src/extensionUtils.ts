@@ -605,6 +605,41 @@ export class ExtensionUtils {
         return '';
     }
 
+    static getNewCabbageFile(type:string){
+        if(type === 'effect'){
+        return `
+<Cabbage>[
+{"type":"form","caption":"Effect","size":{"width":580,"height":300},"pluginId":"def1"},
+{"type":"rotarySlider","channel":"gain","bounds":{"left":500,"top":200,"width":80,"height":80}, "text":"Gain", "range":{"min":0,"max":1,"defaultValue":0.5,"skew":1,"increment":0.01}}
+]</Cabbage>
+<CsoundSynthesizer>
+<CsOptions>
+-n -d
+</CsOptions>e
+<CsInstruments>
+; Initialize the global variables. 
+ksmps = 32
+nchnls = 2
+0dbfs = 1
+
+instr 1
+    a1 inch 1
+    kGain cabbageGetValue "gain"
+
+    outs a1*kGain, a1*kGain
+endin
+
+</CsInstruments>
+<CsScore>
+;causes Csound to run for about 7000 years...
+i1 0 z
+</CsScore>
+</CsoundSynthesizer>`;
+        }
+        else{
+            return ``;
+        }
+    }
     static getIndexHtml(){
         return `
         <!DOCTYPE html>

@@ -13,15 +13,17 @@ import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 import * as cp from 'child_process';
+import path from 'path';
 
-
-
+//cache for protected files
+const originalContentCache: { [key: string]: string } = {};
+//boolean to prevent attempted loading of modifie example files
+let preventNextSave: boolean = false;
 
 // Setup websocket server
 let freePort: number;
 let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
-
 let firstMessages: any[] = [];
 
 // Call the async function to setup the WebSocket server
@@ -55,6 +57,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Update the stored version
     context.globalState.update('extensionVersion', currentVersion);
 
+    // Cache all protected files at the start
+    const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+    if (extension) {
+        const examplesPath = path.join(extension.extensionPath, 'examples');
+        const csdFiles = Commands.getCsdFiles(examplesPath);
+        csdFiles.forEach(file => {
+            originalContentCache[file] = fs.readFileSync(file, 'utf-8');
+        });
+    }
+
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
     // Set the text and icon for the status bar item
@@ -74,6 +86,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscodeOutputChannel.show(true);
 
     vscodeOutputChannel.appendLine('Cabbage extension is now active!');
+
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.openCabbageExample', async () => {
+        await Commands.openCabbageExample();
+    }));
 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectSamplingRate', async () => {
         await Settings.selectSamplingRate();
@@ -113,6 +129,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // Add the listener to the context subscriptions so it's disposed automatically
     context.subscriptions.push(configurationChangeListener);
+
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', () => { Commands.exportInstrument('VST3Effect'); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', () => { Commands.exportInstrument('VST3Synth'); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', () => { Commands.exportInstrument('AUv2Synth'); }));
@@ -120,6 +137,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
+
+    // Register the commands for creating new Cabbage files
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => { Commands.createNewCabbageFile('effect'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
+
 
     /**
      * Event handler triggered when a text document is saved.
@@ -139,6 +161,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                     Commands.setupWebViewPanel(context);
                 }
             }
+
             await Commands.onDidSave(editor, context);
             await waitForWebSocket();  // Wait until the WebSocket is ready!
 
@@ -159,6 +182,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
     });
 
+
+
+    /**
+     * Event handler triggered when the text of a document is changed.
+     * - Reverts changes to protected example files.
+     * 
+     * @param event The event containing the text document that was changed.
+     */
+    vscode.workspace.onDidChangeTextDocument(async (event) => {
+        const editor = event.document;
+        if (editor.fileName.endsWith('.csd') && Commands.isProtectedExample(editor.fileName)) {
+            const originalContent = originalContentCache[editor.fileName];
+            if (originalContent !== editor.getText()) {
+                const edit = new vscode.WorkspaceEdit();
+                edit.replace(editor.uri, new vscode.Range(0, 0, editor.lineCount, 0), originalContent);
+                await vscode.workspace.applyEdit(edit);
+                vscode.window.showInformationMessage("Changes to example files are not permitted.\n Please use 'Save-As' if you wish to modify this file.");
+                Commands.getOutputChannel().appendLine(`Changes to example files are not permitted. Please use 'Save-As' if you wish to modify this file.`);
+            }
+        }
+    });
+
     vscode.workspace.onDidOpenTextDocument((editor) => {
         ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', Commands.getPanel());
     });
@@ -169,6 +214,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 }
 
+// Function to check if the path exists with additional checks
+function pathExists(p: string): boolean {
+    try {
+        const resolvedPath = fs.realpathSync(p);
+        return fs.existsSync(resolvedPath);
+    } catch (error) {
+        console.error(`Error checking path: ${p}`, error);
+        return false;
+    }
+}
 /* 
  * Logic to execute when the extension is installed for the first time. On MacOS we need to sign the Csound 
  * library if it is not already signed. If it's only adhoc signed, we sign it again.
@@ -176,8 +231,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 function onInstall() {
     // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already signed
     if (process.platform === 'darwin') {
-        if(fs.existsSync('/Applications/Csound/CsoundLib64.framework')) {
+        if (!pathExists('/Applications/Csound/CsoundLib64.framework')) {
             Commands.getOutputChannel().append('ERROR: /Applications/Csound/CsoundLib64.framework not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+            return;
         }
         const output = cp.execSync('codesign -dvv /Applications/Csound/CsoundLib64.framework').toString();
         if (!output.includes('Authority=Apple Development')) {
@@ -193,8 +249,8 @@ function onInstall() {
             }
         }
     }
-    else{
-        if(fs.existsSync('C:/Program Files/Csound7/bin/csound64.dll')) {
+    else {
+        if (fs.existsSync('C:/Program Files/Csound7/bin/csound64.dll')) {
             Commands.getOutputChannel().append('ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
         }
     }
@@ -213,7 +269,8 @@ function onUpdate(previousVersion: string, currentVersion: string) {
 /**
  * Deactivates the Cabbage extension by terminating any active child processes
  * associated with the Commands module. This ensures that all processes are cleaned up
- * when the extension is disabled.
+ * when the extension is disabled. This function also ensures that the contents of
+ * protected files match the cache before deactivating the extension.
  */
 export function deactivate() {
     Commands.getProcesses().forEach((p) => {

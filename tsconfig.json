@@ -11,7 +11,8 @@
 	},
 	"include": [
         "src/**/*",
-        "CabbageBundle/**/*"
+        "CabbageBundle/**/*",
+		"examples"
     ],
     "exclude": [
         "node_modules",

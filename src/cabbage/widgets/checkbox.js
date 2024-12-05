@@ -31,14 +31,14 @@ export class Checkbox {
       },
       "colour": {
         "on": {
-          "fill": "#0295cf",
+          "fill": "#93d200",
           "stroke": {
             "colour": "#dddddd",
             "width": 2
           }
         },
         "off": {
-          "fill": "#a8d388",
+          "fill": "#00000000",
           "stroke": {
             "colour": "#dddddd",
             "width": 2
