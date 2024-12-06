@@ -10,9 +10,13 @@ export class CabbageUtils {
     }
   }
 
-  static getMediaPath(fileName) {
-    // Iterate over the mediaResources array to find the matching URI
-    
+  static getMediaPath(vscode, fileName) {
+    if (vscode === null) {
+      // Iterate over the mediaResources array to find the matching URI
+      return fileName;
+    } else {
+      return `https://file%2B.vscode-resource.vscode-cdn.net/Use…/CabbageAudio/CabbageVST3Effect/media/${fileName}`;
+    }
   }
 
   static getFileNameFromPath(fullPath) {

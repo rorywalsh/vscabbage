@@ -198,7 +198,13 @@ export class Commands {
             }
         );
 
-
+        console.log('Local resource roots:', this.panel.webview.options.localResourceRoots);
+        
+        // Handle panel disposal
+        this.panel.onDidDispose(() => {
+            this.panel = undefined;
+        }, null, context.subscriptions);
+        
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
 
@@ -361,7 +367,6 @@ export class Commands {
 
     /**
      * Creates a new file with predefined content based on the type and opens it in a new tab.
-     * 
      * @param type The type of the new file to create.
      */
     static async createNewCabbageFile(type:string) {
@@ -376,6 +381,8 @@ export class Commands {
 
     /**
      * Formats the document content by applying predefined formatting rules.
+     * The formatting rules are defined in the ExtensionUtils class.
+     * @returns A promise that resolves when the document is formatted.
      */
     static async formatDocument() {
         const editor = vscode.window.activeTextEditor;
@@ -389,7 +396,11 @@ export class Commands {
         await vscode.workspace.applyEdit(edit);
     }
 
-    // Function to get all .csd files in a directory
+    /**
+     * Retrieves all .csd files in a directory.
+     * @param directory The directory to search for .csd files.
+     * @returns An array of .csd file paths.
+     */
     // Function to get all .csd files in a directory with full absolute paths
     static getCsdFiles(directory: string): string[] {
         try {
@@ -403,7 +414,11 @@ export class Commands {
         }
     }
 
-    // Function to check if a file is a protected example file
+    /**
+    * Function to check if a file is a protected example file
+    * @param filePath The file path to check.
+    * @returns True if the file is a protected example, false otherwise
+    */
     static isProtectedExample(filePath: string): boolean {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (!extension) {
@@ -414,7 +429,9 @@ export class Commands {
     }
 
     /**
-     * Provides a dropdown list of example for the user to open
+     * Provides a dropdown list of examples for the user to open
+     * in the editor.
+     * @returns A promise that resolves when the user selects an example.
      */
     static async openCabbageExample() {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');

@@ -26,15 +26,13 @@ let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
 
-// Call the async function to setup the WebSocket server
 setupWebSocketServer();
 
 
 /**
  * Activates the Cabbage extension, setting up commands, configuration change listeners,
  * and event handlers for saving documents, opening documents, and changing tabs.
- * Also sets up a status bar item and initializes the WebSocket server.
- * 
+ * Also sets up a status bar item and initializes the WebSocket server. * 
  * @param context The extension context for managing VS Code subscriptions.
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -257,8 +255,10 @@ function onInstall() {
 }
 
 
-/*
+/**
  * Logic to execute when the extension is updated to a new version.
+ * @param previousVersion The previous version of the extension.
+ * @param currentVersion The current version of the extension.
  */
 function onUpdate(previousVersion: string, currentVersion: string) {
     // Logic to execute on update
@@ -281,8 +281,7 @@ export function deactivate() {
 /**
  * Waits until the WebSocket connection is established and resolves the promise
  * with the WebSocket instance once it is ready. This function is useful to ensure
- * the WebSocket is available before performing operations that depend on it.
- * 
+ * the WebSocket is available before performing operations that depend on it. * 
  * @returns A promise that resolves with the WebSocket instance when ready.
  */
 function waitForWebSocket(): Promise<WebSocket> {
@@ -296,7 +295,11 @@ function waitForWebSocket(): Promise<WebSocket> {
     });
 }
 
-//=================================================================================
+/**
+ * Sets up a WebSocket server on a free port and listens for incoming connections.
+ * The server is used to communicate between the Cabbage service
+ * app and the Cabbage webview panel.
+ */
 async function setupWebSocketServer() {
     // Find a free port
     freePort = await ExtensionUtils.findFreePort(9991, 10000);
