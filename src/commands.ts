@@ -357,6 +357,8 @@ export class Commands {
         }
     }
 
+
+
     /**
      * Creates a new file with predefined content based on the type and opens it in a new tab.
      * 
@@ -399,6 +401,16 @@ export class Commands {
             vscode.window.showErrorMessage(`Failed to read directory: ${directory}`);
             return [];
         }
+    }
+
+    // Function to check if a file is a protected example file
+    static isProtectedExample(filePath: string): boolean {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (!extension) {
+            return false;
+        }
+        const examplesPath = path.join(extension.extensionPath, 'examples');
+        return filePath.startsWith(examplesPath);
     }
 
     /**
