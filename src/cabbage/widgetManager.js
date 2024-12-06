@@ -7,7 +7,7 @@ console.log("Loading widgetManager.js...");
 // Import necessary modules and utilities
 import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
-import { vscode, cabbageMode, widgets, mediaResources } from "../cabbage/sharedState.js";
+import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 
 /**
@@ -43,7 +43,7 @@ export class WidgetManager {
      * @param {object} props - The properties to assign to the widget.
      * @returns {object|null} - The properties of the newly inserted widget or null on failure.
      */
-    static async insertWidget(type, props) {
+    static async insertWidget(type, props, currentCsdFile) {
         console.warn("Inserting widget of type:", type);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
@@ -54,6 +54,7 @@ export class WidgetManager {
             return;
         }
 
+        
         // Assign class based on widget type and mode (draggable/non-draggable)
         widgetDiv.className = (type === "form") ? "resizeOnly" : cabbageMode;
 
@@ -78,9 +79,9 @@ export class WidgetManager {
             else{
                 widget.props.value = widget.props.range.defaultValue;
             }
-
         }
 
+        widget.props.currentCsdFile = currentCsdFile;
         // Add the widget to the global widgets array
 
         console.log("Pushing widget to widgets array", widget);
@@ -253,15 +254,11 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        // console.warn('Data', data);
+        console.warn('Current CSD Path', obj.currentCsdPath);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
-            // add media resources array. When running as a vscode extensions this will contain a list ogf
-            // all the media files founds in the media folder within the .csd directory. In plugin mode, this
-            // will be empty. We can use relative paths to the server root 
-            widget.mediaResources = mediaResources;
-
+            widget.props.currentCsdFile = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
                 console.warn("Updating widget value only");
@@ -332,7 +329,8 @@ export class WidgetManager {
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
-                    await WidgetManager.insertWidget(p.type, p, widgets);
+                    
+                    await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                 }
                 else{
                     console.error("No type property found in data", p);

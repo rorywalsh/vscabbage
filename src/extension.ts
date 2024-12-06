@@ -5,7 +5,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 // @ts-ignore
-import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
+import { setCabbageMode, setCabbageCsdPath } from './cabbage/sharedState.js';
 import fs from 'fs';
 import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
@@ -321,6 +321,7 @@ async function setupWebSocketServer() {
         // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
         ws.on('message', (message: WebSocket.Data) => {
             const msg = JSON.parse(message.toString());
+            console.log(msg);
             if (msg.hasOwnProperty("command")) {
                 // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
                 // These are then sent to the webview for rendering.
@@ -328,10 +329,10 @@ async function setupWebSocketServer() {
                     const panel = Commands.getPanel();
                     if (panel) {
                         if (msg.hasOwnProperty("data")) {
-                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"] });
+                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"], currentCsdPath: Commands.getCurrentFileName() });
                         }
                         else if (msg.hasOwnProperty("value")) {
-                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"] });
+                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"], currentCsdPath: Commands.getCurrentFileName() });
                         }
                     }
                 }

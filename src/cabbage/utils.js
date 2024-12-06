@@ -1,6 +1,7 @@
 // MIT License
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
+import { vscode, currentCsdPath } from "./sharedState.js";
 
 export class CabbageUtils {
   static updateInnerHTML(channel, instance) {
@@ -10,12 +11,19 @@ export class CabbageUtils {
     }
   }
 
-  static getMediaPath(vscode, fileName) {
-    if (vscode === null) {
-      // Iterate over the mediaResources array to find the matching URI
-      return fileName;
+  static getFullMediaPath(fileName, currentCsdFile) {
+    let currentCsdPath = '';
+    const lastSlashIndex = currentCsdFile.lastIndexOf('/');
+    if (lastSlashIndex !== -1) {
+        currentCsdPath = currentCsdFile.substring(0, lastSlashIndex);
     } else {
-      return `https://file%2B.vscode-resource.vscode-cdn.net/Use…/CabbageAudio/CabbageVST3Effect/media/${fileName}`;
+        currentCsdPath = currentCsdFile; // If no slash is found, use the original path
+    }
+    if (vscode === null) {
+      console.warn(`vscode is null, returning ${fileName}`);
+      return `media/${fileName}`;
+    } else {
+      return `https://file%2B.vscode-resource.vscode-cdn.net${currentCsdPath}/media/${fileName}`;
     }
   }
 

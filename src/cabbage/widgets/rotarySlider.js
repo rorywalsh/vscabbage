@@ -106,7 +106,7 @@ export class RotarySlider {
     }
 
     //console.error(`Path ${path}, key ${key}, changed from ${oldValue} to ${newValue}`);
-    if (path.indexOf('filmStrip') > -1) {
+    if (path.indexOf('filmStrip') > -1 || path.indexOf('currentCsdFile')) {
       console.log(`Filmstrip changed from ${oldValue} to ${newValue}`);
       this.loadFilmStripImage();
     }
@@ -124,26 +124,25 @@ export class RotarySlider {
       return;
     }
 
-    //vscode-webview://1e10v52q7813ifnrh3p15vu02tc8i4d814biqqmg3uflmr9r0bda/rSlider.png
-    //https://file%2B.vscode-resource.vscode-cdn.net/Use…/CabbageAudio/CabbageVST3Effect/media/rSlider.png
     try {
-      // const imagePath = CabbageUtils.getMediaPath(this.vscode, this.props.filmStrip.file);
-      const img = new Image();
-      img.src = "https://file%2B.vscode-resource.vscode-cdn.net/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/media/rSlider.png";//imagePath;
 
-      console.warn("File path: ", img.src);
+        // const imagePath = CabbageUtils.getMediaPath(this.vscode, this.props.filmStrip.file);
+        const img = new Image();
+        const mediaPath = this.props.currentCsdFile || ''; // Get path from props
 
-      img.onload = () => {
-        this.imageWidth = img.width;
-        this.imageHeight = img.height;
-        this.isImageLoaded = true;
-        console.log("Loaded film strip image dimensions:", img.width, img.height);
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
-      };
+        img.src = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, mediaPath);
 
-      img.onerror = () => {
-        console.log("Error loading film strip image");
-      };
+        img.onload = () => {
+          this.imageWidth = img.width;
+          this.imageHeight = img.height;
+          this.isImageLoaded = true;
+          console.log("Loaded film strip image dimensions:", img.width, img.height);
+          CabbageUtils.updateInnerHTML(this.props.channel, this);
+        };
+
+        img.onerror = () => {
+          console.log("Error loading film strip image");
+        };
     } catch (error) {
       console.log("Failed to load film strip image:", error);
     }
@@ -341,7 +340,7 @@ export class RotarySlider {
     console.log("Frame Index:", frameIndex, "Frame width", frameWidth, "Frame height", frameHeight);
     console.log("Offset X:", offsetX, "Offset Y:", offsetY);
     console.log("Image Width:", imageWidth, "Image Height:", imageHeight);
-    const imagePath = "https://file%2B.vscode-resource.vscode-cdn.net/Users/rwalsh/Library/CabbageAudio/CabbageVST3Effect/media/rSlider.png";//CabbageUtils.getMediaPath(this.props.filmStrip.file);
+    const imagePath = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, this.props.currentCsdFile || '');
     return `
       <image href="${imagePath}" x="${-offsetX}" y="${-offsetY}" width="${imageWidth}" height="${imageHeight}" />
     `;
@@ -358,18 +357,18 @@ export class RotarySlider {
     }
 
     if (this.isImageLoaded) {
+     
+    const filmStripElement = this.drawFilmStrip();
 
-      const filmStripElement = this.drawFilmStrip();
-
-      if (filmStripElement) {
-        return `
+    if (filmStripElement) {
+      return `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
           ${filmStripElement}
           <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
         </svg>
       `;
-      }
     }
+  }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference

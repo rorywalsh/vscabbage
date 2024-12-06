@@ -114,6 +114,7 @@ window.addEventListener('message', async event => {
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
+            console.log("onFileChanged", message);
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
             if (mainForm) {
                 mainForm.remove(); // Remove the MainForm element from the DOM
