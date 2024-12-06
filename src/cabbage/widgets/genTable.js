@@ -47,7 +47,11 @@ export class GenTable {
             "opacity": 1,
             "fill": 1
         };
+
+        this.hiddenProps = ['samples'];
     }
+
+    
 
     createCanvas() {
         // Create canvas element during initialization

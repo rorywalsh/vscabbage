@@ -345,77 +345,68 @@ export class ExtensionUtils {
      * @returns The updated JSON array with merged properties.
      */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
+        // Define properties to exclude from JSON output
+        const excludeFromJson = ['samples']; // Add any properties you want to exclude
+
+        // Helper function to remove excluded properties from an object
+        const removeExcludedProps = (obj: any) => {
+            const newObj = { ...obj };
+            excludeFromJson.forEach(prop => {
+                delete newObj[prop];
+            });
+            return newObj;
+        };
+
         // Check if the new object is of type 'form'
         if (props.type === 'form') {
-            // Find the index of the existing form object in the array
             const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
 
-            // If a form already exists, update it
             if (formIndex !== -1) {
-                // Merge existing form object with new properties
                 let newFormObject = { ...jsonArray[formIndex], ...props };
-
                 // Remove properties that match default values
                 for (let key in defaultProps) {
-                    // If the property value is deeply equal to the default, delete it
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
                         delete newFormObject[key];
                     }
                 }
-
-                // Update the existing form object in the array
-                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(newFormObject);
+                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject));
             } else {
-                // If no form exists, create a new form object
                 let newFormObject = { ...props };
-
                 // Remove properties that match default values
                 for (let key in defaultProps) {
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
                         delete newFormObject[key];
                     }
                 }
-
-                // Add the new form object to the beginning of the array
-                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(newFormObject));
+                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject)));
             }
-            return jsonArray; // Return the updated array
+            return jsonArray;
         }
 
-        // For non-form objects, look for an existing object based on the channel
         let existingObject = jsonArray.find(obj => obj.channel === props.channel);
 
-        // If an existing object is found, update it
         if (existingObject) {
-            // Merge existing object with new properties
             let newObject = { ...existingObject, ...props };
-
             // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
                     delete newObject[key];
                 }
             }
-
-            // Find the index of the existing object and update it in the array
             const index = jsonArray.findIndex(obj => obj.channel === props.channel);
-            jsonArray[index] = ExtensionUtils.sortOrderOfProperties(newObject);
+            jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
-            // If no existing object is found, create a new object
             let newObject = { ...props };
-
             // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
                     delete newObject[key];
                 }
             }
-
-            // Add the new object to the end of the array
-            jsonArray.push(ExtensionUtils.sortOrderOfProperties(newObject));
+            jsonArray.push(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject)));
         }
 
-        return jsonArray; // Return the updated array
+        return jsonArray;
     }
 
     // Function to find a free port

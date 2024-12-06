@@ -69,16 +69,34 @@ export class PropertyPanel {
      * @param panel - The panel to which the sections are appended.
      */
     createSections(properties, panel) {
+        // Get the widget instance to access hiddenProps
+        const widget = this.widgets.find(w => w.props.channel === properties.channel);
+        const hiddenProps = widget?.hiddenProps || [];
+
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
+            // Skip if this property is in hiddenProps
+            if (hiddenProps.includes(sectionName)) {
+                return;
+            }
+
             if (typeof sectionProperties === 'object' && sectionProperties !== null && !Array.isArray(sectionProperties)) {
                 const sectionDiv = this.createSection(sectionName);
 
                 // Add each property to the section
                 Object.entries(sectionProperties).forEach(([key, value]) => {
+                    // Skip if this nested property is in hiddenProps
+                    if (hiddenProps.includes(`${sectionName}.${key}`)) {
+                        return;
+                    }
+
                     // Check if the value is an object
                     if (typeof value === 'object' && value !== null) {
                         // Handle nested properties (like colour)
                         Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                            // Skip if this deeply nested property is in hiddenProps
+                            if (hiddenProps.includes(`${sectionName}.${key}.${nestedKey}`)) {
+                                return;
+                            }
                             this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, sectionName);
                         });
                     } else {
@@ -98,8 +116,17 @@ export class PropertyPanel {
      */
     createMiscSection(properties, panel) {
         const miscSection = this.createSection('Misc');
+        
+        // Get the widget instance to access hiddenProps
+        const widget = this.widgets.find(w => w.props.channel === properties.channel);
+        const hiddenProps = widget?.hiddenProps || [];
 
         Object.entries(properties).forEach(([key, value]) => {
+            // Skip if this property is in hiddenProps
+            if (hiddenProps.includes(key)) {
+                return;
+            }
+
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                 // Skip adding properties that belong to objects already covered
                 return;
