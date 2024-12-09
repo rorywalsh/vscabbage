@@ -190,26 +190,45 @@ export class PropertyPanel {
             input = document.createElement('input');
             input.type = 'text';
             input.value = value;
+            input.dataset.originalChannel = value; // Store the original channel value
+            input.dataset.skipInputHandler = 'true'; // Mark this input to skip the general handler
 
-            input.addEventListener('input', (evt) => {
-                const newChannel = evt.target.value.trim(); // Get the new channel value
-                const widget = this.widgets.find(w => w.props.channel === value);
+            console.log("Setting up channel input event listener");
+            input.addEventListener('keydown', (evt) => {
+                console.log("Keydown event triggered:", evt.key);
+                if (evt.key === 'Enter' || evt.key === 'Tab') {
+                    console.log("Enter/Tab pressed");
+                    evt.preventDefault(); // Prevent default tab behavior
+                    const newChannel = evt.target.value.trim();
+                    const originalChannel = input.dataset.originalChannel; // Get the original channel
+                    const widget = this.widgets.find(w => w.props.channel === originalChannel);
+                    console.warn(widget);
+                    if (widget) {
+                        // Check for uniqueness
+                        const existingDiv = document.getElementById(newChannel);
+                        if (existingDiv && existingDiv.id !== originalChannel) {
+                            console.warn(`A widget with id '${newChannel}' already exists!`);
+                            return;
+                        }
 
-                if (widget) {
-                    // Check for uniqueness
-                    const existingDiv = document.getElementById(newChannel);
-                    if (existingDiv) {
-                        console.warn(`A widget with id '${newChannel}' already exists!`);
-                        return;
+                        console.log("Updating channel from", widget.props.channel, "to", newChannel);
+                        // Update the widget `div` id and `channel` property
+                        const widgetDiv = document.getElementById(originalChannel);
+                        if (widgetDiv) {
+                            widgetDiv.id = newChannel; // Update `div` id
+                        }
+
+                        widget.props.channel = newChannel; // Update the widget's `channel` property
+                        console.log("updated widget", widget.props);
+
+                        // Send message to VSCode extension with updated widget properties
+                        this.vscode.postMessage({
+                            command: 'widgetUpdate',
+                            text: JSON.stringify(widget.props),
+                        });
+
+                        input.blur(); // Remove focus from input
                     }
-
-                    // Update the widget `div` id and `channel` property
-                    const widgetDiv = document.getElementById(widget.props.channel);
-                    if (widgetDiv) {
-                        widgetDiv.id = newChannel; // Update `div` id
-                    }
-
-                    widget.props.channel = newChannel; // Update the widget's `channel` property
                 }
             });
         } else {
@@ -327,6 +346,11 @@ export class PropertyPanel {
             input = evt;
             const innerInput = evt.querySelector('input'); // Query for input if a parent element is passed
             input = innerInput;
+        }
+
+        // Skip if this is a channel input
+        if (input.dataset.skipInputHandler === 'true') {
+            return;
         }
 
         console.log("handleInputChange called");
