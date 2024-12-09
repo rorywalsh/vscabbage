@@ -23,15 +23,18 @@ export class Settings {
             "midiInputDevices": {},
             "midiOutputDevices": {}
         }
-    }
-    `};
+    }`;
+    };
 
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
+            console.error('extension path', extension.extensionPath);
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
-            return returnPath;
+            // Replace backslashes with forward slashes
+            const posixPath = returnPath.split(path.sep).join(path.posix.sep);
+            return posixPath;
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -45,28 +48,26 @@ export class Settings {
                 binaryPath = path.join(extension.extensionPath, 'src', 'CabbageBundle');
             }
             // Construct the path to the src directory
-            if (os.platform() === 'darwin') {
-                switch (type) {
-                    case 'CabbageApp':
-                        ////for windows CabbageApp_x64.exe
-                        return path.join(binaryPath, 'CabbageApp.app/Contents/MacOS/CabbageApp');
-                    case 'CabbageVST3Effect':
-                        return path.join(binaryPath, 'CabbageVST3Effect.vst3');
-                    case 'CabbageVST3Synth':
-                        return path.join(binaryPath, 'CabbageVST3Synth.vst3');
-                    case 'CabbageAUv2Effect':
-                        return path.join(binaryPath, 'CabbageAUv2Effect.component');
-                    case 'CabbageAUv2Synth':
-                        return path.join(binaryPath, 'CabbageAUv2Synth.component');
-                    case 'CabbageStandaloneApp':
-                        return path.join(binaryPath, 'CabbageStandaloneApp.app');
-                    default:
-                        return '';
-                }
+            switch (type) {
+                case 'CabbageApp':
+                    ////for windows CabbageApp_x64.exe
+                    return path.join(binaryPath, os.platform() === 'darwin' ?
+                        'CabbageApp.app/Contents/MacOS/CabbageApp' :
+                        'CabbageApp.exe');
+                case 'CabbageVST3Effect':
+                    return path.join(binaryPath, 'CabbageVST3Effect.vst3');
+                case 'CabbageVST3Synth':
+                    return path.join(binaryPath, 'CabbageVST3Synth.vst3');
+                case 'CabbageAUv2Effect':
+                    return path.join(binaryPath, 'CabbageAUv2Effect.component');
+                case 'CabbageAUv2Synth':
+                    return path.join(binaryPath, 'CabbageAUv2Synth.component');
+                case 'CabbageStandaloneApp':
+                    return path.join(binaryPath, 'CabbageStandaloneApp.app');
+                default:
+                    return '';
             }
-            else {
 
-            }
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -149,39 +150,39 @@ export class Settings {
         console.log('Current device:', currentDevice);
 
         const audioOutputDevices = settings['systemAudioMidiIOListing']['audioOutputDevices'];
-        
+
         if (!audioOutputDevices.hasOwnProperty(currentDevice)) {
             vscode.window.showErrorMessage('The current device is not available. Please try another device.');
             return;
         }
-        
+
         if (!audioOutputDevices[currentDevice].hasOwnProperty('sampleRates')) {
             vscode.window.showErrorMessage('No sampling rates available for the current device. Please try another device.');
             return;
         }
-            // Get the list of available sampling rates for the current device
-            let samplingRates = settings['systemAudioMidiIOListing']['audioOutputDevices'][currentDevice]['sampleRates'];
-            // Show available sample rates in a drop-down (QuickPick)
-            const selectedRateStr = await vscode.window.showQuickPick(
-                samplingRates.map((rate: { toString: () => any; }) => rate.toString()), // Convert to string for display
-                { placeHolder: 'Select a sampling rate from the list' }
-            );
+        // Get the list of available sampling rates for the current device
+        let samplingRates = settings['systemAudioMidiIOListing']['audioOutputDevices'][currentDevice]['sampleRates'];
+        // Show available sample rates in a drop-down (QuickPick)
+        const selectedRateStr = await vscode.window.showQuickPick(
+            samplingRates.map((rate: { toString: () => any; }) => rate.toString()), // Convert to string for display
+            { placeHolder: 'Select a sampling rate from the list' }
+        );
 
 
-            // If a valid sampling rate is selected, parse it to an integer and update the configuration
-            if (selectedRateStr) {
-                const selectedRate = Number(selectedRateStr); // Parse as a number
-                if (!isNaN(selectedRate)) { // Ensure the selected rate is a valid number
-                    await config.update('audioSampleRate', selectedRate, vscode.ConfigurationTarget.Global);
-                    vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedRate}`);
-                    settings['currentConfig']['audio']['sr'] = selectedRate;
-                    await Settings.setCabbageSettings(settings);
-                } else {
-                    vscode.window.showErrorMessage('Invalid sampling rate selected.');
-                }
+        // If a valid sampling rate is selected, parse it to an integer and update the configuration
+        if (selectedRateStr) {
+            const selectedRate = Number(selectedRateStr); // Parse as a number
+            if (!isNaN(selectedRate)) { // Ensure the selected rate is a valid number
+                await config.update('audioSampleRate', selectedRate, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedRate}`);
+                settings['currentConfig']['audio']['sr'] = selectedRate;
+                await Settings.setCabbageSettings(settings);
             } else {
-                vscode.window.showWarningMessage('No sampling rate selected.');
+                vscode.window.showErrorMessage('Invalid sampling rate selected.');
             }
+        } else {
+            vscode.window.showWarningMessage('No sampling rate selected.');
+        }
 
     }
 

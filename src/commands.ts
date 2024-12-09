@@ -8,7 +8,7 @@ import WebSocket from 'ws';
 import * as cp from "child_process";
 import { Settings } from './settings';
 // @ts-ignore
-import { setCabbageMode, getCabbageMode, setVSCode} from './cabbage/sharedState.js';
+import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
 let dbg = false;
 import fs from 'fs';
@@ -172,7 +172,7 @@ export class Commands {
      * Gets the last saved file name.
      * @returns The last saved file name.
      */
-    static getCurrentFileName(){
+    static getCurrentFileName() {
         return Commands.lastSavedFileName;
     }
     /**
@@ -205,12 +205,12 @@ export class Commands {
         );
 
         console.log('Local resource roots:', this.panel.webview.options.localResourceRoots);
-        
+
         // Handle panel disposal
         this.panel.onDidDispose(() => {
             this.panel = undefined;
         }, null, context.subscriptions);
-        
+
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
         vscode.commands.executeCommand('workbench.action.focusPreviousGroup');
 
@@ -272,15 +272,17 @@ export class Commands {
         }
 
         // Check and update file permissions if necessary
-        try {
-            const stats = fs.statSync(command);
-            if (!(stats.mode & fs.constants.X_OK)) {
-                fs.chmodSync(command, '755');
-                this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
+        if (process.platform === 'darwin') {
+            try {
+                const stats = fs.statSync(command);
+                if (!(stats.mode & fs.constants.X_OK)) {
+                    fs.chmodSync(command, '755');
+                    this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
+                }
+            } catch (error) {
+                this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
+                return;
             }
-        } catch (error) {
-            this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
-            return;
         }
 
         this.processes.forEach((p) => {
@@ -291,6 +293,7 @@ export class Commands {
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
+                this.vscodeOutputChannel.append(command+','+editor.fileName+','+this.portNumber.toString());
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
@@ -304,7 +307,7 @@ export class Commands {
                 return;
             }
 
-            
+
             this.checkForCabbageSrcDirectory();
         }
     }
@@ -373,7 +376,7 @@ export class Commands {
      * Creates a new file with predefined content based on the type and opens it in a new tab.
      * @param type The type of the new file to create.
      */
-    static async createNewCabbageFile(type:string) {
+    static async createNewCabbageFile(type: string) {
         // Get the new file contents based on the type
         const newFileContents = ExtensionUtils.getNewCabbageFile(type);
         // Create a new untitled document with the new file contents

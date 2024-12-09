@@ -29,6 +29,21 @@ export class PropertyPanel {
         });
     }
 
+    checkChannelUniqueness() {
+        this.widgets.forEach(widget => {
+            const widgetDiv = document.getElementById(widget.props.channel);
+        
+            if (widgetDiv) {
+                const idConflict = this.widgets.some(w => w.props.channel !== widget.props.channel && w.props.channel === widgetDiv.id);
+        
+                if (idConflict) {
+                    console.error(`Conflict detected: Widget channel '${widget.props.channel}' must be unique!`);
+                    return;
+                }
+            }
+            return false;
+        });
+    }
     /** 
      * Creates the main property panel and its sections.
      */
@@ -52,12 +67,17 @@ export class PropertyPanel {
     createSpecialSection(panel) {
         const specialSection = this.createSection('Widget Properties');
 
+        // Track handled properties to avoid duplication in the misc section
+        this.handledProperties = new Set();
+
         // Add Type Property
-        this.addPropertyToSection('Type', this.type, specialSection);
+        this.addPropertyToSection('type', this.type, specialSection);
+        this.handledProperties.add('type'); // Mark as handled
 
         // Add Channel Property if it exists
         if (this.properties.channel) {
-            this.addPropertyToSection('Channel', this.properties.channel, specialSection);
+            this.addPropertyToSection('channel', this.properties.channel, specialSection);
+            this.handledProperties.add('channel'); // Mark as handled
         }
 
         panel.appendChild(specialSection); // Append special section to panel
@@ -110,20 +130,20 @@ export class PropertyPanel {
     }
 
     /** 
-     * Creates a miscellaneous section for properties not in a specific section.
-     * @param properties - The properties object containing miscellaneous data.
-     * @param panel - The panel to which the miscellaneous section is appended.
-     */
+ * Creates a miscellaneous section for properties not in a specific section.
+ * @param properties - The properties object containing miscellaneous data.
+ * @param panel - The panel to which the miscellaneous section is appended.
+ */
     createMiscSection(properties, panel) {
         const miscSection = this.createSection('Misc');
-        
+
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => w.props.channel === properties.channel);
         const hiddenProps = widget?.hiddenProps || [];
 
         Object.entries(properties).forEach(([key, value]) => {
-            // Skip if this property is in hiddenProps
-            if (hiddenProps.includes(key)) {
+            // Skip if this property is in hiddenProps or already handled
+            if (hiddenProps.includes(key) || (this.handledProperties && this.handledProperties.has(key))) {
                 return;
             }
 
@@ -136,6 +156,7 @@ export class PropertyPanel {
 
         panel.appendChild(miscSection); // Append miscellaneous section to panel
     }
+
 
     /** 
      * Creates a new section with a header.
@@ -154,82 +175,111 @@ export class PropertyPanel {
     }
 
     /** 
-     * Creates an input element based on the property key and value.
-     * @param key - The property key to create the input for.
-     * @param value - The initial value of the input.
-     * @param path - The nested path for the property (optional).
-     * @returns The created input element.
-     */
+ * Creates an input element based on the property key and value.
+ * @param key - The property key to create the input for.
+ * @param value - The initial value of the input.
+ * @param path - The nested path for the property (optional).
+ * @returns The created input element.
+ */
     createInputElement(key, value, path = '') {
         let input;
         const fullPath = path ? `${path}.${key}` : key; // Construct full path for input id
 
-        // Handle color input for properties that are specifically color values
-        if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width")) {
-            input = document.createElement('input');
-            input.value = value; // Set the initial color value
-            input.style.backgroundColor = value; // Set background color
-
-            // Initialize color picker
-            const picker = new CP(input);
-            picker.on('change', (r, g, b, a) => {
-                input.value = CP.HEX([r, g, b, a]); // Update input value to HEX
-                input.style.backgroundColor = CP.HEX([r, g, b, a]); // Update background color
-                this.handleInputChange(input.parentElement); // Trigger change handler
-            });
-        } 
-        // Handle numeric input for stroke width and other numeric properties
-        else if (fullPath.includes("stroke.width") || typeof value === 'number') {
-            input = document.createElement('input');
-            input.type = 'number'; // Set input type to number
-            input.value = value; // Set the initial value
-            input.min = 0; // Set minimum value if applicable
-        } 
-        // Handle font family selection
-        else if (key.toLowerCase().includes("family")) {
-            input = document.createElement('select');
-            const fontList = [
-                'Arial', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS',
-                'Times New Roman', 'Georgia', 'Garamond', 'Courier New',
-                'Brush Script MT', 'Comic Sans MS', 'Impact', 'Lucida Sans',
-                'Palatino', 'Century Gothic', 'Bookman', 'Candara', 'Consolas'
-            ];
-
-            // Populate font family options
-            fontList.forEach((font) => {
-                const option = document.createElement('option');
-                option.value = font;
-                option.textContent = font;
-                input.appendChild(option);
-            });
-            input.value = value || 'Verdana'; // Set default value if none provided
-        } 
-        // Handle text alignment selection
-        else if (key.toLowerCase() === 'align') {
-            input = document.createElement('select');
-            const alignments = ['left', 'right', 'centre'];
-
-            // Populate alignment options
-            alignments.forEach((align) => {
-                const option = document.createElement('option');
-                option.value = align;
-                option.textContent = align;
-                input.appendChild(option);
-            });
-            input.value = value || 'centre'; // Set default value if none provided
-        } 
-        // Default case for text input
-        else {
+        // Handle special cases for channel properties
+        if (fullPath === 'channel') {
             input = document.createElement('input');
             input.type = 'text';
-            input.value = `${value}`; // Set the initial value
-            if (key.toLowerCase() === 'type') {
-                input.readOnly = true; // Make type input read-only
+            input.value = value;
+
+            input.addEventListener('input', (evt) => {
+                const newChannel = evt.target.value.trim(); // Get the new channel value
+                const widget = this.widgets.find(w => w.props.channel === value);
+
+                if (widget) {
+                    // Check for uniqueness
+                    const existingDiv = document.getElementById(newChannel);
+                    if (existingDiv) {
+                        console.warn(`A widget with id '${newChannel}' already exists!`);
+                        return;
+                    }
+
+                    // Update the widget `div` id and `channel` property
+                    const widgetDiv = document.getElementById(widget.props.channel);
+                    if (widgetDiv) {
+                        widgetDiv.id = newChannel; // Update `div` id
+                    }
+
+                    widget.props.channel = newChannel; // Update the widget's `channel` property
+                }
+            });
+        } else {
+            // Handle color input for properties that are specifically color values
+            if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width")) {
+                input = document.createElement('input');
+                input.value = value; // Set the initial color value
+                input.style.backgroundColor = value; // Set background color
+
+                // Initialize color picker
+                const picker = new CP(input);
+                picker.on('change', (r, g, b, a) => {
+                    input.value = CP.HEX([r, g, b, a]); // Update input value to HEX
+                    input.style.backgroundColor = CP.HEX([r, g, b, a]); // Update background color
+                    this.handleInputChange(input.parentElement); // Trigger change handler
+                });
+            }
+            // Handle numeric input for stroke width and other numeric properties
+            else if (fullPath.includes("stroke.width") || typeof value === 'number') {
+                input = document.createElement('input');
+                input.type = 'number'; // Set input type to number
+                input.value = value; // Set the initial value
+                input.min = 0; // Set minimum value if applicable
+            }
+            // Handle font family selection
+            else if (key.toLowerCase().includes("family")) {
+                input = document.createElement('select');
+                const fontList = [
+                    'Arial', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS',
+                    'Times New Roman', 'Georgia', 'Garamond', 'Courier New',
+                    'Brush Script MT', 'Comic Sans MS', 'Impact', 'Lucida Sans',
+                    'Palatino', 'Century Gothic', 'Bookman', 'Candara', 'Consolas'
+                ];
+
+                // Populate font family options
+                fontList.forEach((font) => {
+                    const option = document.createElement('option');
+                    option.value = font;
+                    option.textContent = font;
+                    input.appendChild(option);
+                });
+                input.value = value || 'Verdana'; // Set default value if none provided
+            }
+            // Handle text alignment selection
+            else if (key.toLowerCase() === 'align') {
+                input = document.createElement('select');
+                const alignments = ['left', 'right', 'centre'];
+
+                // Populate alignment options
+                alignments.forEach((align) => {
+                    const option = document.createElement('option');
+                    option.value = align;
+                    option.textContent = align;
+                    input.appendChild(option);
+                });
+                input.value = value || 'centre'; // Set default value if none provided
+            }
+            // Default case for text input
+            else {
+                input = document.createElement('input');
+                input.type = 'text';
+                input.value = `${value}`; // Set the initial value
+                if (key.toLowerCase() === 'type') {
+                    input.readOnly = true; // Make type input read-only
+                }
             }
         }
 
         // Set input attributes
-        input.id = fullPath; 
+        input.id = key; // Use the key as ID directly (case-sensitive)
         input.dataset.parent = this.properties.channel; // Set data attribute for parent channel
 
         input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
@@ -249,7 +299,7 @@ export class PropertyPanel {
         propertyDiv.classList.add('property');
 
         const label = document.createElement('label');
-        
+
         // Format the key for display
         const formattedKey = key
             .split('.') // Split by dot notation
@@ -294,6 +344,9 @@ export class PropertyPanel {
                 const propertyPath = input.id.split('.'); // Split id to access nested properties
                 let currentObj = widget.props;
 
+                console.log('Input ID:', input.id);
+                console.log('Widget Props:', widget.props);
+
                 // Traverse the property path
                 for (let i = 0; i < propertyPath.length - 1; i++) {
                     if (!(propertyPath[i] in currentObj)) {
@@ -320,6 +373,7 @@ export class PropertyPanel {
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG(); // Update SVG for form type
                 } else {
+                    console.warn("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML content for other types
                 }
 

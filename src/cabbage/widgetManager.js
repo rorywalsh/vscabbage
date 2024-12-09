@@ -14,6 +14,14 @@ import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.j
  * WidgetManager class handles the creation, insertion, and management of widgets.
  */
 export class WidgetManager {
+    static currentCsdPath = '';
+    
+    /**
+     * @returns {string} - The current CSD path.
+     */
+    static getCurrentCsdPath(){
+        return WidgetManager.currentCsdPath;
+    }
 
     /**
      * Dynamically creates a widget based on the provided type.
@@ -254,11 +262,12 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        console.warn('Current CSD Path', obj.currentCsdPath);
+        console.warn('Current CSD Path', obj.currentCsdPath === undefined ? WidgetManager.getCurrentCsdPath() : obj.currentCsdPath);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
             widget.props.currentCsdFile = obj.currentCsdPath;
+            WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
                 console.warn("Updating widget value only");

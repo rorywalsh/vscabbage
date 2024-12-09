@@ -248,7 +248,7 @@ function onInstall() {
         }
     }
     else {
-        if (fs.existsSync('C:/Program Files/Csound7/bin/csound64.dll')) {
+        if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll')) {
             Commands.getOutputChannel().append('ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
         }
     }
@@ -307,7 +307,7 @@ async function setupWebSocketServer() {
 
     // Add WebSocket server event listeners here
     wss.on('connection', (ws: WebSocket) => {
-        console.warn('Client connected');
+        console.warn('Client connected');   
 
         // There are times when Cabbage will send messages before the webview is ready to receive them. 
         // So first thing to do is flush the first messages received from Cabbage

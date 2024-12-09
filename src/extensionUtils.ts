@@ -346,7 +346,7 @@ export class ExtensionUtils {
      */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
         // Define properties to exclude from JSON output
-        const excludeFromJson = ['samples']; // Add any properties you want to exclude
+        const excludeFromJson = ['samples', 'currentCsdFile']; // Add any properties you want to exclude
 
         // Helper function to remove excluded properties from an object
         const removeExcludedProps = (obj: any) => {
