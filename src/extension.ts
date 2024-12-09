@@ -140,7 +140,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => { Commands.createNewCabbageFile('effect'); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
 
-
+    //Register command for jumping to widget definition
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(); }));
+ 
     /**
      * Event handler triggered when a text document is saved.
      * - Checks if the saved document is a .csd file with Cabbage-specific tags.

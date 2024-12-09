@@ -190,19 +190,16 @@ export class PropertyPanel {
             input = document.createElement('input');
             input.type = 'text';
             input.value = value;
-            input.dataset.originalChannel = value; // Store the original channel value
-            input.dataset.skipInputHandler = 'true'; // Mark this input to skip the general handler
+            input.dataset.originalChannel = value;
+            input.dataset.skipInputHandler = 'true';
 
-            console.log("Setting up channel input event listener");
             input.addEventListener('keydown', (evt) => {
-                console.log("Keydown event triggered:", evt.key);
                 if (evt.key === 'Enter' || evt.key === 'Tab') {
-                    console.log("Enter/Tab pressed");
-                    evt.preventDefault(); // Prevent default tab behavior
+                    evt.preventDefault();
                     const newChannel = evt.target.value.trim();
-                    const originalChannel = input.dataset.originalChannel; // Get the original channel
+                    const originalChannel = input.dataset.originalChannel;
                     const widget = this.widgets.find(w => w.props.channel === originalChannel);
-                    console.warn(widget);
+
                     if (widget) {
                         // Check for uniqueness
                         const existingDiv = document.getElementById(newChannel);
@@ -211,23 +208,39 @@ export class PropertyPanel {
                             return;
                         }
 
-                        console.log("Updating channel from", widget.props.channel, "to", newChannel);
+                        console.log("Removing widget with channel:", originalChannel);
+                        // Remove the old widget from the array
+                        const widgetIndex = this.widgets.findIndex(w => w.props.channel === originalChannel);
+                        if (widgetIndex !== -1) {
+                            this.widgets.splice(widgetIndex, 1);
+                        }
+
+                        // First, tell the extension to remove the old widget
+                        console.log("Sending removeWidget message for channel:", originalChannel);
+                        this.vscode.postMessage({
+                            command: 'removeWidget',
+                            channel: originalChannel
+                        });
+
                         // Update the widget `div` id and `channel` property
                         const widgetDiv = document.getElementById(originalChannel);
                         if (widgetDiv) {
-                            widgetDiv.id = newChannel; // Update `div` id
+                            widgetDiv.id = newChannel;
                         }
 
-                        widget.props.channel = newChannel; // Update the widget's `channel` property
-                        console.log("updated widget", widget.props);
+                        widget.props.channel = newChannel;
+                        
+                        // Add the updated widget back to the array
+                        this.widgets.push(widget);
 
-                        // Send message to VSCode extension with updated widget properties
+                        // Then send the updated widget
+                        console.log("Sending widgetUpdate message with new channel:", newChannel);
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
                             text: JSON.stringify(widget.props),
                         });
 
-                        input.blur(); // Remove focus from input
+                        input.blur();
                     }
                 }
             });

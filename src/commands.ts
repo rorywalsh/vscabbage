@@ -77,9 +77,18 @@ export class Commands {
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
-        const config = vscode.workspace.getConfiguration("cabbage");
         console.warn("Received message:", message);
+        const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
+            case 'removeWidget':
+                if (getCabbageMode() !== "play") {
+                    const document = await this.getDocumentForEdit(textEditor);
+                    if (document) {
+                        await this.removeWidgetFromDocument(document, message.channel);
+                    }
+                }
+                break;
+
             case 'widgetUpdate':
                 if (getCabbageMode() !== "play") {
                     ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, textEditor, this.highlightDecorationType, this.lastSavedFileName, this.panel);
@@ -386,6 +395,7 @@ export class Commands {
         await vscode.window.showTextDocument(document);
     }
 
+
     /**
      * Formats the document content by applying predefined formatting rules.
      * The formatting rules are defined in the ExtensionUtils class.
@@ -433,6 +443,57 @@ export class Commands {
         }
         const examplesPath = path.join(extension.extensionPath, 'examples');
         return filePath.startsWith(examplesPath);
+    }
+
+    static async jumpToWidgetObject() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
+        if (!await Commands.hasCabbageTags(editor.document)) {
+            vscode.window.showWarningMessage('No Cabbage section found in the current file.');
+            return;
+        }
+
+        const text = editor.document.getText();
+        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const match = text.match(cabbageRegex);
+
+        try {
+            const cabbageContent = match![1].trim();
+            const widgets = JSON.parse(cabbageContent);
+            
+            // Create simple array of channel names
+            const channels = widgets.map((widget: any) => widget.channel || 'unnamed');
+
+            // Show QuickPick menu with just the channel names
+            const selected = await vscode.window.showQuickPick(channels, {
+                placeHolder: 'Select a widget to jump to'
+            });
+
+            if (selected) {
+                // Create regex to find the channel in the text
+                const channelRegex = new RegExp(`"channel"\\s*:\\s*"${selected}"`, 'i');
+                const channelMatch = text.match(channelRegex);
+                
+                if (channelMatch && channelMatch.index !== undefined) {
+                    const position = editor.document.positionAt(channelMatch.index);
+                    
+                    // Reveal the position in the editor    
+                    editor.revealRange(
+                        new vscode.Range(position, position),
+                        vscode.TextEditorRevealType.InCenter
+                    );
+
+                    // Move cursor to the position
+                    editor.selection = new vscode.Selection(position, position);
+                }
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage('Failed to parse Cabbage JSON content.');
+            console.error(error);
+        }
     }
 
     /**
@@ -674,6 +735,71 @@ export class Commands {
                 // If it's a file, copy it using fs.promises.copyFile
                 await fs.promises.copyFile(srcPath, destPath);
             }
+        }
+    }
+
+    private static async getDocumentForEdit(textEditor: vscode.TextEditor | undefined): Promise<vscode.TextDocument | undefined> {
+        if (textEditor) {
+            return textEditor.document;
+        }
+        
+        if (this.lastSavedFileName) {
+            try {
+                return await vscode.workspace.openTextDocument(this.lastSavedFileName);
+            } catch (error) {
+                console.error("Failed to open document:", error);
+            }
+        }
+        
+        console.error("No text editor is available and no last saved file name.");
+        return undefined;
+    }
+
+    private static async removeWidgetFromDocument(document: vscode.TextDocument, channel: string): Promise<boolean> {
+        const text = document.getText();
+        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const match = text.match(cabbageRegex);
+        
+        if (!match) {
+            console.log("No Cabbage section found in document");
+            return false;
+        }
+
+        try {
+            const cabbageContent = match[1].trim();
+            let widgets = JSON.parse(cabbageContent);
+            console.log("Current widgets:", widgets.length);
+            
+            // Remove the widget with the specified channel
+            const originalLength = widgets.length;
+            widgets = widgets.filter((widget: any) => widget.channel !== channel);
+            console.log(`Removed ${originalLength - widgets.length} widgets`);
+            
+            // Format and update the Cabbage section
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
+            const formattedArray = isSingleLine
+                ? ExtensionUtils.formatJsonObjects(widgets, '    ')
+                : JSON.stringify(widgets, null, 4);
+            
+            const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
+            
+            // Apply the edit
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                document.uri,
+                new vscode.Range(
+                    document.positionAt(match.index!),
+                    document.positionAt(match.index! + match[0].length)
+                ),
+                updatedCabbageSection
+            );
+            
+            return await vscode.workspace.applyEdit(edit);
+        } catch (error) {
+            console.error('Error processing removeWidget command:', error);
+            console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+            return false;
         }
     }
 }
