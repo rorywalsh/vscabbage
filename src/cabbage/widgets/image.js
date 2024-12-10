@@ -2,17 +2,18 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 import { Cabbage } from "../cabbage.js";
+import { CabbageUtils } from "../utils.js";
 /**
  * Label class
  */
 export class Image {
     constructor() {
         this.props = {
-            "bounds":{
-            "top": 0,
-            "left": 0,
-            "width": 100,
-            "height": 30
+            "bounds": {
+                "top": 0,
+                "left": 0,
+                "width": 100,
+                "height": 30
             },
             "type": "image",
             "channel": "",
@@ -36,6 +37,8 @@ export class Image {
         this.vscode = null;
     }
 
+
+
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
         this.addEventListeners(widgetDiv);
@@ -58,10 +61,12 @@ export class Image {
 
         const outlineOffset = this.props.colour.stroke.width / 2;
 
-        if (this.props.file) {
+        const imagePath = CabbageUtils.getFullMediaPath(this.props.file, this.props.currentCsdFile || '');
+        console.log(imagePath);
+        if (imagePath) {
             console.log("setting file");
             return `
-                <img src="${this.props.file}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: all;" />
+                <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: all;" />
             `;
         }
 

@@ -132,7 +132,7 @@ window.addEventListener('message', async event => {
 
             const widgetUpdatesMessages = [];
             widgets.forEach(widget => {
-                // Prepare widget update messages for each widget
+                // Save current state of widgets
                 widgetUpdatesMessages.push({
                     command: "widgetUpdate",
                     channel: widget.props.channel,
@@ -146,6 +146,8 @@ window.addEventListener('message', async event => {
             } else {
                 console.error("MainForm not found");
             }
+
+            //now clear all widgets
             widgets.length = 0;
 
             // Update each widget after clearing the form

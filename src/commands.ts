@@ -213,7 +213,16 @@ export class Commands {
             }
         );
 
-        console.log('Local resource roots:', this.panel.webview.options.localResourceRoots);
+        if (this.panel.webview.options.localResourceRoots) {
+            this.panel.webview.options.localResourceRoots.forEach((uri) => {
+                if(this.panel) {
+                console.warn('Local resource roots:', this.panel.webview.asWebviewUri(uri));
+                }
+            });
+
+        }
+        
+        // console.error('Local resource roots:', this.panel.webview.options.localResourceRoots);
 
         // Handle panel disposal
         this.panel.onDidDispose(() => {

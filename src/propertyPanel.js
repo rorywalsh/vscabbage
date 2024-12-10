@@ -29,6 +29,10 @@ export class PropertyPanel {
         });
     }
 
+    /**
+     * Checks if the channel property is unique for each widget.
+     * If not, logs an error to the console.
+     */
     checkChannelUniqueness() {
         this.widgets.forEach(widget => {
             const widgetDiv = document.getElementById(widget.props.channel);

@@ -12,18 +12,28 @@ export class CabbageUtils {
   }
 
   static getFullMediaPath(fileName, currentCsdFile) {
-    let currentCsdPath = '';
-    const lastSlashIndex = currentCsdFile.lastIndexOf('/');
+    let currentCsdPath = currentCsdFile.replace(/\\/g, '/'); // Replace all backslashes with forward slashes
+    const lastSlashIndex = currentCsdPath.lastIndexOf('/');
     if (lastSlashIndex !== -1) {
-        currentCsdPath = currentCsdFile.substring(0, lastSlashIndex);
+      currentCsdPath = currentCsdPath.substring(0, lastSlashIndex);
     } else {
-        currentCsdPath = currentCsdFile; // If no slash is found, use the original path
+      currentCsdPath = currentCsdFile; // If no separator is found, use the original path
     }
+
+    // Ensure currentCsdPath starts with a '/'
+    if (!currentCsdPath.startsWith('/')) {
+      currentCsdPath = '/' + currentCsdPath;
+    }
+
     if (vscode === null) {
       console.warn(`vscode is null, returning ${fileName}`);
       return `media/${fileName}`;
     } else {
-      return `https://file%2B.vscode-resource.vscode-cdn.net${currentCsdPath}/media/${fileName}`;
+      // Construct the URL with the correct encoding
+      const baseUrl = 'https://file%2B.vscode-resource.vscode-cdn.net';
+      const fullUrl = `${baseUrl}${currentCsdPath}/media/${fileName}`;
+      console.log('fullUrl', fullUrl);
+      return fullUrl;
     }
   }
 

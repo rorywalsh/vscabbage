@@ -49,10 +49,10 @@ export class WidgetManager {
      * or when adding widgets via right-click in the editor.
      * @param {string} type - The type of widget to insert.
      * @param {object} props - The properties to assign to the widget.
-     * @returns {object|null} - The properties of the newly inserted widget or null on failure.
+     * @returns {string} - The currentCsdFile if it is known.
      */
     static async insertWidget(type, props, currentCsdFile) {
-        console.warn("Inserting widget of type:", type);
+        // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
         widgetDiv.id = props.channel;
 
@@ -89,7 +89,9 @@ export class WidgetManager {
             }
         }
 
-        widget.props.currentCsdFile = currentCsdFile;
+        if(!widget.props.currentCsdFile){
+            widget.props.currentCsdFile = currentCsdFile;
+        }
         // Add the widget to the global widgets array
 
         console.log("Pushing widget to widgets array", widget);
@@ -262,12 +264,12 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        console.warn('Current CSD Path', obj.currentCsdPath === undefined ? WidgetManager.getCurrentCsdPath() : obj.currentCsdPath);
+        // console.warn('Current CSD Path', obj.currentCsdPath === undefined ? WidgetManager.getCurrentCsdPath() : obj.currentCsdPath);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
-            widget.props.currentCsdFile = obj.currentCsdPath;
-            WidgetManager.currentCsdPath = obj.currentCsdPath;
+            // widget.props.currentCsdFile = obj.currentCsdPath;
+            // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
                 console.warn("Updating widget value only");
