@@ -80,6 +80,33 @@ export class Commands {
         console.warn("Received message:", message);
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
+            case 'getMediaFiles':
+                try {
+                    const directory = '/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/media';
+                    fs.readdir(directory, (err, files) => {
+                        if (err) {
+                            console.error('Error reading directory:', err);
+                            return;
+                        }
+
+                        // const audioFiles = files.filter(file => 
+                        //     file.endsWith('.png') || 
+                        //     file.endsWith('.jpeg')
+                        // );
+                        
+                        // Send the files back to the WebView
+                        if (this.panel) {
+                            this.panel.webview.postMessage({
+                                command: 'mediaFiles',
+                                files: files
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error processing audio files request:', error);
+                }
+                break;
+
             case 'removeWidget':
                 if (getCabbageMode() !== "play") {
                     const document = await this.getDocumentForEdit(textEditor);

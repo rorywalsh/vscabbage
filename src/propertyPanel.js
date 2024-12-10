@@ -36,10 +36,10 @@ export class PropertyPanel {
     checkChannelUniqueness() {
         this.widgets.forEach(widget => {
             const widgetDiv = document.getElementById(widget.props.channel);
-        
+
             if (widgetDiv) {
                 const idConflict = this.widgets.some(w => w.props.channel !== widget.props.channel && w.props.channel === widgetDiv.id);
-        
+
                 if (idConflict) {
                     console.error(`Conflict detected: Widget channel '${widget.props.channel}' must be unique!`);
                     return;
@@ -187,10 +187,53 @@ export class PropertyPanel {
  */
     createInputElement(key, value, path = '') {
         let input;
-        const fullPath = path ? `${path}.${key}` : key; // Construct full path for input id
+        const fullPath = path ? `${path}.${key}` : key;
 
-        // Handle special cases for channel properties
-        if (fullPath === 'channel') {
+        // Handle file input
+        if (key.toLowerCase().includes('file')) {
+            input = document.createElement('select');
+            input.classList.add('loading');
+
+            // Add a default empty option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Loading files...';
+            input.appendChild(defaultOption);
+
+            // Request file list from extension
+            this.vscode.postMessage({
+                command: 'getMediaFiles'
+            });
+
+            // Handle the response
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message.command === 'mediaFiles') {
+                    input.classList.remove('loading');
+                    input.innerHTML = ''; // Clear loading message
+
+                    // Add default option
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Select a file...';
+                    input.appendChild(defaultOption);
+
+                    // Add file options
+                    message.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        if (file === value) {
+                            option.selected = true;
+                        }
+                        input.appendChild(option);
+                    });
+                }
+            });
+
+            input.addEventListener('change', this.handleInputChange.bind(this));
+            
+        } else if (fullPath === 'channel') {
             input = document.createElement('input');
             input.type = 'text';
             input.value = value;
@@ -233,7 +276,7 @@ export class PropertyPanel {
                         }
 
                         widget.props.channel = newChannel;
-                        
+
                         // Add the updated widget back to the array
                         this.widgets.push(widget);
 
@@ -381,6 +424,13 @@ export class PropertyPanel {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue); // Parse the input value
 
+                // // Special handling for file selection
+                // if (input.tagName.toLowerCase() === 'select' && input.id.toLowerCase().includes('file')) {
+                //     console.log("File selected:", parsedValue);
+                //     // Here you can add any specific file selection handling
+                //     // For example, validating the file exists, updating related properties, etc.
+                // }
+
                 // Handle nested properties
                 const propertyPath = input.id.split('.'); // Split id to access nested properties
                 let currentObj = widget.props;
@@ -399,7 +449,7 @@ export class PropertyPanel {
 
                 const finalProperty = propertyPath[propertyPath.length - 1]; // Get final property name
 
-                // Update the property with the new value
+                // If the property does not exist return early
                 if (!(finalProperty in currentObj)) {
                     console.warn(`Property ${input.id} does not exist in widget.props`);
                     return;
