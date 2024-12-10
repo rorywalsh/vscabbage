@@ -381,16 +381,22 @@ export class PropertyPanel {
 
         // Format the key for display
         const formattedKey = key
-            .split('.') // Split by dot notation
-            .map(part => part.charAt(0).toUpperCase() + part.slice(1)) // Capitalize the first letter of each part
-            .join(' '); // Join parts with a space
+            .split('.')
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
 
-        label.textContent = formattedKey; // Set the formatted label text
+        label.textContent = formattedKey;
         propertyDiv.appendChild(label);
 
-        const input = this.createInputElement(key, value, path); // Create input element
+        // Create the full property path for the input id
+        const fullPropertyPath = path ? `${path}.${key}` : key;
+        const input = this.createInputElement(key, value, path);
+        
+        // Set the full property path as the input id
+        input.id = fullPropertyPath;
+        
         propertyDiv.appendChild(input);
-        section.appendChild(propertyDiv); // Add property div to section
+        section.appendChild(propertyDiv);
     }
 
     /** 
@@ -422,53 +428,49 @@ export class PropertyPanel {
         this.widgets.forEach((widget) => {
             if (widget.props.channel === input.dataset.parent) {
                 const inputValue = input.value;
-                let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue); // Parse the input value
+                let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
-                // // Special handling for file selection
-                // if (input.tagName.toLowerCase() === 'select' && input.id.toLowerCase().includes('file')) {
-                //     console.log("File selected:", parsedValue);
-                //     // Here you can add any specific file selection handling
-                //     // For example, validating the file exists, updating related properties, etc.
-                // }
+                console.log("Before update - widget.props:", JSON.stringify(widget.props));
+                console.log("Updating property path:", input.id);
+                console.log("New value:", parsedValue);
 
                 // Handle nested properties
-                const propertyPath = input.id.split('.'); // Split id to access nested properties
+                const propertyPath = input.id.split('.');
                 let currentObj = widget.props;
 
-                console.log('Input ID:', input.id);
-                console.log('Widget Props:', widget.props);
-
-                // Traverse the property path
-                for (let i = 0; i < propertyPath.length - 1; i++) {
-                    if (!(propertyPath[i] in currentObj)) {
-                        console.warn(`Property ${propertyPath.slice(0, i + 1).join('.')} does not exist in widget.props`);
-                        return;
+                // For nested properties like filmStrip.file
+                if (propertyPath.length > 1) {
+                    // Create the nested structure if it doesn't exist
+                    for (let i = 0; i < propertyPath.length - 1; i++) {
+                        const prop = propertyPath[i];
+                        console.log(`Creating/accessing path: ${prop}`);
+                        if (!currentObj[prop]) {
+                            currentObj[prop] = {};
+                        }
+                        currentObj = currentObj[prop];
                     }
-                    currentObj = currentObj[propertyPath[i]]; // Move deeper into the property object
                 }
 
-                const finalProperty = propertyPath[propertyPath.length - 1]; // Get final property name
+                const finalProperty = propertyPath[propertyPath.length - 1];
+                currentObj[finalProperty] = parsedValue;
 
-                // If the property does not exist return early
-                if (!(finalProperty in currentObj)) {
-                    console.warn(`Property ${input.id} does not exist in widget.props`);
-                    return;
+                // Remove any incorrectly placed properties
+                if (propertyPath.length > 1 && widget.props[finalProperty]) {
+                    delete widget.props[finalProperty];
                 }
 
-                currentObj[finalProperty] = parsedValue; // Set the new value
+                console.log("After update - widget.props:", JSON.stringify(widget.props));
 
-                CabbageUtils.updateBounds(widget.props, input.id); // Update the widget bounds
+                CabbageUtils.updateBounds(widget.props, input.id);
 
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel); // Get widget DOM element
-                // Update widget representation based on type
+                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widget.props['type'] === 'form') {
-                    widget.updateSVG(); // Update SVG for form type
+                    widget.updateSVG();
                 } else {
                     console.warn("Widget Div:", widgetDiv);
-                    widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML content for other types
+                    widgetDiv.innerHTML = widget.getInnerHTML();
                 }
 
-                // Send message to VSCode extension with updated widget properties
                 this.vscode.postMessage({
                     command: 'widgetUpdate',
                     text: JSON.stringify(widget.props),
