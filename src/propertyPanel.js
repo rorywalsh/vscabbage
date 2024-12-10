@@ -14,9 +14,10 @@ export class PropertyPanel {
         this.type = type;               // Type of the widget
         this.properties = properties;   // Properties of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
-
+        console.log("PropertyPanel constructor called - before createPanel", JSON.stringify(this.properties, null, 2));
         // Create the panel and sections on initialization
         this.createPanel();
+        console.log("PropertyPanel constructor called - after createPanel", JSON.stringify(this.properties, null, 2));
     }
 
     /** 
@@ -405,48 +406,36 @@ export class PropertyPanel {
      */
     handleInputChange(evt) {
         let input;
-        // Determine the input source
         if (evt instanceof Event) {
-            input = evt.target; // Get target from event
+            input = evt.target;
         } else {
             input = evt;
-            const innerInput = evt.querySelector('input'); // Query for input if a parent element is passed
+            const innerInput = evt.querySelector('input');
             input = innerInput;
         }
 
-        // Skip if this is a channel input
         if (input.dataset.skipInputHandler === 'true') {
             return;
         }
 
-        console.log("handleInputChange called");
-        console.log("Input value:", input.value);
-        console.log("Input id:", input.id);
-        console.log("Input dataset parent:", input.dataset.parent);
-
-        // Update the corresponding widget property based on input changes
         this.widgets.forEach((widget) => {
             if (widget.props.channel === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
-                console.log("Before update - widget.props:", JSON.stringify(widget.props));
-                console.log("Updating property path:", input.id);
-                console.log("New value:", parsedValue);
-
                 // Handle nested properties
                 const propertyPath = input.id.split('.');
                 let currentObj = widget.props;
-
-                // For nested properties like filmStrip.file
+                
+                // For nested properties like colour.fill or colour.stroke.colour
                 if (propertyPath.length > 1) {
-                    // Create the nested structure if it doesn't exist
+                    // Navigate to the parent object, preserving existing properties
                     for (let i = 0; i < propertyPath.length - 1; i++) {
                         const prop = propertyPath[i];
-                        console.log(`Creating/accessing path: ${prop}`);
                         if (!currentObj[prop]) {
                             currentObj[prop] = {};
                         }
+                        // Create a copy of the existing object if it doesn't exist
                         currentObj = currentObj[prop];
                     }
                 }
@@ -454,12 +443,10 @@ export class PropertyPanel {
                 const finalProperty = propertyPath[propertyPath.length - 1];
                 currentObj[finalProperty] = parsedValue;
 
-                // Remove any incorrectly placed properties
-                if (propertyPath.length > 1 && widget.props[finalProperty]) {
+                // Remove the old property only if it was incorrectly placed at the root
+                if (propertyPath.length > 1 && widget.props[finalProperty] && !propertyPath.includes('colour')) {
                     delete widget.props[finalProperty];
                 }
-
-                console.log("After update - widget.props:", JSON.stringify(widget.props));
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 

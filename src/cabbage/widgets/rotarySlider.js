@@ -368,7 +368,7 @@ export class RotarySlider {
       `;
       }
     }
-
+    console.log("Drawing rotary slider", this.props.colour);
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference
     const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;
