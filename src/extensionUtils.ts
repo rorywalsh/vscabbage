@@ -219,82 +219,61 @@ export class ExtensionUtils {
      */
     static formatText(text: string, indentSpaces: number = 4): string {
         const lines = text.split('\n');
-        let indents = 0;
         let formattedText = '';
-        let insideCabbage = false;
-        let cabbageContent = '';
 
         // Create a string with the specified number of spaces
         const indentString = ' '.repeat(indentSpaces);
 
         lines.forEach((line, index) => {
-            const trimmedLine = line.trim();
-
-            // Detect the start of the <Cabbage> block
-            if (trimmedLine.startsWith('<Cabbage>')) {
-                insideCabbage = true;
-                formattedText += line + '\n';
-                return;
-            }
-
-            // Detect the end of the </Cabbage> block
-            if (trimmedLine.startsWith('</Cabbage>')) {
-                insideCabbage = false;
-
-                // Process and format the JSON content
-                try {
-                    const jsonArray = JSON.parse(cabbageContent);
-                    const formattedJson = ExtensionUtils.formatJsonObjects(jsonArray, '');
-                    formattedText += formattedJson + '\n';
-                } catch (error) {
-                    formattedText += cabbageContent + '\n'; // If parsing fails, keep the original content
-                }
-
-                formattedText += line + '\n';
-                cabbageContent = ''; // Reset the Cabbage content
-                return;
-            }
-
-            if (insideCabbage) {
-                // Collect Cabbage content
-                cabbageContent += line.trim();
-            } else {
-                // Continue with the regular Csound formatting logic
-
-                // Trim leading whitespace from non-empty lines
-                const trimmedLine = line.trim().length > 0 ? line.trimStart() : line;
-
-                // Increase indentation level for specific keywords
-                if (index > 0 && (
-                    lines[index - 1].trim().startsWith("if ") ||
-                    lines[index - 1].trim().startsWith("if(") ||
-                    lines[index - 1].trim().startsWith("instr") ||
-                    lines[index - 1].trim().startsWith("opcode") ||
-                    lines[index - 1].trim().startsWith("else") ||
-                    lines[index - 1].trim().startsWith("while")
-                )) {
-                    indents++;
-                }
-
-                // Decrease indentation level for end keywords
-                if (
-                    trimmedLine.startsWith("endif") ||
-                    trimmedLine.startsWith("endin") ||
-                    trimmedLine.startsWith("endop") ||
-                    trimmedLine.startsWith("od") ||
-                    trimmedLine.startsWith("else") ||
-                    trimmedLine.startsWith("enduntil")
-                ) {
-                    indents = Math.max(0, indents - 1);
-                }
-
-                // Add indentation
-                const indentText = indentString.repeat(indents);
-                formattedText += indentText + trimmedLine + '\n';
-            }
+            // Format the non-Cabbage content
+            formattedText += this.formatNonCabbageContent(line, indentString, lines, index);
         });
 
         return formattedText;
+    }
+
+    static collapseCabbageContent(cabbageContent: string): string {
+        let formattedCabbageText = '';
+        try {
+            const jsonArray = JSON.parse(cabbageContent);
+            formattedCabbageText = ExtensionUtils.formatJsonObjects(jsonArray, '') + '\n';
+        } catch (error) {
+            formattedCabbageText = cabbageContent + '\n'; // If parsing fails, keep the original content
+        }
+        return formattedCabbageText;
+    }
+
+    static formatNonCabbageContent(line: string, indentString: string, lines: string[], index: number): string {
+        let indents = 0;
+        const trimmedLine = line.trim().length > 0 ? line.trimStart() : line;
+
+        // Increase indentation level for specific keywords
+        if (index > 0 && (
+            lines[index - 1].trim().startsWith("if ") ||
+            lines[index - 1].trim().startsWith("if(") ||
+            lines[index - 1].trim().startsWith("instr") ||
+            lines[index - 1].trim().startsWith("opcode") ||
+            lines[index - 1].trim().startsWith("else") ||
+            lines[index - 1].trim().startsWith("while")
+        )) {
+            indents++;
+        }
+
+        // Decrease indentation level for end keywords
+        if (
+            trimmedLine.startsWith("endif") ||
+            trimmedLine.startsWith("endin") ||
+            trimmedLine.startsWith("endop") ||
+            trimmedLine.startsWith("od") ||
+            trimmedLine.startsWith("else") ||
+            trimmedLine.startsWith("enduntil")
+        ) {
+            indents = Math.max(0, indents - 1);
+        }
+
+        // Add indentation
+        const indentText = indentString.repeat(indents);
+        return indentText + trimmedLine + '\n';
     }
 
     /**

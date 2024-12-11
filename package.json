@@ -23,6 +23,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cabbage.goToDefinition",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Cabbage",
       "properties": {
@@ -138,6 +147,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.collapseCabbageJSON",
+        "title": "Collapse Cabbage section",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.selectSamplingRate",
         "title": "Select Sampling Rate",
         "category": "Cabbage"
@@ -190,6 +204,11 @@
       {
         "command": "cabbage.createNewCabbageSynth",
         "title": "Create a new Cabbage Synth file",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.goToDefinition",
+        "title": "Go to widget definition",
         "category": "Cabbage"
       }
     ]
