@@ -92,10 +92,10 @@ if (vscode !== null) {
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {
-
+    console.log("onMsessage", event.data);
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
-    console.log("onMsessage", message);
+    
     // Handle different commands based on the message received
     switch (message.command) {
 

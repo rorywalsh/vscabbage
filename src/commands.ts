@@ -93,7 +93,7 @@ export class Commands {
                         //     file.endsWith('.png') || 
                         //     file.endsWith('.jpeg')
                         // );
-                        
+
                         // Send the files back to the WebView
                         if (this.panel) {
                             this.panel.webview.postMessage({
@@ -242,17 +242,20 @@ export class Commands {
 
         if (this.panel.webview.options.localResourceRoots) {
             this.panel.webview.options.localResourceRoots.forEach((uri) => {
-                if(this.panel) {
-                console.warn('Local resource roots:', this.panel.webview.asWebviewUri(uri));
+                if (this.panel) {
+                    console.warn('Local resource roots:', this.panel.webview.asWebviewUri(uri));
                 }
             });
 
         }
-        
+
         // console.error('Local resource roots:', this.panel.webview.options.localResourceRoots);
 
         // Handle panel disposal
         this.panel.onDidDispose(() => {
+            this.processes.forEach((p) => {
+                p?.kill("SIGKILL");
+            });
             this.panel = undefined;
         }, null, context.subscriptions);
 
@@ -288,8 +291,9 @@ export class Commands {
             await this.setupWebViewPanel(context);
         }
 
+        const config = vscode.workspace.getConfiguration("cabbage");
+
         if (this.panel) {
-            const config = vscode.workspace.getConfiguration("cabbage");
             const launchInNewColumn = config.get("launchInNewColumn");
             const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
@@ -304,12 +308,10 @@ export class Commands {
         }
 
         const command = Settings.getCabbageBinaryPath('CabbageApp');
-        console.log("full command:", command);
         const cabbagePath = vscode.Uri.file(command);
 
         try {
             await vscode.workspace.fs.stat(cabbagePath);
-            this.vscodeOutputChannel.append(`Cabbage service app found: ${command}\n`);
         } catch (error) {
             this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found. Please set the binary path from the command palette.\n`);
             this.checkForCabbageSrcDirectory();
@@ -338,13 +340,20 @@ export class Commands {
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
-                this.vscodeOutputChannel.append(command+','+editor.fileName+','+this.portNumber.toString());
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
-                    this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
-                });
-                process.stderr.on("data", (data: { toString: () => string; }) => {
-                    this.vscodeOutputChannel.append(data.toString().replace(/\x1b\[m/g, ""));
+
+                    if (!data.toString().startsWith('RtApi') && !data.toString().startsWith('MidiIn')
+                        && !data.toString().startsWith('iplug::') && !data.toString().startsWith('RtAudio')) {
+                        if (data.toString().startsWith('Cabbage DEBUG')) {
+                            if (config.get("verboseLogging")) {
+                                this.vscodeOutputChannel.append(data.toString());
+                            }
+                        }
+                        else {
+                            this.vscodeOutputChannel.append(data.toString());
+                        }
+                    }
                 });
             } else {
                 console.error('Invalid file name or no extension found\n');
@@ -357,6 +366,9 @@ export class Commands {
         }
     }
 
+    static async compileInstrument(){
+        //todo move compiling logic out of on save..
+    }
     /**
      * Checks for the existence of a Cabbage source directory in the settings.
      */
@@ -372,13 +384,110 @@ export class Commands {
             }, 500);
         }
     }
-    /**
-     * Expands and formats a JSON block within Cabbage tags in the active editor.
-     */
-    static expandCabbageJSON() {
+
+    static goToDefinition() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            return;
+            vscode.window.showErrorMessage("No active editor found.");
+            return; // Exit if no active editor
+        }
+
+        const position = editor.selection.active; // Get the current cursor position
+        const word = Commands.getWordAtPosition(editor, position); // Use Commands to extract the word at the cursor
+
+        if (word) {
+            Commands.jumpToWidgetObject(word); // Use Commands to jump to the corresponding widget using the extracted word
+        } else {
+            vscode.window.showErrorMessage("No valid word found at the cursor position.");
+        }
+    }
+
+    // Helper function to extract the word at the given position
+    static getWordAtPosition(editor: vscode.TextEditor, position: vscode.Position): string | null {
+        if (!editor || !position) {
+            vscode.window.showErrorMessage("Invalid editor or position.");
+            return null; // Return null if editor or position is invalid
+        }
+
+        const line = editor.document.lineAt(position.line).text; // Get the current line text
+        const startChar = position.character; // Current cursor position
+
+        // Display the current line and cursor position in the VSCode window
+        vscode.window.showInformationMessage(`Current line: "${line}"`);
+        vscode.window.showInformationMessage(`Cursor position: ${startChar}`);
+
+        // Use a regex to find the word enclosed in quotes
+        const wordRegex = /"([^"]*)"/g; // Matches words enclosed in double quotes
+        let match;
+
+        // Find the word in the current line
+        while ((match = wordRegex.exec(line)) !== null) {
+            const matchStart = match.index + 1; // Start index of the word (after the opening quote)
+            const matchEnd = matchStart + match[1].length; // End index of the word (before the closing quote)
+
+            // Check if the cursor is within the match
+            if (startChar >= matchStart && startChar < matchEnd) {
+                return match[1]; // Return the matched word without quotes
+            }
+        }
+
+        return null; // No word found
+    }
+
+    // Example of the jumpToWidgetObject function
+    static jumpToWidgetObject(widgetName: string) {
+        // Implement the logic to jump to the widget based on the widgetName
+        const widgetPosition = Commands.findWidgetPosition(widgetName); // Use Commands to find the widget position
+        if (widgetPosition) {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                editor.selection = new vscode.Selection(widgetPosition, widgetPosition);
+                editor.revealRange(new vscode.Range(widgetPosition, widgetPosition));
+            }
+        } else {
+            vscode.window.showErrorMessage(`Widget "${widgetName}" not found.`);
+        }
+    }
+
+    // Example of a function to find the widget position (you'll need to implement this)
+    static findWidgetPosition(widgetName: string): vscode.Position | null {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return null; // No active editor
+        }
+
+        const document = editor.document;
+        const text = document.getText(); // Get the entire document text
+
+        // Create a regex pattern to find the channel in the JSON objects
+        const pattern = new RegExp(`"channel":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the channel
+
+        // Search for the pattern in the document text
+        const match = pattern.exec(text);
+        if (match) {
+            const startIndex = match.index; // Get the start index of the match
+            const endIndex = startIndex + match[0].length; // Get the end index of the match
+
+            // Convert the indices to positions in the document
+            const startPos = document.positionAt(startIndex);
+            const endPos = document.positionAt(endIndex);
+
+            // Return the start position of the match
+            return startPos;
+        }
+
+        return null; // No match found
+    }
+
+    /**
+     * Get the current cabbage mode
+     * @param editor 
+     * @returns Returns the current cabbage JSON code
+     */
+    static getCabbageContent(editor: vscode.TextEditor): { content: string, range: vscode.Range | null } {
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return { content: '', range: null };
         }
 
         const document = editor.document;
@@ -392,18 +501,53 @@ export class Commands {
 
         if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
             vscode.window.showErrorMessage("Cabbage section not found or is invalid.");
-            return;
+            return { content: '', range: null };
         }
 
         const startPos = document.positionAt(startIndex + startTag.length);
         const endPos = document.positionAt(endIndex);
-
         const range = new vscode.Range(startPos, endPos);
         const cabbageContent = document.getText(range).trim();
 
+        return { content: cabbageContent, range };
+    }
+
+    /**
+     * Collapse the Cabbage JSON content in the active editor.
+     */
+    static collapseCabbageJSON() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return; // Exit if no active editor
+        }
+
+        const { content: cabbageContent, range } = Commands.getCabbageContent(editor);
+        if (!range) {
+            return; // Exit if the range is invalid
+        }
+
+        // Collapse the Cabbage content
+        const collapsedContent = ExtensionUtils.collapseCabbageContent(cabbageContent);
+
+        // Update the document with the collapsed content
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(editor.document.uri, range, collapsedContent); // Replace with collapsed content only
+        return vscode.workspace.applyEdit(edit);
+    }
+
+    /**
+     * Expands the Cabbage JSON content in the active editor.
+     */
+    static expandCabbageJSON() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+        const { content: cabbageContent, range } = Commands.getCabbageContent(editor);
+        if (!range) return; // Exit if the range is invalid
+
         try {
             const jsonObject = JSON.parse(cabbageContent);
-
             const formattedJson = JSON.stringify(jsonObject, null, 4);
 
             editor.edit(editBuilder => {
@@ -479,57 +623,6 @@ export class Commands {
         }
         const examplesPath = path.join(extension.extensionPath, 'examples');
         return filePath.startsWith(examplesPath);
-    }
-
-    static async jumpToWidgetObject() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return;
-        }
-
-        if (!await Commands.hasCabbageTags(editor.document)) {
-            vscode.window.showWarningMessage('No Cabbage section found in the current file.');
-            return;
-        }
-
-        const text = editor.document.getText();
-        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
-        const match = text.match(cabbageRegex);
-
-        try {
-            const cabbageContent = match![1].trim();
-            const widgets = JSON.parse(cabbageContent);
-            
-            // Create simple array of channel names
-            const channels = widgets.map((widget: any) => widget.channel || 'unnamed');
-
-            // Show QuickPick menu with just the channel names
-            const selected = await vscode.window.showQuickPick(channels, {
-                placeHolder: 'Select a widget to jump to'
-            });
-
-            if (selected) {
-                // Create regex to find the channel in the text
-                const channelRegex = new RegExp(`"channel"\\s*:\\s*"${selected}"`, 'i');
-                const channelMatch = text.match(channelRegex);
-                
-                if (channelMatch && channelMatch.index !== undefined) {
-                    const position = editor.document.positionAt(channelMatch.index);
-                    
-                    // Reveal the position in the editor    
-                    editor.revealRange(
-                        new vscode.Range(position, position),
-                        vscode.TextEditorRevealType.InCenter
-                    );
-
-                    // Move cursor to the position
-                    editor.selection = new vscode.Selection(position, position);
-                }
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage('Failed to parse Cabbage JSON content.');
-            console.error(error);
-        }
     }
 
     /**
@@ -778,7 +871,7 @@ export class Commands {
         if (textEditor) {
             return textEditor.document;
         }
-        
+
         if (this.lastSavedFileName) {
             try {
                 return await vscode.workspace.openTextDocument(this.lastSavedFileName);
@@ -786,7 +879,7 @@ export class Commands {
                 console.error("Failed to open document:", error);
             }
         }
-        
+
         console.error("No text editor is available and no last saved file name.");
         return undefined;
     }
@@ -795,7 +888,7 @@ export class Commands {
         const text = document.getText();
         const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
         const match = text.match(cabbageRegex);
-        
+
         if (!match) {
             console.log("No Cabbage section found in document");
             return false;
@@ -805,21 +898,21 @@ export class Commands {
             const cabbageContent = match[1].trim();
             let widgets = JSON.parse(cabbageContent);
             console.log("Current widgets:", widgets.length);
-            
+
             // Remove the widget with the specified channel
             const originalLength = widgets.length;
             widgets = widgets.filter((widget: any) => widget.channel !== channel);
             console.log(`Removed ${originalLength - widgets.length} widgets`);
-            
+
             // Format and update the Cabbage section
             const config = vscode.workspace.getConfiguration("cabbage");
             const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
             const formattedArray = isSingleLine
                 ? ExtensionUtils.formatJsonObjects(widgets, '    ')
                 : JSON.stringify(widgets, null, 4);
-            
+
             const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
-            
+
             // Apply the edit
             const edit = new vscode.WorkspaceEdit();
             edit.replace(
@@ -830,7 +923,7 @@ export class Commands {
                 ),
                 updatedCabbageSection
             );
-            
+
             return await vscode.workspace.applyEdit(edit);
         } catch (error) {
             console.error('Error processing removeWidget command:', error);

@@ -264,7 +264,7 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        // console.warn('Current CSD Path', obj.currentCsdPath === undefined ? WidgetManager.getCurrentCsdPath() : obj.currentCsdPath);
+        console.warn('updateWidget', obj, data);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
@@ -324,6 +324,7 @@ export class WidgetManager {
                     }
 
                     if(widget.props.type === "genTable"){
+                        console.warn("Updating table", widget.props);
                         widget.updateTable();
                     }
                 } else {

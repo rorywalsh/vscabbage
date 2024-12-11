@@ -23,6 +23,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cabbage.goToDefinition",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Cabbage",
       "properties": {
@@ -71,6 +80,11 @@
           "default": 4,
           "description": "Set the number of pixels to move by when dragging an element."
         },
+        "cabbage.logVerbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging from Cabbage."
+        },
         "cabbage.saveExternalJSON": {
           "type": "boolean",
           "default": true,
@@ -98,8 +112,8 @@
     },
     "commands": [
       {
-        "command": "cabbage.launch",
-        "title": "Launch Cabbage",
+        "command": "cabbage.compile",
+        "title": "Compile Cabbage Instrument",
         "category": "Cabbage"
       },
       {
@@ -135,6 +149,11 @@
       {
         "command": "cabbage.expandCabbageJSON",
         "title": "Expand Cabbage section",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.collapseCabbageJSON",
+        "title": "Collapse Cabbage section",
         "category": "Cabbage"
       },
       {
@@ -194,7 +213,11 @@
       },
       {
         "command": "cabbage.jumpToWidgetObject",
-        "title": "Jump to widget definition",
+        "title": "Jump to widget definition"
+      },
+      {
+        "command": "cabbage.goToDefinition",
+        "title": "Go to widget definition",
         "category": "Cabbage"
       }
     ]
