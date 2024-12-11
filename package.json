@@ -191,6 +191,11 @@
         "command": "cabbage.createNewCabbageSynth",
         "title": "Create a new Cabbage Synth file",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.jumpToWidgetObject",
+        "title": "Jump to widget definition",
+        "category": "Cabbage"
       }
     ]
   },
