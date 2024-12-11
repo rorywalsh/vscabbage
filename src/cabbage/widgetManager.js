@@ -264,7 +264,6 @@ export class WidgetManager {
 
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        console.warn('updateWidget', data);
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
@@ -310,7 +309,6 @@ export class WidgetManager {
             } 
             else {
                 // Existing code for other widget types
-                console.warn(`Updating widget ${widget.props.channel} with data:`, data);
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();

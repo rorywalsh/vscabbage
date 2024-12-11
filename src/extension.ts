@@ -136,7 +136,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', Commands.goToDefinition));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', Commands.compileInstrument));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', () => {
+        onCompileInstrument(context);
+    }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
 
     // Register the commands for creating new Cabbage files
@@ -145,45 +147,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     //Register command for jumping to widget definition
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
- 
-    /**
-     * Event handler triggered when a text document is saved.
-     * - Checks if the saved document is a .csd file with Cabbage-specific tags.
-     * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open if the "showUIOnSave" setting is enabled.
-     * - Waits for the WebSocket connection to be ready before handling any messages from the webview.
-     * - Listens for messages from the webview and processes them via WebSocket if available.
-     * 
-     * @param editor The text editor containing the saved document.
-     */
-    vscode.workspace.onDidSaveTextDocument(async (editor) => {
-        if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
-            setCabbageMode("play");
-            const config = vscode.workspace.getConfiguration('cabbage');
-            if (config.get('showUIOnSave')) {
-                if (!Commands.getPanel()) {
-                    Commands.setupWebViewPanel(context);
-                }
-            }
 
-            await Commands.onDidSave(editor, context);
-            await waitForWebSocket();  // Wait until the WebSocket is ready!
 
-            Commands.getPanel()!.webview.onDidReceiveMessage(message => {
-                if (websocket) {
-                    Commands.handleWebviewMessage(
-                        message,
-                        websocket,
-                        firstMessages,
-                        vscode.window.activeTextEditor,
-                        context
-                    );
-                }
-                else {
-                    console.warn("websocket is undefined?");
-                }
-            });
-        }
-    });
+    // vscode.workspace.onDidSaveTextDocument(async (editor) => {
+    //     // onCompileInstrument(context);
+    // });
 
 
 
@@ -215,6 +183,63 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // triggered when tab changes
     });
 
+}
+
+/**
+ *   Compile handler triggered when via the compile command.
+ * - Tries to save the file first as Cabbage/Csound will read the file from disk
+ * - Checks if the saved document is a .csd file with Cabbage-specific tags.
+ * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open if the "showUIOnSave" setting is enabled.
+ * - Waits for the WebSocket connection to be ready before handling any messages from the webview.
+ * - Listens for messages from the webview and processes them via WebSocket if available.
+ * 
+ * @param editor The text editor containing the saved document.
+ */
+
+async function onCompileInstrument(context: vscode.ExtensionContext) {
+    const editor = vscode.window.activeTextEditor?.document;
+    if (editor) {
+    if (editor.isDirty) { // Check if the document has unsaved changes
+        editor.save().then((success) => {
+            if (success) {
+                // vscode.window.showInformationMessage('Document saved successfully!');
+            } else {
+                vscode.window.showErrorMessage('Failed to save the document.');
+            }
+        });
+    } else {
+        vscode.window.showInformationMessage('No changes to save.');
+    }
+    
+
+        if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
+            setCabbageMode("play");
+            const config = vscode.workspace.getConfiguration('cabbage');
+            if (config.get('showUIOnSave')) {
+                if (!Commands.getPanel()) {
+                    Commands.setupWebViewPanel(context);
+                }
+            }
+
+            await Commands.onDidSave(editor, context);
+            await waitForWebSocket();  // Wait until the WebSocket is ready!
+
+            Commands.getPanel()!.webview.onDidReceiveMessage(message => {
+                if (websocket) {
+                    Commands.handleWebviewMessage(
+                        message,
+                        websocket,
+                        firstMessages,
+                        vscode.window.activeTextEditor,
+                        context
+                    );
+                }
+                else {
+                    console.warn("websocket is undefined?");
+                }
+            });
+        }
+    }
 }
 
 // Function to check if the path exists with additional checks
@@ -312,7 +337,7 @@ async function setupWebSocketServer() {
 
     // Add WebSocket server event listeners here
     wss.on('connection', (ws: WebSocket) => {
-        console.warn('Client connected');   
+        console.warn('Client connected');
 
         // There are times when Cabbage will send messages before the webview is ready to receive them. 
         // So first thing to do is flush the first messages received from Cabbage

@@ -79,7 +79,7 @@ export class GenTable {
     }
 
     updateTable() {
-        console.warn("updating table");
+
         this.canvas.width = this.props.bounds.width;
         this.canvas.height = this.props.bounds.height;
         // Clear canvas
