@@ -291,8 +291,9 @@ export class Commands {
             await this.setupWebViewPanel(context);
         }
 
+        const config = vscode.workspace.getConfiguration("cabbage");
+
         if (this.panel) {
-            const config = vscode.workspace.getConfiguration("cabbage");
             const launchInNewColumn = config.get("launchInNewColumn");
             const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
@@ -341,10 +342,17 @@ export class Commands {
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
-                    if (!data.toString().startsWith('RtApi') && !data.toString().startsWith('MidiIn') 
-                    && !data.toString().startsWith('iplug::') && !data.toString().startsWith('RtAudio')
-                    && !data.toString().startsWith('Cabbage DEBUG')) {
-                        this.vscodeOutputChannel.append(data.toString());
+
+                    if (!data.toString().startsWith('RtApi') && !data.toString().startsWith('MidiIn')
+                        && !data.toString().startsWith('iplug::') && !data.toString().startsWith('RtAudio')) {
+                        if (data.toString().startsWith('Cabbage DEBUG')) {
+                            if (config.get("verboseLogging")) {
+                                this.vscodeOutputChannel.append(data.toString());
+                            }
+                        }
+                        else {
+                            this.vscodeOutputChannel.append(data.toString());
+                        }
                     }
                 });
             } else {
@@ -358,6 +366,9 @@ export class Commands {
         }
     }
 
+    static async compileInstrument(){
+        //todo move compiling logic out of on save..
+    }
     /**
      * Checks for the existence of a Cabbage source directory in the settings.
      */

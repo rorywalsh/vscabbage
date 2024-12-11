@@ -80,6 +80,11 @@
           "default": 4,
           "description": "Set the number of pixels to move by when dragging an element."
         },
+        "cabbage.logVerbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging from Cabbage."
+        },
         "cabbage.saveExternalJSON": {
           "type": "boolean",
           "default": true,
@@ -107,8 +112,8 @@
     },
     "commands": [
       {
-        "command": "cabbage.launch",
-        "title": "Launch Cabbage",
+        "command": "cabbage.compile",
+        "title": "Compile Cabbage Instrument",
         "category": "Cabbage"
       },
       {

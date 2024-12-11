@@ -136,6 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', Commands.goToDefinition));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', Commands.compileInstrument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
 
     // Register the commands for creating new Cabbage files
@@ -143,7 +144,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
 
     //Register command for jumping to widget definition
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
  
     /**
      * Event handler triggered when a text document is saved.
