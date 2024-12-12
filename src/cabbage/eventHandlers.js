@@ -129,11 +129,11 @@ export function setupFormHandlers() {
     unGroupOption.style.cursor = "pointer";
 
     // Append menu options to the context menu
-    groupContextMenu.appendChild(groupOption);
-    groupContextMenu.appendChild(unGroupOption);
+    // groupContextMenu.appendChild(groupOption);
+    // groupContextMenu.appendChild(unGroupOption);
 
     // Append context menu to the document body
-    document.body.appendChild(groupContextMenu);
+    // document.body.appendChild(groupContextMenu);
 
     // Add event listeners for group and ungroup functionality (Currently just logs actions)
     groupOption.addEventListener("click", () => {

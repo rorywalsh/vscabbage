@@ -145,15 +145,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => { Commands.createNewCabbageFile('effect'); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
 
-    //Register command for jumping to widget definition
+    // Register command for jumping to widget definition
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
-
+    // Register the command for adding a new Cabbage section
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.addCabbageSection', () => { Commands.addCabbageSection(); }));
-
-    // vscode.workspace.onDidSaveTextDocument(async (editor) => {
-    //     // onCompileInstrument(context);
-    // });
-
 
 
     /**
@@ -234,7 +229,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
             const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
             const panel = Commands.getPanel();
-            if (panel) {
+            if (panel && fileName.length > 0) {
                 panel.title = fileName;
             }
         }

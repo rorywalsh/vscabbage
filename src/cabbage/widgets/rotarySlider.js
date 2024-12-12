@@ -59,7 +59,7 @@ export class RotarySlider {
       "type": "rotarySlider",
       "decimalPlaces": 1,
       "velocity": 0,
-      "popup": 1,
+      "popup": 0,
       "visible": 1,
       "automatable": 1,
       "valuePrefix": "",

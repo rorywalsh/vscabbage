@@ -30,7 +30,7 @@ export class VerticalSlider {
         "align": "centre",
         "colour": "#dddddd"
       },
-      "valueTextBox": 0,
+      "valueTextBox": 1,
       "colour": {
         "fill": "#0295cf",
         "stroke": {
@@ -47,7 +47,7 @@ export class VerticalSlider {
       "velocity": 0,
       "visible": 1,
       "opacity": 1,
-      "popup": 1,
+      "popup": 0,
       "automatable": 1,
       "valuePrefix": "",
       "valuePostfix": ""
