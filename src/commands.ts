@@ -361,9 +361,25 @@ export class Commands {
         }
     }
 
-    static async compileInstrument(){
-        //todo move compiling logic out of on save..
+    static async addCabbageSection(){
+        Commands.getOutputChannel().appendLine('Adding Cabbage section');
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            Commands.getOutputChannel().appendLine('No active editor found');
+            return;
+        }
+
+        const document = editor.document;
+        const cabbageContent = `
+<Cabbage>[
+{"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"}
+]</Cabbage>`;
+        const edit = new vscode.WorkspaceEdit();
+        edit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
+        vscode.workspace.applyEdit(edit);
+        
     }
+
     /**
      * Checks for the existence of a Cabbage source directory in the settings.
      */

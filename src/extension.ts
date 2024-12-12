@@ -148,6 +148,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     //Register command for jumping to widget definition
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.addCabbageSection', () => { Commands.addCabbageSection(); }));
 
     // vscode.workspace.onDidSaveTextDocument(async (editor) => {
     //     // onCompileInstrument(context);

@@ -223,7 +223,7 @@ export class ExtensionUtils {
                         if (!success && retryCount > 0) {
                             // If the edit failed, wait a bit and try again
                             await new Promise(resolve => setTimeout(resolve, 100));
-                            return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, textEditor, highlightDecorationType, lastSavedFileName, panel, retryCount - 1);
+                            return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, retryCount - 1);
                         }
 
                         if (cabbageMatch.index !== undefined && textEditor) {

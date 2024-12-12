@@ -30,6 +30,7 @@ export class Image {
             "automatable": 0,
             "value": 0,
             "min": 0,
+            "svgText": "",
             "max": 1
         };
 
@@ -60,6 +61,17 @@ export class Image {
         }
 
         const outlineOffset = this.props.colour.stroke.width / 2;
+
+        // Check if svgText is not empty and render it
+        if (this.props.svgText) {
+            return `
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: all; overflow: hidden;">
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                        ${this.props.svgText}
+                    </div>
+                </div>
+            `;
+        }
 
         const imagePath = CabbageUtils.getFullMediaPath(this.props.file, this.props.currentCsdFile || '');
         console.log(imagePath);
