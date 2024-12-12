@@ -74,11 +74,45 @@ export class ExtensionUtils {
                 const startPos = document.positionAt(objectStartIndex);
                 const endPos = document.positionAt(objectEndIndex);
                 textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(startPos, endPos) }]);
-                if (shouldScroll) textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+                if (shouldScroll){
+                    textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+                }
             }
         }
     }
 
+    /**
+     * Finds and saves a document based on the filename.
+     * @param filename The name of the file to find.
+     * @returns The found and saved document or undefined if not found.
+     */
+    static async findAndSaveDocument(filename: string): Promise<vscode.TextDocument | undefined> {
+        const tabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
+        for (const tab of tabs) {
+            if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath.endsWith(filename)) {
+                const document = await vscode.workspace.openTextDocument(tab.input.uri);
+                await ExtensionUtils.saveDocumentIfDirty(document);
+                return document;
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Saves the document if it is dirty.
+     * @param document The document to save.
+     * @returns True if saved successfully, otherwise false.
+     */
+    static async saveDocumentIfDirty(document: vscode.TextDocument): Promise<boolean> {
+        if (document.isDirty) {
+            const success = await document.save();
+            if (!success) {
+                vscode.window.showErrorMessage('Failed to save the document.');
+                return false;
+            }
+        }
+        return true;
+    }
     /**
      * Opens or shows a text document, ensuring it appears in the correct view column
      * and that focus remains on the previously active document.
@@ -103,12 +137,14 @@ export class ExtensionUtils {
      * Updates JSON text in the document based on the current mode, highlight, and properties.
      * Handles both external file references and in-line JSON updates within `<Cabbage>` tags.
      */
-    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, textEditor: vscode.TextEditor | undefined, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3): Promise<void> {
+    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3): Promise<void> {
         if (cabbageMode === "play") {
             return;
         }
 
-        console.log("updateText called. textEditor:", !!textEditor, "lastSavedFileName:", lastSavedFileName);
+        // this isn't always a text file, it can also be the panel. So we need to retrieve the panel name
+        // and then the relevant textEditor
+        const textEditor = vscode.window.activeTextEditor;
 
         let props: WidgetProps;
         try {

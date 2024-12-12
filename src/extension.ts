@@ -195,36 +195,55 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  * 
  * @param editor The text editor containing the saved document.
  */
-
 async function onCompileInstrument(context: vscode.ExtensionContext) {
-    const editor = vscode.window.activeTextEditor?.document;
-    if (editor) {
-    if (editor.isDirty) { // Check if the document has unsaved changes
-        editor.save().then((success) => {
-            if (success) {
-                // vscode.window.showInformationMessage('Document saved successfully!');
-            } else {
-                vscode.window.showErrorMessage('Failed to save the document.');
+    let editor = vscode.window.activeTextEditor?.document;
+    //if editor is not a text file but an instrument panel
+    if (!editor) {
+        const panel = Commands.getPanel();
+        if (panel) {
+            const targetDocument = await ExtensionUtils.findAndSaveDocument(panel.title+'.csd');
+            if (!targetDocument) {
+                console.log('No editor or document with filename Unhinged.csd found.');
+                return;
             }
-        });
+            editor = targetDocument;
+        }
     } else {
-        vscode.window.showInformationMessage('No changes to save.');
+        await ExtensionUtils.saveDocumentIfDirty(editor);
     }
-    
 
-        if (editor.fileName.endsWith('.csd') && await Commands.hasCabbageTags(editor)) {
-            setCabbageMode("play");
-            const config = vscode.workspace.getConfiguration('cabbage');
-            if (config.get('showUIOnSave')) {
-                if (!Commands.getPanel()) {
-                    Commands.setupWebViewPanel(context);
-                }
+    //kill any other processes running
+    Commands.getProcesses().forEach((p) => {
+        p?.kill("SIGKILL");
+    });
+
+    if (editor) {
+
+        if (!editor.fileName.endsWith('.csd') || !await Commands.hasCabbageTags(editor)) {
+            return;
+        }
+
+        setCabbageMode("play");
+        const config = vscode.workspace.getConfiguration('cabbage');
+
+        if (config.get('showUIOnSave') && !Commands.getPanel()) {
+            Commands.setupWebViewPanel(context);
+        }
+        else{
+            const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
+            const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
+            const panel = Commands.getPanel();
+            if (panel) {
+                panel.title = fileName;
             }
+        }
+        await Commands.onDidSave(editor, context);
+        await waitForWebSocket();
 
-            await Commands.onDidSave(editor, context);
-            await waitForWebSocket();  // Wait until the WebSocket is ready!
 
-            Commands.getPanel()!.webview.onDidReceiveMessage(message => {
+        const panel = Commands.getPanel();
+        if (panel) {
+            panel.webview.onDidReceiveMessage(message => {
                 if (websocket) {
                     Commands.handleWebviewMessage(
                         message,
@@ -233,14 +252,15 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                         vscode.window.activeTextEditor,
                         context
                     );
-                }
-                else {
+                } else {
                     console.warn("websocket is undefined?");
                 }
             });
         }
     }
 }
+
+
 
 // Function to check if the path exists with additional checks
 function pathExists(p: string): boolean {

@@ -303,7 +303,7 @@ export class CabbageUtils {
           console.log('Updated height to:', props.bounds.height);
           break;
         default:
-          console.log('Unhandled identifier:', identifier);
+          break;
       }
     } else {
       console.log('Element or bounds not found:', props.channel, props.bounds);

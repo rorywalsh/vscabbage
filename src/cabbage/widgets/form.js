@@ -15,7 +15,7 @@ export class Form {
       "caption": "",
       "type": "form",
       "colour": {
-            "fill": "#0295cf"
+            "fill": "#004c6b"
         },
       "channel": "MainForm"
     };

@@ -213,7 +213,8 @@
       },
       {
         "command": "cabbage.jumpToWidgetObject",
-        "title": "Jump to widget definition"
+        "title": "Jump to widget definition",
+        "category": "Cabbage"
       },
       {
         "command": "cabbage.goToDefinition",

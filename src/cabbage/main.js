@@ -10,23 +10,25 @@ import { selectedElements } from "../cabbage/eventHandlers.js";
 
 let currentFileName = '';
 
-document.addEventListener('keydown', function (event) {
-    if (typeof acquireVsCodeApi === 'function') {
-        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-            event.preventDefault(); // Prevent the default save behavior
-            saveFromUIEditor();
-        }
-    }
-});
+// removing these methods as I don't want to hardcode shortcuts - best to use VS Code to 
+// handle this.
+// document.addEventListener('keydown', function (event) {
+//     if (typeof acquireVsCodeApi === 'function') {
+//         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+//             event.preventDefault(); // Prevent the default save behavior
+//             saveFromUIEditor();
+//         }
+//     }
+// });
 
-function saveFromUIEditor() {
-    if (typeof acquireVsCodeApi === 'function') {
-        vscode.postMessage({
-            command: 'saveFromUIEditor',
-            lastSavedFileName: currentFileName // You'll need to keep track of this
-        });
-    }
-}
+// function saveFromUIEditor() {
+//     if (typeof acquireVsCodeApi === 'function') {
+//         vscode.postMessage({
+//             command: 'saveFromUIEditor',
+//             lastSavedFileName: currentFileName // You'll need to keep track of this
+//         });
+//     }
+// }
 
 // Update the vscode assignment
 if (typeof acquireVsCodeApi === 'function') {

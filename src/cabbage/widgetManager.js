@@ -107,12 +107,13 @@ export class WidgetManager {
         if (widget.props.type !== "form") {
             widgetDiv.innerHTML = widget.getInnerHTML();
             WidgetManager.appendToMainForm(widgetDiv);
+            if (widget.props.type === "genTable") {
+                console.log("updating table");
+                widget.updateTable(); // Special handling for "gentable" widgets
+            }
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
-        } else if (widget.props.type === "genTable") {
-            console.log("updating table");
-            widget.updateTable(); // Special handling for "gentable" widgets
-        }
+        } 
 
         // Apply styles and return the widget properties
         WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
@@ -179,6 +180,14 @@ export class WidgetManager {
                 const ulMenu = document.createElement('ul');
                 ulMenu.className = 'menu';
 
+                // Prevent menu from closing when interacting with the scrollbar
+                const preventClose = (e) => {
+                    e.stopPropagation(); // Prevent click from closing the menu
+                };
+
+                contentDiv.addEventListener('mousedown', preventClose);
+                contentDiv.addEventListener('pointerdown', preventClose);
+
                 // Populate the menu with widget types
                 let menuItems = "";
                 widgetTypes.forEach((widget) => {
@@ -199,6 +208,37 @@ export class WidgetManager {
                 } else {
                     console.error("LeftPanel not found");
                 }
+
+                // Create a style element
+                const style = document.createElement('style');
+                style.textContent = `
+                    /* For WebKit browsers (Chrome, Safari) */
+                    .wrapper .content::-webkit-scrollbar {
+                        width: 12px; /* Width of the scrollbar */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-track {
+                        background: #f1f1f1; /* Background of the scrollbar track */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-thumb {
+                        background: #888; /* Color of the scrollbar thumb */
+                        border-radius: 6px; /* Rounded corners for the thumb */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-thumb:hover {
+                        background: #555; /* Color of the thumb on hover */
+                    }
+
+                    /* For Firefox */
+                    .wrapper .content {
+                        scrollbar-width: thin; /* Makes the scrollbar thinner */
+                        scrollbar-color: #888 #f1f1f1; /* thumb color and track color */
+                    }
+                `;
+
+                // Append the style element to the head
+                document.head.appendChild(style);
             } else {
                 // Fallback for non-VSCode mode
                 formDiv.className = "form nonDraggable";
@@ -339,7 +379,6 @@ export class WidgetManager {
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
-                    
                     await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                 }
                 else{

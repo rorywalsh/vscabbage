@@ -88,12 +88,6 @@ export class Commands {
                             console.error('Error reading directory:', err);
                             return;
                         }
-
-                        // const audioFiles = files.filter(file => 
-                        //     file.endsWith('.png') || 
-                        //     file.endsWith('.jpeg')
-                        // );
-
                         // Send the files back to the WebView
                         if (this.panel) {
                             this.panel.webview.postMessage({
@@ -118,7 +112,7 @@ export class Commands {
 
             case 'widgetUpdate':
                 if (getCabbageMode() !== "play") {
-                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, textEditor, this.highlightDecorationType, this.lastSavedFileName, this.panel);
+                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel);
                 }
                 break;
 
@@ -224,10 +218,11 @@ export class Commands {
         // Extract the directory path
         const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
         const directoryPath = fullPath ? path.dirname(fullPath) : '';
+        const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
 
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
-            'Cabbage UI Editor',
+            fileName,
             viewColumn,
             {
                 enableScripts: true,
@@ -342,16 +337,16 @@ export class Commands {
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
+                    const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
+                    const dataString = data.toString();
 
-                    if (!data.toString().startsWith('RtApi') && !data.toString().startsWith('MidiIn')
-                        && !data.toString().startsWith('iplug::') && !data.toString().startsWith('RtAudio')) {
-                        if (data.toString().startsWith('Cabbage DEBUG')) {
+                    if (!ignoredTokens.some(token => dataString.startsWith(token))) {
+                        if (dataString.startsWith('Cabbage DEBUG')) {
                             if (config.get("verboseLogging")) {
-                                this.vscodeOutputChannel.append(data.toString());
+                                this.vscodeOutputChannel.append(dataString);
                             }
-                        }
-                        else {
-                            this.vscodeOutputChannel.append(data.toString());
+                        } else {
+                            this.vscodeOutputChannel.append(dataString);
                         }
                     }
                 });
