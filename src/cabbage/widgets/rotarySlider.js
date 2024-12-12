@@ -155,6 +155,7 @@ export class RotarySlider {
     const popup = document.getElementById('popupValue');
     popup.classList.add('hide');
     popup.classList.remove('show');
+
     window.removeEventListener("pointermove", this.moveListener);
     window.removeEventListener("pointerup", this.upListener);
     this.isMouseDown = false;
@@ -182,7 +183,7 @@ export class RotarySlider {
     const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
-    if (popup) {
+    if (popup && this.props.popup === 1) {
       popup.textContent = parseFloat(this.props.value).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup

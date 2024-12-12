@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 // @ts-ignore
 import { WidgetProps } from './cabbage/widgetTypes';
 import path from 'path';
+import os from 'os';
 // @ts-ignore
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
 
@@ -312,6 +313,16 @@ export class ExtensionUtils {
         return indentText + trimmedLine + '\n';
     }
 
+    static getResourcePath() {
+        switch (os.platform()) {
+            case 'darwin': // macOS
+                return path.join(os.homedir(), 'Library', 'CabbageAudio');
+            case 'win32': // Windows
+                return process.env.PROGRAMDATA || path.join('C:', 'ProgramData', 'CabbageAudio');
+            default: // Other platforms (e.g., Linux)
+                return path.join(os.homedir(), '.config');
+        }
+    }
     /**
      * Compares two objects for deep equality.
      * @param obj1 - The first object to compare.

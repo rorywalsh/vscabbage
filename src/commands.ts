@@ -361,7 +361,7 @@ export class Commands {
         }
     }
 
-    static async addCabbageSection(){
+    static async addCabbageSection() {
         Commands.getOutputChannel().appendLine('Adding Cabbage section');
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -377,7 +377,7 @@ export class Commands {
         const edit = new vscode.WorkspaceEdit();
         edit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
         vscode.workspace.applyEdit(edit);
-        
+
     }
 
     /**
@@ -732,21 +732,35 @@ export class Commands {
             return;
         }
 
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
         //this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
         const config = vscode.workspace.getConfiguration('cabbage');
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
         const jsSource = config.get<string>('pathToJsSource');
+        const resourcesDir = ExtensionUtils.getResourcePath()+'/'+pluginName;
+
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
-        if (jsSource) {
-            pathToCabbageJsSource = path.join(jsSource, 'cabbage');
-            cabbageCSS = path.join(jsSource, 'media', 'cabbage.css');
+        if (jsSource === '') {
+            const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+            if(extension){
+            pathToCabbageJsSource = path.join(extension.extensionPath, 'src', 'cabbage');
+            cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
+            }
         }
 
 
         let binaryFile = '';
+        let binaryPath = config.get<string>("pathToCabbageBinary") || '';
+        if (binaryPath !== '') {
+            vscode.window.showInformationMessage('Using custom path to Cabbage binaries: ' + binaryPath);
+        }
         switch (type) {
             case 'VST3Effect':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Effect');
@@ -784,38 +798,36 @@ export class Commands {
 
         try {
             // 1. Create the export directory
-            await fs.promises.mkdir(destinationPath, { recursive: true });
-            console.log('Created export directory:', destinationPath);
+            await fs.promises.mkdir(resourcesDir, { recursive: true });
+            console.log('Created export directory:', resourcesDir);
 
             // 2. Copy JS source files
-            await Commands.copyDirectory(pathToCabbageJsSource, destinationPath);
+            await Commands.copyDirectory(pathToCabbageJsSource, path.join(resourcesDir, 'cabbage'));
             console.log('Copied JS source files');
 
             // 3. Create and write index.html
-            const indexHtmlPath = path.join(destinationPath, 'index.html');
+            const indexHtmlPath = path.join(resourcesDir, 'index.html');
             await fs.promises.writeFile(indexHtmlPath, indexDotHtml);
             console.log('Created index.html');
 
             // 4. Copy CSS file
             const cssFileName = path.basename(cabbageCSS);
-            const cssDestPath = path.join(destinationPath, cssFileName);
+            const cssDestPath = path.join(resourcesDir, cssFileName);
             await fs.promises.copyFile(cabbageCSS, cssDestPath);
             console.log('Copied CSS file');
+
+            // Rename and update the .csd file
+            const newCsdPath = path.join(resourcesDir, `${pluginName}.csd`);
+
+            if (editor) {
+                const newContent = await fs.promises.readFile(editor.document.fileName, 'utf8');
+                await fs.promises.writeFile(newCsdPath, newContent);
+                console.log('CSD file updated and renamed');
+            }
 
             // Copy the VST3 plugin
             await Commands.copyDirectory(binaryFile, destinationPath);
             console.log('Plugin successfully copied to:', destinationPath);
-
-            // Rename and update the .csd file
-            const oldCsdPath = path.join(destinationPath, 'CabbageVST3Effect.csd');
-            const newCsdPath = path.join(destinationPath, `${pluginName}.csd`);
-
-            if (this.lastSavedFileName) {
-                const newContent = await fs.promises.readFile(this.lastSavedFileName, 'utf8');
-                await fs.promises.writeFile(newCsdPath, newContent);
-                await fs.promises.unlink(oldCsdPath);
-                console.log('CSD file updated and renamed');
-            }
 
             // Rename the executable file inside the folder
             const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
@@ -845,7 +857,7 @@ export class Commands {
             });
 
         } catch (err) {
-            console.error('Error during plugin copy process:', err);
+            vscode.window.showInformationMessage('Error during plugin copy process:'+err);
             throw err;
         }
     }
