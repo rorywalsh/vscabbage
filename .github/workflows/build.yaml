@@ -35,10 +35,20 @@ jobs:
 
       - name: Download CsoundLib64 Package
         run: |
-          curl -L -o CsoundLib64-7.0-vanilla-universal.pkg "https://www.dropbox.com/scl/fi/8afz58gvjvwsa0u0nwr9g/CsoundLib64-7.0-vanilla-universal.pkg?rlkey=6kw4upth3olvmymhfjsndwgt9&st=mcxkg1hx&dl=1"
-          ls -l CsoundLib64-7.0-vanilla-universal.pkg
-          chmod +x CsoundLib64-7.0-vanilla-universal.pkg
-          sudo installer -pkg CsoundLib64-7.0-vanilla-universal.pkg -target /
+          # Download the package using curl
+          curl -L -o csound-7.zip "https://www.dropbox.com/scl/fi/d5hnkcecizlwgvnaw1yjy/csound-7.zip?rlkey=pf9v3ucfo8hecyl5ahbacr0a0&dl=1"
+          
+          # Extract the zip file
+          unzip csound-7.zip -d csound-7
+
+          # Verify the file exists
+          ls -l csound-7/CsoundLib64-7.0-vanilla-universal.pkg
+
+          # Make the downloaded file executable
+          chmod +x csound-7/CsoundLib64-7.0-vanilla-universal.pkg
+
+          # Install the package
+          sudo installer -pkg csound-7/CsoundLib64-7.0-vanilla-universal.pkg -target /
 
       - name: Configure build for cabbage3
         run: |
@@ -95,6 +105,13 @@ jobs:
           path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
           retention-days: 1
           if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+          with:
+            name: CabbageVST3Effect.vst3
+            path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
+            retention-days: 1
+            if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v3
         with:
