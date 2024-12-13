@@ -146,12 +146,12 @@ jobs:
           path: "./src/CabbageBundle/CabbageAUv2Effect.component"
         continue-on-error: true
 
-      # - name: Downloading CabbageVST3Synth
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: CabbageVST3Synth.vst3
-      #     path: "./src/CabbageBundle/CabbageVST3Synth.vst3"
-      #   continue-on-error: true
+      - name: Downloading CabbageVST3Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageVST3Synth.vst3
+          path: "./src/CabbageBundle/CabbageVST3Synth.vst3"
+        continue-on-error: true
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
