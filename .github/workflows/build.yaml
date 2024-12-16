@@ -270,11 +270,11 @@ jobs:
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-          with:
-            name: CabbageVST3Effect.vst3
-            path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
-            retention-days: 1
-            if-no-files-found: ignore
+        with:
+          name: CabbageVST3Effect.vst3
+          path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
+          retention-days: 1
+          if-no-files-found: ignore
 
 
       # Create CabbageBundle folder
