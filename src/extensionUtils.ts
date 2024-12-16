@@ -10,6 +10,18 @@ import os from 'os';
 // @ts-ignore
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
 
+
+// Define an interface for the old-style widget structure
+interface Widget {
+    type: string;
+    bounds?: { top: number; left: number; width: number; height: number };
+    range?: { min: number; max: number; defaultValue: number; increment: number; skew: number };
+    size: { width: number; height: number };
+    text?: string | string[];
+    channel?: string;
+    tableNumber: number;
+}
+
 export class ExtensionUtils {
 
     /**
@@ -361,6 +373,115 @@ export class ExtensionUtils {
         return true;
     }
 
+    /**
+     * Converts old style Cabbage section to use new JSON format.
+     * @param editor - The text editor containing the Cabbage section.
+     */
+    static async convertCabbageCodeToJSON(editor: vscode.TextEditor) {
+        const document = editor.document;
+        const text = document.getText();
+        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const match = text.match(cabbageRegex);
+
+        if (!match) {
+            vscode.window.showErrorMessage("No Cabbage section found.");
+            return;
+        }
+
+        const oldStyleWidgets = match[1].trim().split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
+        
+        // Function to map old widget types to new camel case types
+        const mapWidgetType = (type: string): string => {
+            switch (type) {
+                case 'hslider':
+                    return 'horizontalSlider';
+                case 'vslider':
+                    return 'verticalSlider';
+                case 'rslider':
+                    return 'rotarySlider';
+                case 'gentable':
+                    return 'genTable';
+                case 'checkbox':
+                    return 'checkBox';
+                case 'filebutton':
+                    return 'fileButton';
+                case 'combobox':
+                    return 'comboBox';
+                case 'optionbutton':
+                    return 'optionButton';
+                case 'texteditor':
+                    return 'textEditor';
+                case 'groupbox':
+                    return 'groupBox';
+                case 'listbox':
+                    return 'listBox';
+                case 'csoundoutput':    
+                default:
+                    return type; // Return the original type if no mapping exists
+            }
+        };
+
+        const newWidgets: Widget[] = oldStyleWidgets.map(line => {
+            const widget: Partial<Widget> = {}; // Use Partial to allow for optional properties
+
+            const typeMatch = line.match(/(\w+)\s+/);
+            if (typeMatch) {
+                widget.type = mapWidgetType(typeMatch[1]); // Map to camel case
+            }
+
+            const boundsMatch = line.match(/bounds\(([^)]+)\)/);
+            if (boundsMatch) {
+                const bounds = boundsMatch[1].split(',').map(Number);
+                widget.bounds = { left: bounds[0], top: bounds[1], width: bounds[2], height: bounds[3] };
+            }
+
+            const sizeMatch = line.match(/size\(([^)]+)\)/);
+            if (sizeMatch) {
+                const size = sizeMatch[1].split(',').map(Number);
+                widget.size = { width: size[0], height: size[1] }; // Only set if size is defined
+            }
+
+            const rangeMatch = line.match(/range\(([^)]+)\)/);
+            if (rangeMatch) {
+                const range = rangeMatch[1].split(',').map(Number);
+                widget.range = { 
+                    min: range[0], 
+                    max: range[1], 
+                    defaultValue: range[2], 
+                    skew: range[3] !== undefined ? range[3] : 1, // Default to 0 if not provided
+                    increment: range[4] !== undefined ? range[4] : 0.001 // Default to 0 if not provided
+                };
+            }
+
+            const textMatch = line.match(/text\(([^)]+)\)/);
+            if (textMatch) {
+                const textContent = textMatch[1].split(',').map(t => t.replace(/"/g, '').trim());
+                widget.text = textContent.length > 1 ? textContent : textContent[0]; // Set as array or string
+            }
+
+            const channelMatch = line.match(/channel\("([^"]+)"\)/);
+            if (channelMatch) {
+                widget.channel = channelMatch[1];
+            }
+
+            return widget as Widget; // Cast back to Widget to ensure type safety
+        });
+
+        const newCabbageSection = `<Cabbage>${JSON.stringify(newWidgets, null, 4)}</Cabbage>`;
+
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+            document.uri,
+            new vscode.Range(
+                document.positionAt(match.index!),
+                document.positionAt(match.index! + match[0].length)
+            ),
+            newCabbageSection
+        );
+
+        vscode.workspace.applyEdit(edit);
+    }
+    
     /**
      * Updates a JSON array with new properties while removing defaults.
      * Merges incoming properties (from the props object) into an existing JSON array,
@@ -714,6 +835,8 @@ i1 0 z
     <!-- <div id="MainForm" class="form nonDraggable">
     </div> -->
 </body>
-</html>`
+</html>`;
     }
+
+
 }

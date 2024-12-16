@@ -149,7 +149,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
     // Register the command for adding a new Cabbage section
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.addCabbageSection', () => { Commands.addCabbageSection(); }));
-
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.updateToCabbage3', () => { Commands.updateCodeToJSON(); }));
 
     /**
      * Event handler triggered when the text of a document is changed.

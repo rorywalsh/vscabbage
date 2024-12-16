@@ -113,12 +113,6 @@ jobs:
             retention-days: 1
             if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: CabbageStandaloneApp.app
-          path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
-          retention-days: 1
-          if-no-files-found: ignore
 
       # Checkout source code for vscabbage
       - name: Checkout source code for vscabbage
@@ -190,41 +184,150 @@ jobs:
           name: vscabbage-extension-macos
           path: '*.vsix'
 
+# ========================================================================================
+#  Windows build job
+# ========================================================================================
 
-  # build_windows:
-  #   runs-on: windows-latest
+  build_windows:
+    runs-on: windows-latest
 
-  #   steps:
-  #     - name: Checkout source code for vscabbage
-  #       uses: actions/checkout@v1
-  #       with:
-  #         fetch-depth: 1
-  #         submodules: true
+    steps:
+      - name: Checkout source code for cabbage3
+        uses: actions/checkout@v2
+        with:
+          repository: rorywalsh/cabbage3
+          path: cabbage3
+          ref: develop
+          fetch-depth: 1
+          submodules: true
 
-  #     - name: Set Up Signing Certificate
-  #       env:
-  #         CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
-  #         CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-  #       run: |
-  #         echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-  #         security import certificate.p12 -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+      - name: Verify cabbage3 directory
+        run: |
+          ls -l
+          ls -l cabbage3
 
-  #     - name: Set up Node.js (v18) on Windows
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: '18'
+      - name: Download and Extract Csound
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/41g11e00yb4v66fduyw3f/Csound7.zip?rlkey=231ot83u6rmnxapwe03krm04z&st=5bzhtada&dl=1" -OutFile "Csound7.zip"
+          Expand-Archive -Path "Csound7.zip" -DestinationPath "$env:ProgramFiles"
+          Get-ChildItem "$env:ProgramFiles\Csound7"
 
-  #     - name: Install dependencies on Windows
-  #       run: npm install
+      - name: Configure build
+        shell: cmd
+        run: |
+          cmake -G "Visual Studio 17 2022" -S . -B build 
+        
+      - name: Build Windows app
+        shell: cmd
+        run: |
+          cmake --build build --config Debug --target CabbageApp
+        continue-on-error: true
 
-  #     - name: Install vsce on Windows
-  #       run: npm install -g @vscode/vsce
+      - name: Build VST Effect Plugin
+        shell: cmd
+        run: |
+          echo "The plugin copying/install phase breaks this step, but the plugin still builds fine. So we'll just ignore the error for now"
+          cmake --build build --config Debug --target CabbageVST3Effect
+        continue-on-error: true
 
-  #     - name: Build and package extension on Windows
-  #       run: vsce package
+      - name: Build VST Synth Plugin
+        shell: cmd
+        run: |
+          echo "The plugin copying/install phase breaks this step, but the plugin still builds fine. So we'll just ignore the error for now"
+          cmake --build build --config Debug --target CabbageVST3Synth
+        continue-on-error: true
 
-  #     - name: Upload VSIX artifact from Windows
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: vscabbage-extension-windows
-  #         path: '*.vsix'
+      - name: Verify builds
+        shell: cmd
+        run: |
+          echo "Checking if the build artifacts exist for CabbageApp"
+          ls build/CabbageApp/out
+          tree build/CabbageApp/out
+          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
+          ls build/CabbageVST3Effect/out
+          ls build/CabbageVST3Synth/out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbageApp.exe
+          path: cabbage3/build/CabbageApp/CabbageApp.exe
+          retention-days: 1
+          if-no-files-found: ignore
+
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: CabbageStandaloneApp.app
+      #     path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
+      #     retention-days: 1
+      #     if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbageVST3Effect.vst3
+          path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+          with:
+            name: CabbageVST3Effect.vst3
+            path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
+            retention-days: 1
+            if-no-files-found: ignore
+
+
+      # Create CabbageBundle folder
+      - name: Create CabbageBundle folder
+        run: |
+          mkdir -p "./src/CabbageBundle"
+          cd src
+          ls
+
+      # Download and copy the required artifacts into the vscabbage src directory
+      - name: Downloading CabbageApp
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageApp.exe
+          path: "./src/CabbageBundle/CabbageApp.exe"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Effect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageVST3Effect.vst3
+          path: "./src/CabbageBundle/CabbageVST3Effect.vst3"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageVST3Synth.vst3
+          path: "./src/CabbageBundle/CabbageVST3Synth.vst3"
+        continue-on-error: true
+
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Set up Node.js (v18) on Windows
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies on Windows
+        run: npm install
+
+      - name: Install vsce on Windows
+        run: npm install -g @vscode/vsce
+
+      - name: Build and package extension on Windows
+        run: vsce package
+
+      - name: Upload VSIX artifact from Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscabbage-extension-windows
+          path: '*.vsix'

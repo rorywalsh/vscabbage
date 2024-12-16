@@ -361,6 +361,21 @@ export class Commands {
         }
     }
 
+
+    static async updateCodeToJSON() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return;
+        }
+
+        // Call the new method in ExtensionUtils
+        await ExtensionUtils.convertCabbageCodeToJSON(editor);
+    }
+
+    /**
+     * Adds a new widget to the Cabbage JSON content in the active editor.
+     */
     static async addCabbageSection() {
         Commands.getOutputChannel().appendLine('Adding Cabbage section');
         const editor = vscode.window.activeTextEditor;
@@ -743,15 +758,15 @@ export class Commands {
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
         const jsSource = config.get<string>('pathToJsSource');
-        const resourcesDir = ExtensionUtils.getResourcePath()+'/'+pluginName;
+        const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
 
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
         if (jsSource === '') {
             const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
-            if(extension){
-            pathToCabbageJsSource = path.join(extension.extensionPath, 'src', 'cabbage');
-            cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
+            if (extension) {
+                pathToCabbageJsSource = path.join(extension.extensionPath, 'src', 'cabbage');
+                cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
             }
         }
 
@@ -857,7 +872,7 @@ export class Commands {
             });
 
         } catch (err) {
-            vscode.window.showInformationMessage('Error during plugin copy process:'+err);
+            vscode.window.showInformationMessage('Error during plugin copy process:' + err);
             throw err;
         }
     }

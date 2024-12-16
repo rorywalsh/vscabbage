@@ -220,6 +220,16 @@
         "command": "cabbage.goToDefinition",
         "title": "Go to widget definition",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.addCabbageSection",
+        "title": "Add a Cabbage section",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.updateToCabbage3",
+        "title": "Update old-style Cabbage code to JSON",
+        "category": "Cabbage"
       }
     ]
   },
