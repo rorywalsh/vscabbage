@@ -639,7 +639,7 @@ export class ExtensionUtils {
   <script type="module" src="${mainJS}"></script>
 </body>
 
-</html>`
+</html>`;
     }
     // Helper function to format JSON objects on single lines within the array
     static formatJsonObjects(jsonArray: any[], indentString: string): string {

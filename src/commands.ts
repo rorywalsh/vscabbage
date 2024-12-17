@@ -334,7 +334,21 @@ export class Commands {
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
+
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
+
+                process.on('error', (err) => {
+                    this.vscodeOutputChannel.appendLine('Failed to start process:' + err);
+                });
+
+                process.on('exit', (code, signal) => {
+                    if (code !== 0) {
+                        this.vscodeOutputChannel.append(`Process exited with code ${code} and signal ${signal}`);
+                    } else {
+                        this.vscodeOutputChannel.append('Process started successfully');
+                    }
+                });
+
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
@@ -570,7 +584,7 @@ export class Commands {
             return;
         }
         const { content: cabbageContent, range } = Commands.getCabbageContent(editor);
-        if (!range) return; // Exit if the range is invalid
+        if (!range) {return;}; // Exit if the range is invalid
 
         try {
             const jsonObject = JSON.parse(cabbageContent);
