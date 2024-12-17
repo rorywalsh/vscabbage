@@ -217,26 +217,14 @@ jobs:
       - name: Configure build
         shell: cmd
         run: |
+          cd cabbage3
           cmake -G "Visual Studio 17 2022" -S . -B build 
         
-      - name: Build Windows app
+      - name: Build 
         shell: cmd
         run: |
-          cmake --build build --config Debug --target CabbageApp
-        continue-on-error: true
-
-      - name: Build VST Effect Plugin
-        shell: cmd
-        run: |
-          echo "The plugin copying/install phase breaks this step, but the plugin still builds fine. So we'll just ignore the error for now"
-          cmake --build build --config Debug --target CabbageVST3Effect
-        continue-on-error: true
-
-      - name: Build VST Synth Plugin
-        shell: cmd
-        run: |
-          echo "The plugin copying/install phase breaks this step, but the plugin still builds fine. So we'll just ignore the error for now"
-          cmake --build build --config Debug --target CabbageVST3Synth
+          cd cabbage3
+          cmake --build build --config Debug
         continue-on-error: true
 
       - name: Verify builds
