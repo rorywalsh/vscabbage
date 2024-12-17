@@ -289,14 +289,14 @@ jobs:
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Effect.vst3
+          name: CabbageVST3Effect_win64.vst3
           path: "./src/CabbageBundle/CabbageVST3Effect_win64.vst3"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Synth
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Synth.vst3
+          name: CabbageVST3Synth_win64.vst3
           path: "./src/CabbageBundle/CabbageVST3Synth_win64.vst3"
         continue-on-error: true
 
