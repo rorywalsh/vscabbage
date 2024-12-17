@@ -115,7 +115,9 @@ function shouldDecreaseIndent(currentLine: string): boolean {
  */
 function deepEqual(obj1: any, obj2: any): boolean {
     // If both are the same instance (including primitives)
-    if (obj1 === obj2) return true;
+    if (obj1 === obj2) {
+        return true;
+    }
 
     // If either is not an object, they are not equal
     if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
@@ -125,11 +127,15 @@ function deepEqual(obj1: any, obj2: any): boolean {
     // Compare the number of keys (early return if different)
     const keys1 = Object.keys(obj1);
     const keys2 = Object.keys(obj2);
-    if (keys1.length !== keys2.length) return false;
+    if (keys1.length !== keys2.length){
+        return false;
+    } 
 
     // Recursively compare properties
     for (let key of keys1) {
-        if (!deepEqual(obj1[key], obj2[key])) return false;
+        if (!deepEqual(obj1[key], obj2[key])) {
+            return false;
+        }
     }
 
     return true;
