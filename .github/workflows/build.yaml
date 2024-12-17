@@ -232,6 +232,7 @@ jobs:
       - name: Verify builds
         shell: cmd
         run: |
+          cd cabbage3
           echo "Checking if the build artifacts exist for CabbageApp"
           ls build/CabbageApp/out
           tree build/CabbageApp/out
