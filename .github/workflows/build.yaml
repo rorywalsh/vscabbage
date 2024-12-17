@@ -217,12 +217,14 @@ jobs:
       - name: Configure build
         shell: cmd
         run: |
+          ls -l
           cd cabbage3
           cmake -G "Visual Studio 17 2022" -S . -B build 
         
       - name: Build 
         shell: cmd
         run: |
+          ls -l
           cd cabbage3
           cmake --build build --config Debug
         continue-on-error: true
