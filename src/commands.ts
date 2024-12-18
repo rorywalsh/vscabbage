@@ -226,6 +226,23 @@ export class Commands {
     static getCurrentFileName() {
         return Commands.lastSavedFileName;
     }
+
+    static async jumpToWidget(){
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return;
+        }
+        const position = editor.selection.active; // Get the current cursor position
+        const word = ExtensionUtils.getWordAtPosition(editor, position); // Use Commands to extract the word at the cursor
+        if (word) {
+            ExtensionUtils.jumpToWidgetObject(editor, word);
+        } else {
+            vscode.window.showErrorMessage("No word found at the current cursor position.");
+        }
+
+        
+    }
     /**
      * Sets up the Cabbage UI editor webview panel and loads necessary resources.
      * @param context The extension context provided by VSCode.

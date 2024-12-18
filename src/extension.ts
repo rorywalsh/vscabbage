@@ -135,7 +135,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', Commands.goToDefinition));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', ExtensionUtils.goToDefinition));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', () => {
         onCompileInstrument(context);
     }));
@@ -146,7 +146,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
 
     // Register command for jumping to widget definition
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidgetObject(''); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidget(); }));
     // Register the command for adding a new Cabbage section
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.addCabbageSection', () => { Commands.addCabbageSection(); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.updateToCabbage3', () => { Commands.updateCodeToJSON(); }));
