@@ -1,6 +1,8 @@
 // MIT License
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
+ 
+
 
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
 import { CabbageUtils } from "../cabbage/utils.js";

@@ -121,7 +121,6 @@ export class RotarySlider {
    */
   async loadFilmStripImage() {
     if (!this.props.filmStrip.file) {
-      console.warn(`${this.props.filmStrip.file} No filmstrip file provided`);
       return;
     }
 
@@ -129,7 +128,7 @@ export class RotarySlider {
       const img = new Image();
       const mediaPath = this.props.currentCsdFile || ''; // Get path from props
       const imagePath = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, mediaPath);
-      console.warn('imagePath', imagePath);
+
       img.src = imagePath;
       img.onload = () => {
         this.imageWidth = img.width;
@@ -303,7 +302,6 @@ export class RotarySlider {
 
   drawFilmStrip() {
     if (!this.isImageLoaded) {
-      console.warn("Image dimensions not available yet.");
       return '';
     }
 
@@ -341,7 +339,7 @@ export class RotarySlider {
     console.log("Offset X:", offsetX, "Offset Y:", offsetY);
     console.log("Image Width:", imageWidth, "Image Height:", imageHeight);
     const imagePath = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, this.props.currentCsdFile || '');
-    console.warn(imagePath);
+
     return `
       <image href="${imagePath}" x="${-offsetX}" y="${-offsetY}" width="${imageWidth}" height="${imageHeight}" />
     `;

@@ -92,7 +92,7 @@ export class WidgetWrapper {
                 bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
             }, this.widgets);
 
-            console.log(`Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
+            console.warn(`Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
         });
     }
 

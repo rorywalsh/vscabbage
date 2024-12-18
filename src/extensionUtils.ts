@@ -58,7 +58,7 @@ export class ExtensionUtils {
         textEditor: vscode.TextEditor | undefined,
         highlightDecorationType: vscode.TextEditorDecorationType,
         shouldScroll: boolean = true) {
-        if (!textEditor) {return;}
+        if (!textEditor) { return; }
 
         const document = textEditor.document;
         const documentText = document.getText();
@@ -75,7 +75,7 @@ export class ExtensionUtils {
                 const start = new vscode.Position(lineNumber, 0);
                 const end = new vscode.Position(lineNumber, lines[lineNumber].length);
                 textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(start, end) }]);
-                if (shouldScroll) {textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter);}
+                if (shouldScroll) { textEditor.revealRange(new vscode.Range(start, end), vscode.TextEditorRevealType.InCenter); }
             }
         } else {
             const pattern = new RegExp(`\\{(?:[^{}]|\\{[^{}]*\\})*?"channel":\\s*"${updatedProps.channel}"(?:[^{}]|\\{[^{}]*\\})*?\\}`, 's');
@@ -87,24 +87,169 @@ export class ExtensionUtils {
                 const startPos = document.positionAt(objectStartIndex);
                 const endPos = document.positionAt(objectEndIndex);
                 textEditor.setDecorations(highlightDecorationType, [{ range: new vscode.Range(startPos, endPos) }]);
-                if (shouldScroll){
+                if (shouldScroll) {
                     textEditor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
                 }
             }
         }
     }
 
+
+    /*
+        * Function to jump to the definition of a word in the document
+        * @param editor The active text editor
+        */
+    static goToDefinition(editor: vscode.TextEditor) {
+        if (!editor) {
+            vscode.window.showErrorMessage("No active editor found.");
+            return; // Exit if no active editor
+        }
+
+        const position = editor.selection.active; // Get the current cursor position
+        const word = ExtensionUtils.getWordAtPosition(editor, position); // Use Commands to extract the word at the cursor
+
+        if (word) {
+            ExtensionUtils.jumpToWidgetObject(editor, word); // Use Commands to jump to the corresponding widget using the extracted word
+        } else {
+            vscode.window.showErrorMessage("No valid word found at the cursor position.");
+        }
+    }
+
+
+    /*
+    * Function to jump to a specific widget in the document
+    * @param editor The active text editor
+    * @param widgetName The name of the widget to jump to
+    * @returns The position of the widget in the document
+    */
+    static jumpToWidgetObject(editor: vscode.TextEditor, widgetName: string) {
+        // Implement the logic to jump to the widget based on the widgetName
+        const widgetPosition = ExtensionUtils.findWidgetPosition(editor, widgetName); // Use Commands to find the widget position
+        if (widgetPosition) {
+            if (editor) {
+                editor.selection = new vscode.Selection(widgetPosition, widgetPosition);
+                editor.revealRange(new vscode.Range(widgetPosition, widgetPosition));
+            }
+        } else {
+            vscode.window.showErrorMessage(`Widget "${widgetName}" not found.`);
+        }
+    }
+
+    /*
+    * Function to find the position of a widget in the document
+    * @param editor The active text editor
+    * @param widgetName The name of the widget to find
+    * @returns The position of the widget in the document
+    */
+    static findWidgetPosition(editor: vscode.TextEditor, widgetName: string): vscode.Position | null {
+        if (!editor) {
+            return null; // No active editor
+        }
+
+        const document = editor.document;
+        const text = document.getText(); // Get the entire document text
+
+        // Create a regex pattern to find the channel in the JSON objects
+        const pattern = new RegExp(`"channel":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the channel
+
+        // Search for the pattern in the document text
+        const match = pattern.exec(text);
+        if (match) {
+            const startIndex = match.index; // Get the start index of the match
+            const endIndex = startIndex + match[0].length; // Get the end index of the match
+
+            // Convert the indices to positions in the document
+            const startPos = document.positionAt(startIndex);
+            const endPos = document.positionAt(endIndex);
+
+            // Return the start position of the match
+            return startPos;
+        }
+
+        return null; // No match found
+    }
+
+    /**
+     * Helper function to extract the word at the given position
+     * in the current line of the active text editor.
+     * @param editor The active text editor.
+     * @param position The position to extract the word from.
+     * @returns The word at the given position or null if not found. 
+     */
+    static getWordAtPosition(editor: vscode.TextEditor, position: vscode.Position): string | null {
+        if (!editor || !position) {
+            vscode.window.showErrorMessage("Invalid editor or position.");
+            return null; // Return null if editor or position is invalid
+        }
+
+        const line = editor.document.lineAt(position.line).text; // Get the current line text
+        const startChar = position.character; // Current cursor position
+
+        // Display the current line and cursor position in the VSCode window
+        vscode.window.showInformationMessage(`Current line: "${line}"`);
+        vscode.window.showInformationMessage(`Cursor position: ${startChar}`);
+
+        // Use a regex to find the word enclosed in quotes
+        const wordRegex = /"([^"]*)"/g; // Matches words enclosed in double quotes
+        let match;
+
+        // Find the word in the current line
+        while ((match = wordRegex.exec(line)) !== null) {
+            const matchStart = match.index + 1; // Start index of the word (after the opening quote)
+            const matchEnd = matchStart + match[1].length; // End index of the word (before the closing quote)
+
+            // Check if the cursor is within the match
+            if (startChar >= matchStart && startChar < matchEnd) {
+                return match[1]; // Return the matched word without quotes
+            }
+        }
+
+        return null; // No word found
+    }
+
+    /**
+     * Finds the TextEditor associated with the given filename.
+     * @param filename The name of the file to find.
+     * @returns The TextEditor associated with the file or undefined if not found.
+     */
+    static async findTextEditor(filename: string): Promise<vscode.TextEditor | undefined> {
+        // Get all tab inputs from all tab groups
+        const tabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
+
+        for (const tab of tabs) {
+            // Check if the tab input corresponds to a text document with a matching filename
+            if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath.endsWith(filename)) {
+                // Ensure the document is opened and shown in the editor
+                const document = await vscode.workspace.openTextDocument(tab.input.uri);
+                const editor = vscode.window.visibleTextEditors.find(e => e.document === document);
+
+                if (editor) {
+                    return editor; // Return the associated TextEditor
+                }
+
+                // If the editor is not already visible, show it and return
+                return vscode.window.showTextDocument(document, { preview: false });
+            }
+        }
+
+        return undefined; // Return undefined if no matching TextEditor is found
+    }
+
+
     /**
      * Finds and saves a document based on the filename.
      * @param filename The name of the file to find.
      * @returns The found and saved document or undefined if not found.
      */
-    static async findAndSaveDocument(filename: string): Promise<vscode.TextDocument | undefined> {
+    static async findDocument(filename: string, save: boolean): Promise<vscode.TextDocument | undefined> {
         const tabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
         for (const tab of tabs) {
             if (tab.input instanceof vscode.TabInputText && tab.input.uri.fsPath.endsWith(filename)) {
                 const document = await vscode.workspace.openTextDocument(tab.input.uri);
-                await ExtensionUtils.saveDocumentIfDirty(document);
+                await vscode.window.showTextDocument(document, { preview: false });
+                if (save) {
+                    await ExtensionUtils.saveDocumentIfDirty(document);
+                }
                 return document;
             }
         }
@@ -389,7 +534,7 @@ export class ExtensionUtils {
         }
 
         const oldStyleWidgets = match[1].trim().split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
-        
+
         // Function to map old widget types to new camel case types
         const mapWidgetType = (type: string): string => {
             switch (type) {
@@ -415,7 +560,7 @@ export class ExtensionUtils {
                     return 'groupBox';
                 case 'listbox':
                     return 'listBox';
-                case 'csoundoutput':    
+                case 'csoundoutput':
                 default:
                     return type; // Return the original type if no mapping exists
             }
@@ -444,10 +589,10 @@ export class ExtensionUtils {
             const rangeMatch = line.match(/range\(([^)]+)\)/);
             if (rangeMatch) {
                 const range = rangeMatch[1].split(',').map(Number);
-                widget.range = { 
-                    min: range[0], 
-                    max: range[1], 
-                    defaultValue: range[2], 
+                widget.range = {
+                    min: range[0],
+                    max: range[1],
+                    defaultValue: range[2],
                     skew: range[3] !== undefined ? range[3] : 1, // Default to 0 if not provided
                     increment: range[4] !== undefined ? range[4] : 0.001 // Default to 0 if not provided
                 };
@@ -481,7 +626,7 @@ export class ExtensionUtils {
 
         vscode.workspace.applyEdit(edit);
     }
-    
+
     /**
      * Updates a JSON array with new properties while removing defaults.
      * Merges incoming properties (from the props object) into an existing JSON array,
@@ -743,9 +888,9 @@ export class ExtensionUtils {
         return '';
     }
 
-    static getNewCabbageFile(type:string){
-        if(type === 'effect'){
-        return `
+    static getNewCabbageFile(type: string) {
+        if (type === 'effect') {
+            return `
 <Cabbage>[
 {"type":"form","caption":"Effect","size":{"width":580,"height":300},"pluginId":"def1"},
 {"type":"rotarySlider","channel":"gain","bounds":{"left":500,"top":200,"width":80,"height":80}, "text":"Gain", "range":{"min":0,"max":1,"defaultValue":0.5,"skew":1,"increment":0.01}}
@@ -774,11 +919,11 @@ i1 0 z
 </CsScore>
 </CsoundSynthesizer>`;
         }
-        else{
+        else {
             return ``;
         }
     }
-    static getIndexHtml(){
+    static getIndexHtml() {
         return `
         <!DOCTYPE html>
 <html lang="en">

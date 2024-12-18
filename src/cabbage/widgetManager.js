@@ -108,7 +108,6 @@ export class WidgetManager {
             widgetDiv.innerHTML = widget.getInnerHTML();
             WidgetManager.appendToMainForm(widgetDiv);
             if (widget.props.type === "genTable") {
-                console.log("updating table");
                 widget.updateTable(); // Special handling for "gentable" widgets
             }
         } else if (widget.props.type === "form") {
@@ -176,6 +175,7 @@ export class WidgetManager {
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'content';
                 contentDiv.style.overflowY = 'auto';
+
 
                 const ulMenu = document.createElement('ul');
                 ulMenu.className = 'menu';
@@ -248,7 +248,6 @@ export class WidgetManager {
 
         // Set MainForm styles and properties
         if (formDiv) {
-            console.log("Setting form size to:", widget.props.size.width, widget.props.size.height);
             formDiv.style.width = widget.props.size.width + "px";
             formDiv.style.height = widget.props.size.height + "px";
             formDiv.style.top = '0px';
@@ -266,7 +265,6 @@ export class WidgetManager {
 
         // Initialize form event handlers if in vscode mode
         if (typeof acquireVsCodeApi === 'function') {
-            console.log("Setting up form handlers");
             setupFormHandlers();
         }
     }
@@ -311,14 +309,13 @@ export class WidgetManager {
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
-                console.warn("Updating widget value only");
+
                 widget.props.value = obj.value; // Update the value property
                 // Call getInnerHTML to refresh the widget's display
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
-                console.log(`Widget ${widget.props.channel} updated with value: ${widget.props.value}`);
                 return; // Early return
             }
             // Update widget properties
@@ -330,7 +327,7 @@ export class WidgetManager {
                 if (form) {
                     form.style.width = widget.props.size.width + "px";
                     form.style.height = widget.props.size.height + "px";
-                    console.log("Form size updated to:", form.style.width, form.style.height);
+
                     // Update the SVG viewBox if it exists
                     const svg = form.querySelector('svg');
                     if (svg) {
@@ -362,7 +359,6 @@ export class WidgetManager {
                     }
 
                     if(widget.props.type === "genTable"){
-                        console.warn("Updating table", widget.props);
                         widget.updateTable();
                     }
                 } else {

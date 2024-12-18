@@ -197,7 +197,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     if (!editor) {
         const panel = Commands.getPanel();
         if (panel) {
-            const targetDocument = await ExtensionUtils.findAndSaveDocument(panel.title+'.csd');
+            const targetDocument = await ExtensionUtils.findDocument(panel.title+'.csd', true);
             if (!targetDocument) {
                 console.log('No editor or document with filename Unhinged.csd found.');
                 return;

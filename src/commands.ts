@@ -14,7 +14,6 @@ let dbg = false;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
 
-
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
  * managing WebSocket communications, document manipulations, UI interactions,
@@ -27,7 +26,7 @@ export class Commands {
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
-    private static mediaFileWebUris: string[] = [];
+
 
     /**
      * Initializes the Commands class by creating an output channel for logging
@@ -82,7 +81,18 @@ export class Commands {
         switch (message.command) {
             case 'getMediaFiles':
                 try {
-                    const directory = '/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/media';
+                    let editor = vscode.window.activeTextEditor?.document;
+                    if (!editor) {
+                        return; // Exit early if no active editor
+                    }
+
+                    let directory = path.join(path.dirname(editor.fileName), 'media');
+
+                    if (!fs.existsSync(directory)) {
+                        return; // Exit early if the directory does not exist
+                    }
+
+                    // Now `directory` is guaranteed to exist
                     fs.readdir(directory, (err, files) => {
                         if (err) {
                             console.error('Error reading directory:', err);
@@ -99,6 +109,7 @@ export class Commands {
                 } catch (error) {
                     console.error('Error processing audio files request:', error);
                 }
+
                 break;
 
             case 'removeWidget':
@@ -113,6 +124,16 @@ export class Commands {
             case 'widgetUpdate':
                 if (getCabbageMode() !== "play") {
                     ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel);
+                }
+                break;
+
+            case 'jumpToWidget':
+                // Get the panel's title and construct the corresponding file name
+                const panelFileName = `${this.panel?.title}.csd`;
+                const editor = await ExtensionUtils.findTextEditor(panelFileName);
+
+                if(editor) {
+                    ExtensionUtils.jumpToWidgetObject(editor, message.text);
                 }
                 break;
 
@@ -220,6 +241,15 @@ export class Commands {
         const directoryPath = fullPath ? path.dirname(fullPath) : '';
         const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
 
+        const localResources = [
+            vscode.Uri.file(path.join(context.extensionPath, 'media')),
+            vscode.Uri.file(path.join(context.extensionPath, 'src'))
+        ];
+
+        if (fs.existsSync(path.join(directoryPath, 'media'))) {
+            localResources.push(vscode.Uri.file(path.join(directoryPath, 'media')));
+        }
+
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
             fileName,
@@ -227,11 +257,7 @@ export class Commands {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [
-                    vscode.Uri.file(path.join(directoryPath, 'media')),
-                    vscode.Uri.file(path.join(context.extensionPath, 'media')),
-                    vscode.Uri.file(path.join(context.extensionPath, 'src'))
-                ]
+                localResourceRoots: localResources
             }
         );
 
@@ -341,13 +367,13 @@ export class Commands {
                     this.vscodeOutputChannel.appendLine('Failed to start process:' + err);
                 });
 
-                process.on('exit', (code, signal) => {
-                    if (code !== 0) {
-                        this.vscodeOutputChannel.append(`Process exited with code ${code} and signal ${signal}`);
-                    } else {
-                        this.vscodeOutputChannel.append('Process started successfully');
-                    }
-                });
+                // process.on('exit', (code, signal) => {
+                //     if (code !== 0) {
+                //         this.vscodeOutputChannel.append(`Cabbage exited`);
+                //     } else {
+                //         this.vscodeOutputChannel.append('Process started successfully');
+                //     }
+                // });
 
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {
@@ -425,100 +451,7 @@ export class Commands {
         }
     }
 
-    static goToDefinition() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage("No active editor found.");
-            return; // Exit if no active editor
-        }
-
-        const position = editor.selection.active; // Get the current cursor position
-        const word = Commands.getWordAtPosition(editor, position); // Use Commands to extract the word at the cursor
-
-        if (word) {
-            Commands.jumpToWidgetObject(word); // Use Commands to jump to the corresponding widget using the extracted word
-        } else {
-            vscode.window.showErrorMessage("No valid word found at the cursor position.");
-        }
-    }
-
-    // Helper function to extract the word at the given position
-    static getWordAtPosition(editor: vscode.TextEditor, position: vscode.Position): string | null {
-        if (!editor || !position) {
-            vscode.window.showErrorMessage("Invalid editor or position.");
-            return null; // Return null if editor or position is invalid
-        }
-
-        const line = editor.document.lineAt(position.line).text; // Get the current line text
-        const startChar = position.character; // Current cursor position
-
-        // Display the current line and cursor position in the VSCode window
-        vscode.window.showInformationMessage(`Current line: "${line}"`);
-        vscode.window.showInformationMessage(`Cursor position: ${startChar}`);
-
-        // Use a regex to find the word enclosed in quotes
-        const wordRegex = /"([^"]*)"/g; // Matches words enclosed in double quotes
-        let match;
-
-        // Find the word in the current line
-        while ((match = wordRegex.exec(line)) !== null) {
-            const matchStart = match.index + 1; // Start index of the word (after the opening quote)
-            const matchEnd = matchStart + match[1].length; // End index of the word (before the closing quote)
-
-            // Check if the cursor is within the match
-            if (startChar >= matchStart && startChar < matchEnd) {
-                return match[1]; // Return the matched word without quotes
-            }
-        }
-
-        return null; // No word found
-    }
-
-    // Example of the jumpToWidgetObject function
-    static jumpToWidgetObject(widgetName: string) {
-        // Implement the logic to jump to the widget based on the widgetName
-        const widgetPosition = Commands.findWidgetPosition(widgetName); // Use Commands to find the widget position
-        if (widgetPosition) {
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                editor.selection = new vscode.Selection(widgetPosition, widgetPosition);
-                editor.revealRange(new vscode.Range(widgetPosition, widgetPosition));
-            }
-        } else {
-            vscode.window.showErrorMessage(`Widget "${widgetName}" not found.`);
-        }
-    }
-
-    // Example of a function to find the widget position (you'll need to implement this)
-    static findWidgetPosition(widgetName: string): vscode.Position | null {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return null; // No active editor
-        }
-
-        const document = editor.document;
-        const text = document.getText(); // Get the entire document text
-
-        // Create a regex pattern to find the channel in the JSON objects
-        const pattern = new RegExp(`"channel":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the channel
-
-        // Search for the pattern in the document text
-        const match = pattern.exec(text);
-        if (match) {
-            const startIndex = match.index; // Get the start index of the match
-            const endIndex = startIndex + match[0].length; // Get the end index of the match
-
-            // Convert the indices to positions in the document
-            const startPos = document.positionAt(startIndex);
-            const endPos = document.positionAt(endIndex);
-
-            // Return the start position of the match
-            return startPos;
-        }
-
-        return null; // No match found
-    }
-
+    
     /**
      * Get the current cabbage mode
      * @param editor 
@@ -584,7 +517,7 @@ export class Commands {
             return;
         }
         const { content: cabbageContent, range } = Commands.getCabbageContent(editor);
-        if (!range) {return;}; // Exit if the range is invalid
+        if (!range) { return; }; // Exit if the range is invalid
 
         try {
             const jsonObject = JSON.parse(cabbageContent);

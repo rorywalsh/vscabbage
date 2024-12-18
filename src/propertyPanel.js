@@ -14,10 +14,8 @@ export class PropertyPanel {
         this.type = type;               // Type of the widget
         this.properties = properties;   // Properties of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
-        console.log("PropertyPanel constructor called - before createPanel", JSON.stringify(this.properties, null, 2));
         // Create the panel and sections on initialization
         this.createPanel();
-        console.log("PropertyPanel constructor called - after createPanel", JSON.stringify(this.properties, null, 2));
     }
 
     /** 
@@ -256,7 +254,6 @@ export class PropertyPanel {
                             return;
                         }
 
-                        console.log("Removing widget with channel:", originalChannel);
                         // Remove the old widget from the array
                         const widgetIndex = this.widgets.findIndex(w => w.props.channel === originalChannel);
                         if (widgetIndex !== -1) {
@@ -264,7 +261,6 @@ export class PropertyPanel {
                         }
 
                         // First, tell the extension to remove the old widget
-                        console.log("Sending removeWidget message for channel:", originalChannel);
                         this.vscode.postMessage({
                             command: 'removeWidget',
                             channel: originalChannel
@@ -282,7 +278,6 @@ export class PropertyPanel {
                         this.widgets.push(widget);
 
                         // Then send the updated widget
-                        console.log("Sending widgetUpdate message with new channel:", newChannel);
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
                             text: JSON.stringify(widget.props),
@@ -454,7 +449,7 @@ export class PropertyPanel {
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
                 } else {
-                    console.warn("Widget Div:", widgetDiv);
+                    console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
 

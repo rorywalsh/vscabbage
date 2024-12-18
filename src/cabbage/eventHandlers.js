@@ -52,6 +52,8 @@ if (vscode !== null) {
 // Global set to keep track of selected elements in the form.
 export let selectedElements = new Set();
 
+
+
 /**
  * Handles pointer down events on widget elements.
  * Toggles selection state if Alt/Shift key is held, otherwise selects the widget exclusively.
@@ -80,7 +82,7 @@ export async function handlePointerDown(e, widgetDiv) {
                     eventType: "click",
                     name: CabbageUtils.findValidId(e),
                     bounds: {}
-                }, widgets); 
+                }, widgets);
             } else {
                 console.error("PropertyPanel.updatePanel is not available");
             }
@@ -107,6 +109,9 @@ export function updateSelectedElements(widgetDiv) {
  * dragging, and selection of multiple widgets.
  */
 export function setupFormHandlers() {
+    let lastClickTime = 0; // Variable to store the last click time
+    const doubleClickThreshold = 300; // Time in milliseconds to consider as a double click
+
     // Create a dynamic context menu for grouping and ungrouping widgets
     const groupContextMenu = document.createElement("div");
     groupContextMenu.id = "dynamicContextMenu";
@@ -207,7 +212,7 @@ export function setupFormHandlers() {
                             }, widgets);
                         } else {
                             console.error("PropertyPanel.updatePanel is not available");
-                        } 
+                        }
                     } catch (error) {
                         console.error("Error while using PropertyPanel:", error);
                     }
@@ -252,79 +257,97 @@ export function setupFormHandlers() {
         let offsetX = 0;
         let offsetY = 0;
 
+        form.addEventListener('dblclick', async (event) => {
+            console.error("Cabbage: Double click event", event);
+        });
+
         // Event listener for pointer down events on the form
         form.addEventListener('pointerdown', async (event) => {
-            if (event.button !== 0 || cabbageMode !== 'draggable') {return;}; // Ignore right clicks
+            const currentTime = Date.now(); // Get the current time
+            // Check if the time since the last click is within the double-click threshold
+            if (currentTime - lastClickTime <= doubleClickThreshold) {
+                console.error("Cabbage: Double click detected", event);
+                vscode.postMessage({
+                    command: 'jumpToWidget',
+                    text: CabbageUtils.findValidId(event)
+                });
+            } else {
+                // Handle single click logic here
+                console.log("Cabbage: Single click detected", event);
 
-            // Hide context menus when clicking
-            contextMenu.style.visibility = "hidden";
-            groupContextMenu.style.visibility = "hidden";
+                if (event.button !== 0 || cabbageMode !== 'draggable') { return; }; // Ignore right clicks
 
-            const clickedElement = event.target;
-            const selectionColour = CabbageColours.invertColor(clickedElement.getAttribute('fill'));
-            const formRect = form.getBoundingClientRect();
-            offsetX = formRect.left;
-            offsetY = formRect.top;
+                // Hide context menus when clicking
+                contextMenu.style.visibility = "hidden";
+                groupContextMenu.style.visibility = "hidden";
 
-            // Selection logic for multi-select using Shift/Alt keys
-            if ((event.shiftKey || event.altKey) && event.target.id === "MainForm") {
-                isSelecting = true;
-                startX = event.clientX - offsetX;
-                startY = event.clientY - offsetY;
+                const clickedElement = event.target;
+                const selectionColour = CabbageColours.invertColor(clickedElement.getAttribute('fill'));
+                const formRect = form.getBoundingClientRect();
+                offsetX = formRect.left;
+                offsetY = formRect.top;
 
-                // Create and style selection box
-                selectionBox = document.createElement('div');
-                selectionBox.style.position = 'absolute';
-                selectionBox.style.border = '1px dashed #000';
-                selectionBox.style.borderColor = `${selectionColour}`;
-                selectionBox.style.backgroundColor = `${CabbageColours.adjustAlpha(selectionColour, .4)}`;
-                selectionBox.style.zIndex = 9999;
+                // Selection logic for multi-select using Shift/Alt keys
+                if ((event.shiftKey || event.altKey) && event.target.id === "MainForm") {
+                    isSelecting = true;
+                    startX = event.clientX - offsetX;
+                    startY = event.clientY - offsetY;
 
-                selectionBox.style.left = `${startX}px`;
-                selectionBox.style.top = `${startY}px`;
-                form.appendChild(selectionBox);
-            } else if (clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
-                // Handle individual widget selection and toggling
-                if (!event.shiftKey && !event.altKey) {
-                    if (!selectedElements.has(clickedElement)) {
-                        selectedElements.forEach(element => element.classList.remove('selected'));
-                        selectedElements.clear();
-                        selectedElements.add(clickedElement);
-                    }
-                    clickedElement.classList.add('selected');
-                } else {
-                    clickedElement.classList.toggle('selected');
-                    if (clickedElement.classList.contains('selected')) {
-                        selectedElements.add(clickedElement);
+                    // Create and style selection box
+                    selectionBox = document.createElement('div');
+                    selectionBox.style.position = 'absolute';
+                    selectionBox.style.border = '1px dashed #000';
+                    selectionBox.style.borderColor = `${selectionColour}`;
+                    selectionBox.style.backgroundColor = `${CabbageColours.adjustAlpha(selectionColour, .4)}`;
+                    selectionBox.style.zIndex = 9999;
+
+                    selectionBox.style.left = `${startX}px`;
+                    selectionBox.style.top = `${startY}px`;
+                    form.appendChild(selectionBox);
+                } else if (clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
+                    // Handle individual widget selection and toggling
+                    if (!event.shiftKey && !event.altKey) {
+                        if (!selectedElements.has(clickedElement)) {
+                            selectedElements.forEach(element => element.classList.remove('selected'));
+                            selectedElements.clear();
+                            selectedElements.add(clickedElement);
+                        }
+                        clickedElement.classList.add('selected');
                     } else {
-                        selectedElements.delete(clickedElement);
+                        clickedElement.classList.toggle('selected');
+                        if (clickedElement.classList.contains('selected')) {
+                            selectedElements.add(clickedElement);
+                        } else {
+                            selectedElements.delete(clickedElement);
+                        }
+                    }
+                }
+
+                // Deselect all if clicking on the form background
+                if (event.target.id === "MainForm") {
+                    selectedElements.forEach(element => element.classList.remove('selected'));
+                    selectedElements.clear();
+                }
+
+                // In the part where PropertyPanel is used:
+                if (!event.shiftKey && !event.altKey && cabbageMode === 'draggable') {
+                    try {
+                        const PP = await loadPropertyPanel();
+                        if (PP && typeof PP.updatePanel === 'function') {
+                            await PP.updatePanel(vscode, {
+                                eventType: "click",
+                                name: CabbageUtils.findValidId(event),
+                                bounds: {}
+                            }, widgets);
+                        } else {
+                            console.error("PropertyPanel.updatePanel is not available");
+                        }
+                    } catch (error) {
+                        console.error("Error while using PropertyPanel:", error);
                     }
                 }
             }
-
-            // Deselect all if clicking on the form background
-            if (event.target.id === "MainForm") {
-                selectedElements.forEach(element => element.classList.remove('selected'));
-                selectedElements.clear();
-            }
-
-            // In the part where PropertyPanel is used:
-            if (!event.shiftKey && !event.altKey && cabbageMode === 'draggable') {
-                try {
-                    const PP = await loadPropertyPanel();
-                    if (PP && typeof PP.updatePanel === 'function') {
-                        await PP.updatePanel(vscode, {
-                            eventType: "click",
-                            name: CabbageUtils.findValidId(event),
-                            bounds: {}
-                        }, widgets);
-                    } else {
-                        console.error("PropertyPanel.updatePanel is not available");
-                    }
-                } catch (error) {
-                    console.error("Error while using PropertyPanel:", error);
-                }
-            }
+            lastClickTime = currentTime;
         });
 
         // Handles pointer movement for selection and dragging
