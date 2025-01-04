@@ -17,7 +17,8 @@ export class Form {
       "colour": {
             "fill": "#004c6b"
         },
-      "channel": "MainForm"
+      "channel": "MainForm",
+      "channelConfig":"2-2"
     };
 
   }

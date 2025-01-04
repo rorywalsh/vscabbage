@@ -40,7 +40,8 @@ export class OptionButton {
         }
     },
       "name": "",
-      "value": 0,
+      "value": null,
+      "defaultValue": 0,
       "type": "optionButton",
       "visible": 1,
       "automatable": 1,

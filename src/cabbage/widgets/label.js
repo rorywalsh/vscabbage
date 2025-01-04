@@ -30,7 +30,8 @@ export class Label {
             "text": "Default Label",
             "automatable": 0,
             "opacity": 1,
-            "value": 0,
+            "defaultValue": 0,
+            "value": null,
             "min": 0,
             "max": 1
         };

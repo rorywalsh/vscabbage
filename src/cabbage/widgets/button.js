@@ -18,7 +18,8 @@ export class Button {
       "corners": 2,
       "min": 0,
       "max": 1,
-      "value": 0,
+      "defaultValue": 0,
+      "value": null,
       "text": {
         "on": "On",
         "off": "Off"

@@ -18,7 +18,8 @@ export class Checkbox {
       "corners": 2,
       "min": 0,
       "max": 1,
-      "value": 0,
+      "value": null,
+      "defaultValue": 0,
       "text": "On/Off",
       "font": {
         "family": "Verdana",
