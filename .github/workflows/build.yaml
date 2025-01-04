@@ -337,18 +337,24 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for accurate tagging
 
-
       - name: Download macOS VSIX
         uses: actions/download-artifact@v4
         with:
           name: vscabbage-extension-macos
-          path: ./release
+          path: ./release/macos
 
       - name: Download Windows VSIX
         uses: actions/download-artifact@v4
         with:
           name: vscabbage-extension-windows
-          path: ./release
+          path: ./release/windows
+
+      - name: Verify Artifacts
+        run: |
+          echo "Listing macOS artifacts:"
+          ls -lh ./release/macos
+          echo "Listing Windows artifacts:"
+          ls -lh ./release/windows
 
       - name: Create Git Tag
         run: |
@@ -364,7 +370,7 @@ jobs:
       - name: Create GitHub Pre-Release
         run: |
           VERSION="v$(date +'%Y.%m.%d')-alpha"
-          gh release create $VERSION ./release/*.vsix \
+          gh release create $VERSION ./release/macos/*.vsix ./release/windows/*.vsix \
             --title "$VERSION" \
             --notes "Pre-release candidate for $VERSION" \
             --prerelease
