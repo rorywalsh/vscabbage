@@ -257,16 +257,16 @@ jobs:
       - name: Upload CabbageVST3Effect
         uses: actions/upload-artifact@v4
         with:
-          name: CabbageVST3Effect.vst3
-          path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect_win64.vst3
+          name: CabbageVST3Effect_x64.vst3
+          path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
           retention-days: 1
           if-no-files-found: ignore
 
       - name: Upload CabbageVST3Synth
         uses: actions/upload-artifact@v4
         with:
-          name: CabbageVST3Synth.vst3
-          path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth_win64.vst3
+          name: CabbageVST3Synth_x64.vst3
+          path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
           retention-days: 1
           if-no-files-found: ignore
 
@@ -289,15 +289,15 @@ jobs:
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Effect_win64.vst3
-          path: "./src/CabbageBundle/CabbageVST3Effect_win64.vst3"
+          name: CabbageVST3Effect_x64.vst3
+          path: "./src/CabbageBundle/CabbageVST3Effect_x64.vst3"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Synth
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Synth_win64.vst3
-          path: "./src/CabbageBundle/CabbageVST3Synth_win64.vst3"
+          name: CabbageVST3Synth_x64.vst3
+          path: "./src/CabbageBundle/CabbageVST3Synth_x64.vst3"
         continue-on-error: true
 
       - name: Checkout source code for vscabbage
@@ -326,7 +326,7 @@ jobs:
           name: vscabbage-extension-windows
           path: '*.vsix'
 
-# steps to tag and release artifacts
+  #steps to tag and release artifacts
   release:
     needs: [build_macos, build_windows]
     runs-on: ubuntu-latest
@@ -356,20 +356,21 @@ jobs:
           echo "Listing Windows artifacts:"
           ls -lh ./release/windows
 
-      - name: Create Git Tag
+      - name: Create Unique Git Tag
         run: |
-          VERSION="v$(date +'%Y.%m.%d')-alpha"
+          VERSION="v$(date +'%Y.%m.%d-%H%M%S')-alpha-$(git rev-parse --short HEAD)"
           echo "Generated version: $VERSION"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a $VERSION -m "Alpha pre-release for $VERSION"
           git push origin $VERSION
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Pre-Release
         run: |
-          VERSION="v$(date +'%Y.%m.%d')-alpha"
+          VERSION="${{ env.VERSION }}"
           gh release create $VERSION ./release/macos/*.vsix ./release/windows/*.vsix \
             --title "$VERSION" \
             --notes "Pre-release candidate for $VERSION" \
