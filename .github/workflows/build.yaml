@@ -271,6 +271,21 @@ jobs:
           if-no-files-found: ignore
 
 
+
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Set up Node.js (v18) on Windows
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies on Windows
+        run: npm install
+        
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
         run: |
@@ -299,20 +314,6 @@ jobs:
           name: CabbageVST3Synth_x64.vst3
           path: "./src/CabbageBundle/CabbageVST3Synth_x64.vst3"
         continue-on-error: true
-
-      - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
-          submodules: true
-
-      - name: Set up Node.js (v18) on Windows
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies on Windows
-        run: npm install
 
       - name: Install vsce on Windows
         run: npm install -g @vscode/vsce
