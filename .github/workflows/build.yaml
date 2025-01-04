@@ -325,3 +325,42 @@ jobs:
         with:
           name: vscabbage-extension-windows
           path: '*.vsix'
+
+# steps to tag and release artifacts
+  release:
+    needs: [build_macos, build_windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download macOS VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: vscabbage-extension-macos
+          path: ./release
+
+      - name: Download Windows VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: vscabbage-extension-windows
+          path: ./release
+
+      - name: Create Git Tag
+        run: |
+          VERSION="v$(date +'%Y.%m.%d')-alpha"
+          echo "Generated version: $VERSION"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a $VERSION -m "Alpha pre-release for $VERSION"
+          git push origin $VERSION
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Pre-Release
+        run: |
+          VERSION="v$(date +'%Y.%m.%d')-alpha"
+          gh release create $VERSION ./release/*.vsix \
+            --title "$VERSION" \
+            --notes "Pre-release candidate for $VERSION" \
+            --prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
