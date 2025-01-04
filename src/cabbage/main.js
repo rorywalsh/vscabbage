@@ -2,15 +2,12 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
  
-
-
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 
-let currentFileName = '';
 
 // removing these methods as I don't want to hardcode shortcuts - best to use VS Code to 
 // handle this.

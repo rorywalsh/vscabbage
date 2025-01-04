@@ -39,6 +39,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     Commands.initialize(context, freePort);
 
+
     const currentVersion = vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
     const previousVersion = context.globalState.get<string>('extensionVersion');
 
@@ -136,10 +137,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', ExtensionUtils.goToDefinition));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', () => {
-        onCompileInstrument(context);
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', () => { onCompileInstrument(context); }));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
+
+    //utility function to send text to Cabbage instrument overriding the current realtime audio inputs
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel1and2', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 12); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel1', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 1); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel2', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 2); }));
 
     // Register the commands for creating new Cabbage files
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => { Commands.createNewCabbageFile('effect'); }));
@@ -197,7 +201,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     if (!editor) {
         const panel = Commands.getPanel();
         if (panel) {
-            const targetDocument = await ExtensionUtils.findDocument(panel.title+'.csd', true);
+            const targetDocument = await ExtensionUtils.findDocument(panel.title + '.csd', true);
             if (!targetDocument) {
                 console.log('No editor or document with filename Unhinged.csd found.');
                 return;
@@ -225,7 +229,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         if (config.get('showUIOnSave') && !Commands.getPanel()) {
             Commands.setupWebViewPanel(context);
         }
-        else{
+        else {
             const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
             const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
             const panel = Commands.getPanel();
@@ -236,6 +240,25 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         await Commands.onDidSave(editor, context);
         await waitForWebSocket();
 
+        if (websocket) {
+            // autoPlaySoundfileInput
+            const soundfileInput = context.globalState.get<{ data?: string }>('soundFileInput');
+            const obj = JSON.parse(JSON.stringify(soundfileInput))
+            const config = vscode.workspace.getConfiguration('cabbage');
+            const autoPlaySoundfileInput = config.get('autoPlaySoundfileInput');
+            // Commands.getOutputChannel().append(JSON.stringify(obj.data));
+            const innerObj = JSON.parse(obj.data.obj);
+            const fileName = path.basename(innerObj.fileName);
+
+            if (soundfileInput !== undefined && autoPlaySoundfileInput) {
+                setTimeout(() => {
+                    if (soundfileInput) {
+                        vscode.window.showInformationMessage(`Routing ${fileName} to Cabbage.`); 
+                        websocket?.send(JSON.stringify(obj.data));
+                    }
+                }, 500);
+            }
+        }
 
         const panel = Commands.getPanel();
         if (panel) {

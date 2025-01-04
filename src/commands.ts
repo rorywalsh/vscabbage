@@ -44,6 +44,24 @@ export class Commands {
     }
 
 
+    /**
+     * Sends a message to the Cabbage backend to set the specified file as the input channel.
+     * @param websocket The WebSocket connection to the Cabbage backend.
+     * @param file The file to set as the input channel.
+     * @param channels The channel to set the file as input for.
+     */
+    static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channels: number) {
+        const m = {
+            "fileName": file,
+            "channels": channels
+        };
+        const msg = {
+            command: "setFileAsInput",
+            obj: JSON.stringify(m)
+        };
+        websocket?.send(JSON.stringify(msg));
+        await context.globalState.update('soundFileInput', { data: JSON.stringify(msg) });
+    }
 
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
@@ -132,7 +150,7 @@ export class Commands {
                 const panelFileName = `${this.panel?.title}.csd`;
                 const editor = await ExtensionUtils.findTextEditor(panelFileName);
 
-                if(editor) {
+                if (editor) {
                     ExtensionUtils.jumpToWidgetObject(editor, message.text);
                 }
                 break;
@@ -227,7 +245,7 @@ export class Commands {
         return Commands.lastSavedFileName;
     }
 
-    static async jumpToWidget(){
+    static async jumpToWidget() {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage("No active editor found.");
@@ -241,7 +259,7 @@ export class Commands {
             vscode.window.showErrorMessage("No word found at the current cursor position.");
         }
 
-        
+
     }
     /**
      * Sets up the Cabbage UI editor webview panel and loads necessary resources.
@@ -398,8 +416,8 @@ export class Commands {
                     const dataString = data.toString();
 
                     if (!ignoredTokens.some(token => dataString.startsWith(token))) {
-                        if (dataString.startsWith('Cabbage DEBUG')) {
-                            if (config.get("verboseLogging")) {
+                        if (dataString.startsWith('Cabbage DEBUG:')) {
+                            if (config.get("logVerbose")) {
                                 this.vscodeOutputChannel.append(dataString);
                             }
                         } else {
@@ -468,7 +486,7 @@ export class Commands {
         }
     }
 
-    
+
     /**
      * Get the current cabbage mode
      * @param editor 

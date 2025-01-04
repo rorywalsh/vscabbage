@@ -98,7 +98,9 @@ export class PropertyPanel {
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps
+            
             if (hiddenProps.includes(sectionName)) {
+                console.log("Cabbage: hidden props", hiddenProps, " section name", sectionName);
                 return;
             }
 
@@ -189,7 +191,7 @@ export class PropertyPanel {
         const fullPath = path ? `${path}.${key}` : key;
 
         // Handle file input
-        if (key.toLowerCase().includes('file')) {
+        if (key.toLowerCase().includes('file') && key !== 'currentCsdFile') {
             input = document.createElement('select');
             input.classList.add('loading');
 
@@ -250,15 +252,20 @@ export class PropertyPanel {
                         // Check for uniqueness
                         const existingDiv = document.getElementById(newChannel);
                         if (existingDiv && existingDiv.id !== originalChannel) {
-                            console.warn(`A widget with id '${newChannel}' already exists!`);
+                            console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
                             return;
                         }
 
+                        // Update the widget's channel property
+                        widget.props.channel = newChannel;
+
                         // Remove the old widget from the array
+                        console.warn("Cabbage: widgets", this.widgets);
                         const widgetIndex = this.widgets.findIndex(w => w.props.channel === originalChannel);
                         if (widgetIndex !== -1) {
                             this.widgets.splice(widgetIndex, 1);
                         }
+                        console.warn("Cabbage: after removing widgets", this.widgets);
 
                         // First, tell the extension to remove the old widget
                         this.vscode.postMessage({
@@ -266,17 +273,17 @@ export class PropertyPanel {
                             channel: originalChannel
                         });
 
+                        // Rebuild the properties panel to reflect the changes
+                        this.rebuildPropertiesPanel(); // Call the method to rebuild the properties panel
+
                         // Update the widget `div` id and `channel` property
                         const widgetDiv = document.getElementById(originalChannel);
                         if (widgetDiv) {
                             widgetDiv.id = newChannel;
                         }
 
-                        widget.props.channel = newChannel;
-
                         // Add the updated widget back to the array
                         this.widgets.push(widget);
-
                         // Then send the updated widget
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
@@ -284,6 +291,9 @@ export class PropertyPanel {
                         });
 
                         input.blur();
+                    }
+                    else{
+                        console.warn("Cabbage: widget doesn't exist in this context");
                     }
                 }
             });
@@ -356,20 +366,26 @@ export class PropertyPanel {
         // Set input attributes
         input.id = key; // Use the key as ID directly (case-sensitive)
         input.dataset.parent = this.properties.channel; // Set data attribute for parent channel
-
         input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
 
         return input; // Return the created input element
     }
 
     /** 
-     * Adds a property input to a specific section.
+     * Adds a property input to a specific section. We can also ensure certain properties
+     * are never added, such as 'currentCsdFile' and 'value' which are both internal 
+     * properties of each widget.
+     *   
      * @param key - The property key to be added.
      * @param value - The value of the property.
      * @param section - The section to which the property is added.
      * @param path - The nested path for the property (optional).
      */
     addPropertyToSection(key, value, section, path = '') {
+        if(key === 'currentCsdFile' || key === 'value'){
+            return;
+        }
+        
         const propertyDiv = document.createElement('div');
         propertyDiv.classList.add('property');
 
@@ -457,6 +473,9 @@ export class PropertyPanel {
                     command: 'widgetUpdate',
                     text: JSON.stringify(widget.props),
                 });
+            }
+            else{
+                console.warn("Cabbage: can't find channel", input.dataset.parent);
             }
         });
     }
@@ -553,6 +572,18 @@ export class PropertyPanel {
                 }
             });
         });
+    }
+
+    /**
+     * Rebuild properties panel when a channel name is updated
+     */
+    rebuildPropertiesPanel() {
+        // Clear the existing panel content
+        const panel = document.querySelector('.property-panel');
+        panel.innerHTML = ''; // Clear the panel's content
+
+        // Recreate the panel with the updated widgets
+        this.createPanel(); // Assuming createPanel handles the creation of the panel
     }
 }
 
