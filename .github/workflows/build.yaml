@@ -176,13 +176,13 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Build and package extension on macOS
-        run: vsce package
+        run: vsce package --out vscabbage-0.0.1-macos.vsix
 
       - name: Upload VSIX artifact from macOS
         uses: actions/upload-artifact@v4
         with:
           name: vscabbage-extension-macos
-          path: '*.vsix'
+          path: 'vscabbage-0.0.1-macos.vsix'
 
 # ========================================================================================
 #  Windows build job
@@ -285,7 +285,7 @@ jobs:
 
       - name: Install dependencies on Windows
         run: npm install
-        
+
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
         run: |
@@ -319,13 +319,13 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Build and package extension on Windows
-        run: vsce package
+        run: vsce package --out vscabbage-0.0.1-windows.vsix
 
       - name: Upload VSIX artifact from Windows
         uses: actions/upload-artifact@v4
         with:
           name: vscabbage-extension-windows
-          path: '*.vsix'
+          path: 'vscabbage-0.0.1-windows.vsix'
 
   #steps to tag and release artifacts
   release:
@@ -342,13 +342,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vscabbage-extension-macos
-          path: ./release/macos
+          path: ./release
 
       - name: Download Windows VSIX
         uses: actions/download-artifact@v4
         with:
           name: vscabbage-extension-windows
-          path: ./release/windows
+          path: ./release
 
       - name: Verify Artifacts
         run: |
@@ -359,7 +359,7 @@ jobs:
 
       - name: Create Unique Git Tag
         run: |
-          VERSION="v$(date +'%Y.%m.%d-%H%M%S')-alpha-$(git rev-parse --short HEAD)"
+          VERSION="$(git rev-parse --short HEAD)-alpha"
           echo "Generated version: $VERSION"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -372,7 +372,7 @@ jobs:
       - name: Create GitHub Pre-Release
         run: |
           VERSION="${{ env.VERSION }}"
-          gh release create $VERSION ./release/macos/*.vsix ./release/windows/*.vsix \
+          gh release create $VERSION ./release/vscabbage-0.0.1-macos.vsix ./release/vscabbage-0.0.1-windows.vsix \
             --title "$VERSION" \
             --notes "Pre-release candidate for $VERSION" \
             --prerelease
