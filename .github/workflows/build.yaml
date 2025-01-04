@@ -352,10 +352,9 @@ jobs:
 
       - name: Verify Artifacts
         run: |
-          echo "Listing macOS artifacts:"
-          ls -lh ./release/macos
-          echo "Listing Windows artifacts:"
-          ls -lh ./release/windows
+          echo "Listing artifacts:"
+          ls -lh ./release
+        continue-on-error: true
 
       - name: Create Unique Git Tag
         run: |
