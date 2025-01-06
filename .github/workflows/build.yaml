@@ -379,12 +379,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Delete Older Releases and Tags Updated
-        uses: jay2610/delete-older-releases@1.4.0
-        with:
-          keep_latest: 1
-          delete_tag_pattern: alpha 
-          delete_type: 'prerelease'
-          delete_tags: true,
+      - name: List and Delete Old Git Tags and Releases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Authenticate with GitHub CLI
+          echo $GITHUB_TOKEN | gh auth login --with-token
+
+          # Fetch all tags
+          git fetch --tags
+          
+          # Get a list of all tags sorted by creation date, most recent first
+          tags=$(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags)
+          
+          # Convert to array
+          tags_array=($tags)
+          
+          # Get the count of all tags
+          total_tags=${#tags_array[@]}
+          
+          tags_to_keep = 2
+          echo "Total tags: $total_tags"
+
+          # Check if there are more than tags_to_keep tags
+          if [ $total_tags -gt tags_to_keep ]; then
+            # Calculate how many tags need to be deleted
+            tags_to_delete_count=$((total_tags - tags_to_keep))
+            
+            echo "Deleting $tags_to_delete_count old tags and their associated releases..."
+
+            # Delete the old tags and associated releases
+            for ((i=tags_to_delete_count-1; i>=0; i--)); do
+              old_tag=${tags_array[$i]}
+              echo "Deleting tag and release: $old_tag"
+              
+              # Delete the GitHub release associated with the tag
+              gh release delete $old_tag --yes || echo "No release found for $old_tag"
+              
+              # Delete the tag locally
+              git tag -d $old_tag
+              
+              # Delete the tag remotely
+              git push origin :refs/tags/$old_tag
+            done
+          else
+            echo "Less than or equal to 3 tags present. No tags or releases deleted."
+          fi
