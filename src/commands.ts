@@ -446,7 +446,6 @@ export class Commands {
                     if (!ignoredTokens.some(token => dataString.startsWith(token))) {
                         if (dataString.startsWith('Cabbage DEBUG:')) {
                             if (config.get("logVerbose")) {
-                                this.vscodeOutputChannel.append("asdfgyutrdihdfjklodhfgl");
                                 this.vscodeOutputChannel.append(dataString);
                             }
                         } else {
