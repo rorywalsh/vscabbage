@@ -331,6 +331,7 @@ jobs:
   release:
     needs: [build_macos, build_windows]
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Ensure it only runs on main
 
     steps:
       - name: Checkout Repository
@@ -384,6 +385,7 @@ jobs:
           keep_latest: 1
           delete_tag_pattern: alpha 
           delete_type: 'prerelease'
+          delete_tags: true,
           delete_branch: 'main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
