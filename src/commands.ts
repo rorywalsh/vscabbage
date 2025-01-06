@@ -46,22 +46,50 @@ export class Commands {
 
     /**
      * Sends a message to the Cabbage backend to set the specified file as the input channel.
+     * Updates the global state with the new file assignment.
+     * @param context The extension context provided by VSCode.
      * @param websocket The WebSocket connection to the Cabbage backend.
      * @param file The file to set as the input channel.
-     * @param channels The channel to set the file as input for.
+     * @param channel The channel to set the file as input for.
      */
-    static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channels: number) {
+    static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channel: number) {
+        // Construct the message to send via the websocket
         const m = {
-            "fileName": file,
-            "channels": channels
+            fileName: file,
+            channels: channel,
         };
         const msg = {
             command: "setFileAsInput",
-            obj: JSON.stringify(m)
+            obj: JSON.stringify(m),
         };
         websocket?.send(JSON.stringify(msg));
-        await context.globalState.update('soundFileInput', { data: JSON.stringify(msg) });
+    
+        // Retrieve existing soundFileInput state or initialize it as an empty object
+        let soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
+    
+        // Special case: If channel 12 is selected, clear previous configurations for channels 1 and 2
+        if (channel === 12) {
+            await context.globalState.update('soundFileInput', undefined);
+            soundFileInput = { 12: file }; // Clear all and set only channel 12
+        } else {
+            // Regular case: Update or add the file for the specific channel
+            soundFileInput[channel] = file;
+    
+            // Ensure there are no more than two entries (1 and 2) unless channel 12 is involved
+            const validChannels = [1, 2];
+            soundFileInput = Object.fromEntries(
+                Object.entries(soundFileInput).filter(
+                    ([key]) => validChannels.includes(Number(key)) || Number(key) === 12
+                )
+            );
+        }
+    
+        // Save the updated configuration back to globalState
+        await context.globalState.update('soundFileInput', soundFileInput);
     }
+    
+    
+    
 
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
@@ -418,6 +446,7 @@ export class Commands {
                     if (!ignoredTokens.some(token => dataString.startsWith(token))) {
                         if (dataString.startsWith('Cabbage DEBUG:')) {
                             if (config.get("logVerbose")) {
+                                this.vscodeOutputChannel.append("asdfgyutrdihdfjklodhfgl");
                                 this.vscodeOutputChannel.append(dataString);
                             }
                         } else {

@@ -30,8 +30,34 @@
           "when": "editorTextFocus",
           "group": "navigation"
         }
+      ],
+      "explorer/context": [
+        {
+          "submenu": "cabbageSubmenu",
+          "group": "cabbage.myGroup"
+        }
+      ],
+      "cabbageSubmenu": [
+        {
+          "command": "cabbage.sendFileToChannel1and2",
+          "group": "cabbage.myGroup"
+        },
+        {
+          "command": "cabbage.sendFileToChannel1",
+          "group": "cabbage.myGroup"
+        },
+        {
+          "command": "cabbage.sendFileToChannel2",
+          "group": "cabbage.myGroup"
+        }
       ]
     },
+    "submenus": [
+      {
+        "label": "Send audio file to..",
+        "id": "cabbageSubmenu"
+      }
+    ],
     "configuration": {
       "title": "Cabbage",
       "properties": {
@@ -79,6 +105,11 @@
           "type": "number",
           "default": 4,
           "description": "Set the number of pixels to move by when dragging an element."
+        },
+        "cabbage.autoPlaySoundfileInput": {
+          "type": "boolean",
+          "default": true,
+          "description": "If sound file input is selected, play automatically when instrument is started."
         },
         "cabbage.logVerbose": {
           "type": "boolean",
@@ -229,6 +260,26 @@
       {
         "command": "cabbage.updateToCabbage3",
         "title": "Update old-style Cabbage code to JSON",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.sendFileToChannel1and2",
+        "title": "to stereo inputs",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.sendFileToChannel1",
+        "title": "to input 1",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.sendFileToChannel2",
+        "title": "to input 2",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.dothing",
+        "title": "make the extension do a thing",
         "category": "Cabbage"
       }
     ]

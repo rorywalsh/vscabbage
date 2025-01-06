@@ -132,7 +132,7 @@
 .content .menuItem {
 	list-style: none;
 	font-size: 12px;
-	height: 20px;
+	height: 30px;
 	display: flex;
 	width: 100%;
 	cursor: pointer;
@@ -140,7 +140,7 @@
 	border-radius: 5px;
 	margin-bottom: 2px;
 	padding: 0 2px 0 2px;
-	color: #000;
+	color: #1d1d1d;
 }
 
 .content .menuItem:hover {
@@ -157,6 +157,30 @@
 	padding: 0px;
 }
 
+/* Explicitly style the scrollbar within your widget */
+.widget-menu {
+    overflow: auto; /* Ensure scrolling is enabled */
+}
+
+.widget-menu::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.widget-menu::-webkit-scrollbar-track {
+    background: #f0f0f0 !important; /* Override dark theme background */
+}
+
+.widget-menu::-webkit-scrollbar-thumb {
+    background-color: #888 !important; /* Use a lighter thumb color */
+    border-radius: 5px;
+    border: 2px solid #f0f0f0 !important; /* Ensure contrast */
+}
+
+/* Optional for hover effect */
+.widget-menu::-webkit-scrollbar-thumb:hover {
+    background-color: #555 !important;
+}
 /*
 	dark theme
 

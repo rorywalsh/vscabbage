@@ -104,6 +104,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectAudioInputDevice', async () => {
         await Settings.selectAudioDevice('input');
+        //clear sound file config when selecting live audio input
+        await context.globalState.update('soundFileInput', undefined);
+        Commands.sendFileToChannel(context, websocket, '', -1);
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectMidiOutputDevice', async () => {
@@ -218,7 +221,6 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     });
 
     if (editor) {
-
         if (!editor.fileName.endsWith('.csd') || !await Commands.hasCabbageTags(editor)) {
             return;
         }
@@ -241,23 +243,15 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         await waitForWebSocket();
 
         if (websocket) {
-            // autoPlaySoundfileInput
-            const soundfileInput = context.globalState.get<{ data?: string }>('soundFileInput');
-            const obj = JSON.parse(JSON.stringify(soundfileInput))
-            const config = vscode.workspace.getConfiguration('cabbage');
-            const autoPlaySoundfileInput = config.get('autoPlaySoundfileInput');
-            // Commands.getOutputChannel().append(JSON.stringify(obj.data));
-            const innerObj = JSON.parse(obj.data.obj);
-            const fileName = path.basename(innerObj.fileName);
-
-            if (soundfileInput !== undefined && autoPlaySoundfileInput) {
-                setTimeout(() => {
-                    if (soundfileInput) {
-                        vscode.window.showInformationMessage(`Routing ${fileName} to Cabbage.`); 
-                        websocket?.send(JSON.stringify(obj.data));
+            const soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
+            setTimeout(() => {
+                for (const [channel, file] of Object.entries(soundFileInput)) {
+                    if (Number(channel) > 0) {
+                        vscode.window.showInformationMessage(`Routing ${file} to channel ${channel}`);
                     }
-                }, 500);
-            }
+                    Commands.sendFileToChannel(context, websocket, file, Number(channel));
+                }
+            }, 1000);
         }
 
         const panel = Commands.getPanel();

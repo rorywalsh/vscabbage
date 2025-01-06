@@ -3,6 +3,7 @@
 // See the LICENSE file for details.
 
 import * as vscode from 'vscode';
+import { Commands } from './commands';
 const os = require('os');
 const path = require('path');
 
