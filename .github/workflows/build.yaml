@@ -380,12 +380,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List and Delete Old Git Tags and Releases
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Authenticate with GitHub CLI
-          echo $GITHUB_TOKEN | gh auth login --with-token
-
           # Fetch all tags
           git fetch --tags
           
@@ -425,3 +420,5 @@ jobs:
           else
             echo "Less than or equal to 3 tags present. No tags or releases deleted."
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
