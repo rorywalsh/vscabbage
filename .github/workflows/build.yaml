@@ -378,7 +378,7 @@ jobs:
             minor=0
             patch=0
             label="-alpha"
-          fi
+          fi 
 
           # Increment patch version and append alpha label
           new_patch=$((patch + 1))
