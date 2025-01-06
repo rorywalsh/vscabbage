@@ -379,7 +379,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Delete Older Releases and Tags Updated
-        uses: s00d/delete-older-releases@v0.2.0
+        uses: s00d/delete-older-releases@v0.2.1
         with:
           keep_latest: 1
           delete_tag_pattern: alpha 
