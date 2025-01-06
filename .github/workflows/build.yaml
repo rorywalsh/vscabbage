@@ -393,18 +393,18 @@ jobs:
           # Get the count of all tags
           total_tags=${#tags_array[@]}
           
-          tags_to_keep = 2
+          tags_to_keep=2
           echo "Total tags: $total_tags"
 
           # Check if there are more than tags_to_keep tags
-          if [ $total_tags -gt tags_to_keep ]; then
+          if [ $total_tags -gt $tags_to_keep ]; then
             # Calculate how many tags need to be deleted
             tags_to_delete_count=$((total_tags - tags_to_keep))
             
             echo "Deleting $tags_to_delete_count old tags and their associated releases..."
 
             # Delete the old tags and associated releases
-            for ((i=tags_to_delete_count-1; i>=0; i--)); do
+            for ((i=tags_to_keep; i<total_tags; i++)); do
               old_tag=${tags_array[$i]}
               echo "Deleting tag and release: $old_tag"
               
@@ -418,7 +418,7 @@ jobs:
               git push origin :refs/tags/$old_tag
             done
           else
-            echo "Less than or equal to 3 tags present. No tags or releases deleted."
+            echo "Less than or equal to $tags_to_keep tags present. No tags or releases deleted."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
