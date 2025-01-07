@@ -18,7 +18,8 @@ export class Form {
             "fill": "#004c6b"
         },
       "channelConfig":"2-2",
-      "channel": "MainForm"
+      "channel": "MainForm",
+      "enableDevTools":true
     };
 
   }
