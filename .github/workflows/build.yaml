@@ -3,15 +3,16 @@ name: Build and Package Extensions
 on:
   push:
     branches:
-      - main
+      - '**' # Trigger on pushes to all branches
   pull_request:
     branches:
-      - main
+      - develop # Trigger on pull requests to develop branch
 
 jobs:
   build_macos:
     runs-on: macos-latest
-
+       # Ensure it only runs on main, or when run_build is passed to commit message
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
@@ -190,7 +191,8 @@ jobs:
 
   build_windows:
     runs-on: windows-latest
-
+    # Ensure it only runs on main, or when run_build is passed to commit message
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
@@ -331,7 +333,8 @@ jobs:
   release:
     needs: [build_macos, build_windows]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'  # Ensure it only runs on main
+     # Ensure it only runs on main, or when run_build is passed to commit message
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
 
     steps:
       - name: Checkout Repository
@@ -373,7 +376,7 @@ jobs:
             patch=${BASH_REMATCH[3]}
             label=${BASH_REMATCH[4]}
           else
-            echo "Invalid tag format. Defaulting to 0.0.0-alpha."
+            echo "Invalid tag format. Defaulting to 1.0.0-alpha."
             major=0
             minor=0
             patch=0
