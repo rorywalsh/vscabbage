@@ -9,6 +9,48 @@ on:
       - develop # Trigger on pull requests to develop branch
 
 jobs:
+  generate_tag:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.generate_version.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history for accurate tagging
+
+      - name: Generate Unique Version Tag
+        id: generate_version
+        run: |
+          # Fetch tags
+          git fetch --tags
+
+          # Get the latest tag (if no tag exists, default to 0.0.0-alpha)
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-alpha")
+          echo "Last tag: $last_tag"
+
+          # Extract major, minor, patch
+          if [[ "$last_tag" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.-]+)?$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            label=${BASH_REMATCH[4]}
+          else
+            echo "Invalid tag format. Defaulting to 0.0.0-alpha."
+            major=0
+            minor=0
+            patch=0
+            label="-alpha"
+          fi 
+
+          # Increment patch version and append alpha label
+          new_patch=$((patch + 1))
+          new_version="${major}.${minor}.${new_patch}-alpha"
+          echo "New version: $new_version"
+
+          # Set the new version as an output
+          echo "::set-output name=version::$new_version"
+
   build_macos:
     runs-on: macos-latest
        # Ensure it only runs on main, or when run_build is passed to commit message
@@ -183,7 +225,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vscabbage-extension-macos
-          path: 'vscabbage-0.0.1-macos.vsix'
+          path: vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 
 # ========================================================================================
 #  Windows build job
@@ -327,7 +369,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vscabbage-extension-windows
-          path: 'vscabbage-0.0.1-windows.vsix'
+          path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
 
   #steps to tag and release artifacts
   release:
