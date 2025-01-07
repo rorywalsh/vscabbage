@@ -45,13 +45,13 @@ export class Commands {
 
 
     /**
-     * Sends a message to the Cabbage backend to set the specified file as the input channel.
-     * Updates the global state with the new file assignment.
-     * @param context The extension context provided by VSCode.
-     * @param websocket The WebSocket connection to the Cabbage backend.
-     * @param file The file to set as the input channel.
-     * @param channel The channel to set the file as input for.
-     */
+ * Sends a message to the Cabbage backend to set the specified file as the input channel.
+ * Updates the global state with the new file assignment.
+ * @param context The extension context provided by VSCode.
+ * @param websocket The WebSocket connection to the Cabbage backend.
+ * @param file The file to set as the input channel.
+ * @param channel The channel to set the file as input for.
+ */
     static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channel: number) {
         // Construct the message to send via the websocket
         const m = {
@@ -63,33 +63,60 @@ export class Commands {
             obj: JSON.stringify(m),
         };
         websocket?.send(JSON.stringify(msg));
-    
+
         // Retrieve existing soundFileInput state or initialize it as an empty object
         let soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
-    
+
         // Special case: If channel 12 is selected, clear previous configurations for channels 1 and 2
         if (channel === 12) {
             await context.globalState.update('soundFileInput', undefined);
             soundFileInput = { 12: file }; // Clear all and set only channel 12
         } else {
             // Regular case: Update or add the file for the specific channel
-            soundFileInput[channel] = file;
-    
             // Ensure there are no more than two entries (1 and 2) unless channel 12 is involved
             const validChannels = [1, 2];
+
+            // Check if the file is already assigned to a different channel
+            const existingChannelForFile = Object.entries(soundFileInput).find(([_, value]) => value === file);
+            if (existingChannelForFile) {
+                const [existingChannel] = existingChannelForFile;
+                if (Number(existingChannel) !== channel) {
+                    // Remove the existing assignment
+                    delete soundFileInput[Number(existingChannel)];
+                }
+            }
+
+            // Assign the new file to the specified channel
+            soundFileInput[channel] = file;
+
+            // If a different file was already assigned to this channel, update other channel(s)
+            const conflictingEntry = Object.entries(soundFileInput).find(([key, value]) => Number(key) !== channel && value !== file);
+            if (conflictingEntry) {
+                const [conflictingChannel, conflictingFile] = conflictingEntry;
+                if (Number(conflictingChannel) === 1 && channel === 2) {
+                    soundFileInput[1] = conflictingFile; // Keep conflicting file on channel 1
+                } else if (Number(conflictingChannel) === 2 && channel === 1) {
+                    soundFileInput[2] = conflictingFile; // Keep conflicting file on channel 2
+                } else {
+                    delete soundFileInput[Number(conflictingChannel)]; // Remove if it doesn't fit the logic
+                }
+            }
+
+            // Filter out invalid channels, allowing only valid ones and channel 12
             soundFileInput = Object.fromEntries(
                 Object.entries(soundFileInput).filter(
                     ([key]) => validChannels.includes(Number(key)) || Number(key) === 12
                 )
             );
         }
-    
+
         // Save the updated configuration back to globalState
         await context.globalState.update('soundFileInput', soundFileInput);
     }
-    
-    
-    
+
+
+
+
 
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
@@ -425,18 +452,10 @@ export class Commands {
             if (editor.fileName.endsWith(".csd")) {
 
                 const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
-
+                this.vscodeOutputChannel.clear();
                 process.on('error', (err) => {
                     this.vscodeOutputChannel.appendLine('Failed to start process:' + err);
                 });
-
-                // process.on('exit', (code, signal) => {
-                //     if (code !== 0) {
-                //         this.vscodeOutputChannel.append(`Cabbage exited`);
-                //     } else {
-                //         this.vscodeOutputChannel.append('Process started successfully');
-                //     }
-                // });
 
                 this.processes.push(process);
                 process.stdout.on("data", (data: { toString: () => string; }) => {

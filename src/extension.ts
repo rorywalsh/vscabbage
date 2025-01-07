@@ -251,7 +251,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                     }
                     Commands.sendFileToChannel(context, websocket, file, Number(channel));
                 }
-            }, 1000);
+            }, 2000);
         }
 
         const panel = Commands.getPanel();
