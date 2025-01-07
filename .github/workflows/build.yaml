@@ -219,7 +219,7 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Build and package extension on macOS
-        run: vsce package --out vscabbage-0.0.1-macos.vsix
+        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 
       - name: Upload VSIX artifact from macOS
         uses: actions/upload-artifact@v4
@@ -363,7 +363,7 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Build and package extension on Windows
-        run: vsce package --out vscabbage-0.0.1-windows.vsix
+        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
 
       - name: Upload VSIX artifact from Windows
         uses: actions/upload-artifact@v4
@@ -375,8 +375,8 @@ jobs:
   release:
     needs: [build_macos, build_windows]
     runs-on: ubuntu-latest
-     # Ensure it only runs on main, or when run_build is passed to commit message
-    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
+     # Releases can only be built from the main branch, but artefacts can be created from any branch
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout Repository
