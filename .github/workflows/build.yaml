@@ -446,12 +446,14 @@ jobs:
       - name: Create GitHub Pre-Release
         run: |
           VERSION="${{ env.VERSION }}"
-          gh release create $VERSION ./release/vscabbage-0.0.1-macos.vsix ./release/vscabbage-0.0.1-windows.vsix \
+          LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          gh release create $VERSION ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix \
             --title "$VERSION" \
-            --notes "Pre-release candidate for $VERSION" \
+            --notes "$LAST_COMMIT_MESSAGE" \
             --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
       - name: List and Delete Old Git Tags and Releases
