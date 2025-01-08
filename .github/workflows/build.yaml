@@ -407,8 +407,8 @@ jobs:
           # Fetch tags
           git fetch --tags
 
-          # Get the latest tag (if no tag exists, default to 0.0.0-alpha)
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-alpha")
+          # Get the latest tag (if no tag exists, default to 1.0.0-alpha)
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0-alpha")
           echo "Last tag: $last_tag"
 
           # Extract major, minor, patch
