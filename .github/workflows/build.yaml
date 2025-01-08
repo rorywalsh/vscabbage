@@ -52,6 +52,7 @@ jobs:
           echo "::set-output name=version::$new_version"
 
   build_macos:
+    needs: generate_tag
     runs-on: macos-latest
        # Ensure it only runs on main, or when run_build is passed to commit message
     if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
@@ -232,6 +233,7 @@ jobs:
 # ========================================================================================
 
   build_windows:
+    needs: generate_tag
     runs-on: windows-latest
     # Ensure it only runs on main, or when run_build is passed to commit message
     if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
