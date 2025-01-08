@@ -412,18 +412,28 @@ export class ExtensionUtils {
      * Uses custom indentation for control structures like `if`, `else`, `instr`, and `opcode`.
      */
     static formatText(text: string, indentSpaces: number = 4): string {
+
+        const startTag = '<Cabbage>';
+        const endTag = '</Cabbage>';
+    
+        const startIndex = text.indexOf(startTag);
+        const endIndex = text.indexOf(endTag) + endTag.length;
         const lines = text.split('\n');
-        let formattedText = '';
+    
+        if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
+            // If no Cabbage section is found, format the entire text
+            const updatedText = this.formatNonCabbageContent(lines, ' '.repeat(indentSpaces));
+            return updatedText.join('\n');
+        }
+    
+        const beforeCabbage = text.substring(0, startIndex).split('\n');;
+        const cabbageSection = text.substring(startIndex, endIndex);
+        const afterCabbage = text.substring(endIndex).split('\n');;
 
-        // Create a string with the specified number of spaces
-        const indentString = ' '.repeat(indentSpaces);
-
-        lines.forEach((line, index) => {
-            // Format the non-Cabbage content
-            formattedText += this.formatNonCabbageContent(line, indentString, lines, index);
-        });
-
-        return formattedText;
+        const formattedBeforeCabbage = this.formatNonCabbageContent(beforeCabbage, ' '.repeat(indentSpaces));
+        const formattedAfterCabbage = this.formatNonCabbageContent(afterCabbage, ' '.repeat(indentSpaces));
+    
+        return formattedBeforeCabbage.join('\n') + cabbageSection + formattedAfterCabbage.join('\n');
     }
 
     static collapseCabbageContent(cabbageContent: string): string {
@@ -437,39 +447,46 @@ export class ExtensionUtils {
         return formattedCabbageText;
     }
 
-    static formatNonCabbageContent(line: string, indentString: string, lines: string[], index: number): string {
-        let indents = 0;
-        const trimmedLine = line.trim().length > 0 ? line.trimStart() : line;
-
-        // Increase indentation level for specific keywords
-        if (index > 0 && (
-            lines[index - 1].trim().startsWith("if ") ||
-            lines[index - 1].trim().startsWith("if(") ||
-            lines[index - 1].trim().startsWith("instr") ||
-            lines[index - 1].trim().startsWith("opcode") ||
-            lines[index - 1].trim().startsWith("else") ||
-            lines[index - 1].trim().startsWith("while")
-        )) {
-            indents++;
+    static formatNonCabbageContent(lines: string[], indentString: string): string[] {
+        let indents = 0; // Tracks current indentation level
+        const formattedLines: string[] = [];
+    
+        for (let index = 0; index < lines.length; index++) {
+            const line = lines[index];
+            const trimmedLine = line.trim();
+    
+            // Decrease indentation level for end keywords
+            if (
+                trimmedLine.startsWith("endif") ||
+                trimmedLine.startsWith("endin") ||
+                trimmedLine.startsWith("endop") ||
+                trimmedLine.startsWith("od") ||
+                trimmedLine.startsWith("else") ||
+                trimmedLine.startsWith("enduntil")
+            ) {
+                indents = Math.max(0, indents - 1);
+            }
+    
+            // Add indentation
+            const indentText = indentString.repeat(indents);
+            formattedLines.push(indentText + trimmedLine);
+    
+            // Increase indentation level for specific keywords
+            if (
+                trimmedLine.startsWith("if ") ||
+                trimmedLine.startsWith("if(") ||
+                trimmedLine.startsWith("instr") ||
+                trimmedLine.startsWith("opcode") ||
+                trimmedLine.startsWith("else") ||
+                trimmedLine.startsWith("while")
+            ) {
+                indents++;
+            }
         }
-
-        // Decrease indentation level for end keywords
-        if (
-            trimmedLine.startsWith("endif") ||
-            trimmedLine.startsWith("endin") ||
-            trimmedLine.startsWith("endop") ||
-            trimmedLine.startsWith("od") ||
-            trimmedLine.startsWith("else") ||
-            trimmedLine.startsWith("enduntil")
-        ) {
-            indents = Math.max(0, indents - 1);
-        }
-
-        // Add indentation
-        const indentText = indentString.repeat(indents);
-        return indentText + trimmedLine + '\n';
+    
+        return formattedLines;
     }
-
+    
     static getResourcePath() {
         switch (os.platform()) {
             case 'darwin': // macOS
