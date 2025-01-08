@@ -406,7 +406,7 @@ jobs:
 
       - name: Create GitHub Pre-Release
         run: |
-          VERSION="${{ env.VERSION }}"
+          VERSION="${{ needs.generate_tag.outputs.version }}"
           LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%B)
           gh release create $VERSION ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix \
             --title "$VERSION" \
