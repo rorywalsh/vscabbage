@@ -264,7 +264,8 @@ jobs:
 
       - name: Verify Csound
         run: |
-          ls "C:\Program Files"
+          ls "C:\Program Files\Csound7"
+          ls "C:\Program Files\Csound7\lib"
 
       - name: Configure build
         shell: cmd
