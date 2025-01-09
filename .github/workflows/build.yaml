@@ -262,6 +262,10 @@ jobs:
         run: |
           .\csound-7.exe /VERYSILENT
 
+      - name: Verify Csound
+        run: |
+          .\csound --version
+
       - name: Configure build
         shell: cmd
         run: |
