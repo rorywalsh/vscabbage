@@ -13,6 +13,7 @@ import * as path from 'path';
 let dbg = false;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
+import os from 'os';
 
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
@@ -870,35 +871,51 @@ export class Commands {
             }
 
             // Copy the VST3 plugin
-            await Commands.copyDirectory(binaryFile, destinationPath);
-            console.log('Plugin successfully copied to:', destinationPath);
+            if (os.platform() === 'darwin') {
+                await Commands.copyDirectory(binaryFile, destinationPath);
+                console.log('Plugin successfully copied to:', destinationPath);
 
-            // Rename the executable file inside the folder
-            const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-            const originalFilePath = path.join(macOSDirPath, 'CabbageVST3Effect');
-            const newFilePath = path.join(macOSDirPath, pluginName);
-            await fs.promises.rename(originalFilePath, newFilePath);
-            console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
+                // Rename the executable file inside the folder
+                const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+                const originalFilePath = path.join(macOSDirPath, 'CabbageVST3Effect');
+                const newFilePath = path.join(macOSDirPath, pluginName);
+                await fs.promises.rename(originalFilePath, newFilePath);
+                console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
 
-            // Modify the plist file
-            const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
-            const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
-            const parser = new xml2js.Parser();
-            const builder = new xml2js.Builder();
+                // Modify the plist file
+                const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
+                const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
+                const parser = new xml2js.Parser();
+                const builder = new xml2js.Builder();
 
-            parser.parseString(plistData, async (err, result) => {
-                if (err) {
-                    throw new Error('Error parsing plist file: ' + err);
-                }
-                const dict = result.plist.dict[0].key;
-                const executableIndex = dict.indexOf('CFBundleExecutable');
-                if (executableIndex !== -1) {
-                    result.plist.dict[0].string[executableIndex] = pluginName;
-                }
-                const updatedPlist = builder.buildObject(result);
-                await fs.promises.writeFile(plistFilePath, updatedPlist);
-                console.log(`CFBundleExecutable updated to "${pluginName}" in Info.plist`);
-            });
+                parser.parseString(plistData, async (err, result) => {
+                    if (err) {
+                        throw new Error('Error parsing plist file: ' + err);
+                    }
+                    const dict = result.plist.dict[0].key;
+                    const executableIndex = dict.indexOf('CFBundleExecutable');
+                    if (executableIndex !== -1) {
+                        result.plist.dict[0].string[executableIndex] = pluginName;
+                    }
+                    const updatedPlist = builder.buildObject(result);
+                    await fs.promises.writeFile(plistFilePath, updatedPlist);
+                    console.log(`CFBundleExecutable updated to "${pluginName}" in Info.plist`);
+                });
+            } else {
+                await Commands.copyDirectory(binaryFile, destinationPath);
+                console.log('Plugin successfully copied to:', destinationPath);
+                Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
+                // Rename the executable file inside the folder
+                const win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
+                console.log('win64DirPath:', win64DirPath);
+                const originalFilePath = path.join(win64DirPath, 'CabbageVST3Effect.vst3');
+                console.log('originalFilePath:', originalFilePath);
+                const newFilePath = path.join(win64DirPath, pluginName+'.vst3');
+                console.log('newFilePath:', newFilePath);
+                await fs.promises.rename(originalFilePath, newFilePath);
+                console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
+            }
 
         } catch (err) {
             vscode.window.showInformationMessage('Error during plugin copy process:' + err);

@@ -260,7 +260,7 @@ jobs:
 
       - name: Install Csound
         run: |
-          .\csound-7.exe /VERYSILENT
+          Start-Sleep -Seconds 5
 
       - name: Wait for Installation to Complete
         shell: pwsh
@@ -271,7 +271,6 @@ jobs:
         run: |
           ls "C:\Program Files\Csound7"
           ls "C:\Program Files\Csound7\lib"
-          ls "C:\Program Files\Csound7\include"
           ls "C:\Program Files\Csound7\include\csound"
 
       - name: Configure build
@@ -358,7 +357,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp.exe
-          path: "./src/CabbageBundle/CabbageApp.exe"
+          path: "./src/CabbageBundle"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Effect

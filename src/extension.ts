@@ -14,6 +14,7 @@ import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 import * as cp from 'child_process';
 import path from 'path';
+import os from 'os';
 
 //cache for protected files
 const originalContentCache: { [key: string]: string } = {};
@@ -132,10 +133,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Add the listener to the context subscriptions so it's disposed automatically
     context.subscriptions.push(configurationChangeListener);
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', () => { Commands.exportInstrument('VST3Effect'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', () => { Commands.exportInstrument('VST3Synth'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', () => { Commands.exportInstrument('AUv2Synth'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUEffect', () => { Commands.exportInstrument('AUv2Effect'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', async () => { await Commands.exportInstrument('VST3Effect'); }));
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', async () => { await Commands.exportInstrument('VST3Synth'); }));
+    
+    if (os.platform() === 'darwin') {
+        context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', async () => { await Commands.exportInstrument('AUv2Synth'); }));
+        context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUEffect', async () => { await Commands.exportInstrument('AUv2Effect'); }));
+    }
+    
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
     context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
