@@ -4,8 +4,8 @@
 
 import * as vscode from 'vscode';
 import { Commands } from './commands';
-const os = require('os');
-const path = require('path');
+import os from 'os';
+import path from 'path';
 
 export class Settings {
 

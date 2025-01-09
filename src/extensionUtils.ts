@@ -9,6 +9,7 @@ import path from 'path';
 import os from 'os';
 // @ts-ignore
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
+import { Commands } from './commands';
 
 
 // Define an interface for the old-style widget structure
@@ -492,9 +493,15 @@ export class ExtensionUtils {
             case 'darwin': // macOS
                 return path.join(os.homedir(), 'Library', 'CabbageAudio');
             case 'win32': // Windows
-                return process.env.PROGRAMDATA || path.join('C:', 'ProgramData', 'CabbageAudio');
-            default: // Other platforms (e.g., Linux)
-                return path.join(os.homedir(), '.config');
+                if (typeof process.env.PROGRAMDATA === 'string' && process.env.PROGRAMDATA.trim() !== '') {
+                    return path.join(process.env.PROGRAMDATA, 'CabbageAudio');
+                }
+                else{
+                    Commands.getOutputChannel().appendLine('Failed to get PROGRAMDATA environment variable. Using default path.');
+                    return path.join('C:', 'ProgramData', 'CabbageAudio');
+                }
+            default: // todo..
+                return path.join(os.homedir(), '.CabbageAudio');
         }
     }
     /**
