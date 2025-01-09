@@ -262,8 +262,10 @@ jobs:
         run: |
           .\csound-7.exe /VERYSILENT
 
-      - name: Wait for Installer to Finish
-        run: timeout 10
+      - name: Wait for Installation to Complete
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 5
 
       - name: Verify Csound
         run: |
