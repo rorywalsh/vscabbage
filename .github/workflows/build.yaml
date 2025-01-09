@@ -256,9 +256,11 @@ jobs:
       - name: Download and Extract Csound
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/41g11e00yb4v66fduyw3f/Csound7.zip?rlkey=231ot83u6rmnxapwe03krm04z&st=5bzhtada&dl=1" -OutFile "Csound7.zip"
-          Expand-Archive -Path "Csound7.zip" -DestinationPath "$env:ProgramFiles"
-          Get-ChildItem "$env:ProgramFiles\Csound7"
+          Invoke-WebRequest -Uri "https://dl.dropboxusercontent.com/scl/fi/18ppri60nupdrwyo1zt1x/csound-7.exe?rlkey=m6592gt8pfkhvirnl17rbrwfh&st=cml9vetz" -OutFile "csound-7.exe"
+
+      - name: Install Csound
+        run: |
+          .\csound-7.exe /VERYSILENT
 
       - name: Configure build
         shell: cmd
