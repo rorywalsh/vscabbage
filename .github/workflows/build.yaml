@@ -262,6 +262,9 @@ jobs:
         run: |
           .\csound-7.exe /VERYSILENT
 
+      - name: Wait for Installer to Finish
+        run: timeout 10
+
       - name: Verify Csound
         run: |
           ls "C:\Program Files\Csound7"
