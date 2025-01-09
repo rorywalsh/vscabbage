@@ -56,9 +56,11 @@ export class Settings {
                         'CabbageApp.app/Contents/MacOS/CabbageApp' :
                         'CabbageApp.exe');
                 case 'CabbageVST3Effect':
-                    return path.join(binaryPath, 'CabbageVST3Effect.vst3');
+                    return path.join(binaryPath, os.platform() === 'darwin' ?
+                        'CabbageVST3Effect.vst3' : "CabbageVST3Effect_x64.vst3");
                 case 'CabbageVST3Synth':
-                    return path.join(binaryPath, 'CabbageVST3Synth.vst3');
+                    return path.join(binaryPath, os.platform() === 'darwin' ?
+                    'CabbageVST3Synth.vst3' : "CabbageVST3Synth_x64.vst3");
                 case 'CabbageAUv2Effect':
                     return path.join(binaryPath, 'CabbageAUv2Effect.component');
                 case 'CabbageAUv2Synth':
