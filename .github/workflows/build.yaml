@@ -266,6 +266,7 @@ jobs:
         run: |
           ls "C:\Program Files\Csound7"
           ls "C:\Program Files\Csound7\lib"
+          ls "C:\Program Files\Csound7\include\csound"
 
       - name: Configure build
         shell: cmd
