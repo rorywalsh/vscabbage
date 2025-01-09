@@ -259,8 +259,10 @@ jobs:
           Invoke-WebRequest -Uri "https://dl.dropboxusercontent.com/scl/fi/18ppri60nupdrwyo1zt1x/csound-7.exe?rlkey=m6592gt8pfkhvirnl17rbrwfh&st=cml9vetz" -OutFile "csound-7.exe"
 
       - name: Install Csound
+        shell: pwsh
         run: |
-          Start-Sleep -Seconds 5
+          Start-Process -FilePath ".\csound-7.exe" -ArgumentList "/VERYSILENT" -Wait -Verb RunAs
+
 
       - name: Wait for Installation to Complete
         shell: pwsh
