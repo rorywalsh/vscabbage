@@ -264,7 +264,7 @@ jobs:
 
       - name: Verify Csound
         run: |
-          .\csound --version
+          csound --version
 
       - name: Configure build
         shell: cmd
