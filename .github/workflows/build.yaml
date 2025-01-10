@@ -166,11 +166,17 @@ jobs:
           submodules: true
 
       - name: Update version in package.json
+        shell: bash
         run: |
           VERSION=${{ needs.generate_tag.outputs.version }}
           echo "Updating package.json with version $VERSION"
-          jq ".version = \"$VERSION\"" package.json > tmp.$$.json && mv tmp.$$.json package.json
+          # Use proper quoting to handle version string safely
+          jq --arg v "$VERSION" '.version = $v' package.json > tmp.$$.json && mv tmp.$$.json package.json
 
+
+      - name: Confirm Updated package.json
+        shell: pwsh
+        run: Get-Content package.json
 
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
@@ -353,6 +359,9 @@ jobs:
           Write-Host "Updating package.json with version $env:VERSION"
           jq --arg version "$env:VERSION" '.version = $version' package.json | Set-Content package.json
 
+      - name: Confirm Updated package.json
+        shell: pwsh
+        run: Get-Content package.json
 
       - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
