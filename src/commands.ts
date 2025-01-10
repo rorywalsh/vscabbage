@@ -877,7 +877,7 @@ export class Commands {
 
                 // Rename the executable file inside the folder
                 const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                const originalFilePath = path.join(macOSDirPath, 'CabbageVST3Effect');
+                const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' ? 'CabbageVST3Effect' : 'CabbageVST3Synth');
                 const newFilePath = path.join(macOSDirPath, pluginName);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
@@ -909,7 +909,7 @@ export class Commands {
                 const win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
                 Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
                 console.log('win64DirPath:', win64DirPath);
-                const originalFilePath = path.join(win64DirPath, 'CabbageVST3Effect.vst3');
+                const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
                 console.log('originalFilePath:', originalFilePath);
                 const newFilePath = path.join(win64DirPath, pluginName+'.vst3');
                 console.log('newFilePath:', newFilePath);
