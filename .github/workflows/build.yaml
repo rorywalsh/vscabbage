@@ -347,11 +347,12 @@ jobs:
           submodules: true
 
       - name: Update version in package.json
+        shell: pwsh
         run: |
-          VERSION=${{ needs.generate_tag.outputs.version }}
-          echo "Updating package.json with version $VERSION"
-          jq ".version = \"$VERSION\"" package.json > tmp.$$.json && mv tmp.$$.json package.json
-          
+          $env:VERSION = "${{ needs.generate_tag.outputs.version }}"
+          Write-Host "Updating package.json with version $env:VERSION"
+          jq ".version = \"$env:VERSION\"" package.json | Set-Content package.json
+
       - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
         with:
