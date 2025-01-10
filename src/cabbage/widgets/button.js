@@ -82,7 +82,7 @@ export class Button {
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
     console.log(msg);
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   pointerEnter() {

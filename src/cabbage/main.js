@@ -79,7 +79,7 @@ if (typeof acquireVsCodeApi === 'function') {
     console.log("Running outside of VSCode environment");
 }
 
-Cabbage.sendCustomCommand(vscode, 'cabbageIsReadyToLoad');
+Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
 const msg = {
     command: "cabbageIsReadyToLoad",
     obj: JSON.stringify("loaded")
@@ -170,7 +170,7 @@ window.addEventListener('message', async event => {
             break;
 
         case 'saveFromUIEditor':
-            Cabbage.sendCustomCommand(vscode, 'saveFromUIEditor', { lastSavedFileName: message.lastSavedFileName });
+            Cabbage.sendCustomCommand('saveFromUIEditor', vscode, { lastSavedFileName: message.lastSavedFileName });
             break;
 
         default:

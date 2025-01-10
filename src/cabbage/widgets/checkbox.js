@@ -64,7 +64,7 @@ export class Checkbox {
     this.props.value = (this.props.value === 0) ? 1 : 0;
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   pointerDown(evt) {

@@ -75,7 +75,7 @@ export class OptionButton {
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const newValue = CabbageUtils.map(this.props.value, 0, itemsLength, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   pointerEnter() {

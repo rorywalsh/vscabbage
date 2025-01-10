@@ -229,7 +229,7 @@
       },
       {
         "command": "cabbage.openCabbageExample",
-        "title": "Open a sample Cabbage file",
+        "title": "Open an widget example",
         "category": "Cabbage"
       },
       {

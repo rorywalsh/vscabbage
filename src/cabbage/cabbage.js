@@ -6,7 +6,7 @@ console.log("loading cabbage.js");
 
 export class Cabbage {
   
-  static sendParameterUpdate(vscode, message) {
+  static sendParameterUpdate(message, vscode=null) {
     const msg = {
       command: "parameterChange",
       obj: JSON.stringify(message)
@@ -22,7 +22,7 @@ export class Cabbage {
     }
   }
 
-  static sendCustomCommand(vscode, command){
+  static sendCustomCommand(command, vscode=null) {
     const msg = {
       command: command,
       text: JSON.stringify({})
@@ -38,7 +38,7 @@ export class Cabbage {
     }
   } 
 
-  static sendWidgetUpdate(vscode, widget){
+  static sendWidgetUpdate(widget, vscode=null) {
     console.log("sending widget update from UI", widget.props);
     const msg = {
       command: "widgetStateUpdate",
@@ -54,7 +54,7 @@ export class Cabbage {
     }
   }
 
-  static sendMidiMessageFromUI(vscode, statusByte, dataByte1, dataByte2) {
+  static sendMidiMessageFromUI(statusByte, dataByte1, dataByte2, vscode=null) {
     var message = {
       "statusByte": statusByte,
       "dataByte1": dataByte1,

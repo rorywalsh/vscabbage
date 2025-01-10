@@ -90,7 +90,7 @@ export class NumberSlider {
             this.props.value = Math.min(this.props.range.max, Math.max(this.props.range.min, newValue));
             const normalValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
             const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normalValue };
-            Cabbage.sendParameterUpdate(this.vscode, msg);
+            Cabbage.sendParameterUpdate(msg, this.vscode);
             this.updateSliderValue();
         }
     }
@@ -123,7 +123,7 @@ export class NumberSlider {
                     this.props.value = newValue;
                     const normalValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
                     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normalValue };
-                    Cabbage.sendParameterUpdate(this.vscode, msg);
+                    Cabbage.sendParameterUpdate(msg, this.vscode);
                     this.updateSliderValue();
                 } else {
                     alert(`Please enter a value between ${this.props.range.min} and ${this.props.range.max}`);

@@ -173,11 +173,6 @@ jobs:
           # Use proper quoting to handle version string safely
           jq --arg v "$VERSION" '.version = $v' package.json > tmp.$$.json && mv tmp.$$.json package.json
 
-
-      - name: Confirm Updated package.json
-        shell: pwsh
-        run: Get-Content package.json
-
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
         run: |
@@ -359,10 +354,6 @@ jobs:
           Write-Host "Updating package.json with version $env:VERSION"
           jq --arg version "$env:VERSION" '.version = $version' package.json | Set-Content package.json
 
-      - name: Confirm Updated package.json
-        shell: pwsh
-        run: Get-Content package.json
-
       - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
         with:
@@ -412,12 +403,13 @@ jobs:
           name: vscabbage-extension-windows
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
 
-  #steps to tag and release artifacts
+  # =============================================================================
+  # steps to tag and release artifacts
   release:
     needs: [build_macos, build_windows, generate_tag]
     runs-on: ubuntu-latest
      # Releases can only be built from the main branch, but artefacts can be created from any branch
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build')
 
     steps:
       - name: Checkout Repository

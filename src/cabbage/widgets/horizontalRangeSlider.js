@@ -191,7 +191,7 @@ export class HorizontalRangeSlider {
     console.log("Norm value: " + normValue);
     // Post message if vscode is available
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   handleInputChange(evt) {

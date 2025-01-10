@@ -85,7 +85,7 @@ export class ComboBox {
             channelType: this.props.channelType
         };
 
-        Cabbage.sendParameterUpdate(this.vscode, msg);
+        Cabbage.sendParameterUpdate(msg, this.vscode);
 
         this.isOpen = false;
         CabbageUtils.updateInnerHTML(this.props.channel, this);

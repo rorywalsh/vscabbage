@@ -202,7 +202,7 @@ export class HorizontalSlider {
     // Post message if vscode is available
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
     console.log(newValue);
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   handleInputChange(evt) {

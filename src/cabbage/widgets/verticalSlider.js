@@ -97,7 +97,7 @@ export class VerticalSlider {
 
       const newValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
       const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" }
-      Cabbage.sendParameterUpdate(this.vscode, msg);
+      Cabbage.sendParameterUpdate(msg, this.vscode);
     }
   }
 
@@ -209,7 +209,7 @@ export class VerticalSlider {
     //values sent to Cabbage should be normalized between 0 and 1
     const normValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
-    Cabbage.sendParameterUpdate(this.vscode, msg);
+    Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
   getInnerHTML() {
