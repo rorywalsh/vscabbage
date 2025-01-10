@@ -165,6 +165,13 @@ jobs:
           fetch-depth: 1
           submodules: true
 
+      - name: Update version in package.json
+        run: |
+          VERSION=${{ needs.generate_tag.outputs.version }}
+          echo "Updating package.json with version $VERSION"
+          jq ".version = \"$VERSION\"" package.json > tmp.$$.json && mv tmp.$$.json package.json
+
+
       # Create CabbageBundle folder
       - name: Create CabbageBundle folder
         run: |
@@ -339,6 +346,12 @@ jobs:
           fetch-depth: 1
           submodules: true
 
+      - name: Update version in package.json
+        run: |
+          VERSION=${{ needs.generate_tag.outputs.version }}
+          echo "Updating package.json with version $VERSION"
+          jq ".version = \"$VERSION\"" package.json > tmp.$$.json && mv tmp.$$.json package.json
+          
       - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
         with:
