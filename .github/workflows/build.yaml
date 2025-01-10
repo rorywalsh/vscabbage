@@ -351,7 +351,8 @@ jobs:
         run: |
           $env:VERSION = "${{ needs.generate_tag.outputs.version }}"
           Write-Host "Updating package.json with version $env:VERSION"
-          jq ".version = \"$env:VERSION\"" package.json | Set-Content package.json
+          jq --arg version "$env:VERSION" '.version = $version' package.json | Set-Content package.json
+
 
       - name: Set up Node.js (v18) on Windows
         uses: actions/setup-node@v3
