@@ -27,14 +27,7 @@ let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
 
-// Call the setup function to initialize the WebSocket server
-(async function setup() {
-try {
-    await setupWebSocketServer();
-} catch (error) {
-    console.error("Failed to set up WebSocket server:", error);
-}
-})();
+
 
 /**
  * Activates the Cabbage extension, setting up commands, configuration change listeners,
@@ -44,6 +37,8 @@ try {
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 
+    await //initialize the WebSocket server
+    setupWebSocketServer();
     Commands.initialize(context, freePort);
 
 
