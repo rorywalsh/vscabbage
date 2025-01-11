@@ -134,15 +134,15 @@ export class RotarySlider {
         this.imageWidth = img.width;
         this.imageHeight = img.height;
         this.isImageLoaded = true;
-        console.log("Loaded film strip image dimensions:", img.width, img.height);
+        console.log("Cabbage: Loaded film strip image dimensions:", img.width, img.height);
         CabbageUtils.updateInnerHTML(this.props.channel, this);
       };
 
       img.onerror = (error) => {
-        console.log("Error loading film strip image", error);
+        console.log("Cabbage: Error loading film strip image", error);
       };
     } catch (error) {
-      console.log("Failed to load film strip image:", error);
+      console.log("Cabbage: Failed to load film strip image:", error);
     }
 
   }
@@ -197,12 +197,12 @@ export class RotarySlider {
       if (sliderLeft + (sliderWidth) > sliderCenter) {
         // Place popup on the left of the slider thumb
         popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
-        console.log("Pointer on the left");
+        console.log("Cabbage: Pointer on the left");
         popup.classList.add('right');
       } else {
         // Place popup on the right of the slider thumb
         popupLeft = formLeft + sliderLeft + sliderWidth + 10;
-        console.log("Pointer on the right");
+        console.log("Cabbage: Pointer on the right");
         popup.classList.remove('right');
       }
 
@@ -212,12 +212,12 @@ export class RotarySlider {
       popup.style.left = `${popupLeft}px`;
       popup.style.top = `${popupTop}px`;
       popup.style.display = 'block';
-      console.log("Popup left", popup.style.left, "Popup top", popup.style.top);
+      console.log("Cabbage: Popup left", popup.style.left, "Popup top", popup.style.top);
       popup.classList.add('show');
       popup.classList.remove('hide');
     }
 
-    console.log("pointerEnter", this);
+    console.log("Cabbage: pointerEnter", this);
   }
 
   mouseLeave(evt) {
@@ -315,7 +315,7 @@ export class RotarySlider {
 
     // Determine the orientation based on the loaded image dimensions
     const isHorizontal = imgWidth > imgHeight; // true if horizontal, false if vertical
-    console.log("Original image:", imgWidth, imgHeight);
+    console.log("Cabbage: Original image:", imgWidth, imgHeight);
 
     // Determine the current frame based on the slider value
     const frameIndex = Math.round(CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, totalFrames - 1));
@@ -335,9 +335,9 @@ export class RotarySlider {
     const offsetY = isHorizontal ? 0 : frameIndex * frameHeight; // Only offset Y for vertical
 
     // Log the calculated values for debugging
-    console.log("Frame Index:", frameIndex, "Frame width", frameWidth, "Frame height", frameHeight);
-    console.log("Offset X:", offsetX, "Offset Y:", offsetY);
-    console.log("Image Width:", imageWidth, "Image Height:", imageHeight);
+    console.log("Cabbage: Frame Index:", frameIndex, "Frame width", frameWidth, "Frame height", frameHeight);
+    console.log("Cabbage: Offset X:", offsetX, "Offset Y:", offsetY);
+    console.log("Cabbage: Image Width:", imageWidth, "Image Height:", imageHeight);
     const imagePath = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, this.props.currentCsdFile || '');
 
     return `
@@ -368,7 +368,7 @@ export class RotarySlider {
       `;
       }
     }
-    console.log("Drawing rotary slider", this.props.colour);
+    console.log("Cabbage: Drawing rotary slider", this.props.colour);
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference
     const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;

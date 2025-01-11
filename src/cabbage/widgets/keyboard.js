@@ -147,10 +147,10 @@ export class MidiKeyboard {
   }
 
   midiMessageListener(event) {
-    console.log("Midi message listener");
+    console.log("Cabbage: Midi message listener");
     const detail = event.detail;
     const midiData = JSON.parse(detail.data);
-    console.log("Midi message listener", midiData);
+    console.log("Cabbage: Midi message listener", midiData);
     if (midiData.status == 144) {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);

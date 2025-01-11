@@ -52,14 +52,14 @@ CabbageUtils.showOverlay();
 // Check if running in VS Code context
 if (typeof acquireVsCodeApi === 'function') {
     try {
-        console.log("Loading modules in main.js");
+        console.log("Cabbage: Loading modules in main.js");
         // Load PropertyPanel and WidgetWrapper modules concurrently
         const [propertyPanelModule, widgetWrapperModule] = await Promise.all([
             import("../propertyPanel.js"),
             import("../widgetWrapper.js")
         ]);
 
-        console.log("Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
+        console.log("Cabbage: Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
 
         const { PropertyPanel } = propertyPanelModule;
         const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
@@ -76,7 +76,7 @@ if (typeof acquireVsCodeApi === 'function') {
         console.error("Error loading modules in main.js:", error);
     }
 } else {
-    console.log("Running outside of VSCode environment");
+    console.log("Cabbage: Running outside of VSCode environment");
 }
 
 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
@@ -93,7 +93,7 @@ if (vscode !== null) {
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {
-    console.log("onMsessage", event.data);
+    console.log("Cabbage: onMsessage", event.data);
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
     
@@ -115,7 +115,7 @@ window.addEventListener('message', async event => {
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
-            console.log("onFileChanged", message);
+            console.log("Cabbage: onFileChanged", message);
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
             if (mainForm) {
                 mainForm.remove(); // Remove the MainForm element from the DOM

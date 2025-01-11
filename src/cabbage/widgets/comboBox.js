@@ -116,7 +116,7 @@ export class ComboBox {
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
 
         if (!widgetDiv) {
-            console.warn("widgetDiv is null. Channel:", this.props.channel);
+            console.warn("Cabbage: widgetDiv is null. Channel:", this.props.channel);
             return; // Exit early if widgetDiv is null
         }
 

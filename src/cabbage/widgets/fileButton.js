@@ -29,7 +29,7 @@ export class FileButton extends Button {
       if (this.props.active === 0) {
         return '';
       }
-      console.log("pointerDown");
+      console.log("Cabbage: pointerDown");
       this.isMouseDown = true;
       this.props.value = 1;
       Cabbage.triggerFileOpenDialog(this.vscode, this.props.channel);

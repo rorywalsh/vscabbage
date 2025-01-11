@@ -100,7 +100,7 @@ export class PropertyPanel {
             // Skip if this property is in hiddenProps
             
             if (hiddenProps.includes(sectionName)) {
-                console.log("Cabbage: hidden props", hiddenProps, " section name", sectionName);
+                console.log("Cabbage: Cabbage: hidden props", hiddenProps, " section name", sectionName);
                 return;
             }
 
@@ -260,12 +260,12 @@ export class PropertyPanel {
                         widget.props.channel = newChannel;
 
                         // Remove the old widget from the array
-                        console.warn("Cabbage: widgets", this.widgets);
+                        console.warn("Cabbage: Cabbage: widgets", this.widgets);
                         const widgetIndex = this.widgets.findIndex(w => w.props.channel === originalChannel);
                         if (widgetIndex !== -1) {
                             this.widgets.splice(widgetIndex, 1);
                         }
-                        console.warn("Cabbage: after removing widgets", this.widgets);
+                        console.warn("Cabbage: Cabbage: after removing widgets", this.widgets);
 
                         // First, tell the extension to remove the old widget
                         this.vscode.postMessage({
@@ -293,7 +293,7 @@ export class PropertyPanel {
                         input.blur();
                     }
                     else{
-                        console.warn("Cabbage: widget doesn't exist in this context");
+                        console.warn("Cabbage: Cabbage: widget doesn't exist in this context");
                     }
                 }
             });
@@ -475,7 +475,7 @@ export class PropertyPanel {
                 });
             }
             else{
-                console.warn("Cabbage: can't find channel", input.dataset.parent);
+                console.warn("Cabbage: Cabbage: can't find channel", input.dataset.parent);
             }
         });
     }

@@ -10,7 +10,7 @@ export let currentCsdPath = '';
 
 
 export function setVSCode(vsCodeInstance) {
-    console.warn("Setting vscode instance");
+    console.warn("Cabbage: Setting vscode instance");
     vscode = vsCodeInstance;
 }
 

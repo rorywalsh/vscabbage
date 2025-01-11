@@ -3,7 +3,7 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("loading eventHandlers.js");
+console.log("Cabbage: loading eventHandlers.js");
 
 // Imports variables from the sharedState.js file
 // - cabbageMode: Determines if widgets are draggable.
@@ -24,7 +24,7 @@ const loadPropertyPanel = async () => {
         try {
             const module = await import("../propertyPanel.js");
             PropertyPanel = module.default || module.PropertyPanel;
-            console.log("PropertyPanel loaded successfully:", PropertyPanel);
+            console.log("Cabbage: PropertyPanel loaded successfully:", PropertyPanel);
         } catch (error) {
             console.error("Error loading PropertyPanel:", error);
             throw error; // Re-throw to be caught by the caller
@@ -34,19 +34,19 @@ const loadPropertyPanel = async () => {
 };
 
 if (vscode !== null) {
-    console.log("Attempting to load PropertyPanel");
+    console.log("Cabbage: Attempting to load PropertyPanel");
     propertyPanelPromise = import("../propertyPanel.js")
         .then(module => {
-            console.log("PropertyPanel module loaded:", module);
+            console.log("Cabbage: PropertyPanel module loaded:", module);
             PropertyPanel = loadPropertyPanel();
-            console.log("PropertyPanel assigned:", PropertyPanel);
+            console.log("Cabbage: PropertyPanel assigned:", PropertyPanel);
             return PropertyPanel;
         })
         .catch(error => {
             console.error("Error loading PropertyPanel:", error);
         });
 } else {
-    console.log("vscode is null, not loading PropertyPanel");
+    console.log("Cabbage: vscode is null, not loading PropertyPanel");
 }
 
 // Global set to keep track of selected elements in the form.
@@ -142,13 +142,13 @@ export function setupFormHandlers() {
 
     // Add event listeners for group and ungroup functionality (Currently just logs actions)
     groupOption.addEventListener("click", () => {
-        console.log("Group option clicked");
+        console.log("Cabbage: Group option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Group" functionality here
     });
 
     unGroupOption.addEventListener("click", () => {
-        console.log("Ungroup option clicked");
+        console.log("Cabbage: Ungroup option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Ungroup" functionality here
     });
@@ -227,7 +227,7 @@ export function setupFormHandlers() {
                         e.stopImmediatePropagation();
                         e.stopPropagation();
                         const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig, ''); // Clean up HTML
-                        console.warn("Adding widget of type:", type);
+                        console.warn("Cabbage: Adding widget of type:", type);
                         contextMenu.style.visibility = "hidden";
 
                         // Insert new widget and update the editor
@@ -273,7 +273,7 @@ export function setupFormHandlers() {
                 });
             } else {
                 // Handle single click logic here
-                console.log("Cabbage: Single click detected", event);
+                console.log("Cabbage: Cabbage: Single click detected", event);
 
                 if (event.button !== 0 || cabbageMode !== 'draggable') { return; }; // Ignore right clicks
 

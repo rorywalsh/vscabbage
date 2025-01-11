@@ -150,7 +150,7 @@ export class Commands {
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
-        console.warn("Received message:", message);
+        console.warn("Cabbage: Received message:", message);
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
             case 'getMediaFiles':
@@ -395,7 +395,7 @@ export class Commands {
      */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
 
-        console.log("onDidSave", editor.fileName);
+        console.log("Cabbage: onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
         this.getOutputChannel().appendLine(`Saving file: ${editor.fileName}`);
 
@@ -974,14 +974,14 @@ export class Commands {
         const match = text.match(cabbageRegex);
 
         if (!match) {
-            console.log("No Cabbage section found in document");
+            console.log("Cabbage: No Cabbage section found in document");
             return false;
         }
 
         try {
             const cabbageContent = match[1].trim();
             let widgets = JSON.parse(cabbageContent);
-            console.log("Current widgets:", widgets.length);
+            console.log("Cabbage: Current widgets:", widgets.length);
 
             // Remove the widget with the specified channel
             const originalLength = widgets.length;

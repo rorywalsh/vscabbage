@@ -75,7 +75,7 @@ export class Button {
     if (this.props.active === 0) {
       return '';
     }
-    console.log("pointerDown");
+    console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     this.props.value = (this.props.value === 0 ? 1 : 0);
 
@@ -117,7 +117,7 @@ export class Button {
   }
 
   addVsCodeEventListeners(widgetDiv, vs) {
-    console.log("addVsCodeEventListeners");
+    console.log("Cabbage: addVsCodeEventListeners");
     this.vscode = vs;
     this.addEventListeners(widgetDiv);
   }

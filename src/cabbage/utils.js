@@ -214,7 +214,7 @@ export class CabbageUtils {
 
   static getWidgetFromChannel(channel, widgets) {
     widgets.forEach((widget) => {
-      console.log("widget channel", widget.channel);
+      console.log("Cabbage: widget channel", widget.channel);
       if (widget["channel"] === channel) { return widget; }
     });
     return null;

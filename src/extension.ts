@@ -227,6 +227,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
     if (editor) {
         if (!editor.fileName.endsWith('.csd') || !await Commands.hasCabbageTags(editor)) {
+            console.warn("Cabage: No cabbage tags found in document, returning early.");
             return;
         }
 
@@ -234,6 +235,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration('cabbage');
 
         if (config.get('showUIOnSave') && !Commands.getPanel()) {
+            console.warn('Cabbage: Creating new webview panel');
             Commands.setupWebViewPanel(context);
         }
         else {
@@ -260,6 +262,9 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                 }
             }, 2000);
         }
+        else {
+            console.warn("Cabbage: websocket is undefined?");
+        }
 
         const panel = Commands.getPanel();
         if (panel) {
@@ -273,9 +278,12 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                         context
                     );
                 } else {
-                    console.warn("websocket is undefined?");
+                    console.warn("Cabbage: websocket is undefined?");
                 }
             });
+        }
+        else{
+            console.warn('Cabbage: No webview found');
         }
     }
 }

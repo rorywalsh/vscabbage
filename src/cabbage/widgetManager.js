@@ -2,7 +2,7 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("Loading widgetManager.js...");
+console.log("Cabbage: Loading widgetManager.js...");
 
 // Import necessary modules and utilities
 import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
@@ -94,7 +94,7 @@ export class WidgetManager {
         }
         // Add the widget to the global widgets array
 
-        console.log("Pushing widget to widgets array", widget);
+        console.log("Cabbage: Pushing widget to widgets array", widget);
         widgets.push(widget);
         widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
 

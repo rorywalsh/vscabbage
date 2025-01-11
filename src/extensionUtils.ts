@@ -317,7 +317,7 @@ export class ExtensionUtils {
         let document: vscode.TextDocument;
 
         if (!textEditor && lastSavedFileName) {
-            console.log("Attempting to open document:", lastSavedFileName);
+            console.log("Cabbage: Attempting to open document:", lastSavedFileName);
             try {
                 document = await vscode.workspace.openTextDocument(lastSavedFileName);
                 // Don't show the document, just keep it in the background

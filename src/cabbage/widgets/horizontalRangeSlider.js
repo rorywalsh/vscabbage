@@ -115,12 +115,12 @@ export class HorizontalRangeSlider {
       if (sliderLeft + (sliderWidth) > sliderCenter) {
         // Place popup on the left of the slider thumb
         popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
-        console.log("Pointer on the left");
+        console.log("Cabbage: Pointer on the left");
         popup.classList.add('right');
       } else {
         // Place popup on the right of the slider thumb
         popupLeft = formLeft + sliderLeft + sliderWidth + 10;
-        console.log("Pointer on the right");
+        console.log("Cabbage: Pointer on the right");
         popup.classList.remove('right');
       }
 
@@ -188,7 +188,7 @@ export class HorizontalRangeSlider {
 
     //values sent to Cabbage should be normalized between 0 and 1
     const normValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-    console.log("Norm value: " + normValue);
+    console.log("Cabbage: Norm value: " + normValue);
     // Post message if vscode is available
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
     Cabbage.sendParameterUpdate(msg, this.vscode);

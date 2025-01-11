@@ -98,7 +98,7 @@ export class GenTable {
         this.ctx.arcTo(0, 0, this.props.bounds.width, 0, this.props.corners);
         this.ctx.closePath();
         this.ctx.fill();
-        console.log("Cabbage: sample array length:",  this.props.samples.length);
+        console.log("Cabbage: Cabbage: sample array length:",  this.props.samples.length);
         // Draw waveform - First, handle the fill
         if (this.props.fill === 1) {
             this.ctx.strokeStyle = this.props.colour.fill; // Set fill color for vertical lines

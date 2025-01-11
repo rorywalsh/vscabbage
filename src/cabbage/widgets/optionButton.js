@@ -67,7 +67,7 @@ export class OptionButton {
     if (this.props.visible === 0) {
       return '';
     }
-    console.log("pointerDown");
+    console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     const itemsLength = this.props.items.split(",").length;
     this.props.value = this.props.value < itemsLength - 1 ? this.props.value + 1 : 0;
@@ -110,7 +110,7 @@ export class OptionButton {
   }
 
   addVsCodeEventListeners(widgetDiv, vs) {
-    console.log("addVsCodeEventListeners");
+    console.log("Cabbage: addVsCodeEventListeners");
     this.vscode = vs;
     this.addEventListeners(widgetDiv);
   }
