@@ -32,7 +32,7 @@ export class CabbageUtils {
       // Construct the URL with the correct encoding
       const baseUrl = 'https://file%2B.vscode-resource.vscode-cdn.net';
       const fullUrl = `${baseUrl}${currentCsdPath}/media/${fileName}`;
-      console.log('fullUrl', fullUrl);
+      console.log('Cabbage: fullUrl', fullUrl);
       return fullUrl;
     }
   }
@@ -141,7 +141,7 @@ export class CabbageUtils {
    */
   static getDecimalPlaces(num) {
     if (typeof num !== 'number' || isNaN(num)) {
-      console.warn('Invalid input to getDecimalPlaces:', num);
+      console.warn('Cabbage: Invalid input to getDecimalPlaces:', num);
       return 0; // or some default value
     }
     const str = num.toString();
@@ -238,7 +238,7 @@ export class CabbageUtils {
         fontSize = props.height * .5;
         break;
       default:
-        console.error('getStringWidth..');
+        console.error('Cabbage: getStringWidth..');
         break;
     }
 
@@ -282,31 +282,31 @@ export class CabbageUtils {
   }
 
   static updateBounds(props, identifier) {
-    console.log('updateBounds called with:', JSON.stringify(props), identifier);
+    console.log('Cabbage: updateBounds called with:', JSON.stringify(props), identifier);
     const element = document.getElementById(props.channel);
     if (element && props.bounds) {
       switch (identifier) {
         case 'bounds.left':
           element.style.left = props.bounds.left + "px";
-          console.log('Updated left to:', props.bounds.left);
+          console.log('Cabbage: Updated left to:', props.bounds.left);
           break;
         case 'bounds.top':
           element.style.top = props.bounds.top + "px";
-          console.log('Updated top to:', props.bounds.top);
+          console.log('Cabbage: Updated top to:', props.bounds.top);
           break;
         case 'bounds.width':
           element.style.width = props.bounds.width + "px";
-          console.log('Updated width to:', props.bounds.width);
+          console.log('Cabbage: Updated width to:', props.bounds.width);
           break;
         case 'bounds.height':
           element.style.height = props.bounds.height + "px";
-          console.log('Updated height to:', props.bounds.height);
+          console.log('Cabbage: Updated height to:', props.bounds.height);
           break;
         default:
           break;
       }
     } else {
-      console.log('Element or bounds not found:', props.channel, props.bounds);
+      console.log('Cabbage: Element or bounds not found:', props.channel, props.bounds);
     }
   }
 }

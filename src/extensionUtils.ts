@@ -732,7 +732,7 @@ export class ExtensionUtils {
             server.unref();
             server.on('error', (err: any) => {
                 Commands.getOutputChannel().appendLine(`Failed to find free port: ${err.message}`);
-                console.error('Failed to find free port:', err);
+                console.error('Cabbage: Failed to find free port:', err);
                 if (err.code === 'EADDRINUSE' && startPort < endPort) {
                     resolve(ExtensionUtils.findFreePort(startPort + 1, endPort));
                 } else {
@@ -741,7 +741,7 @@ export class ExtensionUtils {
             });
             server.listen(startPort, () => {
                 Commands.getOutputChannel().appendLine(`Found a find free port: ${startPort}`);
-                console.log('Found a find free port:', startPort);
+                console.log('Cabbage: Found a find free port:', startPort);
                 const port = server.address().port;
                 server.close(() => resolve(port));
             });

@@ -122,11 +122,11 @@ export class MidiKeyboard {
   }
 
   octaveUpPointerDown(e) {
-    console.log('octaveUpPointerDown');
+    console.log('Cabbage: octaveUpPointerDown');
   }
 
   octaveDownPointerDown(e) {
-    console.log('octaveDownPointerDown');
+    console.log('Cabbage: octaveDownPointerDown');
   }
 
   changeOctave(offset) {

@@ -211,7 +211,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         if (panel) {
             const targetDocument = await ExtensionUtils.findDocument(panel.title + '.csd', true);
             if (!targetDocument) {
-                console.log('No editor or document with filename Unhinged.csd found.');
+                console.log('Cabbage: No editor or document with filename Unhinged.csd found.');
                 return;
             }
             editor = targetDocument;
@@ -235,7 +235,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration('cabbage');
 
         if (config.get('showUIOnSave') && !Commands.getPanel()) {
-            console.warn('Cabbage: Creating new webview panel');
+            console.warn('Cabbage: Cabbage: Creating new webview panel');
             Commands.setupWebViewPanel(context);
         }
         else {
@@ -283,7 +283,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             });
         }
         else{
-            console.warn('Cabbage: No webview found');
+            console.warn('Cabbage: Cabbage: No webview found');
         }
     }
 }
@@ -385,7 +385,7 @@ async function setupWebSocketServer() {
 
     // Add WebSocket server event listeners here
     wss.on('connection', (ws: WebSocket) => {
-        console.warn('Client connected');
+        console.warn('Cabbage: Client connected');
 
         // There are times when Cabbage will send messages before the webview is ready to receive them. 
         // So first thing to do is flush the first messages received from Cabbage
@@ -418,7 +418,7 @@ async function setupWebSocketServer() {
         });
 
         ws.on('close', () => {
-            console.log('Client disconnected');
+            console.log('Cabbage: Client disconnected');
         });
     });
 
@@ -426,10 +426,10 @@ async function setupWebSocketServer() {
     wss.on('error', (error) => {
         const vscodeOutputChannel = Commands.getOutputChannel();
         if ((error as any).code === 'EADDRINUSE') {
-            console.error('Port 9991 is already in use.');
+            console.error('Cabbage: Port 9991 is already in use.');
             vscodeOutputChannel.appendLine('Port 9991 is already in use.');
         } else {
-            console.error('Failed to initialize WebSocket server:', error);
+            console.error('Cabbage: Failed to initialize WebSocket server:', error);
             vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
         }
         // Optional: shut down the server if initialization failed
@@ -440,6 +440,6 @@ async function setupWebSocketServer() {
     wss.on('listening', () => {
         const vscodeOutputChannel = Commands.getOutputChannel();
         // vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
-        console.log('WebSocket server successfully started on port 9991');
+        console.log('Cabbage: WebSocket server successfully started on port 9991');
     });
 }

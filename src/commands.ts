@@ -169,7 +169,7 @@ export class Commands {
                     // Now `directory` is guaranteed to exist
                     fs.readdir(directory, (err, files) => {
                         if (err) {
-                            console.error('Error reading directory:', err);
+                            console.error('Cabbage: Error reading directory:', err);
                             return;
                         }
                         // Send the files back to the WebView
@@ -181,7 +181,7 @@ export class Commands {
                         }
                     });
                 } catch (error) {
-                    console.error('Error processing audio files request:', error);
+                    console.error('Cabbage: Error processing audio files request:', error);
                 }
 
                 break;
@@ -265,7 +265,7 @@ export class Commands {
                 if (documentToSave) {
                     try {
                         await documentToSave.save();
-                        console.log('File saved successfully:', documentToSave.fileName);
+                        console.log('Cabbage: File saved successfully:', documentToSave.fileName);
 
                         if (this.panel) {
                             this.panel.webview.postMessage({
@@ -277,11 +277,11 @@ export class Commands {
 
                         Commands.onDidSave(documentToSave, context);
                     } catch (error) {
-                        console.error('Error saving file:', error);
+                        console.error('Cabbage: Error saving file:', error);
                         vscode.window.showErrorMessage('Failed to save the file. Please try again.');
                     }
                 } else {
-                    console.error('No suitable document found to save');
+                    console.error('Cabbage: No suitable document found to save');
                     vscode.window.showErrorMessage('No .csd file found to save. Please ensure a .csd file is open.');
                 }
                 break;
@@ -355,13 +355,13 @@ export class Commands {
         if (this.panel.webview.options.localResourceRoots) {
             this.panel.webview.options.localResourceRoots.forEach((uri) => {
                 if (this.panel) {
-                    console.warn('Local resource roots:', this.panel.webview.asWebviewUri(uri));
+                    console.warn('Cabbage: Local resource roots:', this.panel.webview.asWebviewUri(uri));
                 }
             });
 
         }
 
-        // console.error('Local resource roots:', this.panel.webview.options.localResourceRoots);
+        // console.error('Cabbage: Local resource roots:', this.panel.webview.options.localResourceRoots);
 
         // Handle panel disposal
         this.panel.onDidDispose(() => {
@@ -474,7 +474,7 @@ export class Commands {
                     }
                 });
             } else {
-                console.error('Invalid file name or no extension found\n');
+                console.error('Cabbage: Invalid file name or no extension found\n');
                 this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.\n');
                 return;
             }
@@ -528,7 +528,7 @@ export class Commands {
                 this.processes.forEach((p) => {
                     p?.kill("SIGKILL");
                 });
-                console.error('No Cabbage source path found');
+                console.error('Cabbage: No Cabbage source path found');
                 this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
             }, 500);
         }
@@ -773,7 +773,7 @@ export class Commands {
         });
 
         if (!fileUri) {
-            console.log('No file selected.');
+            console.log('Cabbage: No file selected.');
             return;
         }
 
@@ -823,7 +823,7 @@ export class Commands {
                 //todo
                 break;
             default:
-                console.error('Not valid type provided for export');
+                console.error('Cabbage: Not valid type provided for export');
                 break;
         }
 
@@ -834,7 +834,7 @@ export class Commands {
                 'Yes', 'No'
             );
             if (overwrite !== 'Yes') {
-                console.log('Operation cancelled by user');
+                console.log('Cabbage: Operation cancelled by user');
                 return;
             }
             // Remove existing directory
@@ -844,22 +844,22 @@ export class Commands {
         try {
             // 1. Create the export directory
             await fs.promises.mkdir(resourcesDir, { recursive: true });
-            console.log('Created export directory:', resourcesDir);
+            console.log('Cabbage: Created export directory:', resourcesDir);
 
             // 2. Copy JS source files
             await Commands.copyDirectory(pathToCabbageJsSource, path.join(resourcesDir, 'cabbage'));
-            console.log('Copied JS source files');
+            console.log('Cabbage: Copied JS source files');
 
             // 3. Create and write index.html
             const indexHtmlPath = path.join(resourcesDir, 'index.html');
             await fs.promises.writeFile(indexHtmlPath, indexDotHtml);
-            console.log('Created index.html');
+            console.log('Cabbage: Created index.html');
 
             // 4. Copy CSS file
             const cssFileName = path.basename(cabbageCSS);
             const cssDestPath = path.join(resourcesDir, cssFileName);
             await fs.promises.copyFile(cabbageCSS, cssDestPath);
-            console.log('Copied CSS file');
+            console.log('Cabbage: Copied CSS file');
 
             // Rename and update the .csd file
             const newCsdPath = path.join(resourcesDir, `${pluginName}.csd`);
@@ -867,13 +867,13 @@ export class Commands {
             if (editor) {
                 const newContent = await fs.promises.readFile(editor.document.fileName, 'utf8');
                 await fs.promises.writeFile(newCsdPath, newContent);
-                console.log('CSD file updated and renamed');
+                console.log('Cabbage: CSD file updated and renamed');
             }
 
             // Copy the VST3 plugin
             if (os.platform() === 'darwin') {
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                console.log('Plugin successfully copied to:', destinationPath);
+                console.log('Cabbage: Plugin successfully copied to:', destinationPath);
 
                 // Rename the executable file inside the folder
                 const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
@@ -903,16 +903,16 @@ export class Commands {
                 });
             } else {
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                console.log('Plugin successfully copied to:', destinationPath);
+                console.log('Cabbage: Plugin successfully copied to:', destinationPath);
                 Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
                 // Rename the executable file inside the folder
                 const win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
                 Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
-                console.log('win64DirPath:', win64DirPath);
+                console.log('Cabbage: win64DirPath:', win64DirPath);
                 const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                console.log('originalFilePath:', originalFilePath);
+                console.log('Cabbage: originalFilePath:', originalFilePath);
                 const newFilePath = path.join(win64DirPath, pluginName+'.vst3');
-                console.log('newFilePath:', newFilePath);
+                console.log('Cabbage: newFilePath:', newFilePath);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
             }
@@ -1010,8 +1010,8 @@ export class Commands {
 
             return await vscode.workspace.applyEdit(edit);
         } catch (error) {
-            console.error('Error processing removeWidget command:', error);
-            console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+            console.error('Cabbage: Error processing removeWidget command:', error);
+            console.error('Cabbage: Error details:', error instanceof Error ? error.message : 'Unknown error');
             return false;
         }
     }

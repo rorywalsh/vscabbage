@@ -30,7 +30,7 @@ export class Settings {
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
-            console.error('extension path', extension.extensionPath);
+            console.error('Cabbage: extension path', extension.extensionPath);
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             // Replace backslashes with forward slashes
@@ -94,14 +94,14 @@ export class Settings {
             return JSON.parse(fileContent); // Return the parsed JSON content if file exists
         } catch (error) {
             if (error instanceof Error && (error as any).code === 'FileNotFound') {
-                console.log('Settings file not found. Creating a new one with default settings.');
+                console.log('Cabbage: Settings file not found. Creating a new one with default settings.');
 
                 // Ensure the directory structure exists
                 const directoryUri = vscode.Uri.file(path.dirname(settingsPath));
                 try {
                     await vscode.workspace.fs.createDirectory(directoryUri);
                 } catch (dirError) {
-                    console.error('Error creating settings directory:', dirError);
+                    console.error('Cabbage: Error creating settings directory:', dirError);
                 }
 
                 // Write default settings to the new file
@@ -110,10 +110,10 @@ export class Settings {
                     await vscode.workspace.fs.writeFile(fileUri, fileContent);
                     return JSON.parse(Settings.getDefaultSettings()); // Return the default settings as JSON
                 } catch (writeError) {
-                    console.error('Error writing default settings to file:', writeError);
+                    console.error('Cabbage: Error writing default settings to file:', writeError);
                 }
             } else {
-                console.error('Error reading file:', error);
+                console.error('Cabbage: Error reading file:', error);
             }
         }
 
@@ -139,7 +139,7 @@ export class Settings {
             // Write the encoded string to the file, overwriting the existing contents
             await vscode.workspace.fs.writeFile(fileUri, encodedContent);
         } catch (error) {
-            console.error('Error writing file:', error);
+            console.error('Cabbage: Error writing file:', error);
             vscode.window.showErrorMessage('Failed to update settings.');
         }
     }
@@ -148,9 +148,9 @@ export class Settings {
         const config = vscode.workspace.getConfiguration('cabbage');
         // Retrieve the current settings from your configuration file
         let settings = await Settings.getCabbageSettings();
-        console.log('Settings:', settings);
+        console.log('Cabbage: Settings:', settings);
         let currentDevice = settings['currentConfig']['audio']['outputDevice'];
-        console.log('Current device:', currentDevice);
+        console.log('Cabbage: Current device:', currentDevice);
 
         const audioOutputDevices = settings['systemAudioMidiIOListing']['audioOutputDevices'];
 
