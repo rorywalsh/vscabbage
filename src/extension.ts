@@ -244,8 +244,10 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                 panel.title = fileName;
             }
         }
-        await Commands.onDidSave(editor, context);
+
+
         await waitForWebSocket();
+        await Commands.onDidSave(editor, context);
 
         if (websocket) {
             const soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
