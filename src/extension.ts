@@ -37,8 +37,8 @@ let firstMessages: any[] = [];
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 
-    await //initialize the WebSocket server
-    setupWebSocketServer();
+    //initialize the WebSocket server
+    await setupWebSocketServer();
     Commands.initialize(context, freePort);
 
 
