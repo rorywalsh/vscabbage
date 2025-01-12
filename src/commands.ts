@@ -34,14 +34,13 @@ export class Commands {
      * and setting up the highlight decoration for text editor elements.
      * @param context The extension context provided by VSCode.
      */
-    static initialize(context: vscode.ExtensionContext, port: number) {
+    static initialize() {
         if (!this.vscodeOutputChannel) {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
         }
         this.highlightDecorationType = vscode.window.createTextEditorDecorationType({
             backgroundColor: 'rgba(0, 0, 0, 0.1)'
         });
-        this.portNumber = port;
     }
 
 
@@ -393,7 +392,7 @@ export class Commands {
      * @param editor The VSCode document being saved.
      * @param context The extension context provided by VSCode.
      */
-    static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
+    static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext, portNumber: number = 0) {
 
         console.log("Cabbage: onDidSave", editor.fileName);
         this.lastSavedFileName = editor.fileName;
@@ -452,7 +451,7 @@ export class Commands {
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
 
-                const process = cp.spawn(command, [editor.fileName, this.portNumber.toString()], {});
+                const process = cp.spawn(command, [editor.fileName, portNumber.toString()], {});
                 this.vscodeOutputChannel.clear();
                 process.on('error', (err) => {
                     this.vscodeOutputChannel.appendLine('Failed to start process:' + err);

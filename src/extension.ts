@@ -18,15 +18,12 @@ import os from 'os';
 
 //cache for protected files
 const originalContentCache: { [key: string]: string } = {};
-//boolean to prevent attempted loading of modifie example files
-let preventNextSave: boolean = false;
+
 
 // Setup websocket server
-let freePort: number;
 let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
-
 
 
 /**
@@ -37,9 +34,7 @@ let firstMessages: any[] = [];
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 
-    //initialize the WebSocket server
-    await setupWebSocketServer();
-    Commands.initialize(context, freePort);
+    Commands.initialize();
 
 
     const currentVersion = vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
@@ -248,8 +243,13 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }
         }
 
-        await Commands.onDidSave(editor, context);
-        await waitForWebSocket();
+       
+        //initialize the WebSocket server
+        const freePort = await ExtensionUtils.findFreePort(9991, 10000);
+        await Commands.onDidSave(editor, context, freePort);
+        await setupWebSocketServer(freePort);
+
+        console.log('Cabbage: WebSocket server started on port', freePort);
 
 
         if (websocket) {
@@ -363,65 +363,70 @@ export function deactivate() {
  * the WebSocket is available before performing operations that depend on it. * 
  * @returns A promise that resolves with the WebSocket instance when ready.
  */
-function waitForWebSocket(): Promise<WebSocket> {
-    return new Promise((resolve) => {
-        const interval = setInterval(() => {
-            if (websocket) {
-                clearInterval(interval);  // Stop checking once websocket is valid
-                resolve(websocket);       // Resolve the promise with the WebSocket
-            }
-        }, 100); // Check every 100 ms
-    });
-}
+// function waitForWebSocket(): Promise<WebSocket> {
+//     return new Promise((resolve) => {
+//         const interval = setInterval(() => {
+//             if (websocket) {
+//                 clearInterval(interval);  // Stop checking once websocket is valid
+//                 resolve(websocket);       // Resolve the promise with the WebSocket
+//             }
+//         }, 100); // Check every 100 ms
+//     });
+// }
 
 /**
  * Sets up a WebSocket server on a free port and listens for incoming connections.
  * The server is used to communicate between the Cabbage service
  * app and the Cabbage webview panel.
  */
-async function setupWebSocketServer() {
-    // Find a free port
-    freePort = await ExtensionUtils.findFreePort(9991, 10000);
-    wss = new WebSocket.Server({ port: freePort });
+async function setupWebSocketServer(freePort?: number): Promise<void> {
+    const wss = new WebSocket.Server({ port: freePort });
 
-    // Add WebSocket server event listeners here
-    wss.on('connection', (ws: WebSocket) => {
-        console.warn('Cabbage: Client connected');
+    // Create a promise to wait for the client connection
+    const clientConnectedPromise = new Promise((resolve) => {
+        wss.on('connection', (ws) => {
+            console.warn('Cabbage: Client connected');
 
-        // There are times when Cabbage will send messages before the webview is ready to receive them. 
-        // So first thing to do is flush the first messages received from Cabbage
-        firstMessages.forEach((msg) => {
-            ws.send(JSON.stringify(msg));
-        });
+            // Flush the first messages received from Cabbage if any
+            firstMessages.forEach((msg) => ws.send(JSON.stringify(msg)));
+            firstMessages = [];
 
-        firstMessages = [];
+            websocket = ws;
 
-        websocket = ws;
-        // Listen for messages from the Cabbage service app. These will come whenever the user updates a widgets state from Csound
-        ws.on('message', (message: WebSocket.Data) => {
-            const msg = JSON.parse(message.toString());
-            console.log(msg);
-            if (msg.hasOwnProperty("command")) {
-                // When CabbageProcessor first loads, it parses the Cabbage text and populates a vector of JSON objects.
-                // These are then sent to the webview for rendering.
-                if (msg["command"] === "widgetUpdate") {
+            // Listen for messages from the Cabbage service app
+            ws.on('message', (message) => {
+                const msg = JSON.parse(message.toString());
+                console.log(msg);
+
+                if (msg.hasOwnProperty("command") && msg["command"] === "widgetUpdate") {
                     const panel = Commands.getPanel();
                     if (panel) {
                         if (msg.hasOwnProperty("data")) {
-                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], data: msg["data"], currentCsdPath: Commands.getCurrentFileName() });
-                        }
-                        else if (msg.hasOwnProperty("value")) {
-                            panel.webview.postMessage({ command: "widgetUpdate", channel: msg["channel"], value: msg["value"], currentCsdPath: Commands.getCurrentFileName() });
+                            panel.webview.postMessage({
+                                command: "widgetUpdate",
+                                channel: msg["channel"],
+                                data: msg["data"],
+                                currentCsdPath: Commands.getCurrentFileName(),
+                            });
+                        } else if (msg.hasOwnProperty("value")) {
+                            panel.webview.postMessage({
+                                command: "widgetUpdate",
+                                channel: msg["channel"],
+                                value: msg["value"],
+                                currentCsdPath: Commands.getCurrentFileName(),
+                            });
                         }
                     }
                 }
-            }
-        });
+            });
 
-        ws.on('close', () => {
-            console.log('Cabbage: Client disconnected');
+            ws.on('close', () => console.log('Cabbage: Client disconnected'));
+
+            // Resolve the promise to indicate a client connection
+            resolve(ws);
         });
     });
+
 
     // Add an error event listener to check if the server encounters an issue
     wss.on('error', (error) => {
@@ -439,8 +444,9 @@ async function setupWebSocketServer() {
 
     // Add a listening event to confirm the server started successfully
     wss.on('listening', () => {
-        const vscodeOutputChannel = Commands.getOutputChannel();
-        // vscodeOutputChannel.appendLine('WebSocket server successfully started on port 9991');
-        console.log('Cabbage: WebSocket server successfully started on port 9991');
+        console.log(`Cabbage: WebSocket server successfully started on port ${freePort}`);
     });
+
+    // Wait for the client to connect before returning
+    await clientConnectedPromise;
 }
