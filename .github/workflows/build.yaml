@@ -450,15 +450,21 @@ jobs:
           cd cabbage3
           LATEST_COMMIT_MESSAGES=$(git log -1 --pretty=%B)
           
-          # Set output for later use
-          echo "::set-output name=latest_commit_messages::$LATEST_COMMIT_MESSAGES"
+          # Output the latest commit messages for debugging
+          echo "Latest commit messages from cabbage3: $LATEST_COMMIT_MESSAGES"
           
+          # Set output for further use
+          echo "::set-output name=latest_commit_messages::$LATEST_COMMIT_MESSAGES"
+
       - name: Get current release notes (if any)
         run: |
-          # Get the last release (if it exists) and its notes
+          # Get the latest release (if it exists) and its notes
           LAST_RELEASE_NOTES=$(gh release view ${{ needs.generate_tag.outputs.version }} --json body -q ".body" || echo "")
           
-          # Set output for later use
+          # Output the last release notes for debugging
+          echo "Last release notes: $LAST_RELEASE_NOTES"
+          
+          # Set output for further use
           echo "::set-output name=last_release_notes::$LAST_RELEASE_NOTES"
 
       - name: Create GitHub Pre-Release
@@ -472,7 +478,7 @@ jobs:
           # Get the notes from the previous release (if any)
           LAST_RELEASE_NOTES="${{ steps.get_current_release_notes.outputs.last_release_notes }}"
 
-          # Check if the latest commit messages are already in the last release notes
+          # Check if the latest commit messages from cabbage3 are already in the release notes
           if [[ "$LAST_RELEASE_NOTES" == *"$LATEST_COMMIT_MESSAGES"* ]]; then
             echo "Latest commit messages from cabbage3 already included in the release notes."
             FINAL_COMMIT_MESSAGE="$LAST_COMMIT_MESSAGE"
@@ -480,6 +486,9 @@ jobs:
             # Append the cabbage3 commit messages only if they are not already in the release notes
             FINAL_COMMIT_MESSAGE="$LAST_COMMIT_MESSAGE\n\nCabbage3 Latest Commits:\n$LATEST_COMMIT_MESSAGES"
           fi
+          
+          # Output the final commit message for debugging
+          echo "Final commit message for release: $FINAL_COMMIT_MESSAGE"
           
           # Create the release
           gh release create $VERSION ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix \
