@@ -435,18 +435,59 @@ jobs:
           ls -lh ./release
         continue-on-error: true
 
+      - name: Checkout source code for cabbage3
+        uses: actions/checkout@v2
+        with:
+          repository: rorywalsh/cabbage3
+          path: cabbage3
+          ref: develop
+          fetch-depth: 1
+          submodules: true
+
+      - name: Get latest commit messages from cabbage3
+        run: |
+          # Get the latest commit messages from cabbage3
+          cd cabbage3
+          LATEST_COMMIT_MESSAGES=$(git log -1 --pretty=%B)
+          
+          # Set output for later use
+          echo "::set-output name=latest_commit_messages::$LATEST_COMMIT_MESSAGES"
+          
+      - name: Get current release notes (if any)
+        run: |
+          # Get the last release (if it exists) and its notes
+          LAST_RELEASE_NOTES=$(gh release view ${{ needs.generate_tag.outputs.version }} --json body -q ".body" || echo "")
+          
+          # Set output for later use
+          echo "::set-output name=last_release_notes::$LAST_RELEASE_NOTES"
+
       - name: Create GitHub Pre-Release
         run: |
           VERSION="${{ needs.generate_tag.outputs.version }}"
           LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+
+          # Get the latest commit messages from cabbage3
+          LATEST_COMMIT_MESSAGES="${{ steps.get_latest_commit_messages.outputs.latest_commit_messages }}"
+          
+          # Get the notes from the previous release (if any)
+          LAST_RELEASE_NOTES="${{ steps.get_current_release_notes.outputs.last_release_notes }}"
+
+          # Check if the latest commit messages are already in the last release notes
+          if [[ "$LAST_RELEASE_NOTES" == *"$LATEST_COMMIT_MESSAGES"* ]]; then
+            echo "Latest commit messages from cabbage3 already included in the release notes."
+            FINAL_COMMIT_MESSAGE="$LAST_COMMIT_MESSAGE"
+          else
+            # Append the cabbage3 commit messages only if they are not already in the release notes
+            FINAL_COMMIT_MESSAGE="$LAST_COMMIT_MESSAGE\n\nCabbage3 Latest Commits:\n$LATEST_COMMIT_MESSAGES"
+          fi
+          
+          # Create the release
           gh release create $VERSION ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix ./release/vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix \
             --title "$VERSION" \
-            --notes "$LAST_COMMIT_MESSAGE" \
+            --notes "$FINAL_COMMIT_MESSAGE" \
             --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
 
       - name: List and Delete Old Git Tags and Releases
         run: |
