@@ -396,7 +396,7 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
             // Listen for messages from the Cabbage service app
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());
-                console.log(msg);
+                console.log("Cabbage: (incoming message) - "+msg);
 
                 if (msg.hasOwnProperty("command") && msg["command"] === "widgetUpdate") {
                     const panel = Commands.getPanel();

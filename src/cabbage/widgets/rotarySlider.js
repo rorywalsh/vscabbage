@@ -247,7 +247,24 @@ export class RotarySlider {
 
     const steps = 200;
     const valueDiff = ((this.props.range.max - this.props.range.min) * (clientY - this.startY)) / steps;
-    const value = CabbageUtils.clamp(this.startValue - valueDiff, this.props.range.min, this.props.range.max);
+    let value;
+
+    if (this.props.range.skew === 1) {
+      // Linear behavior
+      value = CabbageUtils.clamp(this.startValue - valueDiff, this.props.range.min, this.props.range.max);
+    } else {
+      // Logarithmic behavior using skew
+      // First normalize the value to 0-1 range
+      const normalizedValue = (this.startValue - valueDiff - this.props.range.min) / (this.props.range.max - this.props.range.min);
+      // Apply skew using power function
+      const skewedValue = Math.pow(normalizedValue, this.props.range.skew);
+      // Map back to original range
+      value = CabbageUtils.clamp(
+        skewedValue * (this.props.range.max - this.props.range.min) + this.props.range.min,
+        this.props.range.min,
+        this.props.range.max
+      );
+    }
 
     this.props.value = Math.round(value / this.props.range.increment) * this.props.range.increment;
 

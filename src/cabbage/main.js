@@ -79,14 +79,9 @@ if (typeof acquireVsCodeApi === 'function') {
     console.log("Cabbage: Running outside of VSCode environment");
 }
 
+//send message to Cabbage to indicate that the UI is ready to load
 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
-const msg = {
-    command: "cabbageIsReadyToLoad",
-    obj: JSON.stringify("loaded")
-};
-if (vscode !== null) {
-    vscode.postMessage(msg);
-}
+
 /**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
  * This function is also called whenever a widget is updated through Csound
