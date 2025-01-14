@@ -30,12 +30,15 @@ export class Settings {
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
-            console.error('Cabbage: extension path', extension.extensionPath);
+            Commands.getOutputChannel().appendLine('Cabbage: extension path: ' + extension.extensionPath);
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             // Replace backslashes with forward slashes
             const posixPath = returnPath.split(path.sep).join(path.posix.sep);
             return posixPath;
+        }
+        else{
+            Commands.getOutputChannel().appendLine('Cabbage: Extension not found');
         }
         return ''; // Return an empty string if the extension is not found
     }
