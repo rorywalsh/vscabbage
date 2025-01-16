@@ -122,6 +122,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await Settings.selectCabbageBinaryPath();
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('cabbage.resetCabbageAppSettingsFiles', async () => {
+        await Settings.resetSettingsFile();
+    }));
+    
+
     const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
         Settings.updatePath(event);
     });

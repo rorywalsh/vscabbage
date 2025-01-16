@@ -273,6 +273,36 @@ export class Settings {
         }
     }
 
+    static async resetSettingsFile() {
+        // Get the current user's home directory
+        const homeDir = os.homedir();
+        // Build your path dynamically
+        let settingsPath = "";
+        if (os.platform() === 'darwin') {
+            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
+        } else {
+            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+        }
+        const fileUri = vscode.Uri.file(settingsPath);
+        const userResponse = await vscode.window.showWarningMessage(
+            'Are you sure you want to reset the CabbageApp (not vscode) settings file? A new default file will be created in its place.',
+            { modal: true },
+            'Yes', 'No'
+        );
+
+        if (userResponse === 'Yes') {
+            try {
+            await vscode.workspace.fs.delete(fileUri, { useTrash: false });
+            vscode.window.showInformationMessage('Settings file has been reset.');
+            } catch (error) {
+            console.error('Cabbage: Error deleting settings file:', error);
+            vscode.window.showErrorMessage('Failed to reset settings file.');
+            }
+        } else {
+            vscode.window.showInformationMessage('Reset action cancelled.');
+        }
+    }
+
     static async selectCabbageBinaryPath() {
         // Load the configuration for the correct section and key
         const config = vscode.workspace.getConfiguration('cabbage');

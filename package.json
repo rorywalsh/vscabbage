@@ -278,8 +278,8 @@
         "category": "Cabbage"
       },
       {
-        "command": "cabbage.dothing",
-        "title": "make the extension do a thing",
+        "command": "cabbage.resetCabbageAppSettingsFiles",
+        "title": "Reset CabbageApp (not vscode) settings file",
         "category": "Cabbage"
       }
     ]
