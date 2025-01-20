@@ -23,10 +23,10 @@ jobs:
         id: generate_version
         run: |
           # Fetch tags
-          git fetch --tags
+          git fetch --tags --unshallow
 
-          # Get the latest tag (if no tag exists, default to 1.0.0-alpha)
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0-alpha")
+          # Get the latest tag, defaulting to 1.0.0-alpha
+          last_tag=$(git tag --sort=-v:refname | head -n 1 || echo "1.0.0-alpha")
           echo "Last tag: $last_tag"
 
           # Extract major, minor, patch
