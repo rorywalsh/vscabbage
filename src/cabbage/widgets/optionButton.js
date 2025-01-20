@@ -35,10 +35,10 @@ export class OptionButton {
       "colour": {
         "fill": "#0295cf",
         "stroke": {
-            "colour": "#dddddd",
-            "width": 1
+          "colour": "#dddddd",
+          "width": 1
         }
-    },
+      },
       "name": "",
       "value": null,
       "defaultValue": 0,
@@ -54,7 +54,7 @@ export class OptionButton {
     this.parameterIndex = 0;
   }
 
-  
+
   pointerUp() {
     if (this.props.active === 0) {
       return '';
@@ -76,6 +76,18 @@ export class OptionButton {
     const newValue = CabbageUtils.map(this.props.value, 0, itemsLength, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
     Cabbage.sendParameterUpdate(msg, this.vscode);
+  }
+
+  getItems() {
+
+    if (!this.props.items){
+      return ["Option 1", "Option 2", "Option 3"];
+    } 
+    if (Array.isArray(this.props.items)){
+      return this.props.items;
+    }
+
+    return this.props.items.split(",").map(item => item.trim());
   }
 
   pointerEnter() {
@@ -128,7 +140,7 @@ export class OptionButton {
       CabbageUtils.updateInnerHTML(this.props.channel, this);
     });
   }
-  
+
   getInnerHTML() {
     if (this.props.visible === 0) {
       return '';
@@ -144,7 +156,7 @@ export class OptionButton {
     const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
     const padding = 5;
-    const items = this.props.items.split(",");
+    const items = this.getItems();
 
     let textX;
     if (this.props.font.align === 'left') {

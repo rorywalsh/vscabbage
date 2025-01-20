@@ -167,7 +167,7 @@ export class RotarySlider {
   
     this.isMouseDown = true;
     this.startY = evt.clientY;
-    this.startValue = this.props.value;
+    this.startValue = this.props.value ?? this.props.range.defaultValue;
     // Initialize linearStartValue here
     this.linearStartValue = this.getLinearValue(this.startValue);
     
@@ -186,7 +186,7 @@ export class RotarySlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
     if (popup && this.props.popup === 1) {
-      popup.textContent = parseFloat(this.props.value).toFixed(this.decimalPlaces);
+      popup.textContent = parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
@@ -249,9 +249,9 @@ export class RotarySlider {
     }
   
     const steps = 200;
-    
+    const currentValue = this.props.value ?? this.props.range.defaultValue;
     // Get the linear start value if we're just starting movement
-    if (this.startValue === this.props.value) {
+    if (this.startValue === currentValue) {
       // If we're just starting, convert the skewed startValue to linear
       this.linearStartValue = this.getLinearValue(this.startValue);
     }
@@ -337,7 +337,7 @@ export class RotarySlider {
   handleInputChange(evt) {
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
-      
+
       if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
         // Store the skewed value for display
         this.props.value = inputValue;
@@ -379,7 +379,7 @@ export class RotarySlider {
     const originalFrameHeight = this.props.filmStrip.frames.height;
   
     // Get normalized value for frame calculation
-    const normalizedValue = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const normalizedValue = (this.props.value ?? this.props.range.defaultValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     // Convert to linear for visual position
     const linearNormalizedValue = Math.pow(normalizedValue, 1/this.props.range.skew);
     const frameIndex = Math.round(linearNormalizedValue * (totalFrames - 1));
@@ -425,9 +425,11 @@ export class RotarySlider {
       return '';
     }
 
+    const currentValue = this.props.value ?? this.props.range.defaultValue;
+
     const popup = document.getElementById('popupValue');
     if (popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valuePrefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
   
     if (this.isImageLoaded) {
@@ -451,8 +453,8 @@ export class RotarySlider {
 
     const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
     const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
-    const linearValue = this.props.linearValue || this.getLinearValue(this.props.value);
-    const normalizedValue = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+
+    const normalizedValue = (currentValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     // Convert to linear for visual position
     const linearNormalizedValue = Math.pow(normalizedValue, 1/this.props.range.skew);
     // Map to angle range
@@ -505,7 +507,7 @@ export class RotarySlider {
         <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - this.props.trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
         </g>
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${this.props.bounds.width}" height="${fontSize * 2}">
-            <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${this.props.value.toFixed(decimalPlaces)}"
+            <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
             style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
             onKeyDown="document.getElementById('${this.props.channel}').RotarySliderInstance.handleInputChange(event)"/>
         />

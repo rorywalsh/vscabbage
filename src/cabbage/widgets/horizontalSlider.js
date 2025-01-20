@@ -93,7 +93,7 @@ export class HorizontalSlider {
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
 
-      this.props.value = Math.round(this.props.value / this.props.range.increment) * this.props.range.increment;
+      this.props.value = Math.round(this.props.value ?? this.props.range.defaultValue / this.props.range.increment) * this.props.range.increment;
       this.startValue = this.props.value;
       CabbageUtils.updateInnerHTML(this.props.channel, this);
     }
@@ -109,7 +109,7 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
     if (popup && this.props.popup) {
-        popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+        popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
 
         // Calculate the position for the popup
         const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
@@ -222,7 +222,7 @@ export class HorizontalSlider {
     }
     const popup = document.getElementById('popupValue');
     if (popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? 0).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
 
     const alignMap = {
@@ -233,7 +233,7 @@ export class HorizontalSlider {
     };
 
     const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-
+    const currentValue = this.props.value ?? this.props.range.defaultValue;
     // Add padding if alignment is 'end' or 'middle'
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0; // Adjust the padding value as needed
 
@@ -260,14 +260,14 @@ export class HorizontalSlider {
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
         <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-        <rect x="${CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+        <rect x="${CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
       </svg>
     `;
 
     const valueTextElement = this.props.valueTextBox ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
-        <input type="text" value="${this.props.value.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
+        <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
         style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${this.props.channel}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
