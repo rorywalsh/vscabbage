@@ -23,7 +23,7 @@ jobs:
         id: generate_version
         run: |
           # Fetch tags
-          git fetch --tags --unshallow
+          git fetch --tags
 
           # Get the latest tag, defaulting to 1.0.0-alpha
           last_tag=$(git tag --sort=-v:refname | head -n 1 || echo "1.0.0-alpha")
