@@ -15,6 +15,7 @@ export class NumberSlider {
                 "height": 60
             },
             "channel": "nslider",
+            "corners": 2,
             "range": {
                 "min": 0,
                 "max": 1,
@@ -160,7 +161,9 @@ export class NumberSlider {
             'right': 'start',
         };
         const svgAlign = alignMap[this.props.font.align] || 'middle';
-        const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
+        const currentValue = this.props.value === null ? this.props.range.defaultValue : this.props.value;
+
+        const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
     
         return `
             <div id="slider-${this.props.channel}" style="position: relative; width: 100%; height: 100%; user-select: none;"> <!-- Prevent text selection -->

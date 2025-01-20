@@ -24,6 +24,9 @@ export class Form {
 
   }
 
+  addEventListeners(evt){
+    //dummy function
+  }
 
   getInnerHTML() {
     return `

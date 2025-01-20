@@ -16,6 +16,7 @@ export class GroupBox {
             },
             "type": "groupBox",
             "text": "Hello",
+            "corners": 4,
             "font": {
                 "family": "Verdana",
                 "size": 0,
@@ -57,6 +58,8 @@ export class GroupBox {
             return '';
         }
 
+        const width = Number(this.props.bounds.width) || 200;
+        const height = Number(this.props.bounds.height) || 150;
         const outlineOffset = this.props.colour.stroke.width / 2;
         const textSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.3;
         const yOffset = textSize / 2; // vertical offset for text
@@ -92,8 +95,8 @@ export class GroupBox {
         }
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-                 width="100%" height="100%" preserveAspectRatio="none"
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
+                 width="${width}" height="${height}"  preserveAspectRatio="none"
                  style="position: absolute; top: 0; left: 0;">
                 <!-- Transparent rectangle as the background -->
                 <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" 
