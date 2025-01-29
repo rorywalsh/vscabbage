@@ -17,7 +17,7 @@ else  # Linux
     TARGET_DIR="$HOME/.config/CabbageAudio/CabbageVST3Synth/cabbage/"
     TARGET_CSS_DIR="$HOME/.config/CabbageAudio/CabbageVST3Synth/"
 fi
-
+  
 # Function to create directory if it doesn't exist
 create_dir_if_not_exists() {
     if [ ! -d "$1" ]; then
