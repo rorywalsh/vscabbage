@@ -17,14 +17,12 @@ export class OptionButton {
         "width": 80,
         "height": 30
       },
-      "channel": "button",
+      "channel": "optionButton",
       "corners": 2,
       "min": 0,
       "max": 1,
-      "value": 0,
-      "text": {
-        "on": "On"
-      },
+      "value": null,
+      "items": "Item1, Item2, Item3",
       "opacity": 1,
       "font": {
         "family": "Verdana",
@@ -52,6 +50,7 @@ export class OptionButton {
     this.isMouseDown = false;
     this.isMouseInside = false;
     this.parameterIndex = 0;
+    this.currentIndex = 0;
   }
 
 
@@ -64,17 +63,23 @@ export class OptionButton {
   }
 
   pointerDown(evt) {
+    evt.stopPropagation();
+    console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', this.props.channel);
+    
     if (this.props.visible === 0) {
       return '';
     }
-    console.log("Cabbage: pointerDown");
+
     this.isMouseDown = true;
     const itemsLength = this.props.items.split(",").length;
-    this.props.value = this.props.value < itemsLength - 1 ? this.props.value + 1 : 0;
+    this.currentIndex = (this.currentIndex + 1) % itemsLength;
+    this.props.value = this.currentIndex;
 
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(this.props.channel, this, evt.currentTarget);
+    
     const newValue = CabbageUtils.map(this.props.value, 0, itemsLength, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
+    console.log('Sending parameter update:', msg);
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
@@ -90,23 +95,26 @@ export class OptionButton {
     return this.props.items.split(",").map(item => item.trim());
   }
 
-  pointerEnter() {
+  pointerEnter(evt) {
+    evt.stopPropagation();
     if (this.props.active === 0) {
       return '';
     }
     this.isMouseOver = true;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    evt.currentTarget.innerHTML = this.getInnerHTML();
   }
 
-  pointerLeave() {
+  pointerLeave(evt) {
+    evt.stopPropagation();
     if (this.props.active === 0) {
       return '';
     }
     this.isMouseOver = false;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    evt.currentTarget.innerHTML = this.getInnerHTML();
   }
 
   handleMouseMove(evt) {
+    evt.stopPropagation();
     const rect = evt.currentTarget.getBoundingClientRect();
     const isInside = (
       evt.clientX >= rect.left &&
@@ -117,7 +125,7 @@ export class OptionButton {
 
     if (this.isMouseInside !== isInside) {
       this.isMouseInside = isInside;
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      evt.currentTarget.innerHTML = this.getInnerHTML();
     }
   }
 
@@ -157,6 +165,7 @@ export class OptionButton {
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
     const padding = 5;
     const items = this.getItems();
+    const currentText = items[this.currentIndex];
 
     let textX;
     if (this.props.font.align === 'left') {
@@ -173,7 +182,7 @@ export class OptionButton {
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.colour.stroke.colour}"
                   stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                  fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle">${items[this.props.value]}</text>
+                  fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
             </svg>
         `;
   }

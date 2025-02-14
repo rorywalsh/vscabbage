@@ -12,7 +12,7 @@ export class VerticalSlider {
         "top": 10,
         "left": 10,
         "width": 60,
-        "height": 60
+        "height": 120
       },
       "channel": "vslider",
       "range": {

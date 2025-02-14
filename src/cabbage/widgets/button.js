@@ -77,6 +77,10 @@ export class Button {
     }
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
+    if(this.props.value === null) {
+      this.props.value = 0;
+    }
+    
     this.props.value = (this.props.value === 0 ? 1 : 0);
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);

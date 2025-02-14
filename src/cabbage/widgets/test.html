@@ -21,6 +21,8 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .widget-section {
@@ -31,17 +33,34 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
         }
 
         .widget-row {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            margin: 10px 0;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
+            padding: 20px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        /* Prevent widgets from stretching */
+        .widget-row > * {
+            width: auto !important;
+            height: auto !important;
+        }
+
+        /* Special handling for wider widgets */
+        .widget-row .wide {
+            grid-column: span 2;
+        }
+
+        /* Special handling for taller widgets */
+        .widget-row .tall {
+            grid-row: span 2;
         }
 
         h2 {
             color: #333;
             margin-bottom: 15px;
+            padding-left: 20px;
         }
 
         .popup {
@@ -60,10 +79,10 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
     <div class="widget-section">
         <h2>Sliders</h2>
         <div class="widget-row">
-            <cabbage-rotary-slider props='{"channel": "rotary1", "value": 0.25, "bounds": {"width": 60, "height": 60}}'></cabbage-rotary-slider>
-            <cabbage-horizontal-slider props='{"channel": "horizontal1", "value": 0.5, "bounds": {"width": 200, "height": 30}}'></cabbage-horizontal-slider>
-            <cabbage-vertical-slider props='{"channel": "vertical1", "value": 0.75, "bounds": {"width": 30, "height": 150}}'></cabbage-vertical-slider>
-            <cabbage-number-slider props='{"channel": "number1", "value": 0.6, "bounds": {"width": 80, "height": 30}}'></cabbage-number-slider>
+            <cabbage-rotary-slider props='{"channel": "rotary1", "value": 0.25}'></cabbage-rotary-slider>
+            <cabbage-horizontal-slider class="wide" props='{"channel": "horizontal1", "value": 0.5}'></cabbage-horizontal-slider>
+            <cabbage-vertical-slider class="tall" props='{"channel": "vertical1", "value": 0.75}'></cabbage-vertical-slider>
+            <cabbage-number-slider props='{"channel": "number1", "value": 0.6}'></cabbage-number-slider>
         </div>
     </div>
 
@@ -71,9 +90,8 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
     <div class="widget-section">
         <h2>Buttons</h2>
         <div class="widget-row">
-            <cabbage-button props='{"channel": "button1", "text": "Button", "bounds": {"width": 80, "height": 30}}'></cabbage-button>
-            <cabbage-info-button props='{"channel": "info1", "text": "Info", "bounds": {"width": 80, "height": 30}}'></cabbage-info-button>
-            <cabbage-option-button props='{"channel": "option1", "text": "Option", "bounds": {"width": 80, "height": 30}, "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-option-button>
+            <cabbage-button props='{"channel": "button1", "text": "Button"}'></cabbage-button>
+            <cabbage-option-button props='{"channel": "option1", "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-option-button>
         </div>
     </div>
 
@@ -81,9 +99,9 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
     <div class="widget-section">
         <h2>Input Controls</h2>
         <div class="widget-row">
-            <cabbage-checkbox props='{"channel": "check1", "text": "Checkbox", "bounds": {"width": 100, "height": 30}}'></cabbage-checkbox>
-            <cabbage-combo-box props='{"channel": "combo1", "text": "Combo", "bounds": {"width": 120, "height": 30}, "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-combo-box>
-            <cabbage-list-box props='{"channel": "list1", "bounds": {"width": 150, "height": 100}, "items": ["List Item 1", "List Item 2", "List Item 3"]}'></cabbage-list-box>
+            <cabbage-checkbox props='{"channel": "check1", "text": "Checkbox"}'></cabbage-checkbox>
+            <cabbage-combo-box props='{"channel": "combo1", "text": "Combo", "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-combo-box>
+            <cabbage-list-box class="tall" props='{"channel": "list1", "items": ["List Item 1", "List Item 2", "List Item 3"]}'></cabbage-list-box>
         </div>
     </div>
 
@@ -91,10 +109,10 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
     <div class="widget-section">
         <h2>Display Elements</h2>
         <div class="widget-row">
-            <cabbage-label props='{"channel": "label1", "text": "Label Text", "bounds": {"width": 100, "height": 30}}'></cabbage-label>
-            <cabbage-image props='{"channel": "image1", "file": "example.png", "bounds": {"width": 100, "height": 100}}'></cabbage-image>
-            <cabbage-form props='{"channel": "form1", "text": "Form", "bounds": {"width": 200, "height": 150}}'></cabbage-form>
-            <cabbage-group-box props='{"channel": "group1", "text": "Group Box", "bounds": {"width": 200, "height": 150}}'></cabbage-group-box>
+            <cabbage-label props='{"channel": "label1", "text": "Label Text"}'></cabbage-label>
+            <cabbage-image props='{"channel": "image1", "file": "example.png"}'></cabbage-image>
+            <cabbage-form class="wide tall" props='{"channel": "form1", "text": "Form"}'></cabbage-form>
+            <cabbage-group-box class="wide tall" props='{"channel": "group1", "text": "Group Box"}'></cabbage-group-box>
         </div>
     </div>
 
@@ -102,18 +120,7 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
     <div class="widget-section">
         <h2>Special Widgets</h2>
         <div class="widget-row">
-            <cabbage-keyboard props='{"channel": "keyboard1", "bounds": {"width": 400, "height": 100}}'></cabbage-keyboard>
-            <cabbage-midi-keyboard props='{"channel": "midi1", "bounds": {"width": 400, "height": 100}}'></cabbage-midi-keyboard>
-            <cabbage-gen-table props='{"channel": "gentable1", "bounds": {"width": 300, "height": 150}}'></cabbage-gen-table>
-        </div>
-    </div>
-
-    <!-- Text Section -->
-    <div class="widget-section">
-        <h2>Text Widgets</h2>
-        <div class="widget-row">
-            <cabbage-text-editor props='{"channel": "text1", "text": "Edit text here...", "bounds": {"width": 300, "height": 200}}'></cabbage-text-editor>
-            <cabbage-csound-output props='{"channel": "output1", "bounds": {"width": 300, "height": 200}}'></cabbage-csound-output>
+            <cabbage-midi-keyboard class="wide" props='{"channel": "midi1"}'></cabbage-midi-keyboard>
         </div>
     </div>
 
@@ -135,10 +142,7 @@ but are provided as a way to use the widgets outside of the Cabbage framework.
             CabbageImage,
             CabbageForm,
             CabbageGroupBox,
-            CabbageMidiKeyboard,
-            CabbageGenTable,
-            CabbageTextEditor,
-            CabbageCsoundOutput
+            CabbageMidiKeyboard
         } from './htmlElements/index.js';
     </script>
 </body>

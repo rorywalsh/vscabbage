@@ -11,23 +11,21 @@
 export class CabbageBase {
     static initializeElement(element) {
         // Add props handling
-        element.attributeChangedCallback = this.prototype.attributeChangedCallback;
+        element.attributeChangedCallback = function(name, oldValue, newValue) {
+            if (name === 'props' && newValue) {
+                try {
+                    const newProps = JSON.parse(newValue);
+                    this.widget.props = { ...this.widget.props, ...newProps };
+                } catch (e) {
+                    console.error('Invalid JSON in props attribute:', e);
+                }
+            }
+        };
         element.static = this.prototype.static;
         element.observedAttributes = ['props'];
     }
 
     static get observedAttributes() {
         return ['props'];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'props' && newValue) {
-            try {
-                const newProps = JSON.parse(newValue);
-                this.props = { ...this.props, ...newProps };
-            } catch (e) {
-                console.error('Invalid JSON in props attribute:', e);
-            }
-        }
     }
 }

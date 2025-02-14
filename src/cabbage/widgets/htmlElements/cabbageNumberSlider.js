@@ -10,11 +10,21 @@ export class CabbageNumberSlider extends HTMLElement {
         super();
         this.widget = new NumberSlider();
         CabbageBase.initializeElement(this);
+        
+        // Get initial props from the attribute
+        const propsAttr = this.getAttribute('props');
+        if (propsAttr) {
+            try {
+                const newProps = JSON.parse(propsAttr);
+                this.widget.props = { ...this.widget.props, ...newProps };
+            } catch (e) {
+                console.error('Invalid JSON in props attribute:', e);
+            }
+        }
     }
 
     connectedCallback() {
         this.id = this.widget.props.channel;
-        this.RotarySliderInstance = this.widget;
         this.render();
         
         requestAnimationFrame(() => {

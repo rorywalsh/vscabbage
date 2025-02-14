@@ -15,7 +15,6 @@ export class CabbageRotarySlider extends HTMLElement {
 
     connectedCallback() {
         this.id = this.widget.props.channel;
-        this.RotarySliderInstance = this.widget;
         this.render();
         
         requestAnimationFrame(() => {

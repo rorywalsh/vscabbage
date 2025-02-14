@@ -61,7 +61,7 @@ export class GroupBox {
         const width = Number(this.props.bounds.width) || 200;
         const height = Number(this.props.bounds.height) || 150;
         const outlineOffset = this.props.colour.stroke.width / 2;
-        const textSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.3;
+        const textSize = this.props.font.size > 0 ? this.props.font.size : 16;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
         const textWidth = (this.props.text.length * textSize) / 2; // approximate width of text
@@ -96,8 +96,7 @@ export class GroupBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
-                 width="${width}" height="${height}"  preserveAspectRatio="none"
-                 style="position: absolute; top: 0; left: 0;">
+                 width="${width}" height="${height}"  preserveAspectRatio="none">
                 <!-- Transparent rectangle as the background -->
                 <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" 
                       x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="transparent"></rect>
