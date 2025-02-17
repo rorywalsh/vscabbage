@@ -323,7 +323,7 @@ function onInstall() {
         }
         else {
             try {
-                cp.execSync('codesign --force --deep --sign - /Applications/Csound/CsoundLib64.framework');
+                // cp.execSync('codesign --force --deep --sign - /Applications/Csound/CsoundLib64.framework');
                 Commands.getOutputChannel().append('Ad-hoc signed /Applications/Csound/CsoundLib64.framework\n');
             } catch (signError) {
                 Commands.getOutputChannel().append('ERROR: Failed to ad-hoc sign /Applications/Csound/CsoundLib64.framework\n');
@@ -357,9 +357,22 @@ function onUpdate(previousVersion: string, currentVersion: string) {
  * protected files match the cache before deactivating the extension.
  */
 export function deactivate() {
+    // Existing process cleanup
     Commands.getProcesses().forEach((p) => {
         p?.kill("SIGKILL");
     });
+
+    // Add WebSocket server cleanup
+    if (wss) {
+        wss.close(() => {
+            console.log('Cabbage: WebSocket server closed');
+        });
+    }
+
+    // Add WebSocket client cleanup
+    if (websocket) {
+        websocket.close();
+    }
 }
 
 /**
@@ -385,7 +398,12 @@ export function deactivate() {
  * app and the Cabbage webview panel.
  */
 async function setupWebSocketServer(freePort?: number): Promise<void> {
-    const wss = new WebSocket.Server({ port: freePort });
+    // Close existing server if it exists
+    if (wss) {
+        wss.close();
+    }
+    
+    wss = new WebSocket.Server({ port: freePort });
 
     // Create a promise to wait for the client connection
     const clientConnectedPromise = new Promise((resolve) => {

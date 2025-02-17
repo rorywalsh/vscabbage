@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Define the target directory
+# Define target directories based on the OS
 if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* || "$OSTYPE" == "win32" || "$OSTYPE" == "win64" ]]; then
     TARGET_DIR_FX="/c/ProgramData/CabbageAudio/CabbageVST3Effect/cabbage/"
     TARGET_CSS_DIR_FX="/c/ProgramData/CabbageAudio/CabbageVST3Effect/"

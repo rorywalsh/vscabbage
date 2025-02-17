@@ -4,10 +4,15 @@
 import { vscode, currentCsdPath } from "./sharedState.js";
 
 export class CabbageUtils {
-  static updateInnerHTML(channel, instance) {
-    const element = document.getElementById(channel);
-    if (element) {
-      element.innerHTML = instance.getInnerHTML();
+  static updateInnerHTML(channel, instance, element = null) {
+    // If an element is provided, use it directly
+    // Otherwise fall back to finding by ID
+    const targetElement = element || document.getElementById(channel);
+    if (targetElement && targetElement.id === channel) {  // Extra check to ensure ID matches
+      console.log('Updating innerHTML for:', channel, 'Element ID:', targetElement.id, 'Element:', targetElement);
+      targetElement.innerHTML = instance.getInnerHTML();
+    } else {
+      console.log('Element mismatch or not found:', channel, 'Element:', targetElement);
     }
   }
 
