@@ -19,7 +19,8 @@
   "icon": "assets/cabbage_transparent.png",
   "activationEvents": [
     "onLanguage:csound-csd",
-    "workspaceContains:**/*.csd"
+    "workspaceContains:**/*.csd",
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -316,6 +317,6 @@
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
     "ws": "^8.16.0",
-    "xml2js": "^0.4.23"
+    "xml2js": "^0.6.2"
   }
 }
