@@ -82,9 +82,13 @@ export class Settings {
         const homeDir = os.homedir();
         // Build your path dynamically
         let settingsPath = "";
+
         if (os.platform() === 'darwin') {
-            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
-        } else {
+            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
+        } else if(os.platform() === 'linux') {
+            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
+        }
+        else{
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
         const fileUri = vscode.Uri.file(settingsPath);
@@ -128,7 +132,10 @@ export class Settings {
         const homeDir = os.homedir();
         if (os.platform() === 'darwin') {
             settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
-        } else {
+        } else if(os.platform() === 'linux') {
+            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
+        }
+        else{
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
 
@@ -214,7 +221,7 @@ export class Settings {
         if (selectedBufferSize) {
             await config.update('audioBufferSize', selectedBufferSize, vscode.ConfigurationTarget.Global);
             vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedBufferSize}`);
-            settings['currentConfig']['audio']['buffer'] = selectedBufferSize;
+            settings['currentConfig']['audio']['bufferSize'] = parseInt(selectedBufferSize);
             await Settings.setCabbageSettings(settings);
         } else {
             vscode.window.showWarningMessage('No buffer size selected.');

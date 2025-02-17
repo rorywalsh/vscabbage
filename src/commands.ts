@@ -149,7 +149,6 @@ export class Commands {
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
-        console.warn("Cabbage: Received message:", message);
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
             case 'getMediaFiles':
@@ -482,7 +481,8 @@ export class Commands {
                                 this.vscodeOutputChannel.append(dataString);
                             }
                         } else {
-                            this.vscodeOutputChannel.append(dataString);
+                            const msg = dataString.replace(/Cabbage INFO:/g, "");
+                            this.vscodeOutputChannel.append(msg);
                         }
                     }
                 });

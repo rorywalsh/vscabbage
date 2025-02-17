@@ -5,18 +5,20 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 // @ts-ignore
-import { setCabbageMode, setCabbageCsdPath } from './cabbage/sharedState.js';
+import * as cp from 'child_process';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
+// @ts-ignore
+import { setCabbageMode } from './cabbage/sharedState.js';
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
-import * as cp from 'child_process';
-import path from 'path';
-import os from 'os';
 
-//cache for protected files
+let cabbageIsReady = false;
+// cache for protected files
 const originalContentCache: { [key: string]: string } = {};
 
 
@@ -27,25 +29,29 @@ let firstMessages: any[] = [];
 
 
 /**
- * Activates the Cabbage extension, setting up commands, configuration change listeners,
- * and event handlers for saving documents, opening documents, and changing tabs.
- * Also sets up a status bar item and initializes the WebSocket server. * 
+ * Activates the Cabbage extension, setting up commands, configuration change
+ * listeners, and event handlers for saving documents, opening documents, and
+ * changing tabs. Also sets up a status bar item and initializes the WebSocket
+ * server. *
  * @param context The extension context for managing VS Code subscriptions.
  */
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
-
+export async function activate(context: vscode.ExtensionContext):
+    Promise<void> {
     Commands.initialize();
 
-    const currentVersion = vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
+    const currentVersion =
+        vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
     const previousVersion = context.globalState.get<string>('extensionVersion');
 
     if (!previousVersion) {
         // First-time install
-        vscode.window.showInformationMessage('Thank you for installing Cabbage extension!');
+        vscode.window.showInformationMessage(
+            'Thank you for installing Cabbage extension!');
         onInstall();
     } else if (previousVersion !== currentVersion) {
         // Extension updated
-        vscode.window.showInformationMessage(`Extension updated to version ${currentVersion}`);
+        vscode.window.showInformationMessage(
+            `Extension updated to version ${currentVersion}`);
         onUpdate(previousVersion, currentVersion);
     }
 
@@ -62,7 +68,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         });
     }
 
-    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    const statusBarItem =
+        vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
     // Set the text and icon for the status bar item
     statusBarItem.text = `$(unmute) Cabbage`;
@@ -73,7 +80,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Show the status bar item
     statusBarItem.show();
 
-    // Push the item to the context's subscriptions so it gets disposed when the extension is deactivated
+    // Push the item to the context's subscriptions so it gets disposed when the
+    // extension is deactivated
     context.subscriptions.push(statusBarItem);
 
     // Get the output channel from Commands class
@@ -82,136 +90,207 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     vscodeOutputChannel.appendLine('Cabbage extension is now active!');
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.openCabbageExample', async () => {
-        await Commands.openCabbageExample();
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.openCabbageExample', async () => {
+            await Commands.openCabbageExample();
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectSamplingRate', async () => {
-        await Settings.selectSamplingRate();
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectSamplingRate', async () => {
+            await Settings.selectSamplingRate();
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectBufferSize', async () => {
-        await Settings.selectBufferSize();
-    }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.selectBufferSize', async () => {
+            await Settings.selectBufferSize();
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectAudioOutputDevice', async () => {
-        await Settings.selectAudioDevice('output');
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectAudioOutputDevice', async () => {
+            await Settings.selectAudioDevice('output');
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectAudioInputDevice', async () => {
-        await Settings.selectAudioDevice('input');
-        //clear sound file config when selecting live audio input
-        await context.globalState.update('soundFileInput', undefined);
-        Commands.sendFileToChannel(context, websocket, '', -1);
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectAudioInputDevice', async () => {
+            await Settings.selectAudioDevice('input');
+            // clear sound file config when selecting live audio input
+            await context.globalState.update('soundFileInput', undefined);
+            Commands.sendFileToChannel(context, websocket, '', -1);
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectMidiOutputDevice', async () => {
-        await Settings.selectMidiDevice('output');
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectMidiOutputDevice', async () => {
+            await Settings.selectMidiDevice('output');
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.selectMidiInputDevice', async () => {
-        await Settings.selectMidiDevice('input');
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectMidiInputDevice', async () => {
+            await Settings.selectMidiDevice('input');
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.setCabbageSourcePath', async () => {
-        await Settings.selectCabbageJavascriptSourcePath();
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCabbageSourcePath', async () => {
+            await Settings.selectCabbageJavascriptSourcePath();
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.setCabbageBinaryPath', async () => {
-        await Settings.selectCabbageBinaryPath();
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCabbageBinaryPath', async () => {
+            await Settings.selectCabbageBinaryPath();
+        }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.resetCabbageAppSettingsFiles', async () => {
-        await Settings.resetSettingsFile();
-    }));
-    
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.resetCabbageAppSettingsFiles', async () => {
+            await Settings.resetSettingsFile();
+        }));
 
-    const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
-        Settings.updatePath(event);
-    });
 
-    // Add the listener to the context subscriptions so it's disposed automatically
+    const configurationChangeListener = vscode.workspace.onDidChangeConfiguration(
+        (event: vscode.ConfigurationChangeEvent) => {
+            Settings.updatePath(event);
+        });
+
+    // Add the listener to the context subscriptions so it's disposed
+    // automatically
     context.subscriptions.push(configurationChangeListener);
 
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Effect', async () => { await Commands.exportInstrument('VST3Effect'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportVST3Synth', async () => { await Commands.exportInstrument('VST3Synth'); }));
-    
-    if (os.platform() === 'darwin') {
-        context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUSynth', async () => { await Commands.exportInstrument('AUv2Synth'); }));
-        context.subscriptions.push(vscode.commands.registerCommand('cabbage.exportAUEffect', async () => { await Commands.exportInstrument('AUv2Effect'); }));
-    }
-    
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.formatDocument', Commands.formatDocument));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.goToDefinition', ExtensionUtils.goToDefinition));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.compile', () => { onCompileInstrument(context); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.editMode', () => { Commands.enterEditMode(websocket); }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportVST3Effect', async () => {
+            await Commands.exportInstrument('VST3Effect');
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportVST3Synth', async () => {
+            await Commands.exportInstrument('VST3Synth');
+        }));
 
-    //utility function to send text to Cabbage instrument overriding the current realtime audio inputs
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel1and2', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 12); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel1', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 1); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.sendFileToChannel2', (uri: vscode.Uri) => { Commands.sendFileToChannel(context, websocket, uri.fsPath, 2); }));
+    if (os.platform() === 'darwin') {
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportAUSynth', async () => {
+                await Commands.exportInstrument('AUv2Synth');
+            }));
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportAUEffect', async () => {
+                await Commands.exportInstrument('AUv2Effect');
+            }));
+    }
+
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.formatDocument', Commands.formatDocument));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.goToDefinition', ExtensionUtils.goToDefinition));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.compile', () => {
+            onCompileInstrument(context);
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.editMode', () => {
+            Commands.enterEditMode(websocket);
+        }));
+
+    // utility function to send text to Cabbage instrument overriding the current
+    // realtime audio inputs
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.sendFileToChannel1and2', (uri: vscode.Uri) => {
+            Commands.sendFileToChannel(context, websocket, uri.fsPath, 12);
+        }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.sendFileToChannel1', (uri: vscode.Uri) => {
+            Commands.sendFileToChannel(context, websocket, uri.fsPath, 1);
+        }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.sendFileToChannel2', (uri: vscode.Uri) => {
+            Commands.sendFileToChannel(context, websocket, uri.fsPath, 2);
+        }));
 
     // Register the commands for creating new Cabbage files
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => { Commands.createNewCabbageFile('effect'); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => { Commands.createNewCabbageFile('synth'); }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => {
+            Commands.createNewCabbageFile('effect');
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.createNewCabbageSynth', () => {
+            Commands.createNewCabbageFile('synth');
+        }));
 
     // Register command for jumping to widget definition
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => { Commands.jumpToWidget(); }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => {
+            Commands.jumpToWidget();
+        }));
     // Register the command for adding a new Cabbage section
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.addCabbageSection', () => { Commands.addCabbageSection(); }));
-    context.subscriptions.push(vscode.commands.registerCommand('cabbage.updateToCabbage3', () => { Commands.updateCodeToJSON(); }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.addCabbageSection', () => {
+            Commands.addCabbageSection();
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.updateToCabbage3', () => {
+            Commands.updateCodeToJSON();
+        }));
 
     /**
      * Event handler triggered when the text of a document is changed.
      * - Reverts changes to protected example files.
-     * 
+     *
      * @param event The event containing the text document that was changed.
      */
     vscode.workspace.onDidChangeTextDocument(async (event) => {
         const editor = event.document;
-        if (editor.fileName.endsWith('.csd') && Commands.isProtectedExample(editor.fileName)) {
+        if (editor.fileName.endsWith('.csd') &&
+            Commands.isProtectedExample(editor.fileName)) {
             const originalContent = originalContentCache[editor.fileName];
             if (originalContent !== editor.getText()) {
                 const edit = new vscode.WorkspaceEdit();
-                edit.replace(editor.uri, new vscode.Range(0, 0, editor.lineCount, 0), originalContent);
+                edit.replace(
+                    editor.uri, new vscode.Range(0, 0, editor.lineCount, 0),
+                    originalContent);
                 await vscode.workspace.applyEdit(edit);
-                vscode.window.showInformationMessage("Changes to example files are not permitted.\n Please use 'Save-As' if you wish to modify this file.");
-                Commands.getOutputChannel().appendLine(`Changes to example files are not permitted. Please use 'Save-As' if you wish to modify this file.`);
+                vscode.window.showInformationMessage(
+                    'Changes to example files are not permitted.\n Please use \'Save-As\' if you wish to modify this file.');
+                Commands.getOutputChannel().appendLine(
+                    `Changes to example files are not permitted. Please use 'Save-As' if you wish to modify this file.`);
             }
         }
     });
 
     vscode.workspace.onDidOpenTextDocument((editor) => {
-        ExtensionUtils.sendTextToWebView(editor, 'onFileChanged', Commands.getPanel());
+        ExtensionUtils.sendTextToWebView(
+            editor, 'onFileChanged', Commands.getPanel());
     });
 
-    vscode.window.tabGroups.onDidChangeTabs((tabs) => {
-        // triggered when tab changes
-    });
-
+    vscode.window.tabGroups.onDidChangeTabs(
+        (tabs) => {
+            // triggered when tab changes
+        });
 }
 
 /**
  *   Compile handler triggered when via the compile command.
  * - Tries to save the file first as Cabbage/Csound will read the file from disk
  * - Checks if the saved document is a .csd file with Cabbage-specific tags.
- * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open if the "showUIOnSave" setting is enabled.
- * - Waits for the WebSocket connection to be ready before handling any messages from the webview.
- * - Listens for messages from the webview and processes them via WebSocket if available.
- * 
+ * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open
+ * if the "showUIOnSave" setting is enabled.
+ * - Waits for the WebSocket connection to be ready before handling any messages
+ * from the webview.
+ * - Listens for messages from the webview and processes them via WebSocket if
+ * available.
+ *
  * @param editor The text editor containing the saved document.
  */
 async function onCompileInstrument(context: vscode.ExtensionContext) {
+    cabbageIsReady = false;
     let editor = vscode.window.activeTextEditor?.document;
-    //if editor is not a text file but an instrument panel
+    // if editor is not a text file but an instrument panel
     if (!editor) {
         const panel = Commands.getPanel();
         if (panel) {
-            const targetDocument = await ExtensionUtils.findDocument(panel.title + '.csd', true);
+            const targetDocument =
+                await ExtensionUtils.findDocument(panel.title + '.csd', true);
             if (!targetDocument) {
-                console.log('Cabbage: No editor or document with filename Unhinged.csd found.');
+                console.log(
+                    'Cabbage: No editor or document with filename Unhinged.csd found.');
                 return;
             }
             editor = targetDocument;
@@ -220,35 +299,37 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         await ExtensionUtils.saveDocumentIfDirty(editor);
     }
 
-    //kill any other processes running
+    // kill any other processes running
     Commands.getProcesses().forEach((p) => {
-        p?.kill("SIGKILL");
+        p?.kill('SIGKILL');
     });
 
     if (editor) {
-        if (!editor.fileName.endsWith('.csd') || !await Commands.hasCabbageTags(editor)) {
-            console.warn("Cabage: No cabbage tags found in document, returning early.");
+        if (!editor.fileName.endsWith('.csd') ||
+            !await Commands.hasCabbageTags(editor)) {
+            console.warn(
+                'Cabage: No cabbage tags found in document, returning early.');
             return;
         }
 
-        setCabbageMode("play");
+        setCabbageMode('play');
         const config = vscode.workspace.getConfiguration('cabbage');
 
         if (config.get('showUIOnSave') && !Commands.getPanel()) {
             console.warn('Cabbage: Cabbage: Creating new webview panel');
             Commands.setupWebViewPanel(context);
-        }
-        else {
+        } else {
             const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
-            const fileName = fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
+            const fileName =
+                fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
             const panel = Commands.getPanel();
             if (panel && fileName.length > 0) {
                 panel.title = fileName;
             }
         }
 
-       
-        //initialize the WebSocket server
+
+        // initialize the WebSocket server
         const freePort = await ExtensionUtils.findFreePort(9991, 10000);
         await Commands.onDidSave(editor, context, freePort);
         await setupWebSocketServer(freePort);
@@ -257,18 +338,19 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
 
         if (websocket) {
-            const soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
+            const soundFileInput = context.globalState.get<{ [key: number]: string }>(
+                'soundFileInput', {});
             setTimeout(() => {
                 for (const [channel, file] of Object.entries(soundFileInput)) {
                     if (Number(channel) > 0) {
-                        vscode.window.showInformationMessage(`Routing ${file} to channel ${channel}`);
+                        vscode.window.showInformationMessage(
+                            `Routing ${file} to channel ${channel}`);
                     }
                     Commands.sendFileToChannel(context, websocket, file, Number(channel));
                 }
             }, 2000);
-        }
-        else {
-            console.warn("Cabbage: websocket is undefined?");
+        } else {
+            console.warn('Cabbage: websocket is undefined?');
         }
 
         const panel = Commands.getPanel();
@@ -276,18 +358,13 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             panel.webview.onDidReceiveMessage(message => {
                 if (websocket) {
                     Commands.handleWebviewMessage(
-                        message,
-                        websocket,
-                        firstMessages,
-                        vscode.window.activeTextEditor,
-                        context
-                    );
+                        message, websocket, firstMessages, vscode.window.activeTextEditor,
+                        context);
                 } else {
-                    console.warn("Cabbage: websocket is undefined?");
+                    console.warn('Cabbage: websocket is undefined?');
                 }
             });
-        }
-        else{
+        } else {
             console.warn('Cabbage: Cabbage: No webview found');
         }
     }
@@ -305,39 +382,47 @@ function pathExists(p: string): boolean {
         return false;
     }
 }
-/* 
- * Logic to execute when the extension is installed for the first time. On MacOS we need to sign the Csound 
- * library if it is not already signed. If it's only adhoc signed, we sign it again.
+/*
+ * Logic to execute when the extension is installed for the first time. On MacOS
+ * we need to sign the Csound library if it is not already signed. If it's only
+ * adhoc signed, we sign it again.
  */
 function onInstall() {
-    // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already signed
+    // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already
+    // signed
     if (process.platform === 'darwin') {
         if (!pathExists('/Applications/Csound/CsoundLib64.framework')) {
-            Commands.getOutputChannel().append('ERROR: /Applications/Csound/CsoundLib64.framework not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+            Commands.getOutputChannel().append(
+                'ERROR: /Applications/Csound/CsoundLib64.framework not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
             return;
         }
-        const output = cp.execSync('codesign -dvv /Applications/Csound/CsoundLib64.framework').toString();
+        const output =
+            cp.execSync('codesign -dvv /Applications/Csound/CsoundLib64.framework')
+                .toString();
         if (!output.includes('Authority=Apple Development')) {
             return;
-        }
-        else {
+        } else {
             try {
-                // cp.execSync('codesign --force --deep --sign - /Applications/Csound/CsoundLib64.framework');
-                Commands.getOutputChannel().append('Ad-hoc signed /Applications/Csound/CsoundLib64.framework\n');
+                // cp.execSync('codesign --force --deep --sign -
+                // /Applications/Csound/CsoundLib64.framework');
+                Commands.getOutputChannel().append(
+                    'Ad-hoc signed /Applications/Csound/CsoundLib64.framework\n');
             } catch (signError) {
-                Commands.getOutputChannel().append('ERROR: Failed to ad-hoc sign /Applications/Csound/CsoundLib64.framework\n');
+                Commands.getOutputChannel().append(
+                    'ERROR: Failed to ad-hoc sign /Applications/Csound/CsoundLib64.framework\n');
                 return;
             }
         }
-    }
-    else if(process.platform === 'win32'){
+    } else if (process.platform === 'win32') {
         if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll')) {
-            Commands.getOutputChannel().append('ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+            Commands.getOutputChannel().append(
+                'ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
         }
-    }
-    else{
-        if (!pathExists('/usr/local/bin/csound') && !pathExists('/usr/local/lib/csound')) {
-            Commands.getOutputChannel().append('ERROR: /usr/local/bin/csound and /usr/local/lib/csound not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+    } else {
+        if (!pathExists('/usr/local/bin/csound') &&
+            !pathExists('/usr/local/lib/csound')) {
+            Commands.getOutputChannel().append(
+                'ERROR: /usr/local/bin/csound and /usr/local/lib/csound not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
         }
     }
 }
@@ -350,20 +435,22 @@ function onInstall() {
  */
 function onUpdate(previousVersion: string, currentVersion: string) {
     // Logic to execute on update
-    console.log(`Extension updated from version ${previousVersion} to ${currentVersion}`);
+    console.log(
+        `Extension updated from version ${previousVersion} to ${currentVersion}`);
 }
 
 
 /**
  * Deactivates the Cabbage extension by terminating any active child processes
- * associated with the Commands module. This ensures that all processes are cleaned up
- * when the extension is disabled. This function also ensures that the contents of
- * protected files match the cache before deactivating the extension.
+ * associated with the Commands module. This ensures that all processes are
+ * cleaned up when the extension is disabled. This function also ensures that
+ * the contents of protected files match the cache before deactivating the
+ * extension.
  */
 export function deactivate() {
     // Existing process cleanup
     Commands.getProcesses().forEach((p) => {
-        p?.kill("SIGKILL");
+        p?.kill('SIGKILL');
     });
 
     // Add WebSocket server cleanup
@@ -381,24 +468,26 @@ export function deactivate() {
 
 /**
  * Waits until the WebSocket connection is established and resolves the promise
- * with the WebSocket instance once it is ready. This function is useful to ensure
- * the WebSocket is available before performing operations that depend on it. * 
+ * with the WebSocket instance once it is ready. This function is useful to
+ * ensure the WebSocket is available before performing operations that depend on
+ * it. *
  * @returns A promise that resolves with the WebSocket instance when ready.
  */
 // function waitForWebSocket(): Promise<WebSocket> {
 //     return new Promise((resolve) => {
 //         const interval = setInterval(() => {
 //             if (websocket) {
-//                 clearInterval(interval);  // Stop checking once websocket is valid
-//                 resolve(websocket);       // Resolve the promise with the WebSocket
+//                 clearInterval(interval);  // Stop checking once websocket is
+//                 valid resolve(websocket);       // Resolve the promise with
+//                 the WebSocket
 //             }
 //         }, 100); // Check every 100 ms
 //     });
 // }
 
 /**
- * Sets up a WebSocket server on a free port and listens for incoming connections.
- * The server is used to communicate between the Cabbage service
+ * Sets up a WebSocket server on a free port and listens for incoming
+ * connections. The server is used to communicate between the Cabbage service
  * app and the Cabbage webview panel.
  */
 async function setupWebSocketServer(freePort?: number): Promise<void> {
@@ -406,7 +495,7 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
     if (wss) {
         wss.close();
     }
-    
+
     wss = new WebSocket.Server({ port: freePort });
 
     // Create a promise to wait for the client connection
@@ -415,35 +504,57 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
             console.warn('Cabbage: Client connected');
 
             // Flush the first messages received from Cabbage if any
-            firstMessages.forEach((msg) => ws.send(JSON.stringify(msg)));
-            firstMessages = [];
 
             websocket = ws;
 
             // Listen for messages from the Cabbage service app
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());
-                console.log("Cabbage: (incoming message) - "+JSON.stringify(msg));
-
-                if (msg.hasOwnProperty("command") && msg["command"] === "widgetUpdate") {
+                if (msg.hasOwnProperty('command') &&
+                    msg['command'] === 'widgetUpdate') {
                     const panel = Commands.getPanel();
                     if (panel) {
-                        if (msg.hasOwnProperty("data")) {
-                            panel.webview.postMessage({
-                                command: "widgetUpdate",
-                                channel: msg["channel"],
-                                data: msg["data"],
-                                currentCsdPath: Commands.getCurrentFileName(),
-                            });
-                        } else if (msg.hasOwnProperty("value")) {
-                            panel.webview.postMessage({
-                                command: "widgetUpdate",
-                                channel: msg["channel"],
-                                value: msg["value"],
+                        if (cabbageIsReady) {
+                            if (msg.hasOwnProperty('data')) {
+                                panel.webview.postMessage({
+                                    command: 'widgetUpdate',
+                                    channel: msg['channel'],
+                                    data: msg['data'],
+                                    currentCsdPath: Commands.getCurrentFileName(),
+                                });
+                            } else if (msg.hasOwnProperty('value')) {
+                                panel.webview.postMessage({
+                                    command: 'widgetUpdate',
+                                    channel: msg['channel'],
+                                    value: msg['value'],
+                                    currentCsdPath: Commands.getCurrentFileName(),
+                                });
+                            }
+                        } else {
+                            firstMessages.push({
+                                command: 'widgetUpdate',
+                                channel: msg['channel'],
+                                data: msg['data'],
                                 currentCsdPath: Commands.getCurrentFileName(),
                             });
                         }
                     }
+                } else if (
+                    msg.hasOwnProperty('command') &&
+                    msg['command'] === 'cabbageIsReadyToLoad') {
+                    firstMessages.forEach((msg) => {
+                        const panel = Commands.getPanel();
+                        if (panel) {
+                            panel.webview.postMessage({
+                                command: 'widgetUpdate',
+                                channel: msg['channel'],
+                                data: msg['data'],
+                                currentCsdPath: Commands.getCurrentFileName(),
+                            });
+                        }
+                    });
+                    firstMessages = [];
+                    cabbageIsReady = true;
                 }
             });
 
@@ -471,7 +582,8 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
 
     // Add a listening event to confirm the server started successfully
     wss.on('listening', () => {
-        console.log(`Cabbage: WebSocket server successfully started on port ${freePort}`);
+        console.log(
+            `Cabbage: WebSocket server successfully started on port ${freePort}`);
     });
 
     // Wait for the client to connect before returning
