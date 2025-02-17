@@ -36,7 +36,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     Commands.initialize();
 
-
     const currentVersion = vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
     const previousVersion = context.globalState.get<string>('extensionVersion');
 
@@ -331,9 +330,14 @@ function onInstall() {
             }
         }
     }
-    else {
+    else if(process.platform === 'win32'){
         if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll')) {
             Commands.getOutputChannel().append('ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+        }
+    }
+    else{
+        if (!pathExists('/usr/local/bin/csound') && !pathExists('/usr/local/lib/csound')) {
+            Commands.getOutputChannel().append('ERROR: /usr/local/bin/csound and /usr/local/lib/csound not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
         }
     }
 }

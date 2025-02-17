@@ -57,7 +57,7 @@ export class Settings {
                     ////for windows CabbageApp_x64.exe
                     return path.join(binaryPath, os.platform() === 'darwin' ?
                         'CabbageApp.app/Contents/MacOS/CabbageApp' :
-                        'CabbageApp.exe');
+                        os.platform() === 'linux' ? 'CabbageApp' : 'CabbageApp.exe');
                 case 'CabbageVST3Effect':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
                         'CabbageVST3Effect.vst3' : "CabbageVST3Effect_x64.vst3");
@@ -73,7 +73,6 @@ export class Settings {
                 default:
                     return '';
             }
-
         }
         return ''; // Return an empty string if the extension is not found
     }
