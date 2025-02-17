@@ -314,8 +314,10 @@
   },
   "dependencies": {
     "@vscode/vsce": "^3.2.1",
+    "bufferutil": "^4.0.9",
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
+    "utf-8-validate": "^6.0.5",
     "ws": "^8.16.0",
     "xml2js": "^0.6.2"
   }
