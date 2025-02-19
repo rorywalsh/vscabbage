@@ -455,7 +455,8 @@ export class Commands {
                 const process = cp.spawn(command, [editor.fileName, portNumber.toString()], {});
                 this.vscodeOutputChannel.clear();
                 process.on('error', (err) => {
-                    this.vscodeOutputChannel.appendLine('Failed to start process: ' + err);
+                    this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
+                    this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
                     const index = this.processes.indexOf(process);
                     if (index > -1) {
                         this.processes.splice(index, 1);
