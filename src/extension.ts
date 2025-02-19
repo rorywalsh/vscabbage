@@ -334,8 +334,6 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         await Commands.onDidSave(editor, context, freePort);
         await setupWebSocketServer(freePort);
 
-        console.log('Cabbage: WebSocket server started on port', freePort);
-
 
         if (websocket) {
             const soundFileInput = context.globalState.get<{ [key: number]: string }>(
@@ -504,17 +502,29 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
             console.warn('Cabbage: Client connected');
 
             // Flush the first messages received from Cabbage if any
-
+            firstMessages.forEach((msg) => {
+                const panel = Commands.getPanel();
+                if (panel) {
+                    panel.webview.postMessage({
+                        command: 'widgetUpdate',
+                        channel: msg['channel'],
+                        data: msg['data'],
+                        currentCsdPath: Commands.getCurrentFileName(),
+                    });
+                }
+            });
+            firstMessages = [];
+            
             websocket = ws;
 
             // Listen for messages from the Cabbage service app
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());
+                
                 if (msg.hasOwnProperty('command') &&
                     msg['command'] === 'widgetUpdate') {
                     const panel = Commands.getPanel();
                     if (panel) {
-                        if (cabbageIsReady) {
                             if (msg.hasOwnProperty('data')) {
                                 panel.webview.postMessage({
                                     command: 'widgetUpdate',
@@ -522,6 +532,7 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
                                     data: msg['data'],
                                     currentCsdPath: Commands.getCurrentFileName(),
                                 });
+                                console.log("Cabbage: updating widget ");
                             } else if (msg.hasOwnProperty('value')) {
                                 panel.webview.postMessage({
                                     command: 'widgetUpdate',
@@ -530,31 +541,11 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
                                     currentCsdPath: Commands.getCurrentFileName(),
                                 });
                             }
-                        } else {
-                            firstMessages.push({
-                                command: 'widgetUpdate',
-                                channel: msg['channel'],
-                                data: msg['data'],
-                                currentCsdPath: Commands.getCurrentFileName(),
-                            });
-                        }
                     }
                 } else if (
                     msg.hasOwnProperty('command') &&
                     msg['command'] === 'cabbageIsReadyToLoad') {
-                    firstMessages.forEach((msg) => {
-                        const panel = Commands.getPanel();
-                        if (panel) {
-                            panel.webview.postMessage({
-                                command: 'widgetUpdate',
-                                channel: msg['channel'],
-                                data: msg['data'],
-                                currentCsdPath: Commands.getCurrentFileName(),
-                            });
-                        }
-                    });
-                    firstMessages = [];
-                    cabbageIsReady = true;
+                    console.warn("CabbageIsReady");
                 }
             });
 
@@ -583,7 +574,7 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
     // Add a listening event to confirm the server started successfully
     wss.on('listening', () => {
         console.log(
-            `Cabbage: WebSocket server successfully started on port ${freePort}`);
+            `Cabbage: WebSocket server successfully started on port ${freePort} - listening for connection`);
     });
 
     // Wait for the client to connect before returning
