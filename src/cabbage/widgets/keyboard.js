@@ -99,7 +99,7 @@ export class MidiKeyboard {
       this.activeNotes.add(note);
       keyElement.setAttribute('fill', this.props.colour.keydown);
       console.log(`Key down: ${this.noteMap[note]}`);
-      Cabbage.sendMidiMessageFromUI(this.vscode, 0x90, this.noteMap[note], 127);
+      Cabbage.sendMidiMessageFromUI(0x90, this.noteMap[note], 127, this.vscode);
     }
   }
 
@@ -109,7 +109,7 @@ export class MidiKeyboard {
       this.activeNotes.delete(note);
       keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? this.props.colour.whiteNote : this.props.colour.blackNote);
       console.log(`Key up: ${this.noteMap[note]}`);
-      Cabbage.sendMidiMessageFromUI(this.vscode, 0x80, this.noteMap[note], 0);
+      Cabbage.sendMidiMessageFromUI(0x80, this.noteMap[note], 0, this.vscode);
     }
   }
 

@@ -1,0 +1,149 @@
+<!--
+MIT License
+Copyright (c) 2024 Rory Walsh
+See the LICENSE file for details.
+
+This is a test file for the Cabbage HTMLElement widgets. These widgets are not using within Cabbage itself
+but are provided as a way to use the widgets outside of the Cabbage framework.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cabbage Widget Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .widget-section {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .widget-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        /* Prevent widgets from stretching */
+        .widget-row > * {
+            width: auto !important;
+            height: auto !important;
+        }
+
+        /* Special handling for wider widgets */
+        .widget-row .wide {
+            grid-column: span 2;
+        }
+
+        /* Special handling for taller widgets */
+        .widget-row .tall {
+            grid-row: span 2;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+
+        .popup {
+            position: fixed;
+            display: none;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sliders Section -->
+    <div class="widget-section">
+        <h2>Sliders</h2>
+        <div class="widget-row">
+            <cabbage-rotary-slider props='{"channel": "rotary1", "value": 0.25}'></cabbage-rotary-slider>
+            <cabbage-horizontal-slider class="wide" props='{"channel": "horizontal1", "value": 0.5}'></cabbage-horizontal-slider>
+            <cabbage-vertical-slider class="tall" props='{"channel": "vertical1", "value": 0.75}'></cabbage-vertical-slider>
+            <cabbage-number-slider props='{"channel": "number1", "value": 0.6}'></cabbage-number-slider>
+        </div>
+    </div>
+
+    <!-- Buttons Section -->
+    <div class="widget-section">
+        <h2>Buttons</h2>
+        <div class="widget-row">
+            <cabbage-button props='{"channel": "button1", "text": "Button"}'></cabbage-button>
+            <cabbage-option-button props='{"channel": "option1", "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-option-button>
+        </div>
+    </div>
+
+    <!-- Input Controls -->
+    <div class="widget-section">
+        <h2>Input Controls</h2>
+        <div class="widget-row">
+            <cabbage-checkbox props='{"channel": "check1", "text": "Checkbox"}'></cabbage-checkbox>
+            <cabbage-combo-box props='{"channel": "combo1", "text": "Combo", "items": ["Item 1", "Item 2", "Item 3"]}'></cabbage-combo-box>
+            <cabbage-list-box class="tall" props='{"channel": "list1", "items": ["List Item 1", "List Item 2", "List Item 3"]}'></cabbage-list-box>
+        </div>
+    </div>
+
+    <!-- Display Elements -->
+    <div class="widget-section">
+        <h2>Display Elements</h2>
+        <div class="widget-row">
+            <cabbage-label props='{"channel": "label1", "text": "Label Text"}'></cabbage-label>
+            <cabbage-image props='{"channel": "image1", "file": "example.png"}'></cabbage-image>
+            <cabbage-form class="wide tall" props='{"channel": "form1", "text": "Form"}'></cabbage-form>
+            <cabbage-group-box class="wide tall" props='{"channel": "group1", "text": "Group Box"}'></cabbage-group-box>
+        </div>
+    </div>
+
+    <!-- Special Widgets -->
+    <div class="widget-section">
+        <h2>Special Widgets</h2>
+        <div class="widget-row">
+            <cabbage-midi-keyboard class="wide" props='{"channel": "midi1"}'></cabbage-midi-keyboard>
+        </div>
+    </div>
+
+    <!-- Add popup element -->
+    <span class="popup" id="popupValue">50</span>
+
+    <script type="module">
+        import { 
+            CabbageRotarySlider,
+            CabbageHorizontalSlider,
+            CabbageVerticalSlider,
+            CabbageNumberSlider,
+            CabbageButton,
+            CabbageOptionButton,
+            CabbageCheckbox,
+            CabbageComboBox,
+            CabbageListBox,
+            CabbageLabel,
+            CabbageImage,
+            CabbageForm,
+            CabbageGroupBox,
+            CabbageMidiKeyboard
+        } from './htmlElements/index.js';
+    </script>
+</body>
+</html>

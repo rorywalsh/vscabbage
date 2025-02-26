@@ -149,7 +149,6 @@ export class Commands {
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
-        console.warn("Cabbage: Received message:", message);
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
             case 'getMediaFiles':
@@ -444,17 +443,32 @@ export class Commands {
         }
 
         this.processes.forEach((p) => {
-            p?.kill("SIGKILL");
+            if (p) {
+                p.kill("SIGKILL");
+                p.removeAllListeners();
+            }
         });
-
+        this.processes = [];
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
-
                 const process = cp.spawn(command, [editor.fileName, portNumber.toString()], {});
                 this.vscodeOutputChannel.clear();
                 process.on('error', (err) => {
-                    this.vscodeOutputChannel.appendLine('Failed to start process:' + err);
+                    this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
+                    this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
+                    const index = this.processes.indexOf(process);
+                    if (index > -1) {
+                        this.processes.splice(index, 1);
+                    }
+                });
+
+                process.on('exit', (code, signal) => {
+                    const index = this.processes.indexOf(process);
+                    if (index > -1) {
+                        this.processes.splice(index, 1);
+                    }
+                    this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
                 });
 
                 this.processes.push(process);
@@ -477,7 +491,8 @@ export class Commands {
                                 this.vscodeOutputChannel.append(dataString);
                             }
                         } else {
-                            this.vscodeOutputChannel.append(dataString);
+                            const msg = dataString.replace(/Cabbage INFO:/g, "");
+                            this.vscodeOutputChannel.append(msg);
                         }
                     }
                 });
@@ -486,7 +501,6 @@ export class Commands {
                 this.vscodeOutputChannel.append('Invalid file name or no extension found. Cabbage can only compile .csd file types.\n');
                 return;
             }
-
 
             this.checkForCabbageSrcDirectory();
         }

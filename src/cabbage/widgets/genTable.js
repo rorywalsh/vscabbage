@@ -79,7 +79,7 @@ export class GenTable {
     }
 
     updateTable() {
-
+        console.warn("colour of fill:", this.props.colour.fill);
         this.canvas.width = this.props.bounds.width;
         this.canvas.height = this.props.bounds.height;
         // Clear canvas
@@ -99,12 +99,17 @@ export class GenTable {
         this.ctx.closePath();
         this.ctx.fill();
         console.log("Cabbage: Cabbage: sample array length:",  this.props.samples.length);
+        const increment = Math.max(1, Math.floor(this.props.samples.length / this.props.bounds.width));
+
         // Draw waveform - First, handle the fill
         if (this.props.fill === 1) {
             this.ctx.strokeStyle = this.props.colour.fill; // Set fill color for vertical lines
             this.ctx.lineWidth = 2; // Line width for the filled waveform
-            for (let i = 0; i < this.props.samples.length; i += Math.floor(this.props.samples.length / this.props.bounds.width)) {
-                const x = CabbageUtils.map(i, 0, this.props.samples.length, 0, this.props.bounds.width);
+            
+            for (let i = 0; i < this.props.samples.length; i += increment) {
+
+                const x = CabbageUtils.map(i, 0, this.props.samples.length - 1, 0, this.props.bounds.width);
+
                 if (x > this.props.bounds.width) {
                     continue; // Skip drawing if x exceeds bounds
                 }
@@ -121,15 +126,21 @@ export class GenTable {
         this.ctx.strokeStyle = this.props.colour.stroke.colour; // Set stroke color for outline
         this.ctx.lineWidth = this.props.colour.stroke.width; // Set stroke width for outline
         this.ctx.beginPath();
-        this.ctx.moveTo(0, this.props.bounds.height / 2); // Start at the middle of the canvas
 
-        const sampleIncrement = Math.floor(this.props.samples.length / this.props.bounds.width);
-        for (let i = 0; i < this.props.samples.length; i += sampleIncrement) {
-            const x = CabbageUtils.map(i, 0, this.props.samples.length, 0, this.props.bounds.width);
+        for (let i = 0; i < this.props.samples.length; i += increment) {
+
+            const x = CabbageUtils.map(i, 0, this.props.samples.length - 1, 0, this.props.bounds.width);
+
             if (x > this.props.bounds.width) {
                 continue; // Skip drawing if x exceeds bounds
             }
             const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
+            if (i === 0) {
+                this.ctx.moveTo(x, y); // Move to the first sample
+            } else {
+                this.ctx.lineTo(x, y); // Connect to the next sample
+            }
+
             this.ctx.lineTo(x, y); // Draw line to the sample point for the outline
         }
 

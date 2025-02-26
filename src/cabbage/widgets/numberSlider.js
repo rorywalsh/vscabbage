@@ -14,7 +14,8 @@ export class NumberSlider {
                 "width": 60,
                 "height": 60
             },
-            "channel": "nslider",
+            "channel": "numberSlider",
+            "corners": 4,
             "range": {
                 "min": 0,
                 "max": 1,
@@ -152,7 +153,8 @@ export class NumberSlider {
             return '';
         }
     
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
+        console.log('NumberSlider rendering:', this.props);
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : 18;
         const alignMap = {
             'left': 'end',
             'center': 'middle',
@@ -160,19 +162,19 @@ export class NumberSlider {
             'right': 'start',
         };
         const svgAlign = alignMap[this.props.font.align] || 'middle';
-        const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
+        const currentValue = this.props.value === null ? this.props.range.defaultValue : this.props.value;
+        const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
     
-        return `
-            <div id="slider-${this.props.channel}" style="position: relative; width: 100%; height: 100%; user-select: none;"> <!-- Prevent text selection -->
-                <!-- Background SVG with preserveAspectRatio="none" -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
+        const html = `
+            <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" 
                         pointer-events="all" opacity="${this.props.opacity}"></rect>
                 </svg>
     
                 <!-- Text SVG with proper alignment -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
                     <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
                         fill="${this.props.font.colour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
@@ -180,5 +182,7 @@ export class NumberSlider {
                 </svg>
             </div>
         `;
+        console.log('Generated HTML:', html);
+        return html;
     }
 }

@@ -118,7 +118,7 @@ window.addEventListener('message', async event => {
                 console.error("MainForm not found");
             }
             widgets.length = 0; // Clear the widgets array
-            currentFileName = message.lastSavedFileName; // Update the current file name
+            // currentFileName = message.lastSavedFileName; // Update the current file name
             break;
 
         // Called when entering edit mode. Converts existing widgets to draggable mode.

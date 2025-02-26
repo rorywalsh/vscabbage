@@ -30,12 +30,15 @@ export class Settings {
     private static getJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
-            console.error('Cabbage: extension path', extension.extensionPath);
+            Commands.getOutputChannel().appendLine('Cabbage: extension path: ' + extension.extensionPath);
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             // Replace backslashes with forward slashes
             const posixPath = returnPath.split(path.sep).join(path.posix.sep);
             return posixPath;
+        }
+        else{
+            Commands.getOutputChannel().appendLine('Cabbage: Extension not found');
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -54,7 +57,7 @@ export class Settings {
                     ////for windows CabbageApp_x64.exe
                     return path.join(binaryPath, os.platform() === 'darwin' ?
                         'CabbageApp.app/Contents/MacOS/CabbageApp' :
-                        'CabbageApp.exe');
+                        os.platform() === 'linux' ? 'CabbageApp' : 'CabbageApp.exe');
                 case 'CabbageVST3Effect':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
                         'CabbageVST3Effect.vst3' : "CabbageVST3Effect_x64.vst3");
@@ -70,7 +73,6 @@ export class Settings {
                 default:
                     return '';
             }
-
         }
         return ''; // Return an empty string if the extension is not found
     }
@@ -80,9 +82,13 @@ export class Settings {
         const homeDir = os.homedir();
         // Build your path dynamically
         let settingsPath = "";
+
         if (os.platform() === 'darwin') {
-            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
-        } else {
+            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
+        } else if(os.platform() === 'linux') {
+            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
+        }
+        else{
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
         const fileUri = vscode.Uri.file(settingsPath);
@@ -126,7 +132,10 @@ export class Settings {
         const homeDir = os.homedir();
         if (os.platform() === 'darwin') {
             settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
-        } else {
+        } else if(os.platform() === 'linux') {
+            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
+        }
+        else{
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
 
@@ -212,7 +221,7 @@ export class Settings {
         if (selectedBufferSize) {
             await config.update('audioBufferSize', selectedBufferSize, vscode.ConfigurationTarget.Global);
             vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedBufferSize}`);
-            settings['currentConfig']['audio']['buffer'] = selectedBufferSize;
+            settings['currentConfig']['audio']['bufferSize'] = parseInt(selectedBufferSize);
             await Settings.setCabbageSettings(settings);
         } else {
             vscode.window.showWarningMessage('No buffer size selected.');
@@ -267,6 +276,36 @@ export class Settings {
             await config.update('pathToJsSource', selectedPath[0].fsPath, vscode.ConfigurationTarget.Global);
             settings['currentConfig']['jsSourceDir'] = selectedPath[0].fsPath;
             await Settings.setCabbageSettings(settings);
+        }
+    }
+
+    static async resetSettingsFile() {
+        // Get the current user's home directory
+        const homeDir = os.homedir();
+        // Build your path dynamically
+        let settingsPath = "";
+        if (os.platform() === 'darwin') {
+            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
+        } else {
+            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+        }
+        const fileUri = vscode.Uri.file(settingsPath);
+        const userResponse = await vscode.window.showWarningMessage(
+            'Are you sure you want to reset the CabbageApp (not vscode) settings file? A new default file will be created in its place.',
+            { modal: true },
+            'Yes', 'No'
+        );
+
+        if (userResponse === 'Yes') {
+            try {
+            await vscode.workspace.fs.delete(fileUri, { useTrash: false });
+            vscode.window.showInformationMessage('Settings file has been reset.');
+            } catch (error) {
+            console.error('Cabbage: Error deleting settings file:', error);
+            vscode.window.showErrorMessage('Failed to reset settings file.');
+            }
+        } else {
+            vscode.window.showInformationMessage('Reset action cancelled.');
         }
     }
 
