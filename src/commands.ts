@@ -458,6 +458,15 @@ export class Commands {
                 });
 
                 this.processes.push(process);
+
+                process.on('exit', (code, signal) => {
+                    if (code === 0) {
+                        this.vscodeOutputChannel.appendLine('Process started successfully');
+                    } else {
+                        this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
+                    }
+                });
+                
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
                     const dataString = data.toString();
