@@ -220,7 +220,7 @@ export class Settings {
         // If a valid sampling rate is selected, update the configuration
         if (selectedBufferSize) {
             await config.update('audioBufferSize', selectedBufferSize, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedBufferSize}`);
+            vscode.window.showInformationMessage(`Buffer size updated to: ${selectedBufferSize}`);
             settings['currentConfig']['audio']['bufferSize'] = parseInt(selectedBufferSize);
             await Settings.setCabbageSettings(settings);
         } else {
