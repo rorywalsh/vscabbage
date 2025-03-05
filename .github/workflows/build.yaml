@@ -302,16 +302,16 @@ jobs:
         shell: cmd
         run: |
           echo "Checking if the build artifacts exist for CabbageApp"
-          tree build/CabbageApp/CabbageApp-app
+          tree cabbage3/build/CabbageApp/CabbageApp-app
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
-          ls build/CabbageVST3Effect/out
-          ls build/CabbageVST3Synth/out
+          ls cabbage3/build/CabbageVST3Effect/out
+          ls cabbage3/build/CabbageVST3Synth/out
 
       - name: Upload CabbageApp
         uses: actions/upload-artifact@v4
         with:
           name: CabbageApp.exe
-          path: CabbageApp\CabbageApp-app\Release\CabbageApp.exe
+          path: cabbage3\build\CabbageApp\CabbageApp-app\Release\CabbageApp.exe
           retention-days: 1
           if-no-files-found: ignore
 
