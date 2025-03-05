@@ -295,16 +295,14 @@ jobs:
         run: |
           ls -l
           cd cabbage3
-          cmake --build build --config Debug
+          cmake --build build --config Release
         continue-on-error: true
 
       - name: Verify builds
         shell: cmd
         run: |
-          cd cabbage3
           echo "Checking if the build artifacts exist for CabbageApp"
-          ls build/CabbageApp
-          tree build/CabbageApp
+          tree build/CabbageApp/CabbageApp-app
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
           ls build/CabbageVST3Effect/out
           ls build/CabbageVST3Synth/out
@@ -313,7 +311,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CabbageApp.exe
-          path: cabbage3/build/CabbageApp/CabbageApp.exe
+          path: CabbageApp\CabbageApp-app\Release\CabbageApp.exe
           retention-days: 1
           if-no-files-found: ignore
 
@@ -327,7 +325,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CabbageVST3Effect_x64.vst3
-          path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
+          path: cabbage3/build/CabbageVST3Effect/CabbageVST3Effect.vst3
           retention-days: 1
           if-no-files-found: ignore
 
@@ -335,7 +333,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CabbageVST3Synth_x64.vst3
-          path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
+          path: cabbage3/build/CabbageVST3Synth/CabbageVST3Synth.vst3
           retention-days: 1
           if-no-files-found: ignore
 
