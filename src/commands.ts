@@ -115,9 +115,6 @@ export class Commands {
     }
 
 
-
-
-
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
      * active processes, and notifying the webview panel.

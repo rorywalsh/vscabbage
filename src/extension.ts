@@ -105,6 +105,11 @@ export async function activate(context: vscode.ExtensionContext):
             await Settings.selectBufferSize();
         }));
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.selectAudioDriver', async () => {
+            await Settings.selectAudioDriver();
+        }));
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectAudioOutputDevice', async () => {
             await Settings.selectAudioDevice('output');
@@ -514,33 +519,33 @@ async function setupWebSocketServer(freePort?: number): Promise<void> {
                 }
             });
             firstMessages = [];
-            
+
             websocket = ws;
 
             // Listen for messages from the Cabbage service app
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());
-                
+
                 if (msg.hasOwnProperty('command') &&
                     msg['command'] === 'widgetUpdate') {
                     const panel = Commands.getPanel();
                     if (panel) {
-                            if (msg.hasOwnProperty('data')) {
-                                panel.webview.postMessage({
-                                    command: 'widgetUpdate',
-                                    channel: msg['channel'],
-                                    data: msg['data'],
-                                    currentCsdPath: Commands.getCurrentFileName(),
-                                });
-                                console.log("Cabbage: updating widget ");
-                            } else if (msg.hasOwnProperty('value')) {
-                                panel.webview.postMessage({
-                                    command: 'widgetUpdate',
-                                    channel: msg['channel'],
-                                    value: msg['value'],
-                                    currentCsdPath: Commands.getCurrentFileName(),
-                                });
-                            }
+                        if (msg.hasOwnProperty('data')) {
+                            panel.webview.postMessage({
+                                command: 'widgetUpdate',
+                                channel: msg['channel'],
+                                data: msg['data'],
+                                currentCsdPath: Commands.getCurrentFileName(),
+                            });
+                            console.log("Cabbage: updating widget ");
+                        } else if (msg.hasOwnProperty('value')) {
+                            panel.webview.postMessage({
+                                command: 'widgetUpdate',
+                                channel: msg['channel'],
+                                value: msg['value'],
+                                currentCsdPath: Commands.getCurrentFileName(),
+                            });
+                        }
                     }
                 } else if (
                     msg.hasOwnProperty('command') &&
