@@ -305,6 +305,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     }
 
     // kill any other processes running
+    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });
@@ -452,6 +453,7 @@ function onUpdate(previousVersion: string, currentVersion: string) {
  */
 export function deactivate() {
     // Existing process cleanup
+    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });

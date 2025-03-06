@@ -10,6 +10,9 @@ import os from 'os';
 // @ts-ignore
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
 import { Commands } from './commands';
+import { cp } from 'fs';
+import { ChildProcess, exec } from "child_process";
+import WebSocket from 'ws';
 
 
 // Define an interface for the old-style widget structure
@@ -95,11 +98,70 @@ export class ExtensionUtils {
         }
     }
 
+    /**
+     * Basic sleep function for testing various things.
+     */
+    static sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    
+    /**
+     * Gracefully or forcefully terminates a process by PID across platforms.
+     * @param {number | ChildProcess | undefined} pid - The process ID or child process to terminate.
+     * @param {boolean} force - Whether to force kill (`SIGKILL` on Unix/macOS, `/F` on Windows).
+     * Not good to forcedly kill the process as the CabbageApp might not clean.
+     */
+    static terminateProcess(pid: number | ChildProcess | undefined, websocket: WebSocket | undefined, force = false) {
+        
+        //send signal to Cabbage to close audio
+        const msg = {
+            command: "stopAudio",
+            text: ""
+        };
+        websocket?.send(JSON.stringify(msg));
+        
+        // Handle case where pid is undefined or invalid
+        if (!pid || (typeof pid === 'number' && isNaN(pid))) {
+            console.error("Invalid PID provided.");
+            return;
+        }
+
+
+        // If pid is a child process, use its pid
+        const targetPid = typeof pid === "number" ? pid : pid?.pid;
+
+        // Ensure targetPid is a valid number before calling process.kill
+        if (typeof targetPid !== "number") {
+            console.error("Invalid PID value.");
+            return;
+        }
+
+        if (process.platform === "win32") {
+            // Windows: Use `taskkill` command to kill the process (without /F for graceful shutdown)
+            const command = `taskkill /PID ${targetPid} ${force ? "/F" : ""}`;
+            exec(command, (err, stdout, stderr) => {
+                if (err) {
+                    console.error(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
+                } else {
+                    console.log(`Process ${targetPid} terminated successfully.`);
+                }
+            });
+        } else {
+            // Unix/macOS: Use `SIGTERM` (graceful) or `SIGKILL` (forceful)
+            try {
+                process.kill(targetPid, force ? "SIGKILL" : "SIGTERM");
+                console.log(`Process ${targetPid} terminated successfully.`);
+            } catch (err) {
+                console.error(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
+            }
+        }
+    }
 
     /*
-        * Function to jump to the definition of a word in the document
-        * @param editor The active text editor
-        */
+    * Function to jump to the definition of a word in the document
+    * @param editor The active text editor
+    */
     static goToDefinition(editor: vscode.TextEditor) {
         if (!editor) {
             vscode.window.showErrorMessage("No active editor found.");
@@ -416,24 +478,24 @@ export class ExtensionUtils {
 
         const startTag = '<Cabbage>';
         const endTag = '</Cabbage>';
-    
+
         const startIndex = text.indexOf(startTag);
         const endIndex = text.indexOf(endTag) + endTag.length;
         const lines = text.split('\n');
-    
+
         if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
             // If no Cabbage section is found, format the entire text
             const updatedText = this.formatNonCabbageContent(lines, ' '.repeat(indentSpaces));
             return updatedText.join('\n');
         }
-    
+
         const beforeCabbage = text.substring(0, startIndex).split('\n');;
         const cabbageSection = text.substring(startIndex, endIndex);
         const afterCabbage = text.substring(endIndex).split('\n');;
 
         const formattedBeforeCabbage = this.formatNonCabbageContent(beforeCabbage, ' '.repeat(indentSpaces));
         const formattedAfterCabbage = this.formatNonCabbageContent(afterCabbage, ' '.repeat(indentSpaces));
-    
+
         return formattedBeforeCabbage.join('\n') + cabbageSection + formattedAfterCabbage.join('\n');
     }
 
@@ -451,11 +513,11 @@ export class ExtensionUtils {
     static formatNonCabbageContent(lines: string[], indentString: string): string[] {
         let indents = 0; // Tracks current indentation level
         const formattedLines: string[] = [];
-    
+
         for (let index = 0; index < lines.length; index++) {
             const line = lines[index];
             const trimmedLine = line.trim();
-    
+
             // Decrease indentation level for end keywords
             if (
                 trimmedLine.startsWith("endif") ||
@@ -467,11 +529,11 @@ export class ExtensionUtils {
             ) {
                 indents = Math.max(0, indents - 1);
             }
-    
+
             // Add indentation
             const indentText = indentString.repeat(indents);
             formattedLines.push(indentText + trimmedLine);
-    
+
             // Increase indentation level for specific keywords
             if (
                 trimmedLine.startsWith("if ") ||
@@ -484,10 +546,10 @@ export class ExtensionUtils {
                 indents++;
             }
         }
-    
+
         return formattedLines;
     }
-    
+
     static getResourcePath() {
         switch (os.platform()) {
             case 'darwin': // macOS
@@ -496,7 +558,7 @@ export class ExtensionUtils {
                 if (typeof process.env.PROGRAMDATA === 'string' && process.env.PROGRAMDATA.trim() !== '') {
                     return path.join(process.env.PROGRAMDATA, 'CabbageAudio');
                 }
-                else{
+                else {
                     Commands.getOutputChannel().appendLine('Failed to get PROGRAMDATA environment variable. Using default path.');
                     return path.join('C:', 'ProgramData', 'CabbageAudio');
                 }
