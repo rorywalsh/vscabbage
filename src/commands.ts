@@ -808,15 +808,27 @@ export class Commands {
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
-        const jsSource = config.get<string>('pathToJsSource');
-        const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+        const jsSource = config.get<string>('pathToJsSource') || '';
+        let resourcesDir = '';
+        if(config.get<boolean>('bundleResources')){
+            resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
+        }
+        else{
+            resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+        }
 
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (jsSource === '') {
-            const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
             if (extension) {
                 pathToCabbageJsSource = path.join(extension.extensionPath, 'src', 'cabbage');
+                cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
+            }
+        }
+        else {
+            if (extension) {
+                pathToCabbageJsSource = path.join(jsSource, 'cabbage');
                 cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
             }
         }
@@ -926,9 +938,16 @@ export class Commands {
                 await Commands.copyDirectory(binaryFile, destinationPath);
                 console.log('Cabbage: Plugin successfully copied to:', destinationPath);
                 Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
+
                 // Rename the executable file inside the folder
-                const win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
+
+                if(!fs.existsSync(win64DirPath)){
+                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
+                }
+
                 Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
+
                 console.log('Cabbage: win64DirPath:', win64DirPath);
                 const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
                 console.log('Cabbage: originalFilePath:', originalFilePath);
