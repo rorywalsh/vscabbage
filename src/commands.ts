@@ -27,6 +27,7 @@ export class Commands {
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
+    private static websocket: WebSocket | undefined;
 
 
     /**
@@ -115,16 +116,17 @@ export class Commands {
     }
 
 
-
-
-
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
      * active processes, and notifying the webview panel.
      * @param websocket The WebSocket connection to the Cabbage backend.
      */
-    static enterEditMode(websocket: WebSocket | undefined) {
+    static enterEditMode(ws: WebSocket | undefined) {
         setCabbageMode("draggable");
+
+        this.websocket = ws;
+        this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+
         this.processes.forEach((p) => {
             p?.kill("SIGKILL");
         });
@@ -144,11 +146,12 @@ export class Commands {
      */
     static async handleWebviewMessage(
         message: any,
-        websocket: WebSocket | undefined,
+        ws: WebSocket | undefined,
         firstMessages: any[],
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
+        this.websocket = ws;
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
             case 'getMediaFiles':
@@ -211,7 +214,7 @@ export class Commands {
 
             case 'widgetStateUpdate':
                 firstMessages.push(message);
-                websocket?.send(JSON.stringify(message));
+                this.websocket?.send(JSON.stringify(message));
                 break;
 
             case 'cabbageSetupComplete':
@@ -220,7 +223,7 @@ export class Commands {
                     text: JSON.stringify({})
                 };
                 firstMessages.push(msg);
-                websocket?.send(JSON.stringify(msg));
+                this.websocket?.send(JSON.stringify(msg));
                 if (this.panel) {
                     this.panel.webview.postMessage({ command: "snapToSize", text: config.get("snapToSize") });
                 }
@@ -246,7 +249,7 @@ export class Commands {
                             command: "fileOpenFromVSCode",
                             text: JSON.stringify(m)
                         };
-                        websocket?.send(JSON.stringify(msg));
+                        this.websocket?.send(JSON.stringify(msg));
                     }
                 });
                 break;
@@ -285,8 +288,8 @@ export class Commands {
                 break;
 
             default:
-                if (websocket) {
-                    websocket.send(JSON.stringify(message));
+                if (this.websocket) {
+                    this.websocket.send(JSON.stringify(message));
                 }
         }
     }
@@ -362,7 +365,10 @@ export class Commands {
         // console.error('Cabbage: Local resource roots:', this.panel.webview.options.localResourceRoots);
 
         // Handle panel disposal
-        this.panel.onDidDispose(() => {
+        this.panel.onDidDispose(async () => {
+            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+
+            await ExtensionUtils.sleep(5000);
             this.processes.forEach((p) => {
                 p?.kill("SIGKILL");
             });
@@ -442,6 +448,7 @@ export class Commands {
             }
         }
 
+        this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
         this.processes.forEach((p) => {
             if (p) {
                 p.kill("SIGKILL");
@@ -547,6 +554,7 @@ export class Commands {
         let settings = await Settings.getCabbageSettings();
         if (settings["currentConfig"]["jsSourceDir"].length === 0) {
             setTimeout(() => {
+                this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
                 this.processes.forEach((p) => {
                     p?.kill("SIGKILL");
                 });
@@ -809,15 +817,27 @@ export class Commands {
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
-        const jsSource = config.get<string>('pathToJsSource');
-        const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+        const jsSource = config.get<string>('pathToJsSource') || '';
+        let resourcesDir = '';
+        if(config.get<boolean>('bundleResources')){
+            resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
+        }
+        else{
+            resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+        }
 
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (jsSource === '') {
-            const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
             if (extension) {
                 pathToCabbageJsSource = path.join(extension.extensionPath, 'src', 'cabbage');
+                cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
+            }
+        }
+        else {
+            if (extension) {
+                pathToCabbageJsSource = path.join(jsSource, 'cabbage');
                 cabbageCSS = path.join(extension.extensionPath, 'media', 'cabbage.css');
             }
         }
@@ -927,13 +947,20 @@ export class Commands {
                 await Commands.copyDirectory(binaryFile, destinationPath);
                 console.log('Cabbage: Plugin successfully copied to:', destinationPath);
                 Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
+
                 // Rename the executable file inside the folder
-                const win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
+
+                if(!fs.existsSync(win64DirPath)){
+                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
+                }
+
                 Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
+
                 console.log('Cabbage: win64DirPath:', win64DirPath);
                 const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
                 console.log('Cabbage: originalFilePath:', originalFilePath);
-                const newFilePath = path.join(win64DirPath, pluginName+'.vst3');
+                const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
                 console.log('Cabbage: newFilePath:', newFilePath);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${win64DirPath}`);

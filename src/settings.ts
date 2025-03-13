@@ -37,7 +37,7 @@ export class Settings {
             const posixPath = returnPath.split(path.sep).join(path.posix.sep);
             return posixPath;
         }
-        else{
+        else {
             Commands.getOutputChannel().appendLine('Cabbage: Extension not found');
         }
         return ''; // Return an empty string if the extension is not found
@@ -63,7 +63,7 @@ export class Settings {
                         'CabbageVST3Effect.vst3' : "CabbageVST3Effect_x64.vst3");
                 case 'CabbageVST3Synth':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
-                    'CabbageVST3Synth.vst3' : "CabbageVST3Synth_x64.vst3");
+                        'CabbageVST3Synth.vst3' : "CabbageVST3Synth_x64.vst3");
                 case 'CabbageAUv2Effect':
                     return path.join(binaryPath, 'CabbageAUv2Effect.component');
                 case 'CabbageAUv2Synth':
@@ -85,10 +85,10 @@ export class Settings {
 
         if (os.platform() === 'darwin') {
             settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
-        } else if(os.platform() === 'linux') {
+        } else if (os.platform() === 'linux') {
             settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
         }
-        else{
+        else {
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
         const fileUri = vscode.Uri.file(settingsPath);
@@ -132,10 +132,10 @@ export class Settings {
         const homeDir = os.homedir();
         if (os.platform() === 'darwin') {
             settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
-        } else if(os.platform() === 'linux') {
+        } else if (os.platform() === 'linux') {
             settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
         }
-        else{
+        else {
             settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
         }
 
@@ -220,7 +220,7 @@ export class Settings {
         // If a valid sampling rate is selected, update the configuration
         if (selectedBufferSize) {
             await config.update('audioBufferSize', selectedBufferSize, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(`Sampling rate updated to: ${selectedBufferSize}`);
+            vscode.window.showInformationMessage(`Buffer size updated to: ${selectedBufferSize}`);
             settings['currentConfig']['audio']['bufferSize'] = parseInt(selectedBufferSize);
             await Settings.setCabbageSettings(settings);
         } else {
@@ -228,6 +228,35 @@ export class Settings {
         }
     }
 
+    static async selectAudioDriver() {
+        const config = vscode.workspace.getConfiguration('cabbage');
+        let settings = await Settings.getCabbageSettings();
+    
+        if (os.platform() === 'win32') {
+            const drivers = settings.systemAudioMidiIOListing.audioDrivers; // Now correctly treated as an array
+    
+            const selectedDriver = await vscode.window.showQuickPick(
+                drivers, // Directly pass the array as it's already a list of strings
+                { placeHolder: `Select an audio driver` }
+            );
+    
+            if (selectedDriver) {
+                const selectedIndex = drivers.indexOf(selectedDriver);
+    
+                await config.update(`audioDriver`, selectedIndex, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Selected driver index: ${selectedIndex}`);
+    
+                settings['currentConfig']['audio']['driver'] = selectedIndex;
+                await Settings.setCabbageSettings(settings);
+            } else {
+                vscode.window.showWarningMessage(`No driver selected.`);
+            }
+        } else {
+            vscode.window.showWarningMessage('Audio drivers can only be selected on Windows.');
+        }
+    }
+    
+    
 
     static async selectAudioDevice(type: 'input' | 'output') {
         const config = vscode.workspace.getConfiguration('cabbage');
@@ -298,11 +327,11 @@ export class Settings {
 
         if (userResponse === 'Yes') {
             try {
-            await vscode.workspace.fs.delete(fileUri, { useTrash: false });
-            vscode.window.showInformationMessage('Settings file has been reset.');
+                await vscode.workspace.fs.delete(fileUri, { useTrash: false });
+                vscode.window.showInformationMessage('Settings file has been reset.');
             } catch (error) {
-            console.error('Cabbage: Error deleting settings file:', error);
-            vscode.window.showErrorMessage('Failed to reset settings file.');
+                console.error('Cabbage: Error deleting settings file:', error);
+                vscode.window.showErrorMessage('Failed to reset settings file.');
             }
         } else {
             vscode.window.showInformationMessage('Reset action cancelled.');
