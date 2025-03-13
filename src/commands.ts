@@ -945,8 +945,8 @@ export class Commands {
                 });
             } else {
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                console.log('Cabbage: Plugin successfully copied to:', destinationPath);
-                Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
+                // console.log('Cabbage: Plugin successfully copied to:', destinationPath);
+                // Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
 
                 // Rename the executable file inside the folder
                 let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
@@ -955,7 +955,16 @@ export class Commands {
                     win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
                 }
 
-                Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
+                if(!fs.existsSync(win64DirPath)){   
+                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                }
+
+                if(!fs.existsSync(win64DirPath)){
+                    Commands.getOutputChannel().appendLine("Error: Could not find win64 directory");
+                    return;
+                }
+
+                // Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
 
                 console.log('Cabbage: win64DirPath:', win64DirPath);
                 const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
@@ -964,6 +973,7 @@ export class Commands {
                 console.log('Cabbage: newFilePath:', newFilePath);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
+                Commands.getOutputChannel().appendLine("Plugin successfully copied to:" + destinationPath);
             }
 
         } catch (err) {
