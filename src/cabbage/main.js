@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
- 
+
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -91,7 +91,7 @@ window.addEventListener('message', async event => {
     console.log("Cabbage: onMsessage", event.data);
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
-    
+
     // Handle different commands based on the message received
     switch (message.command) {
 
@@ -108,6 +108,21 @@ window.addEventListener('message', async event => {
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 
+        // Called when the host triggers a parameter change in the UI
+        case 'parameterChange':
+            const parameterMessage = message;
+            // {command: "parameterChange", data: {paramIdx: 0, value: 0.32499998807907104}}
+            widgets.forEach(widget => {
+                if (widget.parameterIndex == parameterMessage.data.paramIdx) {
+                    const updateMsg = {
+                        channel: widget.props.channel,
+                        value: parameterMessage.data.value
+                    };
+                    WidgetManager.updateWidget(updateMsg);
+                }
+            });
+            break;
+            
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
             console.log("Cabbage: onFileChanged", message);
