@@ -55,15 +55,13 @@ export class Settings {
             switch (type) {
                 case 'CabbageApp':
                     ////for windows CabbageApp_x64.exe
-                    return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbageApp.app/Contents/MacOS/CabbageApp' :
-                        os.platform() === 'linux' ? 'CabbageApp' : 'CabbageApp.exe');
+                    return path.join(binaryPath, os.platform() === 'win32' ? 'CabbageApp.exe' : 'CabbageApp');
                 case 'CabbageVST3Effect':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbageVST3Effect.vst3' : "CabbageVST3Effect_x64.vst3");
+                        'CabbagePluginEffect.vst3' : "CabbageVST3Effect_x64.vst3");
                 case 'CabbageVST3Synth':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbageVST3Synth.vst3' : "CabbageVST3Synth_x64.vst3");
+                        'CabbagePluginSynth.vst3' : "CabbageVST3Synth_x64.vst3");
                 case 'CabbageAUv2Effect':
                     return path.join(binaryPath, 'CabbageAUv2Effect.component');
                 case 'CabbageAUv2Synth':

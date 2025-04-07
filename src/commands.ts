@@ -368,7 +368,7 @@ export class Commands {
         this.panel.onDidDispose(async () => {
             this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
 
-            await ExtensionUtils.sleep(5000);
+            await ExtensionUtils.sleep(500);
             this.processes.forEach((p) => {
                 p?.kill("SIGKILL");
             });
@@ -459,7 +459,11 @@ export class Commands {
 
         if (!dbg) {
             if (editor.fileName.endsWith(".csd")) {
-                const process = cp.spawn(command, [editor.fileName, portNumber.toString()], {});
+                const process = cp.spawn(command, [
+                    `--file=${editor.fileName}`,
+                    `--portNumber=${portNumber.toString()}`,
+                    `--startTestServer=false`
+                  ], {});
                 this.vscodeOutputChannel.clear();
                 process.on('error', (err) => {
                     this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
@@ -919,7 +923,7 @@ export class Commands {
 
                 // Rename the executable file inside the folder
                 const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' ? 'CabbageVST3Effect' : 'CabbageVST3Synth');
+                const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth');
                 const newFilePath = path.join(macOSDirPath, pluginName);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
