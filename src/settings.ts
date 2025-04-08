@@ -229,21 +229,21 @@ export class Settings {
     static async selectAudioDriver() {
         const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();
-    
+
         if (os.platform() === 'win32') {
             const drivers = settings.systemAudioMidiIOListing.audioDrivers; // Now correctly treated as an array
-    
+
             const selectedDriver = await vscode.window.showQuickPick(
                 drivers, // Directly pass the array as it's already a list of strings
                 { placeHolder: `Select an audio driver` }
             );
-    
+
             if (selectedDriver) {
                 const selectedIndex = drivers.indexOf(selectedDriver);
-    
+
                 await config.update(`audioDriver`, selectedIndex, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage(`Selected driver index: ${selectedIndex}`);
-    
+
                 settings['currentConfig']['audio']['driver'] = selectedIndex;
                 await Settings.setCabbageSettings(settings);
             } else {
@@ -253,8 +253,8 @@ export class Settings {
             vscode.window.showWarningMessage('Audio drivers can only be selected on Windows.');
         }
     }
-    
-    
+
+
 
     static async selectAudioDevice(type: 'input' | 'output') {
         const config = vscode.workspace.getConfiguration('cabbage');
@@ -282,8 +282,33 @@ export class Settings {
 
     static async updatePath(event: vscode.ConfigurationChangeEvent) {
         let settings = await Settings.getCabbageSettings();
-        if (event.affectsConfiguration('cabbage.pathToJsSource')) {
-            const newPath = vscode.workspace.getConfiguration('cabbage').get('pathToJsSource');
+        const config = vscode.workspace.getConfiguration('cabbage');
+
+        // Check if any of the OS-specific configurations have changed.
+        if (
+            event.affectsConfiguration('cabbage.pathToJsSourceWindows') ||
+            event.affectsConfiguration('cabbage.pathToJsSourceMacOS') ||
+            event.affectsConfiguration('cabbage.pathToJsSourceLinux')
+        ) {
+            let newPath = '';
+
+            // Use os.platform() to determine the current OS and get the corresponding config.
+            switch (os.platform()) {
+                case 'win32':
+                    newPath = config.get('pathToJsSourceWindows', '');
+                    break;
+                case 'darwin':
+                    newPath = config.get('pathToJsSourceMacOS', '');
+                    break;
+                case 'linux':
+                    newPath = config.get('pathToJsSourceLinux', '');
+                    break;
+                default:
+                    vscode.window.showWarningMessage(`Unsupported platform: ${os.platform()}`);
+                    return;
+            }
+
+            // Update the settings with the new path.
             settings['currentConfig']['jsSourceDir'] = newPath;
             await Settings.setCabbageSettings(settings);
         }
@@ -292,6 +317,7 @@ export class Settings {
     static async selectCabbageJavascriptSourcePath() {
         const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();
+
         const selectedPath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
@@ -300,8 +326,27 @@ export class Settings {
         });
 
         if (selectedPath && selectedPath.length > 0) {
-            await config.update('pathToJsSource', selectedPath[0].fsPath, vscode.ConfigurationTarget.Global);
-            settings['currentConfig']['jsSourceDir'] = selectedPath[0].fsPath;
+            const fsPath = selectedPath[0].fsPath;
+            let settingKey = '';
+
+            switch (os.platform()) {
+                case 'win32':
+                    settingKey = 'pathToJsSourceWindows';
+                    break;
+                case 'darwin':
+                    settingKey = 'pathToJsSourceMacOS';
+                    break;
+                case 'linux':
+                    settingKey = 'pathToJsSourceLinux';
+                    break;
+                default:
+                    vscode.window.showWarningMessage(`Unsupported platform: ${os.platform()}`);
+                    return;
+            }
+
+            await config.update(settingKey, fsPath, vscode.ConfigurationTarget.Global);
+
+            settings['currentConfig'][settingKey] = fsPath;
             await Settings.setCabbageSettings(settings);
         }
     }

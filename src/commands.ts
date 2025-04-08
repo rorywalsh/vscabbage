@@ -821,7 +821,22 @@ export class Commands {
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
         const pluginName = path.basename(destinationPath, '.vst3');
-        const jsSource = config.get<string>('pathToJsSource') || '';
+        let jsSource = "";
+        if(os.platform() === 'win32'){
+            jsSource = config.get<string>('pathToJsSourceWindows') || '';
+        }
+        else if(os.platform() === 'linux'){
+            jsSource = config.get<string>('pathToJsSourceLinux') || '';
+        }
+        else if(os.platform() === 'darwin'){
+            jsSource = config.get<string>('pathToJsSourceMacOS') || '';
+        }
+        else{
+            this.vscodeOutputChannel.append('Cabbage: Unsupported platform');
+            return;
+        }
+
+
         let resourcesDir = '';
         if(config.get<boolean>('bundleResources')){
             resourcesDir = path.join(destinationPath, 'Contents', 'Resources');

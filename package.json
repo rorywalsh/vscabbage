@@ -67,10 +67,20 @@
           "default": "",
           "description": "Path to Cabbage service app. Leave empty to use default location\nor use command palette to browse for custom build directory."
         },
-        "cabbage.pathToJsSource": {
+        "cabbage.pathToJsSourceWindows": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage Javascript directory. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+          "description": "Path to Cabbage Javascript directory on Windows. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+        },
+        "cabbage.pathToJsSourceMacOS": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Cabbage Javascript directory on MacOS. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+        },
+        "cabbage.pathToJsSourceLinux": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Cabbage Javascript directory on Linux. Leave empty to use default location\nor use command palette to browse for custom JS directory."
         },
         "cabbage.audioOutputDevice": {
           "type": "string",
