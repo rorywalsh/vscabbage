@@ -14,7 +14,7 @@ export class Settings {
     {
         "currentConfig": {
             "audio": {},
-            "jsSourceDir": "${Settings.getJsSourceDir()}",
+            "jsSourceDir": "${Settings.getPathJsSourceDir()}",
             "midi": {}
         },
         "systemAudioMidiIOListing": {
@@ -27,7 +27,7 @@ export class Settings {
     }`;
     };
 
-    private static getJsSourceDir(): string {
+    static getPathJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
             Commands.getOutputChannel().appendLine('Cabbage: extension path: ' + extension.extensionPath);

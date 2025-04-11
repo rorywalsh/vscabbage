@@ -429,8 +429,9 @@ export class Commands {
         try {
             await vscode.workspace.fs.stat(cabbagePath);
         } catch (error) {
-            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found. Please set the binary path from the command palette.\n`);
-            this.checkForCabbageSrcDirectory();
+
+            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found at ${Settings.getCabbageBinaryPath('CabbageApp')}. Please set the binary path from the command palette.\n`);
+            this.setCabbageSrcDirectoryIfEmpty();
             return;
         }
 
@@ -487,7 +488,7 @@ export class Commands {
                         this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
                     }
                 });
-                
+
                 process.stdout.on("data", (data: { toString: () => string; }) => {
                     const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
                     const dataString = data.toString();
@@ -509,7 +510,7 @@ export class Commands {
                 return;
             }
 
-            this.checkForCabbageSrcDirectory();
+            this.setCabbageSrcDirectoryIfEmpty();
         }
     }
 
@@ -550,17 +551,12 @@ export class Commands {
     /**
      * Checks for the existence of a Cabbage source directory in the settings.
      */
-    static async checkForCabbageSrcDirectory() {
+    static async setCabbageSrcDirectoryIfEmpty() {
         let settings = await Settings.getCabbageSettings();
         if (settings["currentConfig"]["jsSourceDir"].length === 0) {
-            setTimeout(() => {
-                this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-                this.processes.forEach((p) => {
-                    p?.kill("SIGKILL");
-                });
-                console.error('Cabbage: No Cabbage source path found');
-                this.vscodeOutputChannel.append(`ERROR: No Cabbage source path found. Please set the source directory from the command palette.\n`);
-            }, 500);
+            const newPath = Settings.getPathJsSourceDir();
+            settings['currentConfig']['jsSourceDir'] = newPath;
+            await Settings.setCabbageSettings(settings);
         }
     }
 
@@ -819,10 +815,10 @@ export class Commands {
         const pluginName = path.basename(destinationPath, '.vst3');
         const jsSource = config.get<string>('pathToJsSource') || '';
         let resourcesDir = '';
-        if(config.get<boolean>('bundleResources')){
+        if (config.get<boolean>('bundleResources')) {
             resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
         }
-        else{
+        else {
             resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
         }
 
@@ -848,6 +844,8 @@ export class Commands {
         if (binaryPath !== '') {
             vscode.window.showInformationMessage('Using custom path to Cabbage binaries: ' + binaryPath);
         }
+
+
         switch (type) {
             case 'VST3Effect':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Effect');
@@ -951,15 +949,15 @@ export class Commands {
                 // Rename the executable file inside the folder
                 let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
 
-                if(!fs.existsSync(win64DirPath)){
+                if (!fs.existsSync(win64DirPath)) {
                     win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
                 }
 
-                if(!fs.existsSync(win64DirPath)){   
+                if (!fs.existsSync(win64DirPath)) {
                     win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
                 }
 
-                if(!fs.existsSync(win64DirPath)){
+                if (!fs.existsSync(win64DirPath)) {
                     Commands.getOutputChannel().appendLine("Error: Could not find win64 directory");
                     return;
                 }
