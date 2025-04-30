@@ -13,7 +13,7 @@ import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
 // @ts-ignore
 import { setCabbageMode } from './cabbage/sharedState.js';
-import { Commands } from './commands';
+import { Commands, runInDebugMode } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 
@@ -305,7 +305,9 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     }
 
     // kill any other processes running
-    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+    if(!runInDebugMode){
+        websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+    }
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });
@@ -334,9 +336,14 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }
         }
 
-
+        let freePort = 0;
         // initialize the WebSocket server
-        const freePort = await ExtensionUtils.findFreePort(9991, 10000);
+        if(runInDebugMode){
+            freePort = 9991;
+        }
+        else{
+            freePort = await ExtensionUtils.findFreePort(9991, 10000);
+        }
         await Commands.onDidSave(editor, context, freePort);
         await setupWebSocketServer(freePort);
 
