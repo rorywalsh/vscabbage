@@ -305,9 +305,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     }
 
     // kill any other processes running
-    if(!runInDebugMode){
-        websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-    }
+    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });
@@ -332,7 +331,11 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                 fullPath ? path.basename(fullPath, path.extname(fullPath)) : '';
             const panel = Commands.getPanel();
             if (panel && fileName.length > 0) {
-                panel.title = fileName;
+                try {
+                    panel.title = fileName;
+                } catch (err) {
+                    console.error("Failed to set panel title:", err);
+                }
             }
         }
 
@@ -345,7 +348,18 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             freePort = await ExtensionUtils.findFreePort(9991, 10000);
         }
         await Commands.onDidSave(editor, context, freePort);
-        await setupWebSocketServer(freePort);
+        
+        if(!websocket)
+            await setupWebSocketServer(freePort);
+        
+        if(runInDebugMode){
+            if (websocket) {
+                    websocket.send(JSON.stringify({
+                    command: "onFileChanged",
+                    lastSavedFileName: editor.fileName
+                }));
+            }
+        }
 
 
         if (websocket) {

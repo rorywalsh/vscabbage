@@ -366,16 +366,15 @@ export class Commands {
 
         // Handle panel disposal
         this.panel.onDidDispose(async () => {
-            if (!runInDebugMode) {
-                this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
 
+            if (!runInDebugMode) {
                 await ExtensionUtils.sleep(500);
                 this.processes.forEach((p) => {
                     p?.kill("SIGKILL");
                 });
-
-                this.panel = undefined;
             }
+            this.panel = undefined;
         }, null, context.subscriptions);
 
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
@@ -455,12 +454,14 @@ export class Commands {
         if (!runInDebugMode) {
             this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
         }
+
         this.processes.forEach((p) => {
             if (p) {
                 p.kill("SIGKILL");
                 p.removeAllListeners();
             }
         });
+
         this.processes = [];
 
         if (!runInDebugMode) {
@@ -522,38 +523,8 @@ export class Commands {
 
             this.setCabbageSrcDirectoryIfEmpty();
         }
-        else {
-            //If running in debug mode, simply send websocket message to compile instrument
-            await this.handleDebugModeUpdate(editor, portNumber);
-        }
     }
 
-    private static async handleDebugModeUpdate(editor: vscode.TextDocument, portNumber: number): Promise<void> {
-        // Ensure websocket is connected
-        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-            try {
-                await new Promise<void>((resolve, reject) => {
-                    this.websocket = new WebSocket(`ws://localhost:${portNumber}`);
-                    this.websocket.onopen = () => resolve();
-                    this.websocket.onerror = (err) => reject(err);
-                });
-                this.vscodeOutputChannel.appendLine("Connected to background process via WebSocket (debug mode).");
-            } catch (err) {
-                this.vscodeOutputChannel.appendLine("ERROR: Failed to connect to background process in debug mode.");
-                return;
-            }
-        }
-
-        const fileContent = editor.getText();
-        if (this.websocket) {
-            this.websocket.send(JSON.stringify({
-                command: "onFileChanged",
-                lastSavedFileName: editor.fileName
-            }));
-
-            this.vscodeOutputChannel.appendLine("Sent update to debug-mode background process via WebSocket.");
-        }
-    }
 
     /**
      * Updates, or at least tries, old Cabbage syntax to JSON
