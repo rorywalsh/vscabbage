@@ -13,10 +13,11 @@ import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
 // @ts-ignore
 import { setCabbageMode } from './cabbage/sharedState.js';
-import { Commands, runInDebugMode } from './commands';
+import { cabbageStatusBarItem, Commands, runInDebugMode } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 
+let cabbageControlIconShowing = false;
 let cabbageIsReady = false;
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
@@ -68,6 +69,7 @@ export async function activate(context: vscode.ExtensionContext):
         });
     }
 
+    Commands.createStatusBarIcon(context);
 
     // Get the output channel from Commands class
     const vscodeOutputChannel = Commands.getOutputChannel();
@@ -205,6 +207,11 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.createNewCabbageFile('synth');
         }));
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.manageServer', () => {
+            Commands.manageServer();
+        }));
+
     // Register command for jumping to widget definition
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => {
@@ -256,23 +263,7 @@ export async function activate(context: vscode.ExtensionContext):
         });
 }
 
-function createStatusBarIcon(context: vscode.ExtensionContext){
-    const statusBarItem =
-    vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
-    // Set the text and icon for the status bar item
-    statusBarItem.text = `$(unmute) Cabbage`;
-
-    // Optional: Make the status bar item clickable (command)
-    statusBarItem.command = 'cabbage.showCommands';
-
-    // Show the status bar item
-    statusBarItem.show();
-
-    // Push the item to the context's subscriptions so it gets disposed when the
-    // extension is deactivated
-    context.subscriptions.push(statusBarItem);
-}
 
 /**
  *   Compile handler triggered when via the compile command.
@@ -344,25 +335,25 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
         let freePort = 0;
         // initialize the WebSocket server
-        if(runInDebugMode){
+        if (runInDebugMode) {
             freePort = 9991;
         }
-        else{
+        else {
             freePort = await ExtensionUtils.findFreePort(9991, 10000);
         }
         await Commands.onDidSave(editor, context, freePort);
-        
-        if(!websocket)
+
+        if (!websocket)
             await setupWebSocketServer(freePort);
-        
-        if(runInDebugMode){
-            if (websocket) {
-                    websocket.send(JSON.stringify({
-                    command: "onFileChanged",
-                    lastSavedFileName: editor.fileName
-                }));
-            }
+
+        //if(runInDebugMode){
+        if (websocket) {
+            websocket.send(JSON.stringify({
+                command: "onFileChanged",
+                lastSavedFileName: editor.fileName
+            }));
         }
+        //}
 
 
         if (websocket) {

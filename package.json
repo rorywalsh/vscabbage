@@ -169,6 +169,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.manageServer",
+        "title": "Launch Cabbage Server",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.editMode",
         "title": "Edit Mode",
         "category": "Cabbage"
