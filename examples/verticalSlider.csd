@@ -1,15 +1,14 @@
 <Cabbage>
 [
 {"type": "form", "caption": "Slider Example", "size": {"width": 360.0, "height": 460.0}, "guiMode": "queue", "pluginId": "def1"},
-{"type": "verticalSlider", "bounds": {"left": 20.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic1", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 60.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic2", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 100.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic3", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 140.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic4", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 180.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic5", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 220.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic6", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 260.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic7", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "verticalSlider", "bounds": {"left": 300.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic8", "range": {"min": 0.0, "max": 1.0, "value": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "checkBox", "bounds": {"left": 24.0, "top": 208.0, "width": 180.0, "height": 16.0}, "channel": "randomise", "text": "Randomise"}
+{"type": "verticalSlider", "bounds": {"left": 20.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic1", "range": {"min": 0.0, "max": 1.0,  "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 60.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic2", "range": {"min": 0.0, "max": 1.0,  "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 100.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic3", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 140.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic4", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 180.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic5", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 220.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic6", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 260.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic7", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
+{"type": "verticalSlider", "bounds": {"left": 300.0, "top": 20.0, "width": 40.0, "height": 180.0}, "channel": "harmonic8", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}}
 ]
 </Cabbage>
 <CsoundSynthesizer>
@@ -41,20 +40,7 @@ instr 1
     a6 oscili tonek(cabbageGetValue:k("harmonic6"), 10), 300, giWave
     a7 oscili tonek(cabbageGetValue:k("harmonic7"), 10), 350, giWave
     a8 oscili tonek(cabbageGetValue:k("harmonic8"), 10), 400, giWave
-    
-    kRandom cabbageGet "randomise"
-    
-    if kRandom == 1 then
-        cabbageSetValue "harmonic1", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic2", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic3", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic4", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic5", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic6", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic7", abs(jspline:k(.9, .1, .3))
-        cabbageSetValue "harmonic8", abs(jspline:k(.9, .1, .3))
-    endif
-    
+        
     aMix = a1+a2+a3+a4+a5+a6+a7+a8
     out aMix*.1, aMix*.1
 endin       
