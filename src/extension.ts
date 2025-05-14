@@ -257,6 +257,12 @@ export async function activate(context: vscode.ExtensionContext):
             editor, 'onFileChanged', Commands.getPanel());
     });
 
+    vscode.workspace.onDidSaveTextDocument((document) => {
+        if (document.fileName.endsWith('.csd')) {
+            onCompileInstrument(context);
+        }
+    });
+
     vscode.window.tabGroups.onDidChangeTabs(
         (tabs) => {
             // triggered when tab changes
@@ -299,11 +305,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     }
 
     // kill any other processes running
-    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+    // websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
 
-    Commands.getProcesses().forEach((p) => {
-        p?.kill('SIGKILL');
-    });
 
     if (editor) {
         if (!editor.fileName.endsWith('.csd') ||
@@ -333,18 +336,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }
         }
 
-        let freePort = 0;
-        // initialize the WebSocket server
-        if (runInDebugMode) {
-            freePort = 9991;
-        }
-        else {
-            freePort = await ExtensionUtils.findFreePort(9991, 10000);
-        }
-        await Commands.onDidSave(editor, context, freePort);
-
-        if (!websocket)
-            await setupWebSocketServer(freePort);
+        
+        await Commands.onDidSave(editor, context);
 
         //if(runInDebugMode){
         if (websocket) {
@@ -510,7 +503,7 @@ export function deactivate() {
  * connections. The server is used to communicate between the Cabbage service
  * app and the Cabbage webview panel.
  */
-async function setupWebSocketServer(freePort?: number): Promise<void> {
+export async function setupWebSocketServer(freePort?: number): Promise<void> {
     // Close existing server if it exists
     if (wss) {
         wss.close();
