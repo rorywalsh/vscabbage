@@ -58,16 +58,16 @@ export class Settings {
                     return path.join(binaryPath, os.platform() === 'win32' ? 'CabbageApp.exe' : 'CabbageApp');
                 case 'CabbageVST3Effect':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbagePluginEffect.vst3' : "CabbageVST3Effect_x64.vst3");
+                        'CabbagePluginEffect.vst3' : "CabbagePluginEffect_x64.vst3");
                 case 'CabbageVST3Synth':
                     return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbagePluginSynth.vst3' : "CabbageVST3Synth_x64.vst3");
-                case 'CabbageAUv2Effect':
-                    return path.join(binaryPath, 'CabbageAUv2Effect.component');
-                case 'CabbageAUv2Synth':
-                    return path.join(binaryPath, 'CabbageAUv2Synth.component');
-                case 'CabbageStandaloneApp':
-                    return path.join(binaryPath, 'CabbageStandaloneApp.app');
+                        'CabbagePluginSynth.vst3' : "CabbagePluginSynth_x64.vst3");
+                // case 'CabbageAUv2Effect':
+                //     return path.join(binaryPath, 'CabbageAUv2Effect.component');
+                // case 'CabbageAUv2Synth':
+                //     return path.join(binaryPath, 'CabbageAUv2Synth.component');
+                // case 'CabbageStandaloneApp':
+                //     return path.join(binaryPath, 'CabbageStandaloneApp.app');
                 default:
                     return '';
             }

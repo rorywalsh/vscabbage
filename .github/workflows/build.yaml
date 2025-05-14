@@ -94,15 +94,25 @@ jobs:
           # Install the package
           sudo installer -pkg csound-7/CsoundLib64-7.0-vanilla-universal.pkg -target /
 
-      - name: Configure build for cabbage3
-        run: |
-          cd cabbage3
-          cmake -GXcode -B build -S . -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15"
+      - name: Set up Xcode path
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
-      - name: Build macOS app for cabbage3
+      - name: Configure and build
         run: |
-          cd cabbage3
-          cmake --build build --config Debug
+          export CC=/usr/bin/clang
+          export CXX=/usr/bin/clang++
+          # Get absolute paths to compilers
+          CC_PATH=$(which clang)
+          CXX_PATH=$(which clang++)
+
+          cmake -GXcode -B build \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0" \
+          -DCMAKE_C_COMPILER=$CC_PATH \
+          -DCMAKE_CXX_COMPILER=$CXX_PATH \
+          -DCMAKE_OBJC_COMPILER=$CC_PATH \
+          -DCMAKE_OBJCXX_COMPILER=$CXX_PATH \
+          -DBUILD_ALL_TARGETS=True \
+          -DCMAKE_BUILD_TYPE=Release
 
 
       # - name: Sign binaries
@@ -132,28 +142,21 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: CabbageApp.app
-          path: cabbage3/build/CabbageApp/out/CabbageApp.app
+          path: cabbage3/build/CabbageApp/Release/CabbageApp
           retention-days: 1
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CabbageStandaloneApp.app
-          path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
+          name: CabbagePluginEffect.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginEffect_assets/Release/CabbagePluginEffect.vst3
           retention-days: 1
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CabbageVST3Effect.vst3
-          path: cabbage3/build/CabbageVST3Effect/out/CabbageVST3Effect.vst3
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbageVST3Synth.vst3
-          path: cabbage3/build/CabbageVST3Synth/out/CabbageVST3Synth.vst3
+          name: CabbagePluginSynth.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.vst3
           retention-days: 1
           if-no-files-found: ignore
 
@@ -192,7 +195,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
-          path: "./src/CabbageBundle/CabbageVST3Effect.vst3"
+          path: "./src/CabbageBundle/CabbagePluginEffect.vst3"
         continue-on-error: true
 
       # - name: Downloading CabbageAUv2Synth
@@ -202,18 +205,18 @@ jobs:
       #     path: "./src/CabbageBundle/CabbageAUv2Synth.component"
       #   continue-on-error: true
 
-      - name: Downloading CabbageAUv2Effect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbageAUv2Effect.component
-          path: "./src/CabbageBundle/CabbageAUv2Effect.component"
-        continue-on-error: true
+      # - name: Downloading CabbageAUv2Effect
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: CabbageAUv2Effect.component
+      #     path: "./src/CabbageBundle/CabbageAUv2Effect.component"
+      #   continue-on-error: true
 
-      - name: Downloading CabbageVST3Synth
+      - name: Downloading CabbagePluginSynth
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Synth.vst3
-          path: "./src/CabbageBundle/CabbageVST3Synth.vst3"
+          name: CabbagePluginSynth.vst3
+          path: "./src/CabbageBundle/CabbagePluginSynth.vst3"
         continue-on-error: true
 
       - name: Set up Node.js (v18) on macOS
@@ -283,35 +286,25 @@ jobs:
           ls "C:\Program Files\Csound7\lib"
           ls "C:\Program Files\Csound7\include\csound"
 
-      - name: Configure build
+      - name: Configure and build
         shell: cmd
         run: |
-          ls -l
-          cd cabbage3
-          cmake -G "Visual Studio 17 2022" -S . -B build 
-        
-      - name: Build 
-        shell: cmd
-        run: |
-          ls -l
-          cd cabbage3
-          cmake --build build --config Release
-        continue-on-error: true
+          cmake -G "Visual Studio 17 2022" -S . -B build -DBUILD_ALL_TARGETS=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Verify builds
         shell: cmd
         run: |
           echo "Checking if the build artifacts exist for CabbageApp"
-          tree cabbage3/build/CabbageApp/CabbageApp-app
+          tree cabbage3/build/CabbageApp/Release
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
-          ls cabbage3/build/CabbageVST3Effect/out
-          ls cabbage3/build/CabbageVST3Synth/out
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
 
       - name: Upload CabbageApp
         uses: actions/upload-artifact@v4
         with:
           name: CabbageApp.exe
-          path: cabbage3\build\CabbageApp\CabbageApp-app\Release\CabbageApp.exe
+          path: cabbage3/build/CabbageApp/Release/CabbageApp.exe
           retention-days: 1
           if-no-files-found: ignore
 
@@ -324,16 +317,16 @@ jobs:
       - name: Upload CabbageVST3Effect
         uses: actions/upload-artifact@v4
         with:
-          name: CabbageVST3Effect_x64.vst3
-          path: cabbage3/build/CabbageVST3Effect/CabbageVST3Effect.vst3
+          name: CabbagePluginEffect_x64.vst3
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release/CabbagePluginEffect.vst3
           retention-days: 1
           if-no-files-found: ignore
 
       - name: Upload CabbageVST3Synth
         uses: actions/upload-artifact@v4
         with:
-          name: CabbageVST3Synth_x64.vst3
-          path: cabbage3/build/CabbageVST3Synth/CabbageVST3Synth.vst3
+          name: CabbagePluginSynth_x64.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release/CabbagePluginSynth.vst3
           retention-days: 1
           if-no-files-found: ignore
 
@@ -378,15 +371,15 @@ jobs:
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Effect_x64.vst3
-          path: "./src/CabbageBundle/CabbageVST3Effect_x64.vst3"
+          name: CabbagePluginEffect_x64.vst3
+          path: "./src/CabbageBundle/CabbagePluginEffect_x64.vst3"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Synth
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Synth_x64.vst3
-          path: "./src/CabbageBundle/CabbageVST3Synth_x64.vst3"
+          name: CabbagePluginSynth_x64.vst3
+          path: "./src/CabbageBundle/CabbagePluginSynth_x64.vst3"
         continue-on-error: true
 
       - name: Install vsce on Windows
