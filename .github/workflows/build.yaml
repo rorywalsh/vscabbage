@@ -99,6 +99,7 @@ jobs:
 
       - name: Configure and build
         run: |
+          cd cabbage3
           export CC=/usr/bin/clang
           export CXX=/usr/bin/clang++
           # Get absolute paths to compilers
@@ -289,6 +290,7 @@ jobs:
       - name: Configure and build
         shell: cmd
         run: |
+          cd cabbage3
           cmake -G "Visual Studio 17 2022" -S . -B build -DBUILD_ALL_TARGETS=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Verify builds
