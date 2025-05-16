@@ -13,12 +13,10 @@ import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
 // @ts-ignore
 import { setCabbageMode } from './cabbage/sharedState.js';
-import { cabbageStatusBarItem, Commands, runInDebugMode } from './commands';
+import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
 
-let cabbageControlIconShowing = false;
-let cabbageIsReady = false;
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
 
@@ -276,7 +274,6 @@ export async function activate(context: vscode.ExtensionContext):
  * - Tries to save the file first as Cabbage/Csound will read the file from disk
  * - Checks if the saved document is a .csd file with Cabbage-specific tags.
  * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open
- * if the "showUIOnSave" setting is enabled.
  * - Waits for the WebSocket connection to be ready before handling any messages
  * from the webview.
  * - Listens for messages from the webview and processes them via WebSocket if
@@ -285,7 +282,7 @@ export async function activate(context: vscode.ExtensionContext):
  * @param editor The text editor containing the saved document.
  */
 async function onCompileInstrument(context: vscode.ExtensionContext) {
-    cabbageIsReady = false;
+
     let editor = vscode.window.activeTextEditor?.document;
     // if editor is not a text file but an instrument panel
     if (!editor) {
@@ -319,7 +316,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         setCabbageMode('play');
         const config = vscode.workspace.getConfiguration('cabbage');
 
-        if (config.get('showUIOnSave') && !Commands.getPanel()) {
+        if (!Commands.getPanel()) {
             console.warn('Cabbage: Cabbage: Creating new webview panel');
             Commands.setupWebViewPanel(context);
         } else {
@@ -336,18 +333,15 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }
         }
 
-        
+
         await Commands.onDidSave(editor, context);
 
-        //if(runInDebugMode){
         if (websocket) {
             websocket.send(JSON.stringify({
                 command: "onFileChanged",
                 lastSavedFileName: editor.fileName
             }));
         }
-        //}
-
 
         if (websocket) {
             const soundFileInput = context.globalState.get<{ [key: number]: string }>(
@@ -557,10 +551,6 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
                             });
                         }
                     }
-                } else if (
-                    msg.hasOwnProperty('command') &&
-                    msg['command'] === 'cabbageIsReadyToLoad') {
-                    console.warn("CabbageIsReady");
                 }
             });
 

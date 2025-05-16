@@ -40,7 +40,7 @@ instr 1
     a6 oscili tonek(cabbageGetValue:k("harmonic6"), 10), 300, giWave
     a7 oscili tonek(cabbageGetValue:k("harmonic7"), 10), 350, giWave
     a8 oscili tonek(cabbageGetValue:k("harmonic8"), 10), 400, giWave
-        
+   
     aMix = a1+a2+a3+a4+a5+a6+a7+a8
     out aMix*.1, aMix*.1
 endin       

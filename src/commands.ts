@@ -10,7 +10,6 @@ import { Settings } from './settings';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
-export let runInDebugMode = false;
 export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
@@ -232,6 +231,13 @@ export class Commands {
                 }
                 break;
 
+            case 'cabbageIsReadyToLoad':
+                this.websocket?.send(JSON.stringify({
+                    command: "initialiseWidgets",
+                    text: ""
+                }));
+                break;
+
             case 'fileOpen':
                 const jsonText = JSON.parse(message.text);
                 vscode.window.showOpenDialog({
@@ -391,12 +397,6 @@ export class Commands {
         this.panel.onDidDispose(async () => {
             this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
 
-            // if (!runInDebugMode) {
-            //     await ExtensionUtils.sleep(500);
-            //     this.processes.forEach((p) => {
-            //         p?.kill("SIGKILL");
-            //     });
-            // }
             this.panel = undefined;
         }, null, context.subscriptions);
 
@@ -417,12 +417,17 @@ export class Commands {
     }
 
     static async manageServer() {
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const runInDebugMode = config.get("runInDebugMode");
+
         if (this.cabbageServerStarted) {
             this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
             await ExtensionUtils.sleep(500);
-            this.processes.forEach((p) => {
-                p?.kill("SIGKILL");
-            });
+            if (!runInDebugMode) {
+                this.processes.forEach((p) => {
+                    return ExtensionUtils.terminateProcess(p, this.websocket);
+                });
+            }
             cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
             cabbageStatusBarItem.show();
             this.cabbageServerStarted = false;
@@ -491,17 +496,6 @@ export class Commands {
             }
         }
 
-        // if (!runInDebugMode) {
-        //     this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-        // }
-
-        // this.processes.forEach((p) => {
-        //     if (p) {
-        //         p.kill("SIGKILL");
-        //         p.removeAllListeners();
-        //     }
-        // });
-
         this.processes = [];
         this.setCabbageSrcDirectoryIfEmpty();
     }
@@ -511,6 +505,8 @@ export class Commands {
      * @returns 
      */
     static async startCabbageProcess() {
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const runInDebugMode = config.get("runInDebugMode");
         if (runInDebugMode) {
             this.portNumber = 9991;
         }
@@ -518,57 +514,62 @@ export class Commands {
             this.portNumber = await ExtensionUtils.findFreePort(9991, 10000);
         }
 
-        const command = Settings.getCabbageBinaryPath('CabbageApp');
-        const config = vscode.workspace.getConfiguration("cabbage");
+        if (!runInDebugMode) {
+            const command = Settings.getCabbageBinaryPath('CabbageApp');
 
-        const process = cp.spawn(command, [
-            `--portNumber=${this.portNumber.toString()}`,
-            `--startTestServer=false`
-        ], {});
-        this.vscodeOutputChannel.clear();
-        process.on('error', (err) => {
-            this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
-            this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
-            const index = this.processes.indexOf(process);
-            if (index > -1) {
-                this.processes.splice(index, 1);
-            }
-        });
+            const process = cp.spawn(command, [
+                `--portNumber=${this.portNumber.toString()}`,
+                `--startTestServer=false`
+            ], {});
 
-        process.on('exit', (code, signal) => {
-            const index = this.processes.indexOf(process);
-            if (index > -1) {
-                this.processes.splice(index, 1);
-            }
-            this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
-        });
-
-        this.processes.push(process);
-
-        process.on('exit', (code, signal) => {
-            if (code === 0) {
-                this.vscodeOutputChannel.appendLine('Process started successfully');
-            } else {
-                this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
-            }
-        });
-
-        process.stdout.on("data", (data: { toString: () => string; }) => {
-            const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
-            const dataString = data.toString();
-
-            if (!ignoredTokens.some(token => dataString.startsWith(token))) {
-                if (dataString.startsWith('Cabbage DEBUG:')) {
-                    if (config.get("logVerbose")) {
-                        this.vscodeOutputChannel.append(dataString);
-                    }
-                } else {
-                    const msg = dataString.replace(/Cabbage INFO:/g, "");
-                    this.vscodeOutputChannel.append(msg);
+            this.vscodeOutputChannel.clear();
+            process.on('error', (err) => {
+                this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
+                this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
+                const index = this.processes.indexOf(process);
+                if (index > -1) {
+                    this.processes.splice(index, 1);
                 }
-            }
-        });
-        this.cabbageServerStarted = true;
+            });
+
+            process.on('exit', (code, signal) => {
+                const index = this.processes.indexOf(process);
+                if (index > -1) {
+                    this.processes.splice(index, 1);
+                }
+                this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
+            });
+
+            this.processes.push(process);
+
+            process.on('exit', (code, signal) => {
+                if (code === 0) {
+                    this.vscodeOutputChannel.appendLine('Process started successfully');
+                } else {
+                    this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
+                    if (code === 3221225785) {
+                        this.vscodeOutputChannel.appendLine('This may indicate a missing or incompatible library - is Csound installed?');
+                    }
+                }
+            });
+
+            process.stdout.on("data", (data: { toString: () => string; }) => {
+                const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
+                const dataString = data.toString();
+
+                if (!ignoredTokens.some(token => dataString.startsWith(token))) {
+                    if (dataString.startsWith('Cabbage DEBUG:')) {
+                        if (config.get("logVerbose")) {
+                            this.vscodeOutputChannel.append(dataString);
+                        }
+                    } else {
+                        const msg = dataString.replace(/Cabbage INFO:/g, "");
+                        this.vscodeOutputChannel.append(msg);
+                    }
+                }
+            });
+            this.cabbageServerStarted = true;
+        }
 
         await setupWebSocketServer(this.portNumber);
     }

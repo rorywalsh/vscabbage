@@ -142,10 +142,10 @@
           "default": true,
           "description": "Enable automatic saving of external JSON when compiling .csd file."
         },
-        "cabbage.showUIOnSave": {
+        "cabbage.runInDebugMode": {
           "type": "boolean",
-          "default": true,
-          "description": "Display UI each time a Cabbage .csd file is saved."
+          "default": false,
+          "description": "Enable to allow run-time debugging of Cabbage server."
         },
         "cabbage.defaultJsonFormatting": {
           "type": "string",
