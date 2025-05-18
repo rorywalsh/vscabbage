@@ -49,7 +49,7 @@ export class Settings {
         let binaryPath = config.get<string>("pathToCabbageBinary") || '';
         if (extension) {
             if (binaryPath === '') {
-                binaryPath = path.join(extension.extensionPath, 'src', 'CabbageBundle');
+                binaryPath = path.join(extension.extensionPath, 'src', 'CabbageBinaries');
             }
             // Construct the path to the src directory
             switch (type) {
