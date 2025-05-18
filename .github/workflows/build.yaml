@@ -125,20 +125,32 @@ jobs:
       #     codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageVST3Effect/out/CabbageVST3Effect.vst3 --deep --strict --options=runtime --timestamp
       #     # codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageStandaloneApp/out/CabbageStandaloneApp.app --deep --strict --options=runtime --timestamp
 
+      - name: Verify builds
+        shell: cmd
+        run: |
+          echo "Checking if the build artifacts exist for CabbageApp"
+          tree cabbage3/build/CabbageApp/Release
+          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
+
       # Upload only the required files as individual artifacts
       - name: Upload Cabbage build files as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CabbageAUv2Effect.component
-          path: cabbage3/build/CabbageAUv2Effect/out/CabbageAUv2Effect.component
+          name: CabbagePluginEffect.component
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.component
           retention-days: 1
           if-no-files-found: ignore
 
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: CabbageAUv2Synth.component
-      #     path: cabbage3/build/CabbageAUv2Synth/out/CabbageAUv2Synth.component
-      #     if-no-files-found: ignore
+      # Upload only the required files as individual artifacts
+      - name: Upload Cabbage build files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth.component
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.component
+          retention-days: 1
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
@@ -150,7 +162,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: CabbagePluginEffect.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginEffect_assets/Release/CabbagePluginEffect.vst3
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.vst3
           retention-days: 1
           if-no-files-found: ignore
 
