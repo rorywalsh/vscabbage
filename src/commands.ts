@@ -417,6 +417,31 @@ export class Commands {
     }
 
     static async manageServer() {
+        const command = Settings.getCabbageBinaryPath('CabbageApp');
+        // Check and update file permissions if necessary
+        if (process.platform === 'darwin') {
+            try {
+                const stats = fs.statSync(command);
+                if (!(stats.mode & fs.constants.X_OK)) {
+                    fs.chmodSync(command, '755');
+                    this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
+                }
+            } catch (error) {
+                this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
+                return;
+            }
+        }
+        const cabbagePath = vscode.Uri.file(command);
+
+        try {
+            await vscode.workspace.fs.stat(cabbagePath);
+        } catch (error) {
+
+            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found at ${Settings.getCabbageBinaryPath('CabbageApp')}. Please set the binary path from the command palette.\n`);
+            this.setCabbageSrcDirectoryIfEmpty();
+            return;
+        }
+        
         const config = vscode.workspace.getConfiguration("cabbage");
         const runInDebugMode = config.get("runInDebugMode");
 
@@ -470,32 +495,7 @@ export class Commands {
             });
         }
 
-        const command = Settings.getCabbageBinaryPath('CabbageApp');
-        const cabbagePath = vscode.Uri.file(command);
-
-        try {
-            await vscode.workspace.fs.stat(cabbagePath);
-        } catch (error) {
-
-            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found at ${Settings.getCabbageBinaryPath('CabbageApp')}. Please set the binary path from the command palette.\n`);
-            this.setCabbageSrcDirectoryIfEmpty();
-            return;
-        }
-
-        // Check and update file permissions if necessary
-        if (process.platform === 'darwin') {
-            try {
-                const stats = fs.statSync(command);
-                if (!(stats.mode & fs.constants.X_OK)) {
-                    fs.chmodSync(command, '755');
-                    this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
-                }
-            } catch (error) {
-                this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
-                return;
-            }
-        }
-
+        
         this.processes = [];
         this.setCabbageSrcDirectoryIfEmpty();
     }
