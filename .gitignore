@@ -4,11 +4,13 @@ Thumbs.db
 */node_modules/
 */out/
 */src/CabbageBundle
+*/src/CabbageBinaries
 */dist/
 /dist
 */.vs/
 tsconfig.lsif.json
 /src/CabbageBundle
+/src/CabbageBinaries
 *.lsif
 *.db
 *.vsix

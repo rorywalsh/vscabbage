@@ -178,9 +178,9 @@ jobs:
           jq --arg v "$VERSION" '.version = $v' package.json > tmp.$$.json && mv tmp.$$.json package.json
 
       # Create CabbageBundle folder
-      - name: Create CabbageBundle folder
+      - name: Create CabbageBinaries folder
         run: |
-          mkdir -p "./src/CabbageBundle"
+          mkdir -p "./src/CabbageBinaries"
           cd src
           ls
 
@@ -188,16 +188,16 @@ jobs:
       - name: Downloading CabbageApp
         uses: actions/download-artifact@v4
         with:
-          name: CabbageApp.app
-          path: "./src/CabbageBundle/CabbageApp.app"
-        continue-on-error: true
+          name: CabbageApp
+          path: "./src/CabbageBundle/CabbageApp"
+        continue-on-error: false
 
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
           path: "./src/CabbageBundle/CabbagePluginEffect.vst3"
-        continue-on-error: true
+        continue-on-error: false
 
       # - name: Downloading CabbageAUv2Synth
       #   uses: actions/download-artifact@v4
@@ -218,7 +218,7 @@ jobs:
         with:
           name: CabbagePluginSynth.vst3
           path: "./src/CabbageBundle/CabbagePluginSynth.vst3"
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Set up Node.js (v18) on macOS
         uses: actions/setup-node@v3
