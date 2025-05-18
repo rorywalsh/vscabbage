@@ -128,7 +128,7 @@ jobs:
       - name: Verify builds
         run: |
           echo "Checking if the build artifacts exist for CabbageApp"
-          tree cabbage3/build/CabbageApp/Release
+          ls cabbage3/build/CabbageApp/Release
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
