@@ -142,7 +142,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CabbageApp.app
+          name: CabbageApp
           path: cabbage3/build/CabbageApp/Release/CabbageApp
           retention-days: 1
           if-no-files-found: ignore
@@ -177,7 +177,7 @@ jobs:
           # Use proper quoting to handle version string safely
           jq --arg v "$VERSION" '.version = $v' package.json > tmp.$$.json && mv tmp.$$.json package.json
 
-      # Create CabbageBundle folder
+      # Create CabbageBinaries folder
       - name: Create CabbageBinaries folder
         run: |
           mkdir -p "./src/CabbageBinaries"
@@ -189,35 +189,35 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp
-          path: "./src/CabbageBundle/CabbageApp"
+          path: "./src/CabbageBinaries/CabbageApp"
         continue-on-error: false
 
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
           name: CabbageVST3Effect.vst3
-          path: "./src/CabbageBundle/CabbagePluginEffect.vst3"
+          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
         continue-on-error: false
 
       # - name: Downloading CabbageAUv2Synth
       #   uses: actions/download-artifact@v4
       #   with:
       #     name: CabbageAUv2Synth.component
-      #     path: "./src/CabbageBundle/CabbageAUv2Synth.component"
+      #     path: "./src/CabbageBinaries/CabbageAUv2Synth.component"
       #   continue-on-error: true
 
       # - name: Downloading CabbageAUv2Effect
       #   uses: actions/download-artifact@v4
       #   with:
       #     name: CabbageAUv2Effect.component
-      #     path: "./src/CabbageBundle/CabbageAUv2Effect.component"
+      #     path: "./src/CabbageBinaries/CabbageAUv2Effect.component"
       #   continue-on-error: true
 
       - name: Downloading CabbagePluginSynth
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth.vst3
-          path: "./src/CabbageBundle/CabbagePluginSynth.vst3"
+          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
         continue-on-error: false
 
       - name: Set up Node.js (v18) on macOS
@@ -355,10 +355,10 @@ jobs:
       - name: Install dependencies on Windows
         run: npm install
 
-      # Create CabbageBundle folder
-      - name: Create CabbageBundle folder
+      # Create CabbageBinaries folder
+      - name: Create CabbageBinaries folder
         run: |
-          mkdir -p "./src/CabbageBundle"
+          mkdir -p "./src/CabbageBinaries"
           cd src
           ls
 
@@ -367,21 +367,21 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp.exe
-          path: "./src/CabbageBundle"
+          path: "./src/CabbageBinaries"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Effect
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginEffect_x64.vst3
-          path: "./src/CabbageBundle/CabbagePluginEffect_x64.vst3"
+          path: "./src/CabbageBinaries/CabbagePluginEffect_x64.vst3"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Synth
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth_x64.vst3
-          path: "./src/CabbageBundle/CabbagePluginSynth_x64.vst3"
+          path: "./src/CabbageBinaries/CabbagePluginSynth_x64.vst3"
         continue-on-error: true
 
       - name: Install vsce on Windows
