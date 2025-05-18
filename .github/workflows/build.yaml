@@ -115,7 +115,8 @@ jobs:
           -DBUILD_ALL_TARGETS=True \
           -DCMAKE_BUILD_TYPE=Release
 
-
+      - name: Make CabbageApp executable
+        run: chmod +x cabbage3/build/CabbageApp/Release/CabbageApp
       # - name: Sign binaries
       #   env:
       #     APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
