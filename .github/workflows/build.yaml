@@ -200,7 +200,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbageApp
-          path: "./src/CabbageBinaries/CabbageApp"
+          path: "./src/CabbageBinaries"
         continue-on-error: false
 
       - name: Downloading CabbagePluginEffect
