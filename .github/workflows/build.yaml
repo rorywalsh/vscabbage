@@ -129,7 +129,7 @@ jobs:
         run: |
           echo "Checking if the build artifacts exist for CabbageApp"
           ls cabbage3/build/CabbageApp/Release
-          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
+          echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
 
@@ -203,10 +203,10 @@ jobs:
           path: "./src/CabbageBinaries/CabbageApp"
         continue-on-error: false
 
-      - name: Downloading CabbageVST3Effect
+      - name: Downloading CabbagePluginEffect
         uses: actions/download-artifact@v4
         with:
-          name: CabbageVST3Effect.vst3
+          name: CabbagePluginEffect.vst3
           path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
         continue-on-error: false
 
