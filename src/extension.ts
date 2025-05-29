@@ -256,7 +256,7 @@ export async function activate(context: vscode.ExtensionContext):
     });
 
     vscode.workspace.onDidSaveTextDocument((document) => {
-        if (document.fileName.endsWith('.csd')) {
+        if (document.fileName.endsWith('.csd') && Commands.hasCabbageServerStarted()) {
             onCompileInstrument(context);
         }
     });
@@ -282,7 +282,7 @@ export async function activate(context: vscode.ExtensionContext):
  * @param editor The text editor containing the saved document.
  */
 async function onCompileInstrument(context: vscode.ExtensionContext) {
-
+    
     let editor = vscode.window.activeTextEditor?.document;
     // if editor is not a text file but an instrument panel
     if (!editor) {

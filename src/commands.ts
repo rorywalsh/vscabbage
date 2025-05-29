@@ -427,8 +427,7 @@ export class Commands {
                     this.vscodeOutputChannel.append(`Updated permissions for Cabbage binary: ${command}\n`);
                 }
             } catch (error) {
-                this.vscodeOutputChannel.append(`ERROR: Failed to update permissions for Cabbage binary: ${command}\n`);
-                return;
+                this.vscodeOutputChannel.append(`Failed to update permissions for Cabbage binary: ${command}\n. It does appear to be executable.`);
             }
         }
         const cabbagePath = vscode.Uri.file(command);
@@ -809,6 +808,14 @@ export class Commands {
     static async hasCabbageTags(document: vscode.TextDocument): Promise<boolean> {
         const text = document.getText();
         return text.includes('<Cabbage>') && text.includes('</Cabbage>');
+    }
+
+    /**
+     * Returns the server state.
+     * @returns true/false depending on server status.
+     */
+    static hasCabbageServerStarted(): boolean {
+        return this.cabbageServerStarted;
     }
 
     /**

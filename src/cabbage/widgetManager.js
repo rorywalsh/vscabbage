@@ -284,6 +284,9 @@ export class WidgetManager {
             widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
             widgetDiv.style.width = props.bounds.width + 'px';
             widgetDiv.style.height = props.bounds.height + 'px';
+            // widgetDiv.style.top = props.bounds.top;
+            // widgetDiv.style.left = props.bounds.left;
+
             widgetDiv.setAttribute('data-x', props.bounds.left);
             widgetDiv.setAttribute('data-y', props.bounds.top);
         } else if (typeof props?.size === 'object' && props.size !== null) {
