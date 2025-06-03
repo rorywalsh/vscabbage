@@ -57,11 +57,9 @@ export class Settings {
                     ////for windows CabbageApp_x64.exe
                     return path.join(binaryPath, os.platform() === 'win32' ? 'CabbageApp.exe' : 'CabbageApp');
                 case 'CabbageVST3Effect':
-                    return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbagePluginEffect.vst3' : "CabbagePluginEffect_x64.vst3");
+                    return path.join(binaryPath, 'CabbagePluginEffect.vst3');
                 case 'CabbageVST3Synth':
-                    return path.join(binaryPath, os.platform() === 'darwin' ?
-                        'CabbagePluginSynth.vst3' : "CabbagePluginSynth_x64.vst3");
+                    return path.join(binaryPath, 'CabbagePluginSynth.vst3');
                 // case 'CabbageAUv2Effect':
                 //     return path.join(binaryPath, 'CabbageAUv2Effect.component');
                 // case 'CabbageAUv2Synth':

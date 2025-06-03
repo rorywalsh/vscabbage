@@ -1029,9 +1029,10 @@ export class Commands {
                 if(!await ExtensionUtils.isDirectory(binaryFile)){
                     await fs.promises.copyFile(binaryFile, destinationPath);
 
-                    let newName = ExtensionUtils.renameFile(destinationPath, pluginName);
-                    console.log(`File renamed to ${pluginName} in newName`);
+                    let newName = await ExtensionUtils.renameFile(destinationPath, pluginName);
+                    console.log(`File renamed to ${newName}`);
                     Commands.getOutputChannel().appendLine("Plugin successfully copied to:" + destinationPath);
+                    return;
                 }
                 await Commands.copyDirectory(binaryFile, destinationPath);
                 // console.log('Cabbage: Plugin successfully copied to:', destinationPath);
