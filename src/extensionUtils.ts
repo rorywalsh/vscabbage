@@ -7,10 +7,10 @@ import * as vscode from 'vscode';
 import { WidgetProps } from './cabbage/widgetTypes';
 import path from 'path';
 import os from 'os';
+import fs from 'fs';
 // @ts-ignore
 import { initialiseDefaultProps } from './cabbage/widgetTypes';
 import { Commands } from './commands';
-import { cp } from 'fs';
 import { ChildProcess, exec } from "child_process";
 import WebSocket from 'ws';
 
@@ -105,7 +105,7 @@ export class ExtensionUtils {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    
+
     /**
      * Gracefully or forcefully terminates a process by PID across platforms.
      * @param {number | ChildProcess | undefined} pid - The process ID or child process to terminate.
@@ -113,14 +113,14 @@ export class ExtensionUtils {
      * Not good to forcedly kill the process as the CabbageApp might not clean.
      */
     static terminateProcess(pid: number | ChildProcess | undefined, websocket: WebSocket | undefined, force = false) {
-        
+
         //send signal to Cabbage to close audio
         const msg = {
             command: "stopAudio",
             text: ""
         };
         websocket?.send(JSON.stringify(msg));
-        
+
         // Handle case where pid is undefined or invalid
         if (!pid || (typeof pid === 'number' && isNaN(pid))) {
             console.error("Invalid PID provided.");
@@ -319,6 +319,40 @@ export class ExtensionUtils {
         return undefined;
     }
 
+    /**
+     * Renames a file and return news file name.
+     * @param originalPath 
+     * @param newFileName 
+     * @param newExt  (optional)
+     * @returns 
+     */
+    static async renameFile(originalPath: string, newFileName: string, newExt?: string): Promise<string> {
+        const dir = path.dirname(originalPath);
+        const ext = newExt || path.extname(originalPath); // Use provided extension or preserve the original
+        const newPath = path.join(dir, newFileName + ext);
+
+        // Rename the file on the filesystem
+        await fs.promises.rename(originalPath, newPath);
+
+        console.log(`File renamed from ${originalPath} to ${newPath}`);
+
+        // Return the new path
+        return newPath;
+    }
+
+    /**
+     * Returns true if file is a directory
+     * @param filePath 
+     * @returns 
+     */
+    static async isDirectory(filePath: string): Promise<boolean> {
+        try {
+            const stats = await fs.promises.stat(filePath);
+            return stats.isDirectory();
+        } catch {
+            return false;
+        }
+    }
     /**
      * Saves the document if it is dirty.
      * @param document The document to save.

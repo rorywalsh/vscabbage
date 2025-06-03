@@ -1026,6 +1026,13 @@ export class Commands {
                     console.log(`CFBundleExecutable updated to "${pluginName}" in Info.plist`);
                 });
             } else {
+                if(!await ExtensionUtils.isDirectory(binaryFile)){
+                    await fs.promises.copyFile(binaryFile, destinationPath);
+
+                    let newName = ExtensionUtils.renameFile(destinationPath, pluginName);
+                    console.log(`File renamed to ${pluginName} in newName`);
+                    Commands.getOutputChannel().appendLine("Plugin successfully copied to:" + destinationPath);
+                }
                 await Commands.copyDirectory(binaryFile, destinationPath);
                 // console.log('Cabbage: Plugin successfully copied to:', destinationPath);
                 // Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
