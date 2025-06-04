@@ -68,21 +68,6 @@ export async function activate(context: vscode.ExtensionContext):
         });
     }
 
-    const statusBarItem =
-        vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-
-    // Set the text and icon for the status bar item
-    statusBarItem.text = `$(unmute) Cabbage`;
-
-    // Optional: Make the status bar item clickable (command)
-    statusBarItem.command = 'cabbage.showCommands';
-
-    // Show the status bar item
-    statusBarItem.show();
-
-    // Push the item to the context's subscriptions so it gets disposed when the
-    // extension is deactivated
-    context.subscriptions.push(statusBarItem);
 
     // Get the output channel from Commands class
     const vscodeOutputChannel = Commands.getOutputChannel();
@@ -269,6 +254,24 @@ export async function activate(context: vscode.ExtensionContext):
         (tabs) => {
             // triggered when tab changes
         });
+}
+
+function createStatusBarIcon(context: vscode.ExtensionContext){
+    const statusBarItem =
+    vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+
+    // Set the text and icon for the status bar item
+    statusBarItem.text = `$(unmute) Cabbage`;
+
+    // Optional: Make the status bar item clickable (command)
+    statusBarItem.command = 'cabbage.showCommands';
+
+    // Show the status bar item
+    statusBarItem.show();
+
+    // Push the item to the context's subscriptions so it gets disposed when the
+    // extension is deactivated
+    context.subscriptions.push(statusBarItem);
 }
 
 /**
