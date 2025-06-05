@@ -208,7 +208,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginEffect.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
+          path: "./src/CabbageBinaries
         continue-on-error: false
 
       # - name: Downloading CabbageAUv2Synth
@@ -229,7 +229,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
+          path: "./src/CabbageBinaries
         continue-on-error: false
 
       - name: Set up Node.js (v18) on macOS
