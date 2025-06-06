@@ -440,7 +440,7 @@ export class Commands {
             this.setCabbageSrcDirectoryIfEmpty();
             return;
         }
-        
+
         const config = vscode.workspace.getConfiguration("cabbage");
         const runInDebugMode = config.get("runInDebugMode");
 
@@ -494,7 +494,7 @@ export class Commands {
             });
         }
 
-        
+
         this.processes = [];
         this.setCabbageSrcDirectoryIfEmpty();
     }
@@ -932,10 +932,10 @@ export class Commands {
 
         switch (type) {
             case 'VST3Effect':
-                binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Effect');
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginEffect');
                 break;
             case 'VST3Synth':
-                binaryFile = Settings.getCabbageBinaryPath('CabbageVST3Synth');
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginSynth');
                 break;
             case 'AUv2Effect':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Effect');
@@ -1016,17 +1016,31 @@ export class Commands {
                     if (err) {
                         throw new Error('Error parsing plist file: ' + err);
                     }
-                    const dict = result.plist.dict[0].key;
-                    const executableIndex = dict.indexOf('CFBundleExecutable');
-                    if (executableIndex !== -1) {
-                        result.plist.dict[0].string[executableIndex] = pluginName;
-                    }
+
+                    const dict = result.plist.dict[0];
+                    const keys: string[] = dict.key;
+                    const values: string[] = dict.string;
+
+                    const updatePlistKey = (keyName: string, newValue: string) => {
+                        const index = keys.indexOf(keyName);
+                        if (index !== -1 && values[index] !== undefined) {
+                            values[index] = newValue;
+                        } else {
+                            keys.push(keyName);
+                            values.push(newValue);
+                        }
+                    };
+
+                    updatePlistKey('CFBundleExecutable', pluginName);
+                    updatePlistKey('CFBundleName', pluginName);
+                    updatePlistKey('CFBundleIdentifier', `com.cabbageaudio.${pluginName.toLowerCase()}`);
+
                     const updatedPlist = builder.buildObject(result);
                     await fs.promises.writeFile(plistFilePath, updatedPlist);
-                    console.log(`CFBundleExecutable updated to "${pluginName}" in Info.plist`);
+                    console.log(`Info.plist updated: CFBundleExecutable, CFBundleName, and CFBundleIdentifier set to "${pluginName}"`);
                 });
             } else {
-                if(!await ExtensionUtils.isDirectory(binaryFile)){
+                if (!await ExtensionUtils.isDirectory(binaryFile)) {
                     await fs.promises.copyFile(binaryFile, destinationPath);
 
                     let newName = await ExtensionUtils.renameFile(destinationPath, pluginName);
