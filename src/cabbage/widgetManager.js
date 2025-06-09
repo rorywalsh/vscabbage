@@ -15,11 +15,11 @@ import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.j
  */
 export class WidgetManager {
     static currentCsdPath = '';
-    
+
     /**
      * @returns {string} - The current CSD path.
      */
-    static getCurrentCsdPath(){
+    static getCurrentCsdPath() {
         return WidgetManager.currentCsdPath;
     }
 
@@ -62,7 +62,7 @@ export class WidgetManager {
             return;
         }
 
-        
+
         // Assign class based on widget type and mode (draggable/non-draggable)
         widgetDiv.className = (type === "form") ? "resizeOnly" : cabbageMode;
 
@@ -84,12 +84,12 @@ export class WidgetManager {
             if (props?.range && props.range.hasOwnProperty("defaultValue")) {
                 widget.props.value = props.range.defaultValue;
             }
-            else{
+            else {
                 widget.props.value = widget.props.range.defaultValue;
             }
         }
 
-        if(!widget.props.currentCsdFile){
+        if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }
         // Add the widget to the global widgets array
@@ -112,7 +112,7 @@ export class WidgetManager {
             }
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
-        } 
+        }
 
         // Apply styles and return the widget properties
         WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
@@ -281,7 +281,9 @@ export class WidgetManager {
 
         // Apply position and size based on widget properties
         if (typeof props?.bounds === 'object' && props.bounds !== null) {
-            widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+            if (vscode) {
+                widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+            }
             widgetDiv.style.width = props.bounds.width + 'px';
             widgetDiv.style.height = props.bounds.height + 'px';
             // widgetDiv.style.top = props.bounds.top;
@@ -346,13 +348,13 @@ export class WidgetManager {
                 } else {
                     console.error("MainForm not found");
                 }
-            } 
+            }
             else {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
-                    
+
                     // Update widget position and size for non-form widgets
                     if (widget.props.bounds) {
                         widgetDiv.style.left = widget.props.bounds.left + "px";
@@ -361,7 +363,7 @@ export class WidgetManager {
                         widgetDiv.style.height = widget.props.bounds.height + "px";
                     }
 
-                    if(widget.props.type === "genTable"){
+                    if (widget.props.type === "genTable") {
                         widget.updateTable();
                     }
                 } else {
@@ -380,7 +382,7 @@ export class WidgetManager {
                 if (p.hasOwnProperty('type')) {
                     await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                 }
-                else{
+                else {
                     console.error("No type property found in data", p);
                 }
             } catch (error) {
