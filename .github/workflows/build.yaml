@@ -208,7 +208,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginEffect.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
+          path: "./src/CabbageBinaries"
         continue-on-error: false
 
       # - name: Downloading CabbageAUv2Synth
@@ -229,7 +229,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
+          path: "./src/CabbageBinaries"
         continue-on-error: false
 
       - name: Set up Node.js (v18) on macOS
@@ -332,7 +332,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CabbagePluginEffect_x64.vst3
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release/CabbagePluginEffect.vst3
+          # path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release/CabbagePluginEffect.vst3
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
           retention-days: 1
           if-no-files-found: ignore
 
@@ -340,7 +341,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CabbagePluginSynth_x64.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release/CabbagePluginSynth.vst3
+          # path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release/CabbagePluginSynth.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
           retention-days: 1
           if-no-files-found: ignore
 
@@ -386,14 +388,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginEffect_x64.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffect_x64.vst3"
+          path: "./src/CabbageBinaries"
         continue-on-error: true
 
       - name: Downloading CabbageVST3Synth
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth_x64.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynth_x64.vst3"
+          path: "./src/CabbageBinaries"
         continue-on-error: true
 
       - name: Install vsce on Windows
