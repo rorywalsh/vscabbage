@@ -225,7 +225,7 @@ jobs:
       #     path: "./src/CabbageBinaries/CabbageAUv2Effect.component"
       #   continue-on-error: true
 
-      - name: Downloading CabbagePluginSynth
+      - name: Downloading CabbagePluginSynth  
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth.vst3
