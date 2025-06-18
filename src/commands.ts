@@ -557,12 +557,12 @@ export class Commands {
                 const dataString = data.toString();
 
                 if (!ignoredTokens.some(token => dataString.startsWith(token))) {
-                    if (dataString.startsWith('Cabbage DEBUG:')) {
+                    if (dataString.startsWith('DEBUG:')) {
                         if (config.get("logVerbose")) {
                             this.vscodeOutputChannel.append(dataString);
                         }
                     } else {
-                        const msg = dataString.replace(/Cabbage INFO:/g, "");
+                        const msg = dataString.replace(/INFO:/g, "");
                         this.vscodeOutputChannel.append(msg);
                     }
                 }

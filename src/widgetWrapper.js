@@ -2,397 +2,261 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("Cabbage: Loading widgetManager.js...");
-
-// Import necessary modules and utilities
-import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
-import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
-import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
-import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
+// At the beginning of the file
+let interactPromise;
 
 /**
- * WidgetManager class handles the creation, insertion, and management of widgets.
+ * Initializes the interact.js library by loading the specified script.
+ * @param {string} interactJSUri - The URI of the interact.js script.
  */
-export class WidgetManager {
-    static currentCsdPath = '';
-    
-    /**
-     * @returns {string} - The current CSD path.
-     */
-    static getCurrentCsdPath(){
-        return WidgetManager.currentCsdPath;
-    }
-
-    /**
-     * Dynamically creates a widget based on the provided type.
-     * @param {string} type - The type of the widget to create.
-     * @returns {object|null} - The created widget object or null if the type is invalid.
-     */
-    static createWidget(type) {
-        const WidgetClass = widgetConstructors[type];
-        if (WidgetClass) {
-            const widget = new WidgetClass();
-            //special case for genTable..
-            if (type === "genTable") {
-                widget.createCanvas(); // Special logic for "gentable" widget
-            }
-            return widget;
-        } else {
-            console.error("Unknown widget type: " + type);
-            console.trace();
-            return null;
-        }
-    }
-
-    /**
-     * Inserts a new widget into the form. This function is called when loading/saving a file 
-     * or when adding widgets via right-click in the editor.
-     * @param {string} type - The type of widget to insert.
-     * @param {object} props - The properties to assign to the widget.
-     * @returns {string} - The currentCsdFile if it is known.
-     */
-    static async insertWidget(type, props, currentCsdFile) {
-        // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
-        const widgetDiv = document.createElement('div');
-        widgetDiv.id = props.channel;
-
-        const widget = WidgetManager.createWidget(type);
-        if (!widget) {
-            console.error("Failed to create widget of type:", type);
-            return;
-        }
-
-        
-        // Assign class based on widget type and mode (draggable/non-draggable)
-        widgetDiv.className = (type === "form") ? "resizeOnly" : cabbageMode;
-
-        // Set up event listeners for draggable mode
-        if (cabbageMode === 'draggable') {
-            widgetDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, widgetDiv));
-        }
-
-        // Assign properties to the widget
-        if (props.top !== undefined && props.left !== undefined) {
-            widget.props.bounds = widget.props.bounds || {};
-            widget.props.bounds.top = props.top;
-            widget.props.bounds.left = props.left;
-            delete props.top;
-            delete props.left;
-        }
-        Object.assign(widget.props, props);
-        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
-            if (props?.range && props.range.hasOwnProperty("defaultValue")) {
-                widget.props.value = props.range.defaultValue;
-            }
-            else{
-                widget.props.value = widget.props.range.defaultValue;
-            }
-        }
-
-        if(!widget.props.currentCsdFile){
-            widget.props.currentCsdFile = currentCsdFile;
-        }
-        // Add the widget to the global widgets array
-
-        console.log("Cabbage: Pushing widget to widgets array", widget);
-        widgets.push(widget);
-        widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
-
-        // Handle non-draggable mode setup
-        if (cabbageMode === 'nonDraggable') {
-            WidgetManager.setPerformanceMode(widget, widgetDiv);
-        }
-
-        // Append widget to the form
-        if (widget.props.type !== "form") {
-            widgetDiv.innerHTML = widget.getInnerHTML();
-            WidgetManager.appendToMainForm(widgetDiv);
-            if (widget.props.type === "genTable") {
-                widget.updateTable(); // Special handling for "gentable" widgets
-            }
-        } else if (widget.props.type === "form") {
-            WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
-        } 
-
-        // Apply styles and return the widget properties
-        WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
-        return widget.props;
-    }
-
-    /**
-     * Sets up a widget for performance mode by adding appropriate event 
-     * listeners as the widget level.
-     * @param {object} widget - The widget to set up.
-     * @param {HTMLElement} widgetDiv - The widget's corresponding DOM element.
-     */
-    static setPerformanceMode(widget, widgetDiv) {
-        if (typeof acquireVsCodeApi === 'function') {
-            if (!vscode) {
-                vscode = acquireVsCodeApi();
-            }
-            if (typeof widget.addVsCodeEventListeners === 'function') {
-                widget.addVsCodeEventListeners(widgetDiv, vscode);
-            }
-        } else if (widget.props.type !== "form") {
-            if (typeof widget.addEventListeners === 'function') {
-                widget.addEventListeners(widgetDiv);
-            }
-        }
-    }
-
-    /**
-     * Appends a widget's DOM element to the MainForm in the editor.
-     * @param {HTMLElement} widgetDiv - The widget's DOM element.
-     */
-    static appendToMainForm(widgetDiv) {
-        const form = document.getElementById('MainForm');
-        if (form) {
-            form.appendChild(widgetDiv);
-        } else {
-            console.error("MainForm not found");
-        }
-    }
-
-    /**
-     * Sets up a "form" widget with specific structure and elements, 
-     * particularly when using the VSCode extension.
-     * @param {object} widget - The "form" widget to set up.
-     */
-    static setupFormWidget(widget) {
-        let formDiv = document.getElementById('MainForm');
-        if (!formDiv) {
-            formDiv = document.createElement('div');
-            formDiv.id = 'MainForm';
-
-            // Setup for VSCode mode
-            if (vscode) {
-                formDiv.className = "form resizeOnly";
-
-                // Create the structure inside the form
-                const wrapperDiv = document.createElement('div');
-                wrapperDiv.className = 'wrapper';
-
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'content';
-                contentDiv.style.overflowY = 'auto';
-
-
-                const ulMenu = document.createElement('ul');
-                ulMenu.className = 'menu';
-
-                // Prevent menu from closing when interacting with the scrollbar
-                const preventClose = (e) => {
-                    e.stopPropagation(); // Prevent click from closing the menu
-                };
-
-                contentDiv.addEventListener('mousedown', preventClose);
-                contentDiv.addEventListener('pointerdown', preventClose);
-
-                // Populate the menu with widget types
-                let menuItems = "";
-                widgetTypes.forEach((widget) => {
-                    menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
-                });
-
-                ulMenu.innerHTML = menuItems;
-
-                // Append the inner elements to the form
-                contentDiv.appendChild(ulMenu);
-                wrapperDiv.appendChild(contentDiv);
-                formDiv.appendChild(wrapperDiv);
-
-                // Append the MainForm to the LeftPanel in VSCode
-                const leftPanel = document.getElementById('LeftPanel');
-                if (leftPanel) {
-                    leftPanel.appendChild(formDiv);
-                } else {
-                    console.error("LeftPanel not found");
-                }
-
-                // Create a style element
-                const style = document.createElement('style');
-                style.textContent = `
-                    /* For WebKit browsers (Chrome, Safari) */
-                    .wrapper .content::-webkit-scrollbar {
-                        width: 12px; /* Width of the scrollbar */
-                    }
-
-                    .wrapper .content::-webkit-scrollbar-track {
-                        background: #f1f1f1; /* Background of the scrollbar track */
-                    }
-
-                    .wrapper .content::-webkit-scrollbar-thumb {
-                        background: #888; /* Color of the scrollbar thumb */
-                        border-radius: 6px; /* Rounded corners for the thumb */
-                    }
-
-                    .wrapper .content::-webkit-scrollbar-thumb:hover {
-                        background: #555; /* Color of the thumb on hover */
-                    }
-
-                    /* For Firefox */
-                    .wrapper .content {
-                        scrollbar-width: thin; /* Makes the scrollbar thinner */
-                        scrollbar-color: #888 #f1f1f1; /* thumb color and track color */
-                    }
-                `;
-
-                // Append the style element to the head
-                document.head.appendChild(style);
-            } else {
-                // Fallback for non-VSCode mode
-                formDiv.className = "form nonDraggable";
-                document.body.appendChild(formDiv);
-            }
-        }
-
-        // Set MainForm styles and properties
-        if (formDiv) {
-            formDiv.style.width = widget.props.size.width + "px";
-            formDiv.style.height = widget.props.size.height + "px";
-            formDiv.style.top = '0px';
-            formDiv.style.left = '0px';
-
-            // Update SVG if needed
-            if (typeof widget.updateSVG === 'function') {
-                widget.updateSVG();
-                const selectionColour = CabbageColours.invertColor(widget.props.colour.fill);
-                CabbageColours.changeSelectedBorderColor(selectionColour);
-            }
-        } else {
-            console.error("MainForm not found");
-        }
-
-        // Initialize form event handlers if in vscode mode
-        if (typeof acquireVsCodeApi === 'function') {
-            setupFormHandlers();
-        }
-    }
-
-    /**
-     * Updates the styles and positioning of a widget based on its properties.
-     * @param {HTMLElement} widgetDiv - The widget's DOM element.
-     * @param {object} props - The widget's properties containing size and position data.
-     */
-    static updateWidgetStyles(widgetDiv, props) {
-        widgetDiv.style.position = 'absolute';
-        widgetDiv.style.top = '0px'; // Reset top position
-        widgetDiv.style.left = '0px'; // Reset left position
-
-        // Apply position and size based on widget properties
-        if (typeof props?.bounds === 'object' && props.bounds !== null) {
-            // Something strange happeing when rendering in vscode vs a plugins's webview
-            if (vscode){
-                widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-            }
-            widgetDiv.style.width = props.bounds.width + 'px';
-            widgetDiv.style.height = props.bounds.height + 'px';
-            // widgetDiv.style.top = props.bounds.top;
-            // widgetDiv.style.left = props.bounds.left;
-
-            widgetDiv.setAttribute('data-x', props.bounds.left);
-            widgetDiv.setAttribute('data-y', props.bounds.top);
-        } else if (typeof props?.size === 'object' && props.size !== null) {
-            widgetDiv.style.width = props.size.width + 'px';
-            widgetDiv.style.height = props.size.height + 'px';
-        }
-    }
-
-    /**
-    * This is called from the plugin and updates a corresponding widget.
-    * It searches for a widget based on its 'channel' property and updates its data and display.
-    * If the widget is not found, it attempts to create a new widget based on the provided data.
-    * @param {object} obj - JSON object pertaining to the widget that needs updating.
-    */
-    static async updateWidget(obj) {
-
-        // Check if 'data' exists, otherwise use 'value'
-        const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        const widget = widgets.find(w => w.props.channel === obj.channel);
-        let widgetFound = false;
-        if (widget) {
-            // widget.props.currentCsdFile = obj.currentCsdPath;
-            // WidgetManager.currentCsdPath = obj.currentCsdPath;
-            //if only updating value..
-            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
-
-                widget.props.value = obj.value; // Update the value property
-                // Call getInnerHTML to refresh the widget's display
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-                if (widgetDiv) {
-                    widgetDiv.innerHTML = widget.getInnerHTML();
-                }
-                return; // Early return
-            }
-            // Update widget properties
-            Object.assign(widget.props, data);
-            widgetFound = true;
-            if (widget.props.type === "form") {
-                // Special handling for form widget
-                const form = document.getElementById('MainForm');
-                if (form) {
-                    form.style.width = widget.props.size.width + "px";
-                    form.style.height = widget.props.size.height + "px";
-
-                    // Update the SVG viewBox if it exists
-                    const svg = form.querySelector('svg');
-                    if (svg) {
-                        svg.setAttribute('viewBox', `0 0 ${widget.props.size.width} ${widget.props.size.height}`);
-                        svg.setAttribute('width', widget.props.size.width);
-                        svg.setAttribute('height', widget.props.size.height);
-                    }
-
-                    // Call updateSVG method if it exists
-                    if (typeof widget.updateSVG === 'function') {
-                        widget.updateSVG();
-                    }
-                } else {
-                    console.error("MainForm not found");
-                }
-            } 
-            else {
-                // Existing code for other widget types
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-                if (widgetDiv) {
-                    widgetDiv.innerHTML = widget.getInnerHTML();
-                    
-                    // Update widget position and size for non-form widgets
-                    if (widget.props.bounds) {
-                        widgetDiv.style.left = widget.props.bounds.left + "px";
-                        widgetDiv.style.top = widget.props.bounds.top + "px";
-                        widgetDiv.style.width = widget.props.bounds.width + "px";
-                        widgetDiv.style.height = widget.props.bounds.height + "px";
-                    }
-
-                    if(widget.props.type === "genTable"){
-                        widget.updateTable();
-                    }
-                } else {
-                    console.error(`Widget div for channel ${widget.props.channel} not found`);
-                }
-            }
-        } else {
-            // console.log(`Widget with channel ${obj.channel} not found - going to create it now`);
-        }
-        // If the widget is not found, attempt to create a new widget from the provided data
-        if (!widgetFound) {
-            try {
-                let p = typeof data === 'string' ? JSON.parse(data) : data;
-
-                // If the parsed data has a 'type' property, insert a new widget into the form
-                if (p.hasOwnProperty('type')) {
-                    await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
-                }
-                else{
-                    console.error("No type property found in data", p);
-                }
-            } catch (error) {
-                console.error("Error parsing JSON data:", error, obj.data);
-            }
-        }
-    }
-
+export function initializeInteract(interactJSUri) {
+    console.log("Initializing interact", interactJSUri);
+    interactPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = interactJSUri; // Set the source of the script
+        script.onload = resolve; // Resolve promise when the script loads
+        script.onerror = reject; // Reject promise on error
+        document.head.appendChild(script); // Append script to the document head
+    });
 }
 
+/**
+ * This class wraps all widgets and provides drag-and-drop functionality for the UI designer.
+ */
+export class WidgetWrapper {
+    constructor(updatePanelCallback, selectedSet, widgets, vscode) {
+        const restrictions = {
+            restriction: 'parent', // Restrict movements to the parent container
+            endOnly: true // Only restrict at the end of the movement
+        };
+        this.snapSize = 2; // Snap grid size
+        this.selectedElements = selectedSet; // Selected elements for dragging
+        this.updatePanelCallback = updatePanelCallback; // Callback to update the panel
+        this.dragMoveListener = this.dragMoveListener.bind(this); // Bind the drag move listener
+        this.dragEndListener = this.dragEndListener.bind(this); // Bind the drag end listener
+        this.widgets = widgets; // All widgets in the UI
+        this.vscode = vscode; // VSCode API for messaging
 
+        // Wait for interact to load before applying the configuration
+        interactPromise.then(() => {
+            this.applyInteractConfig({
+                restriction: 'parent',
+                endOnly: true
+            });
+        }).catch(error => {
+            console.error("Failed to load interact.min.js:", error);
+        });
 
+        this.applyInteractConfig(restrictions); // Apply the initial interact configuration
+    }
+
+    /**
+     * Handles the drag movement of selected elements.
+     * @param {Object} event - The event object containing drag data.
+     */
+    dragMoveListener(event) {
+        // Ignore if Shift or Alt keys are pressed
+        if (event.shiftKey || event.altKey) {
+            return;
+        }
+        const { dx, dy } = event; // Get the change in position
+        this.selectedElements.forEach(element => {
+            // Slow down the movement by using a fraction of dx and dy
+            const slowFactor = 0.5; // Adjust this value to change the drag speed
+            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx * slowFactor;
+            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy * slowFactor;
+
+            element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+            element.setAttribute('data-x', x); // Update data-x attribute
+            element.setAttribute('data-y', y); // Update data-y attribute
+        });
+    }
+    
+    /**
+     * Handles the end of a drag event.
+     * @param {Object} event - The event object containing drag data.
+     */
+    dragEndListener(event) {
+        const { dx, dy } = event;
+
+        this.selectedElements.forEach(element => {
+            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx;
+            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy;
+
+            element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+            element.setAttribute('data-x', x); // Update data-x attribute
+            element.setAttribute('data-y', y); // Update data-y attribute
+            this.updatePanelCallback(this.vscode, {
+                eventType: "move", // Event type for movement
+                name: element.id, // Name of the element moved
+                bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
+            }, this.widgets);
+
+            console.warn(`Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
+        });
+    }
+
+    /**
+     * Applies interact.js configuration to the draggable elements.
+     * @param {Object} restrictions - The restrictions for movement.
+     */
+    applyInteractConfig(restrictions) {
+        interact('.draggable').unset(); // Unset previous interact configuration
+
+        interact('.draggable').on('down', (event) => {
+            // Handle the down event if necessary (currently commented out)
+            if (this.selectedElements.size <= 1) {
+                // Uncomment if you need to handle click events
+                // if (event.target.id) {
+                //     this.updatePanelCallback(this.vscode, { eventType: "click", name: event.target.id, bounds: {} }, this.widgets);
+                // } else {
+                //     const widgetId = event.target.parentElement.parentElement.id.replace(/(<([^>]+)>)/ig, '');
+                //     this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
+                // }
+            }
+        }).resizable({
+            edges: { left: false, right: true, bottom: true, top: false }, // Resize edges configuration
+            listeners: {
+                move: (event) => {
+                    // Ignore if Shift or Alt keys are pressed
+                    if (event.shiftKey || event.altKey) {
+                        return;
+                    }
+                    const target = event.target;
+                    restrictions.restriction = (target.id === 'MainForm' ? 'none' : 'parent'); // Set restriction based on target
+
+                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
+                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
+
+                    target.style.width = event.rect.width + 'px'; // Update element width
+                    target.style.height = event.rect.height + 'px'; // Update element height
+
+                    x += event.deltaRect.left; // Adjust x position
+                    y += event.deltaRect.top; // Adjust y position
+
+                    this.updatePanelCallback(this.vscode, {
+                        eventType: "resize", // Event type for resizing
+                        name: event.target.id, // Name of the resized element
+                        bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
+                    }, this.widgets);
+
+                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+                    target.setAttribute('data-x', x); // Update data-x attribute
+                    target.setAttribute('data-y', y); // Update data-y attribute
+                }
+            },
+            modifiers: [
+                interact.modifiers.restrictRect(restrictions), // Apply restrictions to movement
+                interact.modifiers.snap({ // Snap to grid
+                    targets: [
+                        interact.snappers.grid({ x: this.snapSize, y: this.snapSize }) // Grid size
+                    ],
+                    range: Infinity, // Snap range
+                    relativePoints: [{ x: 0, y: 0 }] // Snap relative point
+                }),
+            ],
+            inertia: true // Enable inertia for smoother dragging
+        }).draggable({
+            startThreshold: 1, // Threshold for starting drag
+            listeners: {
+                move: this.dragMoveListener, // Handle drag move
+                end: this.dragEndListener // Handle drag end
+            },
+            inertia: true, // Enable inertia for dragging
+            modifiers: [
+                interact.modifiers.snap({ // Snap to grid for dragging
+                    targets: [
+                        interact.snappers.grid({ x: this.snapSize, y: this.snapSize }) // Grid size
+                    ],
+                    range: Infinity, // Snap range
+                    relativePoints: [{ x: 0, y: 0 }] // Snap relative point
+                }),
+                interact.modifiers.restrictRect(restrictions), // Apply restrictions to movement
+            ]
+        });
+
+        // Main form specific configuration
+        interact('.resizeOnly').on('down', (event) => {
+            // Handle the down event for resize-only elements if necessary
+        }).draggable(false).resizable({
+            edges: { left: true, right: true, bottom: true, top: true }, // Enable resizing from all edges
+            listeners: {
+                move: (event) => {
+                    // Ignore if Shift or Alt keys are pressed
+                    if (event.shiftKey || event.altKey) {
+                        return;
+                    }
+                    const target = event.target;
+                    restrictions.restriction = (target.id === 'MainForm' ? 'none' : 'parent'); // Set restriction based on target
+
+                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
+                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
+
+                    target.style.width = event.rect.width + 'px'; // Update element width
+                    target.style.height = event.rect.height + 'px'; // Update element height
+
+                    x += event.deltaRect.left; // Adjust x position
+                    y += event.deltaRect.top; // Adjust y position
+
+                    this.updatePanelCallback(this.vscode, {
+                        eventType: "resize", // Event type for resizing
+                        name: event.target.id, // Name of the resized element
+                        bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
+                    }, this.widgets);
+
+                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+                    target.setAttribute('data-x', x); // Update data-x attribute
+                    target.setAttribute('data-y', y); // Update data-y attribute
+                }
+            },
+            inertia: true // Enable inertia for resizing
+        });
+    }
+
+    /**
+     * Sets the snap size for grid snapping.
+     * @param {number} size - The new snap size.
+     */
+    setSnapSize(size) {
+        this.snapSize = size; // Update snap size
+        this.applyInteractConfig({
+            restriction: 'parent', // Apply parent restriction
+            endOnly: true // Only restrict at the end of the movement
+        });
+    }
+}
+
+/**
+ * This is a simple panel that the main form sits on. 
+ * It can be dragged around without restriction.
+ */
+interact('.draggablePanel')
+    .draggable({
+        inertia: true, // Enable inertia for dragging
+        autoScroll: true, // Enable auto scrolling during drag
+        onmove: formDragMoveListener // Handle drag movement
+    });
+
+/**
+ * Handles the movement of the draggable panel.
+ * @param {Object} event - The event object containing drag data.
+ */
+function formDragMoveListener(event) {
+    var target = event.target;
+    // Ignore if Shift or Alt keys are pressed
+    if (event.shiftKey || event.altKey) {
+        return;
+    }
+    // Keep the dragged position in the data-x/data-y attributes
+    var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx; // Update x position
+    var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy; // Update y position
+
+    // Translate the element
+    target.style.webkitTransform =
+        target.style.transform =
+        `translate(${x}px, ${y}px)`; // Apply the translation
+
+    // Update the position attributes
+    target.setAttribute('data-x', x); // Update data-x attribute
+    target.setAttribute('data-y', y); // Update data-y attribute
+}
