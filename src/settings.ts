@@ -396,6 +396,40 @@ export class Settings {
         }
     }
 
+    static async selectCsoundIncludeDir() {
+        // Load the configuration for the correct section and key
+        const config = vscode.workspace.getConfiguration('cabbage');
+
+        const cabbagePath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select Csound include directory (for Daisy)'
+        });
+
+        if (cabbagePath && cabbagePath.length > 0) {
+            // Use the correct key name that matches your package.json configuration
+            await config.update('pathToCsoundIncludeDir', cabbagePath[0].fsPath, vscode.ConfigurationTarget.Global);
+        }
+    }
+
+    static async selectCsoundLibraryDir() {
+        // Load the configuration for the correct section and key
+        const config = vscode.workspace.getConfiguration('cabbage');
+
+        const cabbagePath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select Csound library directory (for Daisy)'
+        });
+
+        if (cabbagePath && cabbagePath.length > 0) {
+            // Use the correct key name that matches your package.json configuration
+            await config.update('pathToCsoundLibraryDir', cabbagePath[0].fsPath, vscode.ConfigurationTarget.Global);
+        }
+    }
+
     static async selectMidiDevice(type: 'input' | 'output') {
         const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();

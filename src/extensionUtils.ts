@@ -148,9 +148,9 @@ export class ExtensionUtils {
                 }
             });
         } else {
-            // Unix/macOS: Use `SIGTERM` (graceful) or `SIGKILL` (forceful)
+            // Unix/macOS: Use `SIGTERM`
             try {
-                process.kill(targetPid, force ? "SIGKILL" : "SIGTERM");
+                process.kill(targetPid, "SIGTERM");
                 console.log(`Process ${targetPid} terminated successfully.`);
             } catch (err) {
                 console.error(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);

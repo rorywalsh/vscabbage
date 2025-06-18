@@ -388,7 +388,6 @@ export class Commands {
                     console.warn('Cabbage: Local resource roots:', this.panel.webview.asWebviewUri(uri));
                 }
             });
-
         }
 
         // console.error('Cabbage: Local resource roots:', this.panel.webview.options.localResourceRoots);
@@ -560,10 +559,12 @@ export class Commands {
                     if (dataString.startsWith('DEBUG:')) {
                         if (config.get("logVerbose")) {
                             this.vscodeOutputChannel.append(dataString);
+                            this.vscodeOutputChannel.show(true); // scrolls to bottom
                         }
                     } else {
                         const msg = dataString.replace(/INFO:/g, "");
                         this.vscodeOutputChannel.append(msg);
+                        this.vscodeOutputChannel.show(true);
                     }
                 }
             });
@@ -843,6 +844,97 @@ export class Commands {
             this.vscodeOutputChannel = vscode.window.createOutputChannel("Cabbage output");
         }
         return this.vscodeOutputChannel;
+    }
+
+    /**
+     * Run make for Daisy
+     */
+    static makeForDaisy(makeType: string) {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder found.');
+            return;
+        }
+
+        const folderPath = workspaceFolder.uri.fsPath;
+        const folderName = path.basename(folderPath);
+        const sourceFileName = `${folderName}.cpp`;
+        const makefilePath = path.join(folderPath, 'Makefile');
+
+        if (!fs.existsSync(makefilePath)) {
+            const config = vscode.workspace.getConfiguration('cabbage'); // Replace with your actual extension name
+            const csoundIncludeDir = config.get('pathToCsoundIncludeDir');
+            const csoundLibDir = config.get('pathToCsoundLibraryDir');
+
+            if (!csoundIncludeDir || !csoundLibDir) {
+                vscode.window.showErrorMessage('CSOUND paths are not set in settings.');
+                return;
+            }
+
+            const makefileContent = `
+APP_TYPE = BOOT_QSPI
+LDFLAGS += -u _printf_float
+
+# Project Name
+TARGET = daisyCsoundGenerative
+
+# Sources
+CPP_SOURCES = ${sourceFileName}
+
+# Library Locations
+LIBDAISY_DIR = ../../libDaisy/
+DAISYSP_DIR = ../../DaisySP/
+
+# Csound Library and Include Locations
+CSOUND_INCLUDE_DIR = ${csoundIncludeDir}
+CSOUND_LIB_DIR     = ${csoundLibDir}
+
+# Full path to the Csound static library
+CSOUND_STATIC_LIB = $(CSOUND_LIB_DIR)/libcsound.a
+
+# Add to the existing flags
+C_INCLUDES += -I$(CSOUND_INCLUDE_DIR)
+LIBS += $(CSOUND_STATIC_LIB)
+LIBDIR  += -L$(CSOUND_LIB_DIR)
+
+# Use Bootloader v5.4
+BOOT_BIN = $(shell pwd)/../dsy_bootloader_v5_4.bin
+
+# Use Custom Linker Script
+LDSCRIPT = $(shell pwd)/../STM32H750IB_qspi_custom.lds
+
+# Core location, and generic Makefile.
+SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
+include $(SYSTEM_FILES_DIR)/Makefile
+        `;
+
+            fs.writeFileSync(makefilePath, makefileContent);
+        }
+
+        // Create and show output channel
+        const outputChannel = vscode.window.createOutputChannel('Daisy Make');
+        outputChannel.show(true);
+        outputChannel.appendLine('Running make...\n');
+
+
+        const args = makeType.trim() === '' ? [] : ['-j', makeType.trim()];
+        const makeProcess = cp.spawn('make', args, { cwd: folderPath });
+
+        makeProcess.stdout.on('data', (data) => {
+            outputChannel.append(data.toString());
+        });
+
+        makeProcess.stderr.on('data', (data) => {
+            outputChannel.append(data.toString());
+        });
+
+        makeProcess.on('close', (code) => {
+            if (code === 0) {
+                outputChannel.appendLine('\Make completed successfully!');
+            } else {
+                outputChannel.appendLine(`\nMake failed with exit code ${code}`);
+            }
+        });
     }
 
     /**

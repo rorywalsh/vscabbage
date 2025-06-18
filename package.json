@@ -62,6 +62,16 @@
     "configuration": {
       "title": "Cabbage",
       "properties": {
+        "cabbage.pathToCsoundLibraryDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Csound library - used when building for Daisy"
+        },
+        "cabbage.pathToCsoundIncludeDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Csound includes - used when building for Daisy"
+        },
         "cabbage.pathToCabbageBinary": {
           "type": "string",
           "default": "",
@@ -184,6 +194,26 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.makeForDaisy",
+        "title": "Make for Daisy",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.makeCleanForDaisy",
+        "title": "Make clean for Daisy",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.makeBootForDaisy",
+        "title": "Make boot for Daisy",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.makeDfuForDaisy",
+        "title": "Make dfu for Daisy",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.exportVST3Effect",
         "title": "Export as VST3 Effect",
         "category": "Cabbage"
@@ -256,6 +286,16 @@
       {
         "command": "cabbage.setCabbageBinaryPath",
         "title": "Set path to the Cabbage binary",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setCsoundIncludeDir",
+        "title": "Set path to the Csound include driectory (for Daisy)",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setCsoundLibraryDir",
+        "title": "Set path to the Csound library driectory (for Daisy)",
         "category": "Cabbage"
       },
       {
@@ -344,11 +384,13 @@
   },
   "dependencies": {
     "@vscode/vsce": "^3.2.1",
-    "bufferutil": "^4.0.9",
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
-    "utf-8-validate": "^6.0.5",
     "ws": "^8.16.0",
     "xml2js": "^0.6.2"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.9",
+    "utf-8-validate": "^6.0.5"
   }
 }

@@ -128,6 +128,19 @@ export async function activate(context: vscode.ExtensionContext):
             await Settings.selectCabbageBinaryPath();
         }));
 
+
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCsoundIncludeDir', async () => {
+            await Settings.selectCsoundIncludeDir();
+        }));
+
+
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCsoundLibraryDir', async () => {
+            await Settings.selectCsoundLibraryDir();
+        }));
+
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.resetCabbageAppSettingsFiles', async () => {
             await Settings.resetSettingsFile();
@@ -142,6 +155,26 @@ export async function activate(context: vscode.ExtensionContext):
     // Add the listener to the context subscriptions so it's disposed
     // automatically
     context.subscriptions.push(configurationChangeListener);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.makeForDaisy', async () => {
+            await Commands.makeForDaisy('');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.makeBootForDaisy', async () => {
+            await Commands.makeForDaisy('program-boot');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.makeCleanForDaisy', async () => {
+            await Commands.makeForDaisy('clean');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.makeDfuForDaisy', async () => {
+            await Commands.makeForDaisy('program-dfu');
+        }));
 
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.exportVST3Effect', async () => {
@@ -282,7 +315,7 @@ export async function activate(context: vscode.ExtensionContext):
  * @param editor The text editor containing the saved document.
  */
 async function onCompileInstrument(context: vscode.ExtensionContext) {
-    
+
     let editor = vscode.window.activeTextEditor?.document;
     // if editor is not a text file but an instrument panel
     if (!editor) {
