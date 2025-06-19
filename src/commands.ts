@@ -554,7 +554,6 @@ export class Commands {
             process.stdout.on("data", (data: { toString: () => string; }) => {
                 const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
                 const dataString = data.toString();
-
                 if (!ignoredTokens.some(token => dataString.startsWith(token))) {
                     if (dataString.startsWith('DEBUG:')) {
                         if (config.get("logVerbose")) {

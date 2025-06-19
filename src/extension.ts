@@ -376,6 +376,10 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }));
         }
 
+        const vscodeOutputChannel = Commands.getOutputChannel();
+        if (config.get("clearConsoleOnCompile")) {
+            vscodeOutputChannel.clear();
+        }
         if (websocket) {
             const soundFileInput = context.globalState.get<{ [key: number]: string }>(
                 'soundFileInput', {});
@@ -563,25 +567,34 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());
 
-                if (msg.hasOwnProperty('command') &&
-                    msg['command'] === 'widgetUpdate') {
-                    const panel = Commands.getPanel();
-                    if (panel) {
-                        if (msg.hasOwnProperty('data')) {
-                            panel.webview.postMessage({
-                                command: 'widgetUpdate',
-                                channel: msg['channel'],
-                                data: msg['data'],
-                                currentCsdPath: Commands.getCurrentFileName(),
-                            });
-                            console.log("Cabbage: updating widget ");
-                        } else if (msg.hasOwnProperty('value')) {
-                            panel.webview.postMessage({
-                                command: 'widgetUpdate',
-                                channel: msg['channel'],
-                                value: msg['value'],
-                                currentCsdPath: Commands.getCurrentFileName(),
-                            });
+                if (msg.hasOwnProperty('command')) {
+                    if (msg['command'] === 'widgetUpdate') {
+                        const panel = Commands.getPanel();
+                        if (panel) {
+                            if (msg.hasOwnProperty('data')) {
+                                panel.webview.postMessage({
+                                    command: 'widgetUpdate',
+                                    channel: msg['channel'],
+                                    data: msg['data'],
+                                    currentCsdPath: Commands.getCurrentFileName(),
+                                });
+                                console.log("Cabbage: updating widget ");
+                            } else if (msg.hasOwnProperty('value')) {
+                                panel.webview.postMessage({
+                                    command: 'widgetUpdate',
+                                    channel: msg['channel'],
+                                    value: msg['value'],
+                                    currentCsdPath: Commands.getCurrentFileName(),
+                                });
+                            }
+                        }
+                    }
+                    else if (msg['command'] === 'failedToCompile') {
+                        // Handle panel disposal
+                        let panel = Commands.getPanel();
+                        if (panel) {
+                            panel.dispose();
+                            panel = undefined;
                         }
                     }
                 }

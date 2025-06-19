@@ -142,6 +142,11 @@
           "default": false,
           "description": "Enable verbose logging from Cabbage."
         },
+        "cabbage.clearConsoleOnCompile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Clear console each time Csound is compiled."
+        },
         "cabbage.bundleResources": {
           "type": "boolean",
           "default": false,
