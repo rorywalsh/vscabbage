@@ -92,17 +92,19 @@ export async function activate(context: vscode.ExtensionContext):
 
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.selectAudioDriver', async () => {
+            Commands.startCabbageServer(false);
             await Settings.selectAudioDriver();
+            setTimeout(() => { Commands.startCabbageServer(true); }, 1000);
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectAudioOutputDevice', async () => {
-            await Settings.selectAudioDevice('output');
+            await Commands.withServerRestart(() => Settings.selectAudioDevice('output'));
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectAudioInputDevice', async () => {
-            await Settings.selectAudioDevice('input');
+            await Commands.withServerRestart(() => Settings.selectAudioDevice('input'));
             // clear sound file config when selecting live audio input
             await context.globalState.update('soundFileInput', undefined);
             Commands.sendFileToChannel(context, websocket, '', -1);
@@ -110,22 +112,22 @@ export async function activate(context: vscode.ExtensionContext):
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectMidiOutputDevice', async () => {
-            await Settings.selectMidiDevice('output');
+            await Commands.withServerRestart(() => Settings.selectMidiDevice('output'));
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectMidiInputDevice', async () => {
-            await Settings.selectMidiDevice('input');
+            await Commands.withServerRestart(() => Settings.selectMidiDevice('input'));
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.setCabbageSourcePath', async () => {
-            await Settings.selectCabbageJavascriptSourcePath();
+            await Commands.withServerRestart(() => Settings.selectCabbageJavascriptSourcePath());
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.setCabbageBinaryPath', async () => {
-            await Settings.selectCabbageBinaryPath();
+            await Commands.withServerRestart(() => Settings.selectCabbageBinaryPath());
         }));
 
 

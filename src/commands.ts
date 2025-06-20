@@ -30,7 +30,7 @@ export class Commands {
     private static panel: vscode.WebviewPanel | undefined;
     private static websocket: WebSocket | undefined;
     private static cabbageServerStarted: boolean | false;
-
+    appendOutput: Boolean = true;
 
     /**
      * Initializes the Commands class by creating an output channel for logging
@@ -415,9 +415,64 @@ export class Commands {
 
     }
 
+    /**
+     * Starts or Stop the Cabbage server app
+     * @param shouldStart
+     * 
+     */
+    static async startCabbageServer(shouldStart: boolean) {
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const runInDebugMode = config.get("runInDebugMode");
+
+        if (shouldStart) {
+            this.startCabbageProcess();
+            cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
+            cabbageStatusBarItem.show();
+            this.cabbageServerStarted = true;
+            vscode.window.showInformationMessage('Cabbage server started');
+        } else {
+            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+            await ExtensionUtils.sleep(500);
+
+            if (!runInDebugMode) {
+                this.processes.forEach((p) => {
+                    return ExtensionUtils.terminateProcess(p, this.websocket);
+                });
+            }
+
+            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+            cabbageStatusBarItem.show();
+            this.cabbageServerStarted = false;
+            vscode.window.showInformationMessage('Cabbage server stopped');
+        }
+    }
+
+    /**
+     * Wraps a function in a toggle server on/off method
+     * @param action : function to call on either side of toggle
+     */
+    static async withServerRestart(action: () => Promise<void>) {
+        const wasRunning = this.hasCabbageServerStarted();
+        if (wasRunning) {
+            await this.startCabbageServer(false);
+        }
+
+        await action();
+
+        if (wasRunning) {
+            // Slight delay to let settings settle, if needed
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await this.startCabbageServer(true);
+        }
+    }
+    /**
+     * Manages the Cabbage server - checking permissions before running
+     * @returns 
+     */
     static async manageServer() {
         const command = Settings.getCabbageBinaryPath('CabbageApp');
-        // Check and update file permissions if necessary
+
+        // Check and update file permissions if necessary (macOS only)
         if (process.platform === 'darwin') {
             try {
                 const stats = fs.statSync(command);
@@ -429,38 +484,21 @@ export class Commands {
                 this.vscodeOutputChannel.append(`Failed to update permissions for Cabbage binary: ${command}\n. It does appear to be executable.`);
             }
         }
+
         const cabbagePath = vscode.Uri.file(command);
 
         try {
             await vscode.workspace.fs.stat(cabbagePath);
         } catch (error) {
-
-            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found at ${Settings.getCabbageBinaryPath('CabbageApp')}. Please set the binary path from the command palette.\n`);
+            this.vscodeOutputChannel.append(`ERROR: No Cabbage binary found at ${command}. Please set the binary path from the command palette.\n`);
             this.setCabbageSrcDirectoryIfEmpty();
             return;
         }
 
-        const config = vscode.workspace.getConfiguration("cabbage");
-        const runInDebugMode = config.get("runInDebugMode");
-
-        if (this.cabbageServerStarted) {
-            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-            await ExtensionUtils.sleep(500);
-            if (!runInDebugMode) {
-                this.processes.forEach((p) => {
-                    return ExtensionUtils.terminateProcess(p, this.websocket);
-                });
-            }
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
-            this.cabbageServerStarted = false;
-        }
-        else {
-            this.startCabbageProcess();
-            cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
-            this.cabbageServerStarted = true;
-        }
+        const shouldStart = !this.cabbageServerStarted;
+        await this.startCabbageServer(shouldStart);
     }
+
     /**
      * Event handler for saving a .csd document, sets up the Cabbage editor panel if needed
      * and starts the Cabbage process if the document is a valid .csd file.
@@ -921,13 +959,16 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         makeProcess.stdout.on('data', (data) => {
             outputChannel.append(data.toString());
+
         });
 
         makeProcess.stderr.on('data', (data) => {
             outputChannel.append(data.toString());
+            outputChannel.show(true);
         });
 
         makeProcess.on('close', (code) => {
+
             if (code === 0) {
                 outputChannel.appendLine('\Make completed successfully!');
             } else {
