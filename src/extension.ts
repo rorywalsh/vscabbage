@@ -130,6 +130,11 @@ export async function activate(context: vscode.ExtensionContext):
             await Commands.withServerRestart(() => Settings.selectCabbageBinaryPath());
         }));
 
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.openOpcodeReference', async () => {
+            await Commands.openOpcodeReference(context);
+        }));
+
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.setCsoundIncludeDir', async () => {
@@ -200,12 +205,42 @@ export async function activate(context: vscode.ExtensionContext):
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.collapseCabbageJSON', Commands.collapseCabbageJSON));
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.formatDocument', Commands.formatDocument));
-    context.subscriptions.push(vscode.commands.registerCommand(
-        'cabbage.goToDefinition', ExtensionUtils.goToDefinition));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.goToDefinition', (arg: vscode.TextEditor | vscode.Uri | undefined) => {
+            let editor: vscode.TextEditor | undefined;
+
+            // Case 1: arg is a TextEditor (has .selection)
+            if (arg && typeof (arg as vscode.TextEditor).selection !== "undefined") {
+                editor = arg as vscode.TextEditor;
+            }
+            // Case 2: arg is a Uri (no .selection), open the document
+            else if (arg instanceof vscode.Uri) {
+                vscode.window.showTextDocument(arg).then((openedEditor) => {
+                    ExtensionUtils.goToDefinition(openedEditor);
+                });
+                return;
+            }
+            // Case 3: fall back to active editor
+            else {
+                editor = vscode.window.activeTextEditor;
+            }
+
+            if (!editor) {
+                vscode.window.showErrorMessage("No active editor found.");
+                return;
+            }
+
+            ExtensionUtils.goToDefinition(editor);
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.compile', () => {
             onCompileInstrument(context);

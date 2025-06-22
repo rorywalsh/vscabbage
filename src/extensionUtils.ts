@@ -164,15 +164,31 @@ export class ExtensionUtils {
     */
     static goToDefinition(editor: vscode.TextEditor) {
         if (!editor) {
-            vscode.window.showErrorMessage("No active editor found.");
-            return; // Exit if no active editor
+            vscode.window.showErrorMessage("No active editor.");
+            console.error("goToDefinition: editor is undefined");
+            return;
         }
 
-        const position = editor.selection.active; // Get the current cursor position
-        const word = ExtensionUtils.getWordAtPosition(editor, position); // Use Commands to extract the word at the cursor
+        if (!editor.selection) {
+            vscode.window.showErrorMessage("Editor has no selection.");
+            console.error("goToDefinition: editor.selection is undefined", editor);
+            return;
+        }
+
+        const position = editor.selection.isEmpty ? editor.selection.active : editor.selection.start; // Use start if selection is not empty
+
+        if (!position) {
+            vscode.window.showErrorMessage("No active cursor position.");
+            return;
+        }
+
+        console.log("Cursor position:", position); // Debug: check the cursor position
+
+        const word = ExtensionUtils.getWordAtPosition(editor, position);
+        console.log("Word at cursor:", word); // Debug: check the word found
 
         if (word) {
-            ExtensionUtils.jumpToWidgetObject(editor, word); // Use Commands to jump to the corresponding widget using the extracted word
+            ExtensionUtils.jumpToWidgetObject(editor, word);
         } else {
             vscode.window.showErrorMessage("No valid word found at the cursor position.");
         }
@@ -247,10 +263,6 @@ export class ExtensionUtils {
 
         const line = editor.document.lineAt(position.line).text; // Get the current line text
         const startChar = position.character; // Current cursor position
-
-        // Display the current line and cursor position in the VSCode window
-        vscode.window.showInformationMessage(`Current line: "${line}"`);
-        vscode.window.showInformationMessage(`Cursor position: ${startChar}`);
 
         // Use a regex to find the word enclosed in quotes
         const wordRegex = /"([^"]*)"/g; // Matches words enclosed in double quotes

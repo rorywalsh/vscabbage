@@ -873,6 +873,30 @@ export class Commands {
     }
 
     /**
+     * 
+     */
+    static openOpcodeReference(context: vscode.ExtensionContext) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showInformationMessage('No active editor');
+            return;
+        }
+
+        const document = editor.document;
+        const position = editor.selection.active;
+        const wordRange = document.getWordRangeAtPosition(position);
+
+        if (!wordRange) {
+            vscode.window.showInformationMessage('No word under cursor');
+            return;
+        }
+
+        const word = document.getText(wordRange);
+        const url = `https://csound.com/manual/opcodes/${word}/`;
+
+        vscode.env.openExternal(vscode.Uri.parse(url));
+    }
+    /**
      * Retrieves the output channel for the extension, initializing it if necessary.
      * @returns The output channel for Cabbage output.
      */
