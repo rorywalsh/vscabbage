@@ -911,13 +911,14 @@ export class Commands {
      * Run make for Daisy
      */
     static makeForDaisy(makeType: string) {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            vscode.window.showErrorMessage('No workspace folder found.');
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            vscode.window.showErrorMessage('No active editor found.');
             return;
         }
 
-        const folderPath = workspaceFolder.uri.fsPath;
+        const fileUri = activeEditor.document.uri;
+        const folderPath = path.dirname(fileUri.fsPath);
         const folderName = path.basename(folderPath);
         const sourceFileName = `${folderName}.cpp`;
         const makefilePath = path.join(folderPath, 'Makefile');
@@ -972,18 +973,15 @@ include $(SYSTEM_FILES_DIR)/Makefile
             fs.writeFileSync(makefilePath, makefileContent);
         }
 
-        // Create and show output channel
         const outputChannel = vscode.window.createOutputChannel('Daisy Make');
         outputChannel.show(true);
         outputChannel.appendLine('Running make...\n');
-
 
         const args = makeType.trim() === '' ? [] : ['-j', makeType.trim()];
         const makeProcess = cp.spawn('make', args, { cwd: folderPath });
 
         makeProcess.stdout.on('data', (data) => {
             outputChannel.append(data.toString());
-
         });
 
         makeProcess.stderr.on('data', (data) => {
@@ -992,14 +990,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
         });
 
         makeProcess.on('close', (code) => {
-
             if (code === 0) {
-                outputChannel.appendLine('\Make completed successfully!');
+                outputChannel.appendLine('\nMake completed successfully!');
             } else {
                 outputChannel.appendLine(`\nMake failed with exit code ${code}`);
             }
         });
     }
+
 
     /**
      * Export instrument
