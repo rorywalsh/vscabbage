@@ -558,7 +558,7 @@ export class Commands {
                 `--startTestServer=false`
             ], {});
 
-            this.vscodeOutputChannel.clear();
+            // this.vscodeOutputChannel.clear();
             process.on('error', (err) => {
                 this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
                 this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
