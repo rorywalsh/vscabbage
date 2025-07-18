@@ -4,15 +4,17 @@ REPO_URL="https://github.com/rorywalsh/cabbage3"
 REPO_NAME="cabbage3-minimal"
 CABBAGE_BRANCH="develop"
 VS_CABBAGE_BRANCH="main"
-CHANGELOG_FILE="changelog.md"
+CHANGELOG_FILE="CHANGELOG.md"
 TEMP_FILE=$(mktemp)
 
-# Initialize changelog if it doesn't exist
+# Initialize changelog with optimized table format
 if [ ! -f "$CHANGELOG_FILE" ]; then
-    echo "# Cabbage3 (develop) and vscabbage (main) Combined Changelog" > "$CHANGELOG_FILE"
-    echo "" >> "$CHANGELOG_FILE"
-    echo "| Message | Repo | Date | Commit |" >> "$CHANGELOG_FILE"
-    echo "|---------|------|------|--------|" >> "$CHANGELOG_FILE"
+    cat > "$CHANGELOG_FILE" <<EOF
+# Cabbage3 (develop) and vscabbage (main) Combined Changelog
+
+| Message                                | Repo      | Date       | Commit                            |
+|----------------------------------------|-----------|------------|-----------------------------------|
+EOF
 fi
 
 echo "Cloning $REPO_URL (branch: $CABBAGE_BRANCH)..."
@@ -25,8 +27,8 @@ git clone --branch "$CABBAGE_BRANCH" --depth=100 "$REPO_URL" "$REPO_NAME" >/dev/
 # Function to extract last known commit hash from changelog
 get_last_hash() {
     local repo=$1
-    # Get the first commit hash for this repo from the table (4th column)
-    awk -v repo="$repo" -F '|' '$3 == repo {print $4; exit}' "$CHANGELOG_FILE" 2>/dev/null | tr -d ' '
+    # Get the most recent commit hash for this repo from the table
+    awk -v repo="$repo" -F '|' '$3 == repo {gsub(/ /, "", $4); print $4; exit}' "$CHANGELOG_FILE" 2>/dev/null
 }
 
 # Get last known commits
@@ -37,7 +39,7 @@ echo "Last known commits:"
 echo "  cabbage3 (develop): ${LAST_CABBAGE:-None}"
 echo "  vscabbage (main): ${LAST_VSCABBAGE:-None}"
 
-# Function to collect commits with their dates
+# Function to collect commits with proper date sorting
 collect_commits() {
     local repo_name=$1
     local repo_path=$2
@@ -46,34 +48,34 @@ collect_commits() {
     
     (
         cd "$repo_path" || exit 1
-        # Ensure we're on the correct branch
         git checkout "$branch" >/dev/null 2>&1
         git pull origin "$branch" >/dev/null 2>&1
         
         local range="HEAD"
         [ -n "$last_hash" ] && range="$last_hash..HEAD"
         
-        git log "$range" --pretty=format:"%ad %H" --date=short --no-merges | while read -r date hash; do
+        # Get commits with Unix timestamp for accurate sorting
+        git log "$range" --pretty=format:"%at %H %ad" --date=short --no-merges | while read -r ts hash date; do
             local msg=$(git show -s --format=%s "$hash")
-            # Output fields in correct order: msg repo date hash
-            printf "%s\t%s\t%s\t%s\n" "$msg" "$repo_name" "$date" "$hash"
+            # Output: timestamp|message|repo|date|hash
+            printf "%s|%s|%s|%s|%s\n" "$ts" "$msg" "$repo_name" "$date" "$hash"
         done
     )
 }
 
-# Collect all new commits with dates for sorting
+# Collect all new commits with proper timestamp
 echo -e "\nCollecting commits from both repositories..."
 {
     collect_commits "cabbage3" "$REPO_NAME" "$LAST_CABBAGE" "$CABBAGE_BRANCH"
     collect_commits "vscabbage" "." "$LAST_VSCABBAGE" "$VS_CABBAGE_BRANCH"
 } > "$TEMP_FILE.commits"
 
-# Sort all commits by date (newest first) and format as markdown table rows
-sort -r -k3 "$TEMP_FILE.commits" | while IFS=$'\t' read -r msg repo date hash; do
-    # Clean the message (replace pipes with dashes and truncate to 100 chars)
-    clean_msg=$(echo "$msg" | sed 's/|/-/g' | cut -c 1-100)
+# Sort by timestamp (newest first) and format as markdown table
+sort -t'|' -k1,1nr "$TEMP_FILE.commits" | while IFS='|' read -r ts msg repo date hash; do
+    # Clean and format the message (replace pipes, truncate to 60 chars)
+    clean_msg=$(echo "$msg" | sed 's/|/-/g' | cut -c 1-60)
     # Format into table columns
-    printf "| %-100s | %-9s | %-10s | %-40s |\n" "$clean_msg" "$repo" "$date" "$hash"
+    printf "| %-60s | %-9s | %-10s | %-40s |\n" "$clean_msg" "$repo" "$date" "$hash"
 done > "$TEMP_FILE"
 
 # Count new commits
@@ -92,23 +94,18 @@ echo -e "\n✨ Found $NEW_COMMITS new commits"
 echo -e "\nUpdating $CHANGELOG_FILE..."
 {
     # Keep the header
-    head -n 4 "$CHANGELOG_FILE" 2>/dev/null || {
-        echo "#Combined Change Log for Cabbage and vscabbage"
-        echo ""
-        echo "| Message | Repo | Date | Commit |"
-        echo "|---------|------|------|--------|"
-    }
+    head -n 3 "$CHANGELOG_FILE" 2>/dev/null
     
     # Add new commits
     cat "$TEMP_FILE"
     
     # Add old commits (excluding header lines)
-    tail -n +5 "$CHANGELOG_FILE" 2>/dev/null | grep "^|" || true
+    tail -n +4 "$CHANGELOG_FILE" 2>/dev/null | grep "^|" || true
 } > "$CHANGELOG_FILE.tmp" && mv "$CHANGELOG_FILE.tmp" "$CHANGELOG_FILE"
 
 # Clean up
 rm -f "$TEMP_FILE" "$TEMP_FILE.commits"
 rm -rf "$REPO_NAME"
 
-echo -e "\n✅ Changelog updated successfully!"
+echo -e "\n✅ Changelog updated with commits sorted by date (newest first)!"
 echo "You can view it with: less $CHANGELOG_FILE"
