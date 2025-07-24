@@ -94,7 +94,7 @@ echo -e "\n✨ Found $NEW_COMMITS new commits"
 echo -e "\nUpdating $CHANGELOG_FILE..."
 {
     # Keep the header
-    head -n 3 "$CHANGELOG_FILE" 2>/dev/null
+    head -n 4 "$CHANGELOG_FILE" 2>/dev/null
     
     # Add new commits
     cat "$TEMP_FILE"
