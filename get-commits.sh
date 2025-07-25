@@ -62,6 +62,7 @@ collect_commits() {
             if [[ "$msg" == *"bump"*"version"* ]] || 
                [[ "$msg" == *"update"*"changelog"* ]] ||
                [[ "$msg" == *"bumping version"* ]] ||
+               [[ "$msg" == *"triggering build"* ]] ||
                [[ "$msg" == *"updating changelog"* ]]; then
                 continue
             fi
