@@ -20,7 +20,7 @@ fi
 echo "Cloning $REPO_URL (branch: $CABBAGE_BRANCH)..."
 [ -d "$REPO_NAME" ] && rm -rf "$REPO_NAME"
 git clone --branch "$CABBAGE_BRANCH" --depth=100 "$REPO_URL" "$REPO_NAME" >/dev/null 2>&1 || {
-    echo "❌ Failed to clone repository"
+    echo "Failed to clone repository"
     exit 1
 }
 
@@ -39,7 +39,7 @@ echo "Last known commits:"
 echo "  cabbage3 (develop): ${LAST_CABBAGE:-None}"
 echo "  vscabbage (main): ${LAST_VSCABBAGE:-None}"
 
-# Function to collect commits with proper date sorting
+# Function to collect commits with proper date sorting and filtering
 collect_commits() {
     local repo_name=$1
     local repo_path=$2
@@ -57,6 +57,15 @@ collect_commits() {
         # Get commits with Unix timestamp for accurate sorting
         git log "$range" --pretty=format:"%at %H %ad" --date=short --no-merges | while read -r ts hash date; do
             local msg=$(git show -s --format=%s "$hash")
+            
+            # Skip version bump and changelog update commits
+            if [[ "$msg" == *"bump"*"version"* ]] || 
+               [[ "$msg" == *"update"*"changelog"* ]] ||
+               [[ "$msg" == *"bumping version"* ]] ||
+               [[ "$msg" == *"updating changelog"* ]]; then
+                continue
+            fi
+            
             # Output: timestamp|message|repo|date|hash
             printf "%s|%s|%s|%s|%s\n" "$ts" "$msg" "$repo_name" "$date" "$hash"
         done
@@ -82,13 +91,13 @@ done > "$TEMP_FILE"
 NEW_COMMITS=$(grep -c "^|" "$TEMP_FILE" || echo 0)
 
 if [ "$NEW_COMMITS" -eq 0 ]; then
-    echo -e "\n✅ No new commits found."
+    echo -e "\n✅ No new commits found (after filtering)."
     rm -f "$TEMP_FILE" "$TEMP_FILE.commits"
     rm -rf "$REPO_NAME"
     exit 0
 fi
 
-echo -e "\n✨ Found $NEW_COMMITS new commits"
+echo -e "\n✨ Found $NEW_COMMITS new commits (after filtering)"
 
 # Update changelog
 echo -e "\nUpdating $CHANGELOG_FILE..."
@@ -107,5 +116,5 @@ echo -e "\nUpdating $CHANGELOG_FILE..."
 rm -f "$TEMP_FILE" "$TEMP_FILE.commits"
 rm -rf "$REPO_NAME"
 
-echo -e "\n✅ Changelog updated with commits sorted by date (newest first)!"
+echo -e "\nChangelog updated with commits sorted by date (newest first)!"
 echo "You can view it with: less $CHANGELOG_FILE"
