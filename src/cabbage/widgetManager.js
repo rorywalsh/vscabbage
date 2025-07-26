@@ -116,12 +116,15 @@ export class WidgetManager {
 
         // Apply styles and return the widget properties
         if (vscode) {
-            setTimeout(WidgetManager.updateWidgetStyles(widgetDiv, widget.props), 500);
+            // Use requestAnimationFrame to ensure DOM is ready, then apply styles
+            requestAnimationFrame(() => {
+                WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+            });
         }
-        else{
+        else {
             WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
         }
-        
+
         return widget.props;
     }
 
@@ -287,11 +290,9 @@ export class WidgetManager {
 
         // Apply position and size based on widget properties
         if (typeof props?.bounds === 'object' && props.bounds !== null) {
-            // if (vscode) {
-            //     setTimeout(()=>{
-            //         widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-            //     }, 500)                
-            // }
+            if (vscode) {
+                widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+            }
             widgetDiv.style.width = props.bounds.width + 'px';
             widgetDiv.style.height = props.bounds.height + 'px';
             // widgetDiv.style.top = props.bounds.top;
