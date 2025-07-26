@@ -453,29 +453,38 @@ jobs:
       - name: Generate Release Notes
         id: changelog
         run: |
-          # Get the date of the previous tag
-          PREV_DATE=$(git log -1 --format=%ai $PREVIOUS_TAG 2>/dev/null || echo "1970-01-01")
+          # Get the date of the previous tag (formatted as YYYY-MM-DD)
+          PREV_DATE=$(git log -1 --format=%ai $PREVIOUS_TAG | cut -d' ' -f1 2>/dev/null || echo "1970-01-01")
+          echo "Filtering changes since: $PREV_DATE"
           
-          # Extract relevant changelog entries since last release
+          # Extract entries since last release from both repos
           RELEASE_NOTES=$(awk -F'|' -v prev_date="$PREV_DATE" '
           BEGIN {
             print "## What'\''s Changed Since '$PREVIOUS_TAG'\n"
+            count = 0
           }
-          /^#/ { next }
-          /vscabbage/ {
-            entry_date = $3
-            gsub(/^[ \t]+|[ \t]+$/, "", entry_date)
-            # Compare dates (format: YYYY-MM-DD)
-            if (entry_date >= prev_date) {
-              gsub(/^[ \t]+|[ \t]+$/, "", $1)
-              printf "• %s (%s)\n", $1, entry_date
+          NR >= 5 {  # Only process from line 5 onwards
+            repo = $2
+            gsub(/ /, "", repo)  # Remove all spaces from repo name
+            if (repo == "vscabbage" || repo == "cabbage3") {
+              date = $3
+              gsub(/ /, "", date)  # Clean date
+              if (date >= prev_date) {
+                message = $1
+                gsub(/^ +| +$/, "", message)  # Trim spaces
+                if (message != "") {
+                  printf "• [%s] %s (%s)\n", repo, message, date
+                  count++
+                }
+              }
             }
+          }
+          END {
+            if (count == 0) print "• Maintenance release with under-the-hood improvements"
           }' CHANGELOG.md)
 
-          if [ -z "$RELEASE_NOTES" ]; then
-            RELEASE_NOTES="• Maintenance release with under-the-hood improvements"
-          fi
-
+          echo "Generated release notes:"
+          echo "$RELEASE_NOTES"
           echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
           echo "$RELEASE_NOTES" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
