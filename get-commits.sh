@@ -63,6 +63,7 @@ collect_commits() {
                [[ "$msg" == *"update"*"changelog"* ]] ||
                [[ "$msg" == *"bumping version"* ]] ||
                [[ "$msg" == *"triggering build"* ]] ||
+               [[ "$msg" == *"retriggering"* ]] ||
                [[ "$msg" == *"updating changelog"* ]]; then
                 continue
             fi
