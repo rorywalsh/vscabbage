@@ -119,3 +119,5 @@ rm -rf "$REPO_NAME"
 
 echo -e "\nChangelog updated with commits sorted by date (newest first)!"
 echo "You can view it with: less $CHANGELOG_FILE"
+
+git add CHANGELOG.md
