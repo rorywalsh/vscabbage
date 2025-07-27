@@ -2,6 +2,257 @@
 
 | Message                                | Repo      | Date       | Commit                            |
 |----------------------------------------|-----------|------------|------------------------------------|
+| Sending SIGKILL to Cabbager server if SIGTERM is not handled | vscabbage | 2025-07-27 | 2f1e65f6b246d07ea873694b4454b99afa865f4e |
+| rebuilding                                                   | vscabbage | 2025-07-26 | e2eb28521ce65662db74cdb4c6c695dfec492e18 |
+| adding further checks when process is killed                 | cabbage3  | 2025-07-26 | eea6616da077c464dc634e7688b8d809d3281794 |
+| fixing problems with release notes                           | vscabbage | 2025-07-26 | d1eb78e12f067790689986be188429373d21bb8d |
+| fixing issues with CI                                        | vscabbage | 2025-07-25 | cdd3c2f8c06afabff51eec7a7682dc781e90efb6 |
+| fixing issue with finding correct number of input channels   | cabbage3  | 2025-07-24 | 2c625ad36aea691f973be4ee03bdfdda5639eda1 |
+| adding changelog                                             | vscabbage | 2025-07-18 | f771c0231fb20d0cf1b56bf833dc46eb20368386 |
+| adding change log and get-commits.sh script                  | vscabbage | 2025-07-18 | 94f112fdcaac66506c75924cc4816bfd08464892 |
+| adding x86_64 build                                          | cabbage3  | 2025-07-18 | af317309f212c826419718a2c80c20c8f39cd109 |
+| fixing build error in CabbageApp                             | cabbage3  | 2025-07-14 | d94229ec48c4cca616ce2926528010f425da080f |
+| adding check for GITHUB_ACTIONS                              | cabbage3  | 2025-07-08 | bbdadf853c96cdf751b3041b85d6d97c1550bfb6 |
+| adding mock process routine in CI mode                       | cabbage3  | 2025-07-08 | c35ceb994a1c30235fbf56e8e07a9d5301ab8090 |
+| another fix for CI paths                                     | cabbage3  | 2025-07-07 | 22539fe20c5d7e1552fbeb32b3cd1565a9892e27 |
+| another fix for CI paths                                     | cabbage3  | 2025-07-07 | f5668ed500534410b9ac259985b18b85f6980788 |
+| fixing pth for CI to js widgets                              | cabbage3  | 2025-07-07 | eb67c90f92db425bf2b5f5248c7e4a4930362f95 |
+| verifiying widget JS files                                   | cabbage3  | 2025-07-07 | 6ce56059390bf6b3efdd3a5b586c031d14e0dd36 |
+| adding vscabbage for tests                                   | cabbage3  | 2025-07-07 | a08a9254681d8d0b3dc5a203f02c71ec26c2f3ba |
+| fixing GH script                                             | cabbage3  | 2025-07-07 | 7841b776f7e17dc90430ae7f01488dc8fda00f4c |
+| fixing typo, and adding test to CI                           | cabbage3  | 2025-07-07 | a03a7e2c9c2e056cbd1f353a61aa0f03309f05c5 |
+| fixing typo, and adding test to CI                           | cabbage3  | 2025-07-07 | db9caf142175f920788d9c803657143e77825ce0 |
+| adding unit testing for various aspects of the Cabbage serve | cabbage3  | 2025-07-06 | 52ee951570aee3d8b75da10116b8eebb3369dfec |
+| fixing threading issue on start/stop                         | cabbage3  | 2025-07-03 | f1342e99cf8d6a4069bc29ce60ade11a1bd53c77 |
+| adding context help for csound7 and fixing go to widget defi | vscabbage | 2025-06-22 | bc7d65fbaf517f2c8d7d6b6a4be2bc116681c4f8 |
+| fixed issues on windows with webview not showing correctly - | vscabbage | 2025-06-20 | 994aee314577a78ddb76baffc582ff1937cf0199 |
+| fixing start/stop to reduce crashes                          | cabbage3  | 2025-06-20 | dcb21d656ca1261ba8664bd0cd387738df6918ea |
+| added option to clear console on each compile, and preventin | vscabbage | 2025-06-19 | 1ff7238afdd8f9ec7fdd03c6702c14792d80821f |
+| tidying up some debug statements                             | cabbage3  | 2025-06-19 | e8adb685d581887b0814c79821609f358a6ebdc2 |
+| fixing threading issue, adding daisy board command to comman | vscabbage | 2025-06-18 | 971f274803ec4f1c3ad22083580e00338e0b04ff |
+| fixing widget editor issue                                   | vscabbage | 2025-06-18 | a59afe14d1b6a5d3d4e0cd9e353d0b6cf3c39cf1 |
+| fixing binary location on mac                                | vscabbage | 2025-06-17 | a611a9b8e77e3d8b2edae764e4ec6470c100077c |
+| removing extra call to JS frontend when parameters are updat | vscabbage | 2025-06-17 | b98d1db9bc28889d1db0597ecf78a453e7f76550 |
+| removing extra call to update cabbage widgets via JS interfa | cabbage3  | 2025-06-17 | dbaec24f446460bcd972a056da45aac4864cb15e |
+|  Finxg path issue with binaries on Windows                   | vscabbage | 2025-06-09 | 9b07661e0e7950a2c8efcf2c191ea4a098e581c8 |
+| fixing webview logic                                         | cabbage3  | 2025-06-09 | 5457879f63859c606438a98e8c5c775e6141cdd3 |
+| fixing positioning issue of widgets when run in plugin vs vs | vscabbage | 2025-06-06 | 97ab7856741bcbb60a9883f744c114b4b852b04f |
+| fixing info.plist issue in mac plugin export                 | vscabbage | 2025-06-06 | b4531c56bf58d16d4abae29801094867b0bd1e37 |
+| fixing export path for mac installer                         | vscabbage | 2025-06-06 | 5289b213e0db5bbc658dad0837097ca953a5f5ad |
+| fixing parameter syncing between plugin and host             | cabbage3  | 2025-06-05 | ab27aec30f756936d3ae962c90c4c3431278ac49 |
+| triggering new build                                         | vscabbage | 2025-06-03 | e5c0eee1f4200014a965cff6d527af7e65fcb0bb |
+| fixing typo in mac build for audio settings                  | cabbage3  | 2025-06-03 | 5037459629cbc3bbc5023394e3020ac9cf3427c8 |
+| adding support on windows for single file vst3 until issue w | vscabbage | 2025-06-03 | d5fc79d1b977b75c8119f6dbf060a52850e4cba6 |
+| looking into issue with single file plugin exports windows ( | vscabbage | 2025-06-03 | bbbeda96a1e5fb683dbc30a0e09b9e1572c2b1d1 |
+| making sure web panel only launches when Cabbage server is s | vscabbage | 2025-05-29 | 117550a349a3f9f978733011c0a8d2c38a080f72 |
+| triggering new build for driver selection                    | vscabbage | 2025-05-23 | b9f24746f64f87c622ec16385724a1333b3c3327 |
+| Update readme.md                                             | vscabbage | 2025-05-23 | 40182627b4e3813e442fbe8bd9f595648b1d8f0a |
+| adding permissions update for CabbageApp                     | vscabbage | 2025-05-18 | 7bd53b2c4250267538ea74ff5f719581ab9bfbeb |
+| changing CabageBundle folder to better named CabbageBinaries | vscabbage | 2025-05-18 | 7d84391b010aa484f528f477ed218fa82facbd2a |
+| adding verification step for macos                           | vscabbage | 2025-05-18 | faee42d7bd0247fbe1827d116a3bd525add23ced |
+| adding verification step for macos                           | vscabbage | 2025-05-18 | df6719dfdecfceaedab488cea522f60a833cac76 |
+| adding verification step for macos                           | vscabbage | 2025-05-18 | be30e97fdf3b909491e4d8081fe9e4383a2779db |
+| adding verification step for macos                           | vscabbage | 2025-05-18 | eab34bb931ddb8ea1bf20599f448e73cd11c89b1 |
+| adding AU to binaries                                        | vscabbage | 2025-05-18 | e46b73c73f7b3fa4c09c07445f5816195d024bae |
+| another path fix for CI script                               | vscabbage | 2025-05-18 | bc601e3fafdcffeb40a0d2bcd581bb35a01940ce |
+| fixing path to cabbage server for it's no longer a bundle    | vscabbage | 2025-05-18 | f5710d6b68e16b75c4da458a4e248474f6d6a20f |
+| simplifying the initial setup between vscode and Cabbage ser | vscabbage | 2025-05-16 | fd3e2c764ac811a53669db909f3c724e3f09f56c |
+| fixing some issues with clap features for plugin builds      | cabbage3  | 2025-05-16 | 6dc958a299eeb292b80b7cd09120e2af100aa6c6 |
+| adding cd to cabbage3 dir in CI script (run_build)           | vscabbage | 2025-05-14 | 56a4581cd2c29c30c6b9619338fd66389bb9a220 |
+| adding auv2 manfacturer name                                 | cabbage3  | 2025-05-14 | 4249c62a2f562c5337d3b62b7271d429f9296ed7 |
+| adding auv2 manfacturer name                                 | cabbage3  | 2025-05-14 | a089887de86f85b236d73a20dfdac53240424c2a |
+| add catches for choc::file::loadFileAsString() calls         | cabbage3  | 2025-05-14 | 3de98110f446226615ae4b1d432b86a7ab7fa379 |
+| addressing CI build error when tests are run                 | cabbage3  | 2025-05-14 | fda80cd870639e59651593be3eb8b63990bae98c |
+| Update cabbage3.yaml                                         | cabbage3  | 2025-05-14 | 3918f9b64ed55380a68712724f3a1c0f02c52ce5 |
+| Update README.md                                             | cabbage3  | 2025-05-14 | a5ce3bbf8875139631d5c2bf70f4421dd630c15d |
+| fixing server commands                                       | vscabbage | 2025-05-14 | 86658b79029a79c75f4a3a16d6fa57eaa9b25222 |
+| moving to server logic                                       | vscabbage | 2025-05-14 | a520983308135139420acfd59ac32b1288326702 |
+| creating new branch for srever experiment                    | vscabbage | 2025-05-14 | 797c6a1e0a2343aba891e4dda5adbc7335400ec8 |
+| adding more debug logic                                      | cabbage3  | 2025-05-01 | 9330ad8950b2d823b2ffdfffa927e4b219e3d419 |
+| adding more debug logic                                      | vscabbage | 2025-05-01 | e27da0a62e3b465ffddb7b4b86c52d18db1bc232 |
+| adding debug mode for vscode, still work to do               | vscabbage | 2025-04-30 | 46a1a3f29bb04ad36b4f6ccdf382a06dcb7e3ec5 |
+| push latest work on debug mode for CabbageApp                | cabbage3  | 2025-04-30 | dd05cd59483ce9a934de142d92da5e611433dba9 |
+| fixing path issue in CI builds                               | cabbage3  | 2025-04-29 | f14b1dcdeaf903edf9f18b44147da395f8b107aa |
+| adding midi test to command line test app                    | cabbage3  | 2025-04-07 | fad4c77f2e2da26775011643ca15211b5714d827 |
+| adding support for MIDI note from web frontend               | cabbage3  | 2025-04-07 | 646d430b80362038472d26f69662b7b2e3265c22 |
+| adding test csds, and new WebSocketTestServer class          | cabbage3  | 2025-04-07 | 85c4276570f6fb5ac39c71da91082e394171c192 |
+| fixing typo for CI build                                     | cabbage3  | 2025-04-06 | 17837338bc6d351f5f860ec011d69887d2983205 |
+| fixing build type for Windows CI build                       | cabbage3  | 2025-04-06 | d79ae9e2b88cafd3c8eb7a60783476ce1c484d2a |
+| removing standalone plugin build due to windows CI issue     | cabbage3  | 2025-04-06 | bd9d81b79ab5caf2d160ba7d3cd22efda6408d81 |
+| fixing some windows build issues                             | cabbage3  | 2025-04-05 | 6551657b20a318fe07c2db4b0619ae5abdf761a2 |
+| cleaning up Cmake for building all all projects              | cabbage3  | 2025-04-04 | 0f66b9a9b239b7606fa9cb4d53201f00bc7f042e |
+| continuing the move to lattice..                             | cabbage3  | 2025-03-31 | 7d04f60671a1f3694f768c1a08af4499ebbb6fda |
+| Update readme.md                                             | vscabbage | 2025-03-29 | af6ad34d9462e26ac6a579d975c15b451c9a51a7 |
+| triggering new build                                         | vscabbage | 2025-03-25 | 703f7782fc2eda972c3c735f1cf75426a850933e |
+| Updating cabbage.js                                          | vscabbage | 2025-03-18 | 12ea64be1850f765a36cf377330b16ad8e977a55 |
+| renaming before merging                                      | cabbage3  | 2025-03-15 | e6c325bcd7cc1ab92cd90527ac43ba1f24561da1 |
+| adding service app build                                     | cabbage3  | 2025-03-14 | 9347c8cd564fd43d859e4ce237e15c42eaaf5f19 |
+| adding support for note events                               | cabbage3  | 2025-03-13 | f4d0abf01ced240539ad693116972a2098e31449 |
+| adding some utilities, a live server, and other bits and pie | cabbage3  | 2025-03-12 | 8712218fe558658b646e0a2808f54b60f243e353 |
+| still working through clap wrapper                           | cabbage3  | 2025-03-11 | 6a68887e11498afc912fae7f59c3bb0211c1b34d |
+| still working on clap wrapper                                | cabbage3  | 2025-03-10 | 1363b37b52b904a49b084cf22d8b07f384fb393d |
+| making audio driver option visible in command palette        | vscabbage | 2025-03-07 | e9a87d156d4324a3db94529bf9ae609fec72624e |
+| adding option to bundle resources into rxported plugin rathe | vscabbage | 2025-03-07 | 2ae21c1099fac9d5d79918eae3e0de37f22c1f22 |
+| adding stopAudio call when exiting app from VS_Code          | vscabbage | 2025-03-06 | 67996ef52e4ea9142ac96bcd8768268d0124822e |
+| fixing path in build script                                  | vscabbage | 2025-03-05 | 3ce4db79b0a41348416864868bd8ef21ad17a7cc |
+| added audio driver selection on Windows to handle ASIO       | vscabbage | 2025-03-05 | 16a5ecf8a826e590e1cf017642f2ec518c99f445 |
+| fixing buffer size issue                                     | vscabbage | 2025-03-05 | 70a879fa91dd9460b710120b380bb80048cb7b0e |
+| disabling dbg for commands.ts (no_build)                     | vscabbage | 2025-02-26 | 109147a8b7bef9ec7f0ab3e234f93ec0c553de20 |
+| tidying up some websocket code (no_build)                    | vscabbage | 2025-02-19 | 919e20ca20f8353e84e4b65890a0228f9bab106c |
+| addressing issues with websockets connection on Linux (no_bu | vscabbage | 2025-02-19 | c64f9be049ea4d58850669e241d6833554622f74 |
+| Update keyboard.js                                           | vscabbage | 2025-02-18 | e60834d532d72755a2b128d36e2db8c2c307fa29 |
+| fixing issue of ports not being freed after compiling        | vscabbage | 2025-02-14 | 26452fca7c9a099552a3a34f0b316d56cd0ddbbd |
+| adding test.html to show how to use cabbage widget without c | vscabbage | 2025-01-20 | ddd54035333a2b2c7422567c74b96347f221b9d1 |
+| rebuilding                                                   | vscabbage | 2025-01-20 | eb5b45ae152db30615c2e580910e3f114739d85e |
+| adding htmlElements dir                                      | vscabbage | 2025-01-19 | 1a778486630e43d3b84f93077e47d7091724dca3 |
+| adding reset CabbageApp settings file command                | vscabbage | 2025-01-16 | 76c47814c969fc5124be97b201bf0050f1df489e |
+| adding support for alpha hex colours - adding array varient  | vscabbage | 2025-01-15 | c579a01de3766bc31964818e3228108ab4d0cd2e |
+| adding more debug messages when listening for incoming messa | vscabbage | 2025-01-13 | cea0b8252d84747921b6a4898b64d7c0720c6ab3 |
+| adding more logging to cabbageapp                            | vscabbage | 2025-01-13 | 2757b4b1d725d1dc8ef6a03faba0482d07372adf |
+| adding more debug messages when listening for incoming messa | vscabbage | 2025-01-13 | 2745275df722ba984ba4a3473fb5bc9b757bb4a5 |
+| fixing host automation for parameters in plugins             | vscabbage | 2025-01-12 | 30e330734e59ea972dabc2b14f8f0c78d685f5c6 |
+| attempted to fix issue with websocket connection timing      | vscabbage | 2025-01-12 | 9700758642474bde2a9bdf6abec2f548c65b911c |
+| fixing typo                                                  | vscabbage | 2025-01-11 | bab7325b911c54ad483c786e2cc4d51b910d7d03 |
+| waiting for setupWebSocketServer()                           | vscabbage | 2025-01-11 | eba4659f507c7086eb9bcf4bc867db94ba790df6 |
+| adding more verbose logging to compile method                | vscabbage | 2025-01-11 | 5a8f5b4986820d9f635d10311e1cd92ed6301914 |
+| adding debug logging to websocket connection routines        | vscabbage | 2025-01-11 | 36af76bbcfaea6e26ce23b19c050434715d32c48 |
+| adding debug messages to websocket connection routines       | vscabbage | 2025-01-11 | 9d79bc0b22c4c677ddfde610c98b98334446182a |
+| re-ordering calls to onDidSave and waitForWebSocket          | vscabbage | 2025-01-11 | 3e1c3acb88048d5b7582f4e201a2d48d716a9572 |
+| reordered vscode parameters in cabbage.js                    | vscabbage | 2025-01-10 | b365ab17e120f912d37a7fedd1ebe9cf187ca80f |
+| fixing issue with versioning for package on macos            | vscabbage | 2025-01-10 | aa65b368541a637a69f41f00b9d30e74a769d48e |
+| fixing windows builds error                                  | vscabbage | 2025-01-09 | 638b98e8c71745cf2529bb5542d57167396b4290 |
+| adding verify Csound install for windows runner (run_build)  | vscabbage | 2025-01-09 | 35eead375874885f083a50bb12779a42c6f4ef35 |
+| adding verify Csound install for windows runner (run_build)  | vscabbage | 2025-01-09 | 2e51aad4d2af6b0e1876358eb66f949c4b79e59a |
+| adding verify Csound install for windows runner (run_build)  | vscabbage | 2025-01-09 | 55d7875121baa2cbc87bd2e979e988634d7b8fb4 |
+| adding verify Csound install for windows runner (run_build)  | vscabbage | 2025-01-09 | 1baffba57f88fa24921125b626a5edf3c473f5c3 |
+| attempting to run windows installer for Csound (run_build)   | vscabbage | 2025-01-09 | 75acee9f6f48b3f9e5f8142643e99992f4e4a941 |
+| fixing github workflow file                                  | vscabbage | 2025-01-08 | d7a6b03d762f3c386a00819e2b02d038340c3f4b |
+| fixing github workflow file                                  | vscabbage | 2025-01-08 | 98319cda10a279853739d142c256398ca417b936 |
+| fixing github workflow file                                  | vscabbage | 2025-01-08 | f4eb5cdb11c36e8bab7a266b4a3107e121384d10 |
+| fixing github workflow file                                  | vscabbage | 2025-01-08 | 8231fd692b331c03a7980fbfb77070e05289c870 |
+| fixing formatting rules for orch                             | vscabbage | 2025-01-08 | 0dc4e7726627977c37520acf48d6c8b035ff3c82 |
+| adding commit message to pre-release candidate               | vscabbage | 2025-01-08 | eef50fd05bf62d17f71f0770bb738aac60b5805f |
+| fixing sendToChannel command (run_build)                     | vscabbage | 2025-01-07 | f38580754a2b96d64f6a2dabfc932b458a3bfa24 |
+| triggering new build (run_build)                             | vscabbage | 2025-01-07 | 5ce26222eb6e3ce936f247c670964fa274e96e0b |
+| fixing typo in GH action (run_build)                         | vscabbage | 2025-01-07 | 4be15bfe2c2422ea44b0886ac35f11d07eb7ba2b |
+| removing automated tag releases in favour of manually doing  | vscabbage | 2025-01-06 | fd333ef9530a934057c9233d95027ba247b72e79 |
+| adding option to override live inputs with file from explore | vscabbage | 2025-01-04 | efb7a5dccc3db1801f92d692028e27b0bde52f2a |
+| adding removal of older prereleases                          | vscabbage | 2025-01-04 | c5d40379fa74977967d33b37f37e013838a8cb76 |
+| testing prerlease push and tag                               | vscabbage | 2025-01-04 | 2fcd21763fa035f1be93c2be0a888ec1ab4c515a |
+| testing prerlease push and tag                               | vscabbage | 2025-01-04 | 6bad398d7d8ce20cac5e3a82800a232ea71a5cc1 |
+| testing prerlease push and tag                               | vscabbage | 2025-01-04 | 94639d1b6c919d314b1c1a7b20f59dbbeb6241aa |
+| testing prerlease push and tag                               | vscabbage | 2025-01-04 | 8af588599233716aaa44c5a4f015087cd5ea6b79 |
+| adding channelConfig to form object                          | vscabbage | 2024-12-21 | d436573e5adf6fa81124f3ad505f73384f180d35 |
+| fixing issues with bogus command                             | vscabbage | 2024-12-18 | 712dd432b7388f97815dc6510d515164c2aa0212 |
+| adding double-click to jump to widget in code fomr editor an | vscabbage | 2024-12-18 | 184020c6d85ebff90e0c4432b4318a9c4f0dee28 |
+| fixing windows CI issues                                     | vscabbage | 2024-12-17 | 4d05a3f11046b1d26bca116eca8c9b26cdc4dbf7 |
+| fixing windows CI issues                                     | vscabbage | 2024-12-17 | efe3b7f9de72af6a5254434cc30294da714d47c5 |
+| fixing windows CI issues                                     | vscabbage | 2024-12-17 | 3e2542a12e09cb65f7f6e494d576588643b698d7 |
+| improved error reporting for processes                       | vscabbage | 2024-12-17 | 4e154fa83e5a1eff0e4b8f948c9a269d75233aa3 |
+| fixing typos in ymal                                         | vscabbage | 2024-12-16 | 0fe6d50eda24a76bf9c0249e8b9b8fb8f4c324da |
+| adding build for windows in gh actions                       | vscabbage | 2024-12-16 | cf76109ca51288c27666126df3c10eeaf22137f6 |
+| updsating csound download link                               | vscabbage | 2024-12-13 | c060158bc5fd2473970de154a11903084f176956 |
+| fixing exporting of resources folder                         | vscabbage | 2024-12-12 | 5e0e0f09158b973d70dc5550f710b739df6fb4c6 |
+| fixing error in extUtils                                     | vscabbage | 2024-12-12 | 2696875545123fbca152cd48b98d8665640eb545 |
+| fixing logic when saving with multiple .csd files open.      | vscabbage | 2024-12-12 | aaa23f75b1fd450c22178ef75453ef40e29c6e58 |
+| moving compile logic out of saved handlers                   | vscabbage | 2024-12-11 | 885c6413e0fbeb1bdd8e354db44cf38ef7744207 |
+| fixing gentable issue                                        | vscabbage | 2024-12-11 | 63fbf20e22d031f6ccbd2450bf3378945063cecd |
+| adding go to defition to ceontext menu, killing processes wh | vscabbage | 2024-12-11 | 3f608921ea00cd3e1e53c04cb4a616494a758596 |
+| fixing issue with nested colour properties                   | vscabbage | 2024-12-10 | b7af5f580974df8fc51d2b71e44e0e1376d78a99 |
+| adding support for dropdown media files in rotary sliders    | vscabbage | 2024-12-10 | a95ba6bab29a7d9f0f304616b906af0f7c60c936 |
+| adding dropdown for media files for widget that have a file  | vscabbage | 2024-12-10 | 37e36a6ca036724e48c6bcc28b7c17bbb0c18e23 |
+| finishing up work on dynamically changing channel names and  | vscabbage | 2024-12-09 | aa66f925acb7a07455279b2963709280f4fbcac6 |
+| adding ignoreFromJSONOutput array in order to exclude certai | vscabbage | 2024-12-06 | d6898ad9fd13763969aca9f3918ac7526b39ce6d |
+| small mo to keyboard widget                                  | vscabbage | 2024-12-05 | 419cdc3acf90b098f5981d182f275340f07f8509 |
+| fixing minor issue with combobox and upating copy script     | vscabbage | 2024-12-05 | bbfac130dd217e03cbf5f470ee6ea08a7153cbbf |
+| fixing issue with keyboard widget                            | vscabbage | 2024-12-04 | 8905a4305e5d35972128b3fd6a717cac0d63956d |
+| adding check for Csound 7 when installing extension.         | vscabbage | 2024-12-04 | 13a41117dcbddfe62c01f5f7df5e050161838fd6 |
+| added dynamic port selection in case choosen port is in use  | vscabbage | 2024-12-03 | 70145020457ba27806e42cdfe9038d2db45f042b |
+| adding signing to all cabbage3 artefacts                     | vscabbage | 2024-12-02 | e3c5d61b57203fd87773d078301968125d34b461 |
+| adding signing to all cabbage3 artefacts                     | vscabbage | 2024-12-02 | 11f63a549f9335c5c243b759990896a45dfdeca4 |
+| adding signing to all cabbage3 artefacts                     | vscabbage | 2024-12-02 | 8f1d3275588bf074240044856ad136e3f6bde5f0 |
+| adding signing to all cabbage3 artefacts                     | vscabbage | 2024-12-02 | 2b70d08e8c9d3b57265bc6b04a1e91fdd2667769 |
+| Update build.yaml                                            | vscabbage | 2024-12-02 | 0928a089215e7f10a6b3af4ab0cd3a39219d0a39 |
+| Update build.yaml paths                                      | vscabbage | 2024-12-02 | da2b928a9f4353903e3ef2b6a1230cd5b84e6748 |
+| Update build.yaml                                            | vscabbage | 2024-12-02 | 06db6f4954c43a0c0e1d59e5b09ca0612d21b363 |
+| updagtin yaml                                                | vscabbage | 2024-12-02 | 468f8e87fdfdcd214ce0279675a20a427cb8a8b2 |
+| Update build.yaml                                            | vscabbage | 2024-12-02 | 3fd7a717d1587f3408be014e6835bc875bb4b7c4 |
+| checking out dev branch of cabbage3                          | vscabbage | 2024-12-01 | a089286a3f599a7325e81eeda8f9d3b16e53c189 |
+| Updating ignore file                                         | vscabbage | 2024-12-01 | b364719581ad8dd4f8577bb52488e5d88d0b3a8c |
+| adding cabbage3 build steps                                  | vscabbage | 2024-12-01 | 22bc176cd08b849db92b3fab2ad6ab4cfb5b7f38 |
+| Update checkbox.js                                           | vscabbage | 2024-11-24 | b7c8492d4a55630f479f0fcf2c420ff896af843f |
+| Update checkbox.js                                           | vscabbage | 2024-11-24 | 76b8b5ffd0539c4fe4d86a17da901ac0e48b1bdd |
+| adding mousedown event to image class                        | vscabbage | 2024-11-20 | 2b56f306f9ea969731d387277aecd81dffd92322 |
+| adding file property to image                                | vscabbage | 2024-11-20 | 29bb3cb525cd3901dc47acae463e54867ff09724 |
+| adding channel support for values to label                   | vscabbage | 2024-11-14 | dc024a5e6dfcc25211f59dea10b5fb84b659d9d7 |
+| updsating issue with form colours after recent coolour objec | vscabbage | 2024-11-14 | a694dbb0417326fb7e720aabd9c9bb121ffb1f46 |
+| adding placeholders for export functions                     | vscabbage | 2024-11-12 | 0cb40c43fd1715d58e0be50429219dcf21b8597b |
+| adding placeholder for exporting instrument function         | vscabbage | 2024-11-12 | e95a5be749d04fe25d5506eb9c7914923191b75c |
+| adding full src tree to extension folder                     | vscabbage | 2024-11-08 | fe51f56a5c04ae1ba36be063d0ffae7cd64b17ed |
+| adding default locations for Cabbage JS source               | vscabbage | 2024-11-08 | 0aaca774e9749715b3fba5e4427f53dcbacb384a |
+| updsating vscode ignore file so to allow inclusion of import | vscabbage | 2024-11-08 | a5a7a9cd77933cc55bd564f1f2077da71ce54103 |
+| adding icon file                                             | vscabbage | 2024-11-08 | b928242459803cfac86b55feebba473202f1a391 |
+| add lisence to source files and specifying node 18 for build | vscabbage | 2024-11-08 | b4eafa1d0e67d557c1252c6a62733415dc4a771c |
+| removing separate install step for vsce tool                 | vscabbage | 2024-11-08 | 92692250565a29e37bb1b07631036b54c4df0a24 |
+| removing global install for vsce tool in npm                 | vscabbage | 2024-11-08 | b2c3bf60620bc1875543e97ac45382db16798b94 |
+| adding CI build                                              | vscabbage | 2024-11-08 | e9836be19cf016674ec63de1d695fb5fb3820e56 |
+| removing dist dir from repo                                  | vscabbage | 2024-11-08 | a128685cc8cf0c9055309e8bd7d627683fbd5fa3 |
+| adding dist folder to .gitignore                             | vscabbage | 2024-11-08 | 596f021e904135ec7fd74149aecdcd88250af3a6 |
+| adding colour property to font objects for remaining widgets | vscabbage | 2024-11-01 | 9665fec5a0452a056dc6349e8110b3770c29da80 |
+| adding colour property to font object in csoundoutput        | vscabbage | 2024-11-01 | 3337a5366bbb7855120e1b21cf5560c1c7a59c49 |
+| adding colour property to font object in csoundoutput        | vscabbage | 2024-11-01 | 4f0c548072ab3583f735dd7eb5bb4430a4139dfd |
+| adding colour property to font object in combobox            | vscabbage | 2024-11-01 | 44a1f10f0fc7d18a2a7a3b3eb035e03d73de266f |
+| add opacity to label                                         | vscabbage | 2024-10-31 | 7ec6118f63e4d7254403b162d786ab24c107d546 |
+| upsating settings class so that it creates a new settins fil | vscabbage | 2024-10-29 | 003d7323c6456e0ad578e3ddfefd309b5eb85b2f |
+| adding two new commands for selected Cabbager src path, and  | vscabbage | 2024-10-28 | 281241fa547965e62ef3bc5c088d337903329ce2 |
+| adding colour to font objects for widgets                    | vscabbage | 2024-10-27 | 219e923866d6ba290c41be64d528ed7dcd106dff |
+| Fix popup positioning logic in sliders                       | vscabbage | 2024-10-27 | 973673cb05ce60446550bb7558776a6f9a2d50ec |
+| Refactor WebSocket handling: Implement custom promise for co | vscabbage | 2024-10-25 | d242c1f9c84eb062c1859a92e879aea16a60737d |
+| change debug setting                                         | vscabbage | 2024-10-25 | 282bb59ddbaf0c2b8c510beabd2bf41afeb3577d |
+| fixing some linter issues with != instead of !==             | vscabbage | 2024-10-25 | dc86e4f447482d7dde295d3da133b88fb9c88f01 |
+| Enhance text interaction in numberSlider widget: disable tex | vscabbage | 2024-10-24 | 6d767b9d16e2f6fd4dea31d6f09c197ba70271d4 |
+| fixing semicolon linting error in form.js                    | vscabbage | 2024-10-24 | 685b0399a2a58f4718a633d9802aa4917c71110c |
+| fixing option button issues                                  | vscabbage | 2024-10-19 | 98dd35e41691c6695881f5ecb959407c63e69871 |
+| removing machine type from settings - doesn't work as I had  | vscabbage | 2024-10-16 | 70847f0497724c06fcde4fd6390ea5211b13aaa0 |
+| finishing settings update                                    | vscabbage | 2024-10-16 | 0670719018a249ef6b0b9b6d42e9b6b0187ebabf |
+| adding midi and audio IO to settings                         | vscabbage | 2024-10-16 | 6dfbb26d2591971609bbe07b4f68bda1447d51d9 |
+| adding quickview setting confis for sr, buffer sizes, audio  | vscabbage | 2024-10-16 | 6d5a495a8267a745f8d9347e3d7e032ca29690b7 |
+| adding Cabbage to statis bar - fixing popup value for slider | vscabbage | 2024-10-13 | c64b7cdd4c44fb46e6b85e71a88456b6676a4090 |
+| fixing form issue                                            | vscabbage | 2024-10-13 | 94274c5cc35e0ecde2284046a6cb355c63f69f8a |
+| fixing duplicate form element                                | vscabbage | 2024-10-13 | 6af85330345d8f00807983c22031c98dce29d623 |
+| adding loading of extension whenever a .csd file is loaded,  | vscabbage | 2024-10-12 | 82a15dba3b18167db2a9cfcaa00cd8cb27f9ca4e |
+| fixing combobox dropdown menu, and some formatting issues wh | vscabbage | 2024-10-11 | 7838303326404c42a7d098efd6eb4626db1e25b8 |
+| fixing file save bug                                         | vscabbage | 2024-10-11 | 811e204d5ec2bba6cd95f47fdb6fce8a243a760e |
+| commenting source                                            | vscabbage | 2024-10-11 | bc27b0435b38fb930847569903c184615f4a5155 |
+| adding ability to save csd with webpanel UI view in focus    | vscabbage | 2024-10-11 | 862e4173001bf7ec317b157b98a51347ea5a30f9 |
+| adding new setting for launching Cabbage is current column,  | vscabbage | 2024-10-11 | 83abae10d2c5179f25c9b7a6aa76ff8467b938b4 |
+| refactoring complete. Testing needed                         | vscabbage | 2024-10-10 | 34484ac0f8ff3cda2ae66f17db11124b19328315 |
+| still reworking source                                       | vscabbage | 2024-10-10 | da58b14361a29e7732be0fec8e980a2faaf1b426 |
+| renaming types to widgetTypes                                | vscabbage | 2024-10-10 | 0cc84f17c66c01235d98529b8a54f7ad0b947522 |
+| finished refactoring js/ts source                            | vscabbage | 2024-10-10 | a2ff8ef965ccb3a042f18a7b030bc55b0bc6b7b1 |
+| adding teh start of a setting class for vscode extension     | vscabbage | 2024-10-09 | 36fc0b37efeef2b926875719c16a0a04f90b29fc |
+| further refactoring                                          | vscabbage | 2024-10-09 | 209aebb9827bf8a07235dfa84694c19c9a444f71 |
+| more refactoring of extension code                           | vscabbage | 2024-10-09 | dc5c76f40357264ff78065e75e813ac7c1a976ba |
+| yet more refactoring                                         | vscabbage | 2024-10-09 | 648de049199b05fb36eb1ca8fa956d5caf12eb67 |
+| doing some more refactoring of the folder strucutre and file | vscabbage | 2024-10-09 | 5abd686ced49006a5a978973a2a3414250dde7eb |
+| doing some more refactoring of extension.js                  | vscabbage | 2024-10-08 | 22a924a59c0959e1f4201be97c8afd89439d102c |
+| refactoring some of extension.js                             | vscabbage | 2024-10-08 | fa0b17a380fe8e4fc1c75453b117fbbb6066e396 |
+| Update extension.ts to handle windows binary path            | vscabbage | 2024-10-08 | 5aed4c5e41f1755c0ded6ba50c1a49914e315122 |
+| further update to handlers                                   | vscabbage | 2024-10-07 | 9ec18d565930a93e2bf5a58e51a0f2e83499a5ce |
+| fixing issue with rogue properties, upsdated even handlers f | vscabbage | 2024-10-07 | 926813a780dc5713cae228a031043e2ed75cb018 |
+| removing panelSections - adding stroke objects to widgets    | vscabbage | 2024-10-06 | 97705dbf549c6f65762bb2eb056840274a68b9fd |
+| fixing issue with event listeners being removed after a clic | vscabbage | 2024-10-04 | 8c6ec5b5f01996f3fb2d5a9ba57c2f5c78bf60fe |
+| fixing bounds issues with update text                        | vscabbage | 2024-10-04 | 402d4403208ccff6b6e4a5071537ee5310328d55 |
+| fixing form instantiation to work with new dot notation and  | vscabbage | 2024-10-03 | 531ba1c9ea1145e137f791b605e0f05d0b330c4c |
+| fixing path in utility script                                | vscabbage | 2024-10-03 | 2a9bdacd94d0616e4f75ae4b3e24fa347ef96d0c |
+| adding utility script for copying JS file to /CabbageAudio/C | vscabbage | 2024-10-03 | 260da97e01c3db67ec3bdba21aa7ce850370b1e1 |
+| removing Csound syntax and config files - these will be hand | vscabbage | 2024-10-03 | 5bfe45f95f2469eaeff05d67af79a71e46d1310e |
+| pushing most recent source from cabbage3 main repo           | vscabbage | 2024-09-24 | cb824e15c9434afc1eca45476861e9e432ac6136 |
+| adding colour picker update for widget svg                   | vscabbage | 2024-04-17 | e34fe38d9b2f169d38052de76462d82a075c7894 |
+| cleaning up src tree                                         | vscabbage | 2024-04-17 | 45d04d5f9b3c8013e63b9bf29177d0ab7cffa9d6 |
+| fixing issues with GetDefaultProps method - now it return a  | vscabbage | 2024-04-17 | ea403894c4b9cc7c5edda314cc10afcac0f5b5ca |
+| still setting things up                                      | vscabbage | 2024-04-17 | 0ad087f388cd834b039321fd7fdb3c3a54aad6c5 |
+|----------------------------------------|-----------|------------|------------------------------------|
 | adding further checks when process is killed                 | cabbage3  | 2025-07-26 | eea6616da077c464dc634e7688b8d809d3281794 |
 | fixing problems with release notes                           | vscabbage | 2025-07-26 | d1eb78e12f067790689986be188429373d21bb8d |
 | updating timing mechanisms for displaying widgets            | vscabbage | 2025-07-26 | d631883ac7fd66b6a8e18dbf58720f545ff3ec65 |
