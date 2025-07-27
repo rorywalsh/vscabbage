@@ -421,8 +421,6 @@ export class Commands {
      * 
      */
     static async startCabbageServer(shouldStart: boolean) {
-        const config = vscode.workspace.getConfiguration("cabbage");
-        const runInDebugMode = config.get("runInDebugMode");
 
         if (shouldStart) {
             this.startCabbageProcess();
@@ -431,14 +429,9 @@ export class Commands {
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
         } else {
-            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-            await ExtensionUtils.sleep(500);
-
-            if (!runInDebugMode) {
-                this.processes.forEach((p) => {
-                    return ExtensionUtils.terminateProcess(p, this.websocket);
-                });
-            }
+            this.processes.forEach((p) => {
+                return ExtensionUtils.terminateProcess(p, this.websocket);
+            });
 
             cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
             cabbageStatusBarItem.show();
@@ -532,7 +525,6 @@ export class Commands {
         }
 
 
-        this.processes = [];
         this.setCabbageSrcDirectoryIfEmpty();
     }
 
@@ -573,21 +565,13 @@ export class Commands {
                 if (index > -1) {
                     this.processes.splice(index, 1);
                 }
-                this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
+                this.vscodeOutputChannel.appendLine(`Cabbage server has successfully terminated.`);
+                if (code === 3221225785) {
+                    this.vscodeOutputChannel.appendLine('This may indicate a missing or incompatible library - is Csound installed?');
+                }
             });
 
             this.processes.push(process);
-
-            process.on('exit', (code, signal) => {
-                if (code === 0) {
-                    this.vscodeOutputChannel.appendLine('Process started successfully');
-                } else {
-                    this.vscodeOutputChannel.appendLine(`Process exited with code ${code} and signal ${signal}`);
-                    if (code === 3221225785) {
-                        this.vscodeOutputChannel.appendLine('This may indicate a missing or incompatible library - is Csound installed?');
-                    }
-                }
-            });
 
             process.stdout.on("data", (data: { toString: () => string; }) => {
                 const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];

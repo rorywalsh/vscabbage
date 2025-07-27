@@ -114,16 +114,10 @@ export class ExtensionUtils {
      */
     static terminateProcess(pid: number | ChildProcess | undefined, websocket: WebSocket | undefined, force = false) {
 
-        //send signal to Cabbage to close audio
-        const msg = {
-            command: "stopAudio",
-            text: ""
-        };
-        websocket?.send(JSON.stringify(msg));
 
         // Handle case where pid is undefined or invalid
         if (!pid || (typeof pid === 'number' && isNaN(pid))) {
-            console.error("Invalid PID provided.");
+            Commands.getOutputChannel().appendLine("Invalid PID provided.");
             return;
         }
 
@@ -133,7 +127,7 @@ export class ExtensionUtils {
 
         // Ensure targetPid is a valid number before calling process.kill
         if (typeof targetPid !== "number") {
-            console.error("Invalid PID value.");
+            Commands.getOutputChannel().appendLine("Invalid PID value.");
             return;
         }
 
@@ -142,18 +136,33 @@ export class ExtensionUtils {
             const command = `taskkill /PID ${targetPid} ${force ? "/F" : ""}`;
             exec(command, (err, stdout, stderr) => {
                 if (err) {
-                    console.error(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
+                    Commands.getOutputChannel().appendLine(`Failed to terminate Cabbage server (${targetPid}): ${(err as Error).message}`);
                 } else {
-                    console.log(`Process ${targetPid} terminated successfully.`);
+                    Commands.getOutputChannel().appendLine(`Cabbage sserver (${targetPid}) terminated successfully.`);
                 }
             });
         } else {
-            // Unix/macOS: Use `SIGTERM`
+            // Unix/macOS: Use `SIGTERM` first, then `SIGKILL` if needed
             try {
                 process.kill(targetPid, "SIGTERM");
-                console.log(`Process ${targetPid} terminated successfully.`);
+                // Commands.getOutputChannel().appendLine(`Sent SIGTERM to process ${targetPid}. Waiting for graceful shutdown...`);
+
+                // Give the process time to handle the signal gracefully
+                setTimeout(() => {
+                    try {
+                        // Check if process is still running
+                        process.kill(targetPid, 0); // Signal 0 checks if process exists
+                        //Commands.getOutputChannel().appendLine(`Process ${targetPid} did not respond to SIGTERM. Sending SIGKILL...`);
+                        process.kill(targetPid, "SIGKILL");
+                        //Commands.getOutputChannel().appendLine(`Process ${targetPid} force terminated with SIGKILL.`);
+                    } catch (killErr) {
+                        // Process already exited
+                        Commands.getOutputChannel().appendLine(`Process ${targetPid} terminated successfully.`);
+                    }
+                }, 500); // Wait 500ms before force killing
+
             } catch (err) {
-                console.error(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
+                Commands.getOutputChannel().appendLine(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
             }
         }
     }
