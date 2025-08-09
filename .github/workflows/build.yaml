@@ -450,68 +450,54 @@ jobs:
             echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_ENV
           fi
 
-            - name: Generate Release Notes
+      - name: Generate Release Notes
         id: changelog
         run: |
-          # Determine the datetime of the previous tag, or default to epoch start
-          if [ "$PREVIOUS_TAG" != "initial" ]; then
-            PREV_DATETIME=$(git log -1 --format=%ai "$PREVIOUS_TAG")
-          else
-            PREV_DATETIME="1970-01-01 00:00:00 +0000"
-          fi
-          
+          # Get the exact datetime of the previous tag
+          PREV_DATETIME=$(git log -1 --format=%ai $PREVIOUS_TAG 2>/dev/null || echo "1970-01-01 00:00:00 +0000")
           echo "Filtering changes since: $PREV_DATETIME"
           
           # Extract just the date part (YYYY-MM-DD)
           PREV_DATE=${PREV_DATETIME:0:10}
-
-          # Parse CHANGELOG.md for matching entries
+          
+          # First try to get changes from CHANGELOG.md
           CHANGELOG_NOTES=$(awk -F'|' -v prev_date="$PREV_DATE" -v prev_tag="$PREVIOUS_TAG" '
-            BEGIN {
-              count = 0
-              print "## What'\''s Changed Since " prev_tag "\n"
-            }
-            NR >= 5 && NF >= 4 {
-              # Trim all fields
-              message=$1; gsub(/^ +| +$/, "", message)
-              repo=$2; gsub(/^ +| +$/, "", repo)
-              entry_date=$3; gsub(/^ +| +$/, "", entry_date)
-
-              # Only include vscabbage or cabbage3 changes since prev_date
-              if ((repo == "vscabbage" || repo == "cabbage3") && entry_date >= prev_date) {
-                if (message != "") {
-                  printf "• %s (%s)\n", message, entry_date
-                  count++
-                }
+          BEGIN { 
+            count = 0
+            print "## What'\''s Changed Since " prev_tag "\n"
+          }
+          NR >= 5 && NF >= 4 {
+            repo = $2; gsub(/ /, "", repo)
+            entry_date = $3; gsub(/ /, "", entry_date)
+            if ((repo == "vscabbage" || repo == "cabbage3") && entry_date >= prev_date) {
+              message = $1; gsub(/^ +| +$/, "", message)
+              if (message != "") {
+                printf "• %s (%s)\n", message, entry_date
+                count++
               }
             }
-            END {
-              if (count == 0) print "• Maintenance release with under-the-hood improvements"
-            }
-          ' CHANGELOG.md)
-
-          # If still only maintenance message, try git log fallback
-          if ! echo "$CHANGELOG_NOTES" | grep -q "• " ; then
+          }
+          END {
+            if (count == 0) print "• Maintenance release with under-the-hood improvements"
+          }' CHANGELOG.md)
+          
+          # If no valid changelog entries found, use git log instead
+          if [[ "$CHANGELOG_NOTES" == *"Maintenance release"* ]]; then
             echo "No changelog entries found, using git log"
             CHANGELOG_NOTES=$(git log --pretty=format:"• %s (%ad)" --date=short --since="$PREV_DATETIME" | grep -v "triggering build")
             
             if [ -z "$CHANGELOG_NOTES" ]; then
-              # Final fallback - commits since tag
-              if [ "$PREVIOUS_TAG" != "initial" ]; then
-                CHANGELOG_NOTES=$(git log --pretty=format:"• %s (%ad)" --date=short "$PREVIOUS_TAG"..HEAD | grep -v "triggering build")
-              fi
+              # Final fallback - get all commits since tag
+              CHANGELOG_NOTES=$(git log --pretty=format:"• %s (%ad)" --date=short $PREVIOUS_TAG..HEAD | grep -v "triggering build")
               [ -z "$CHANGELOG_NOTES" ] && CHANGELOG_NOTES="• Maintenance release with under-the-hood improvements"
             fi
           fi
           
           echo "Generated release notes:"
           echo "$CHANGELOG_NOTES"
-          {
-            echo "RELEASE_NOTES<<EOF"
-            echo "$CHANGELOG_NOTES"
-            echo "EOF"
-          } >> $GITHUB_ENV
-
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG_NOTES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         run: |
