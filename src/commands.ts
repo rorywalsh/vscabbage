@@ -645,7 +645,7 @@ export class Commands {
 
 
     /**
-     * Get the current cabbage mode
+     * Get the current cabbage code
      * @param editor 
      * @returns Returns the current cabbage JSON code
      */
@@ -998,11 +998,13 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * @throws {Error} If there are issues with file operations or configuration updates
      */
     static async copyPluginBinaryFile(type: string): Promise<void> {
+        const filters: Record<string, string[]> = type.includes('AUv2')
+            ? { 'AUv2 Plugin': ['component'] }
+            : { 'VST3 Plugin': ['vst3'] };
+
         const fileUri = await vscode.window.showSaveDialog({
             saveLabel: 'Save Plugin',
-            filters: {
-                'VST3 Plugin': ['vst3']
-            }
+            filters
         });
 
         if (!fileUri) {
@@ -1019,7 +1021,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const config = vscode.workspace.getConfiguration('cabbage');
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
-        const pluginName = path.basename(destinationPath, '.vst3');
+        const pluginName = path.basename(destinationPath, type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
         let jsSource = "";
         if (os.platform() === 'win32') {
             jsSource = config.get<string>('pathToJsSourceWindows') || '';
@@ -1132,51 +1134,138 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 console.log('Cabbage: CSD file updated and renamed');
             }
 
-            // Copy the VST3 plugin
+            // Copy the plugin
             if (os.platform() === 'darwin') {
-                await Commands.copyDirectory(binaryFile, destinationPath);
-                console.log('Cabbage: Plugin successfully copied to:', destinationPath);
+                if (type.includes('vst3')) {
+                    await Commands.copyDirectory(binaryFile, destinationPath);
+                    console.log('Cabbage: Plugin successfully copied to:', destinationPath);
 
-                // Rename the executable file inside the folder
-                const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth');
-                const newFilePath = path.join(macOSDirPath, pluginName);
-                await fs.promises.rename(originalFilePath, newFilePath);
-                console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
+                    // Rename the executable file inside the folder
+                    const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+                    const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' || 'AUv2Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth');
+                    const newFilePath = path.join(macOSDirPath, pluginName);
+                    await fs.promises.rename(originalFilePath, newFilePath);
+                    console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
 
-                // Modify the plist file
-                const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
-                const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
-                const parser = new xml2js.Parser();
-                const builder = new xml2js.Builder();
 
-                parser.parseString(plistData, async (err, result) => {
-                    if (err) {
-                        throw new Error('Error parsing plist file: ' + err);
+                    // Modify the plist file
+                    const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
+                    const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
+                    const parser = new xml2js.Parser();
+                    const builder = new xml2js.Builder();
+
+                    parser.parseString(plistData, async (err, result) => {
+                        if (err) {
+                            throw new Error('Error parsing plist file: ' + err);
+                        }
+
+                        const dict = result.plist.dict[0];
+
+                        const updatePlistKey = (keyName: string, newValue: string) => {
+                            // Find the key in the alternating key-value structure
+                            const keyIndex = dict.key.indexOf(keyName);
+                            if (keyIndex !== -1) {
+                                // Update the corresponding value (strings are at the same index)
+                                if (dict.string && dict.string[keyIndex] !== undefined) {
+                                    dict.string[keyIndex] = newValue;
+                                }
+                            } else {
+                                // Add new key-value pair
+                                if (!dict.key) dict.key = [];
+                                if (!dict.string) dict.string = [];
+                                dict.key.push(keyName);
+                                dict.string.push(newValue);
+                            }
+                        };
+
+                        updatePlistKey('CFBundleExecutable', pluginName);
+                        updatePlistKey('CFBundleName', pluginName);
+                        updatePlistKey('CFBundleIdentifier', `com.cabbageaudio.${pluginName.toLowerCase()}`);
+
+                        const updatedPlist = builder.buildObject(result);
+                        await fs.promises.writeFile(plistFilePath, updatedPlist);
+                        console.log(`Info.plist updated: CFBundleExecutable, CFBundleName, and CFBundleIdentifier set to "${pluginName}"`);
+
+                        // Sign the VST3 plugin after all modifications are complete
+                        await Commands.signPlugin(destinationPath, pluginName);
+                    });
+                }
+                else if (type.includes('AUv2')) {
+                    await Commands.copyDirectory(binaryFile, destinationPath);
+                    console.log('Cabbage: AUv2 Plugin successfully copied to:', destinationPath);
+
+                    // Extract pluginId from the Cabbage content
+                    const { content: cabbageContent } = Commands.getCabbageContent(editor);
+                    if (!cabbageContent) {
+                        vscode.window.showErrorMessage('No Cabbage section found in the current file');
+                        return;
                     }
 
-                    const dict = result.plist.dict[0];
-                    const keys: string[] = dict.key;
-                    const values: string[] = dict.string;
+                    let cabbageWidgets;
+                    try {
+                        cabbageWidgets = JSON.parse(cabbageContent);
+                    } catch (error) {
+                        vscode.window.showErrorMessage('Failed to parse Cabbage JSON content');
+                        return;
+                    }
 
-                    const updatePlistKey = (keyName: string, newValue: string) => {
-                        const index = keys.indexOf(keyName);
-                        if (index !== -1 && values[index] !== undefined) {
-                            values[index] = newValue;
-                        } else {
-                            keys.push(keyName);
-                            values.push(newValue);
+                    // Find the form widget which should contain the pluginId
+                    const formWidget = cabbageWidgets.find((widget: any) => widget.type === 'form');
+                    if (!formWidget || !formWidget.pluginId) {
+                        vscode.window.showErrorMessage('No pluginId found in the form widget. Please ensure your Cabbage section contains a form with a pluginId field.');
+                        return;
+                    }
+
+                    const pluginId = formWidget.pluginId;
+
+                    // Validate that pluginId is exactly 4 characters (AU subtype requirement)
+                    if (pluginId.length !== 4) {
+                        vscode.window.showErrorMessage(`pluginId must be exactly 4 characters for AU plugins. Current: '${pluginId}' (${pluginId.length} chars)`);
+                        return;
+                    }
+
+                    // Use the pluginId from the form for both CLAP plugin ID and AU subtype
+                    const newClapPluginId = `com.cabbageaudio.${pluginId.toLowerCase()}`;
+                    const newAuSubtype = pluginId;
+                    const newAuManufacturer = 'Cabb'; // Keep original manufacturer
+
+                    console.log(`Using pluginId from Cabbage form: ${pluginId}`);
+                    console.log(`New CLAP plugin ID: ${newClapPluginId}`);
+                    console.log(`New AU subtype: CaBB -> ${newAuSubtype}`);
+                    console.log(`AU manufacturer: ${newAuManufacturer} (unchanged)`);
+
+                    // Path to the binary that needs patching
+                    const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+                    const originalBinaryName = type === 'AUv2Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth';
+                    const binaryPath = path.join(macOSDirPath, originalBinaryName);
+                    const newBinaryPath = path.join(macOSDirPath, pluginName);
+
+                    try {
+                        // Patch the binary file
+                        await Commands.patchPluginBinary(binaryPath, newClapPluginId, newAuSubtype);
+
+                        // Rename the binary to match the plugin name
+                        await fs.promises.rename(binaryPath, newBinaryPath);
+                        console.log(`Binary renamed to: ${pluginName}`);
+
+                        // Update the Info.plist
+                        await Commands.updateAUPlist(destinationPath, pluginName, newAuSubtype, newAuManufacturer);
+
+                        console.log(`AUv2 component created: ${destinationPath}`);
+
+                        // Sign the AUv2 component after all modifications are complete
+                        await Commands.signPlugin(destinationPath, pluginName);
+
+                    } catch (error) {
+                        console.error('Failed to patch AUv2 plugin:', error);
+                        vscode.window.showErrorMessage(`Failed to patch AUv2 plugin: ${error}`);
+                        // Clean up on failure
+                        if (fs.existsSync(destinationPath)) {
+                            await fs.promises.rm(destinationPath, { recursive: true });
                         }
-                    };
-
-                    updatePlistKey('CFBundleExecutable', pluginName);
-                    updatePlistKey('CFBundleName', pluginName);
-                    updatePlistKey('CFBundleIdentifier', `com.cabbageaudio.${pluginName.toLowerCase()}`);
-
-                    const updatedPlist = builder.buildObject(result);
-                    await fs.promises.writeFile(plistFilePath, updatedPlist);
-                    console.log(`Info.plist updated: CFBundleExecutable, CFBundleName, and CFBundleIdentifier set to "${pluginName}"`);
-                });
+                        return;
+                    }
+                }
             } else {
                 if (!await ExtensionUtils.isDirectory(binaryFile)) {
                     await fs.promises.copyFile(binaryFile, destinationPath);
@@ -1314,6 +1403,173 @@ include $(SYSTEM_FILES_DIR)/Makefile
             console.error('Cabbage: Error processing removeWidget command:', error);
             console.error('Cabbage: Error details:', error instanceof Error ? error.message : 'Unknown error');
             return false;
+        }
+    }
+
+    /**
+     * Patches the binary file to replace plugin IDs and AU codes
+     * @param binaryPath Path to the binary file to patch
+     * @param newPluginId New CLAP plugin ID 
+     * @param newAuSubtype New AU subtype (4 chars)
+     */
+    private static async patchPluginBinary(binaryPath: string, newPluginId: string, newAuSubtype: string): Promise<void> {
+        const originalPluginId = "com.cabbageaudio.1d47";
+        const originalAuSubtype = "CaBB";
+
+        // Ensure IDs are the same length to avoid binary corruption
+        const paddedNewPluginId = newPluginId.length < originalPluginId.length
+            ? newPluginId.padEnd(originalPluginId.length, ' ')
+            : newPluginId;
+
+        if (paddedNewPluginId.length > originalPluginId.length) {
+            throw new Error(`New plugin ID cannot be longer than original ID: '${originalPluginId}' (${originalPluginId.length}) vs '${newPluginId}' (${newPluginId.length})`);
+        }
+
+        // Ensure AU codes are exactly 4 characters
+        if (originalAuSubtype.length !== 4 || newAuSubtype.length !== 4) {
+            throw new Error(`AU codes must be exactly 4 characters: '${originalAuSubtype}' vs '${newAuSubtype}'`);
+        }
+
+        // Read the binary file
+        const data = await fs.promises.readFile(binaryPath) as Buffer;
+
+        let patchedData = data;
+
+        // Replace plugin ID occurrences
+        const pluginIdMatches = Commands.countBufferOccurrences(data, originalPluginId);
+        if (pluginIdMatches === 0) {
+            console.warn(`Warning: '${originalPluginId}' not found in binary`);
+        } else {
+            console.log(`Found ${pluginIdMatches} occurrence(s) of '${originalPluginId}' in binary`);
+            patchedData = Commands.replaceInBuffer(patchedData, originalPluginId, paddedNewPluginId);
+        }
+
+        // Replace AU subtype occurrences
+        const auSubtypeMatches = Commands.countBufferOccurrences(patchedData, originalAuSubtype);
+        if (auSubtypeMatches === 0) {
+            console.warn(`Warning: '${originalAuSubtype}' (subtype) not found in binary`);
+        } else {
+            console.log(`Found ${auSubtypeMatches} occurrence(s) of '${originalAuSubtype}' (subtype) in binary`);
+            patchedData = Commands.replaceInBuffer(patchedData, originalAuSubtype, newAuSubtype);
+        }
+
+        // Write the patched binary back
+        await fs.promises.writeFile(binaryPath, patchedData as any);
+
+        console.log(`Successfully patched binary: '${originalPluginId}' -> '${newPluginId}', '${originalAuSubtype}' -> '${newAuSubtype}'`);
+    }
+
+    /**
+     * Counts occurrences of a string within a buffer
+     */
+    private static countBufferOccurrences(haystack: Buffer, needle: string): number {
+        let count = 0;
+        let pos = 0;
+        const needleBuffer = Buffer.from(needle, 'utf-8');
+        while ((pos = (haystack as any).indexOf(needleBuffer, pos)) !== -1) {
+            count++;
+            pos += needleBuffer.length;
+        }
+        return count;
+    }
+
+    /**
+     * Replaces all occurrences of oldString with newString in buffer data
+     */
+    private static replaceInBuffer(data: Buffer, oldString: string, newString: string): Buffer {
+        if (oldString.length !== newString.length) {
+            throw new Error('String lengths must match for safe replacement');
+        }
+
+        const oldBuffer = Buffer.from(oldString, 'utf-8');
+        const newBuffer = Buffer.from(newString, 'utf-8');
+
+        let result = Buffer.alloc(data.length);
+        (data as any).copy(result);
+        let pos = 0;
+
+        while ((pos = (result as any).indexOf(oldBuffer, pos)) !== -1) {
+            (newBuffer as any).copy(result, pos);
+            pos += newBuffer.length;
+        }
+
+        return result;
+    }
+
+    /**
+     * Updates the Info.plist file for AUv2 plugins with new identifiers
+     */
+    private static async updateAUPlist(componentPath: string, pluginName: string, newSubtype: string, newManufacturer: string): Promise<void> {
+        const plistPath = path.join(componentPath, 'Contents', 'Info.plist');
+
+        try {
+            console.log(`Updating Info.plist: ${plistPath}`);
+
+            // Use child_process to call plutil for plist modifications
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(exec);
+
+            // Update CFBundleExecutable to match the renamed binary
+            await execAsync(`plutil -replace CFBundleExecutable -string "${pluginName}" "${plistPath}"`);
+
+            // Update CFBundleName
+            await execAsync(`plutil -replace CFBundleName -string "${pluginName}" "${plistPath}"`);
+
+            // Update the subtype in AudioComponents
+            await execAsync(`plutil -replace AudioComponents.0.subtype -string "${newSubtype}" "${plistPath}"`);
+
+            // Update the name in AudioComponents
+            const newName = `CabbageAudio: ${pluginName}`;
+            await execAsync(`plutil -replace AudioComponents.0.name -string "${newName}" "${plistPath}"`);
+
+            // Update CFBundleIdentifier
+            const newBundleId = `com.cabbageaudio.${pluginName.toLowerCase()}`;
+            await execAsync(`plutil -replace CFBundleIdentifier -string "${newBundleId}" "${plistPath}"`);
+
+            console.log(`Info.plist updated successfully`);
+
+        } catch (error) {
+            console.error(`Error updating Info.plist: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Signs a plugin using codesign for macOS
+     * @param pluginPath - The path to the plugin (.vst3 or .component)
+     * @param pluginName - The name of the plugin for logging
+     */
+    private static async signPlugin(pluginPath: string, pluginName: string): Promise<void> {
+        if (os.platform() !== 'darwin') {
+            console.log('Code signing is only available on macOS');
+            return;
+        }
+
+        try {
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(exec);
+
+            console.log(`Signing plugin: ${pluginName}`);
+
+            // Use ad-hoc signing (no certificate required)
+            // The --force flag will replace any existing signature
+            // The --deep flag ensures all nested code is signed
+            const signCommand = `codesign --force --deep --sign - "${pluginPath}"`;
+
+            await execAsync(signCommand);
+            console.log(`Successfully signed plugin: ${pluginName}`);
+
+            // Verify the signature
+            const verifyCommand = `codesign --verify --deep --strict "${pluginPath}"`;
+            await execAsync(verifyCommand);
+            console.log(`Plugin signature verified: ${pluginName}`);
+
+        } catch (error) {
+            console.error(`Error signing plugin ${pluginName}: ${error}`);
+            // Don't throw the error - signing failure shouldn't stop the export
+            vscode.window.showWarningMessage(`Warning: Failed to sign plugin ${pluginName}. The plugin may still work but could trigger security warnings.`);
         }
     }
 }
