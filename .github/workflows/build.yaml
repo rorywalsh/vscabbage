@@ -214,19 +214,6 @@ jobs:
           path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
         continue-on-error: false
 
-      - name: Downloading CabbageAUv2Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth.component
-          path: "./src/CabbageBinaries/CabbagePluginSynth.component"
-        continue-on-error: true
-
-      - name: Downloading CabbageAUv2Effect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect.component
-          path: "./src/CabbageBinaries/CabbagePluginEffect.component"
-        continue-on-error: true
 
       - name: Downloading CabbagePluginSynth  
         uses: actions/download-artifact@v4
@@ -234,6 +221,20 @@ jobs:
           name: CabbagePluginSynth.vst3
           path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
         continue-on-error: false
+        
+      - name: Downloading CabbageAUv2Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynthAUv2.component
+          path: "./src/CabbageBinaries/CabbagePluginSynthAUv2.component"
+        continue-on-error: true
+
+      - name: Downloading CabbageAUv2Effect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffectAUv2.component
+          path: "./src/CabbageBinaries/CabbagePluginEffectAUv2.component"
+        continue-on-error: true
 
       - name: Set up Node.js (v20) on macOS
         uses: actions/setup-node@v4
