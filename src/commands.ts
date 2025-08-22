@@ -1243,6 +1243,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                     // Use the pluginId from the form for both CLAP plugin ID and AU subtype
                     const newClapPluginId = `com.cabbageaudio.${pluginId.toLowerCase()}`;
+                    const newNSViewId = `com_cabbageaudio_${pluginId.toLowerCase()}`;
                     const newAuSubtype = pluginId;
                     const newAuManufacturer = 'Cabb'; // Keep original manufacturer
 
@@ -1259,7 +1260,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                     try {
                         // Patch the binary file
-                        await Commands.patchPluginBinary(binaryPath, newClapPluginId, newAuSubtype);
+                        await Commands.patchPluginBinary(binaryPath, newClapPluginId, newNSViewId, newAuSubtype);
 
                         // Rename the binary to match the plugin name
                         await fs.promises.rename(binaryPath, newBinaryPath);
@@ -1429,8 +1430,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * @param newPluginId New CLAP plugin ID 
      * @param newAuSubtype New AU subtype (4 chars)
      */
-    private static async patchPluginBinary(binaryPath: string, newPluginId: string, newAuSubtype: string): Promise<void> {
+    private static async patchPluginBinary(binaryPath: string, newPluginId: string, newNSViewId: string, newAuSubtype: string): Promise<void> {
         const originalPluginId = "com.cabbageaudio.1d47";
+        const originalNSViewId = "com_cabbageaudio_1d47";
         const originalAuSubtype = "Cp47";
 
         // Ensure IDs are the same length to avoid binary corruption
@@ -1459,6 +1461,15 @@ include $(SYSTEM_FILES_DIR)/Makefile
         } else {
             console.log(`Found ${pluginIdMatches} occurrence(s) of '${originalPluginId}' in binary`);
             patchedData = Commands.replaceInBuffer(patchedData, originalPluginId, paddedNewPluginId);
+        }
+
+        //Replace NSView occurances too..
+        const nsViewMatches = Commands.countBufferOccurrences(patchedData, originalNSViewId);
+        if (nsViewMatches === 0) {
+            console.warn(`Warning: '${originalNSViewId}' not found in binary`);
+        } else {
+            console.log(`Found ${nsViewMatches} occurrence(s) of '${originalNSViewId}' in binary`);
+            patchedData = Commands.replaceInBuffer(patchedData, originalNSViewId, newNSViewId);
         }
 
         // Replace AU subtype occurrences
