@@ -161,7 +161,7 @@ jobs:
       - name: Upload Cabbage build files as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CabbagePluginSynth.component
+          name: CabbagePluginSynthAUv2.component
           path: cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release/CabbagePluginSynthAUv2.component
           retention-days: 1
           if-no-files-found: ignore
@@ -169,7 +169,7 @@ jobs:
       - name: Upload Cabbage build files as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CabbagePluginEffect.component
+          name: CabbagePluginEffectAUv2.component
           path: cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release/CabbagePluginEffectAUv2.component
           retention-days: 1
           if-no-files-found: ignore
@@ -221,7 +221,7 @@ jobs:
           name: CabbagePluginSynth.vst3
           path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
         continue-on-error: false
-        
+
       - name: Downloading CabbageAUv2Synth
         uses: actions/download-artifact@v4
         with:
