@@ -133,24 +133,9 @@ jobs:
           echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
+          ls cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release
+          ls cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release
 
-      # Upload only the required files as individual artifacts
-      - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect.component
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.component
-          retention-days: 1
-          if-no-files-found: ignore
-
-      # Upload only the required files as individual artifacts
-      - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth.component
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.component
-          retention-days: 1
-          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
@@ -172,6 +157,24 @@ jobs:
           path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.vst3
           retention-days: 1
           if-no-files-found: ignore
+
+      - name: Upload Cabbage build files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth.component
+          path: cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release/CabbagePluginSynthAUv2.component
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload Cabbage build files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect.component
+          path: cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release/CabbagePluginEffectAUv2.component
+          retention-days: 1
+          if-no-files-found: ignore
+
+
 
 
       # Checkout source code for vscabbage

@@ -1142,7 +1142,24 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                     // Rename the executable file inside the folder
                     const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                    const originalFilePath = path.join(macOSDirPath, type === 'VST3Effect' || 'AUv2Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth');
+                    let originalFilePath = '';
+                    switch (type) {
+                        case 'VST3Effect':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffect');
+                            break;
+                        case 'VST3Synth':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynth');
+                            break;
+                        case 'AUv2Effect':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffectAUv2');
+                            break;
+                        case 'AUv2Synth':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynthAUv2');
+                            break;
+                        default:
+                            originalFilePath = '';
+                            break;
+                    }
                     const newFilePath = path.join(macOSDirPath, pluginName);
                     await fs.promises.rename(originalFilePath, newFilePath);
                     console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
@@ -1236,7 +1253,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                     // Path to the binary that needs patching
                     const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                    const originalBinaryName = type === 'AUv2Effect' ? 'CabbagePluginEffect' : 'CabbagePluginSynth';
+                    const originalBinaryName = type === 'AUv2Effect' ? 'CabbagePluginEffectAUv2' : 'CabbagePluginSynthAUv2';
                     const binaryPath = path.join(macOSDirPath, originalBinaryName);
                     const newBinaryPath = path.join(macOSDirPath, pluginName);
 
@@ -1414,7 +1431,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
      */
     private static async patchPluginBinary(binaryPath: string, newPluginId: string, newAuSubtype: string): Promise<void> {
         const originalPluginId = "com.cabbageaudio.1d47";
-        const originalAuSubtype = "CaBB";
+        const originalAuSubtype = "Cp47";
 
         // Ensure IDs are the same length to avoid binary corruption
         const paddedNewPluginId = newPluginId.length < originalPluginId.length

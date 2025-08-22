@@ -61,9 +61,9 @@ export class Settings {
                 case 'CabbagePluginSynth':
                     return path.join(binaryPath, 'CabbagePluginSynth.vst3');
                 case 'CabbageAUv2Effect':
-                    return path.join(binaryPath, 'CabbagePluginEffect.component');
+                    return path.join(binaryPath, 'CabbagePluginEffectAUv2.component');
                 case 'CabbageAUv2Synth':
-                    return path.join(binaryPath, 'CabbagePluginSynth.component');
+                    return path.join(binaryPath, 'CabbagePluginSynthAUv2.component');
                 // case 'CabbageStandaloneApp':
                 //     return path.join(binaryPath, 'CabbageStandaloneApp.app');
                 default:
