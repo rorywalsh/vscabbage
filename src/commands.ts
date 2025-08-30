@@ -1136,7 +1136,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             // Copy the plugin
             if (os.platform() === 'darwin') {
-                if (type.includes('vst3')) {
+                if (type.includes('VST3')) {
                     await Commands.copyDirectory(binaryFile, destinationPath);
                     console.log('Cabbage: Plugin successfully copied to:', destinationPath);
 
