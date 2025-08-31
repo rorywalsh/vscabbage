@@ -1064,8 +1064,34 @@ i1 0 z
 </CsScore>
 </CsoundSynthesizer>`;
         }
-        else {
-            return ``;
+        else if (type === 'synth') {
+            return `
+<Cabbage>[
+{"type":"form","caption":"Synth","size":{"width":580,"height":300},"pluginId":"def1"},
+{"type":"keyboard", "bounds":{"left":10,"top":100,"width":500,"height":100}}
+]</Cabbage>
+<CsoundSynthesizer>
+<CsOptions>
+-n -d -+rtmidi=NULL -M0 --midi-key-cps=4 --midi-velocity-amp=5
+</CsOptions>
+<CsInstruments>
+; Initialize the global variables. 
+ksmps = 32
+nchnls = 2
+0dbfs = 1
+
+
+instr 1
+    vco:a = vco(p4, p4)
+    outa(voc, vco)
+endin
+
+</CsInstruments>
+<CsScore>
+;causes Csound to run for about 7000 years...
+f0 z
+</CsScore>
+</CsoundSynthesizer>`;
         }
     }
     static getIndexHtml() {

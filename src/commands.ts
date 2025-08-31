@@ -129,9 +129,6 @@ export class Commands {
         this.websocket = ws;
         this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
 
-        this.processes.forEach((p) => {
-            p?.kill("SIGKILL");
-        });
         if (this.panel) {
             this.panel.webview.postMessage({ command: 'onEnterEditMode' });
         }
@@ -395,7 +392,6 @@ export class Commands {
         // Handle panel disposal
         this.panel.onDidDispose(async () => {
             this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
-
             this.panel = undefined;
         }, null, context.subscriptions);
 
