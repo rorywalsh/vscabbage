@@ -18,7 +18,7 @@ export class MidiKeyboard {
         "height": 300
       },
       "type": "keyboard",
-      "channel": "keyboard",
+      "channel": "",
       "value": "36",
       "font": {
         "family": "Verdana",
@@ -131,8 +131,8 @@ export class MidiKeyboard {
 
   changeOctave(offset) {
     this.octaveOffset += offset;
-    if (this.octaveOffset < 1) {this.octaveOffset = 1;} // Limit lower octave bound
-    if (this.octaveOffset > 7) {this.octaveOffset = 7;} // Limit upper octave bound
+    if (this.octaveOffset < 1) { this.octaveOffset = 1; } // Limit lower octave bound
+    if (this.octaveOffset > 7) { this.octaveOffset = 7; } // Limit upper octave bound
     CabbageUtils.updateInnerHTML(this.props.channel, this);
   }
 

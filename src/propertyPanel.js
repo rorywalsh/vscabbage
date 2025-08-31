@@ -98,7 +98,7 @@ export class PropertyPanel {
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps
-            
+
             if (hiddenProps.includes(sectionName)) {
                 console.log("Cabbage: Cabbage: hidden props", hiddenProps, " section name", sectionName);
                 return;
@@ -233,7 +233,7 @@ export class PropertyPanel {
             });
 
             input.addEventListener('change', this.handleInputChange.bind(this));
-            
+
         } else if (fullPath === 'channel') {
             input = document.createElement('input');
             input.type = 'text';
@@ -292,7 +292,7 @@ export class PropertyPanel {
 
                         input.blur();
                     }
-                    else{
+                    else {
                         console.warn("Cabbage: Cabbage: widget doesn't exist in this context");
                     }
                 }
@@ -382,10 +382,10 @@ export class PropertyPanel {
      * @param path - The nested path for the property (optional).
      */
     addPropertyToSection(key, value, section, path = '') {
-        if(key === 'currentCsdFile' || key === 'value'){
+        if (key === 'currentCsdFile' || key === 'value') {
             return;
         }
-        
+
         const propertyDiv = document.createElement('div');
         propertyDiv.classList.add('property');
 
@@ -403,10 +403,10 @@ export class PropertyPanel {
         // Create the full property path for the input id
         const fullPropertyPath = path ? `${path}.${key}` : key;
         const input = this.createInputElement(key, value, path);
-        
+
         // Set the full property path as the input id
         input.id = fullPropertyPath;
-        
+
         propertyDiv.appendChild(input);
         section.appendChild(propertyDiv);
     }
@@ -430,6 +430,7 @@ export class PropertyPanel {
         }
 
         this.widgets.forEach((widget) => {
+            console.log("Cabbage: Cabbage: widget", widget.props.channel, " input", input.dataset.parent);
             if (widget.props.channel === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
@@ -437,7 +438,7 @@ export class PropertyPanel {
                 // Handle nested properties
                 const propertyPath = input.id.split('.');
                 let currentObj = widget.props;
-                
+
                 // For nested properties like colour.fill or colour.stroke.colour
                 if (propertyPath.length > 1) {
                     // Navigate to the parent object, preserving existing properties
@@ -473,9 +474,6 @@ export class PropertyPanel {
                     command: 'widgetUpdate',
                     text: JSON.stringify(widget.props),
                 });
-            }
-            else{
-                console.warn("Cabbage: Cabbage: can't find channel", input.dataset.parent);
             }
         });
     }
