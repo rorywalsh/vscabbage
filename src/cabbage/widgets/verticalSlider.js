@@ -196,19 +196,28 @@ export class VerticalSlider {
     // Clamp the mouse position to stay within the bounds of the slider
     offsetY = CabbageUtils.clamp(offsetY, 0, sliderHeight);
 
-    // Calculate the new value based on the mouse position
-    let newValue = CabbageUtils.map(offsetY, 0, sliderHeight, this.props.range.min, this.props.range.max);
-    newValue = Math.round(newValue / this.props.range.increment) * this.props.range.increment;
+    // Calculate the linear normalized position (0-1)
+    const linearNormalized = offsetY / sliderHeight;
 
-    // Update the slider value
-    this.props.value = newValue;
+    // Apply skew transformation for display value
+    const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+
+    // Convert to actual range values
+    const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+
+    // Apply increment snapping to the skewed value
+    skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+
+    // Store the skewed value for display
+    this.props.value = skewedValue;
 
     // Update the slider appearance
     const widgetDiv = document.getElementById(this.props.channel);
     widgetDiv.innerHTML = this.getInnerHTML();
-    //values sent to Cabbage should be normalized between 0 and 1
-    const normValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
+
+    // Send the linear normalized value to Cabbage (no skew applied)
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: linearNormalized, channelType: "number" }
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
@@ -253,8 +262,8 @@ export class VerticalSlider {
     const sliderElement = `
     <svg x="0" y="${this.props.valueTextBox ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
       <rect x="${this.props.bounds.width * 0.4}" y="1" width="${this.props.bounds.width * 0.2}" height="${sliderHeight * 0.95}" rx="2" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-      <rect x="${this.props.bounds.width * 0.4}" y="${sliderHeight - CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95) - 1}" height="${CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, 1) * sliderHeight * 0.95}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+      <rect x="${this.props.bounds.width * 0.4}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95) - 1}" height="${CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, 1) * sliderHeight * 0.95}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
     </svg>
     `;
 
@@ -273,5 +282,20 @@ export class VerticalSlider {
       ${valueTextElement}
     </svg>
     `;
+  }
+
+  // Helper methods for skew functionality
+  getSkewedValue(linearValue) {
+    const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Invert the skew for JUCE-like behavior
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
+    return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+  }
+
+  getLinearValue(skewedValue) {
+    const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Invert the skew for JUCE-like behavior
+    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
+    return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
   }
 }

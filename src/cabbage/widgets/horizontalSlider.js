@@ -101,7 +101,7 @@ export class HorizontalSlider {
 
   mouseEnter(evt) {
     if (this.props.active === 0) {
-        return '';
+      return '';
     }
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
@@ -109,41 +109,41 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
 
     if (popup && this.props.popup) {
-        popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
 
-        // Calculate the position for the popup
-        const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
-        const sliderHeight = this.props.bounds.height; // Height of the slider
-        const mainFormHeight = rect.height; // Height of the main form
+      // Calculate the position for the popup
+      const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
+      const sliderHeight = this.props.bounds.height; // Height of the slider
+      const mainFormHeight = rect.height; // Height of the main form
 
-        // Default position for the popup to the bottom of the slider
-        let popupTop = sliderTop + sliderHeight + 5; // 5px padding below the slider
-        console.log("Cabbage: SliderTop" + popupTop);
-        console.log("Cabbage: ForHeight" +  mainFormHeight);
+      // Default position for the popup to the bottom of the slider
+      let popupTop = sliderTop + sliderHeight + 5; // 5px padding below the slider
+      console.log("Cabbage: SliderTop" + popupTop);
+      console.log("Cabbage: ForHeight" + mainFormHeight);
 
-        let popupLeft = rect.left + this.props.bounds.left + (this.props.bounds.width / 2) - (popup.offsetWidth / 2); // Center the popup
+      let popupLeft = rect.left + this.props.bounds.left + (this.props.bounds.width / 2) - (popup.offsetWidth / 2); // Center the popup
 
 
-        // Check if there is enough space below the slider for the popup
-        if (popupTop > (mainFormHeight - this.props.bounds.height)) {
-            // Position above with 5px padding
-            popupTop = sliderTop - popup.offsetHeight + 5; 
-            popup.classList.remove('below');
-            popup.classList.add('above');
-        } else {
-            // Position below
-            popup.classList.remove('above');
-            popup.classList.add('below');
-        }
+      // Check if there is enough space below the slider for the popup
+      if (popupTop > (mainFormHeight - this.props.bounds.height)) {
+        // Position above with 5px padding
+        popupTop = sliderTop - popup.offsetHeight + 5;
+        popup.classList.remove('below');
+        popup.classList.add('above');
+      } else {
+        // Position below
+        popup.classList.remove('above');
+        popup.classList.add('below');
+      }
 
-        // Ensure the popup is centered horizontally
-        popup.style.left = `${popupLeft}px`;
-        popup.style.top = `${popupTop}px`;
-        popup.style.display = 'block';
-        popup.classList.add('show');
-        popup.classList.remove('hide');
+      // Ensure the popup is centered horizontally
+      popup.style.left = `${popupLeft}px`;
+      popup.style.top = `${popupTop}px`;
+      popup.style.display = 'block';
+      popup.classList.add('show');
+      popup.classList.remove('hide');
     }
-}
+  }
 
 
   mouseLeave(evt) {
@@ -187,21 +187,28 @@ export class HorizontalSlider {
     // Clamp the mouse position to stay within the bounds of the slider
     offsetX = CabbageUtils.clamp(offsetX, 0, sliderWidth);
 
-    // Calculate the new value based on the mouse position
-    let newValue = CabbageUtils.map(offsetX, 0, sliderWidth, this.props.range.min, this.props.range.max);
-    newValue = Math.round(newValue / this.props.range.increment) * this.props.range.increment; // Round to the nearest increment
+    // Calculate the linear normalized position (0-1)
+    const linearNormalized = offsetX / sliderWidth;
 
-    // Update the slider value
-    this.props.value = newValue;
+    // Apply skew transformation for display value
+    const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+
+    // Convert to actual range values
+    const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+
+    // Apply increment snapping to the skewed value
+    skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+
+    // Store the skewed value for display
+    this.props.value = skewedValue;
 
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props.channel, this);
 
-    //get normalised value
-    const normValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-    // Post message if vscode is available
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
-    console.log(newValue);
+    // Send the linear normalized value to Cabbage (no skew applied)
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: linearNormalized, channelType: "number" }
+    console.log(skewedValue);
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
@@ -209,9 +216,25 @@ export class HorizontalSlider {
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
+        // Store the input value as the skewed value (what user sees)
         this.props.value = inputValue;
+
+        // Convert to linear space for Cabbage
+        const linearValue = this.getLinearValue(inputValue);
+        const linearNormalized = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+
         CabbageUtils.updateInnerHTML(this.props.channel, this);
+        const widgetDiv = document.getElementById(this.props.channel);
         widgetDiv.querySelector('input').focus();
+
+        // Send linear normalized value to Cabbage
+        const msg = {
+          paramIdx: this.parameterIndex,
+          channel: this.props.channel,
+          value: linearNormalized,
+          channelType: "number"
+        };
+        Cabbage.sendParameterUpdate(msg, this.vscode);
       }
     }
   }
@@ -260,8 +283,8 @@ export class HorizontalSlider {
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
         <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-        <rect x="${CabbageUtils.map(currentValue, this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
       </svg>
     `;
 
@@ -280,5 +303,20 @@ export class HorizontalSlider {
         ${valueTextElement}
       </svg>
     `;
+  }
+
+  // Helper methods for skew functionality
+  getSkewedValue(linearValue) {
+    const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Invert the skew for JUCE-like behavior
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
+    return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+  }
+
+  getLinearValue(skewedValue) {
+    const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Invert the skew for JUCE-like behavior
+    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
+    return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
   }
 }

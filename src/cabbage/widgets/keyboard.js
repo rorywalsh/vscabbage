@@ -46,11 +46,16 @@ export class MidiKeyboard {
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
     // Loop through octaves and note names to populate the map
-    for (let octave = -2; octave <= this.props.octaves + 2; octave++) {
+    for (let octave = -2; octave <= 8; octave++) { // Limit octave range to prevent exceeding 127
       for (let i = 0; i < noteNames.length; i++) {
-        const noteName = noteNames[i] + octave;
         const midiNote = (octave + 2) * 12 + i; // Calculate MIDI note number
-        this.noteMap[noteName] = midiNote;
+
+        // Only include valid MIDI notes (0-127)
+        if (midiNote >= 0 && midiNote <= 127) {
+          const noteName = noteNames[i] + octave;
+          this.noteMap[noteName] = midiNote;
+          console.log("Cabbage: Mapping", noteName, "to MIDI note", midiNote);
+        }
       }
     }
   }
@@ -58,6 +63,7 @@ export class MidiKeyboard {
   pointerDown(e) {
     if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
       this.isMouseDown = true;
+      console.log("Cabbage: Key down:", e.target.dataset.note);
       this.noteOn(e.target);
     }
   }
@@ -132,7 +138,7 @@ export class MidiKeyboard {
   changeOctave(offset) {
     this.octaveOffset += offset;
     if (this.octaveOffset < 1) { this.octaveOffset = 1; } // Limit lower octave bound
-    if (this.octaveOffset > 7) { this.octaveOffset = 7; } // Limit upper octave bound
+    if (this.octaveOffset > 6) { this.octaveOffset = 6; } // Limit upper octave bound
     CabbageUtils.updateInnerHTML(this.props.channel, this);
   }
 

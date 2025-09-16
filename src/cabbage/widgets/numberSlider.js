@@ -85,12 +85,29 @@ export class NumberSlider {
 
         if (this.isDragging) {
             const dy = event.clientY - this.startY;
-            const increment = this.props.range.increment;
             const steps = dy / 10; // Number of steps to move based on drag distance
-            const newValue = this.startValue - steps * increment;
-            this.props.value = Math.min(this.props.range.max, Math.max(this.props.range.min, newValue));
-            const normalValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-            const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normalValue };
+
+            // Convert the start value to linear space for movement calculation
+            const startLinearValue = this.getLinearValue(this.startValue);
+            const startLinearNormalized = (startLinearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+
+            // Apply movement in linear space
+            const increment = this.props.range.increment;
+            const normalizedIncrement = increment / (this.props.range.max - this.props.range.min);
+            const newLinearNormalized = CabbageUtils.clamp(startLinearNormalized - steps * normalizedIncrement, 0, 1);
+
+            // Convert back to actual linear value
+            const newLinearValue = newLinearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+
+            // Convert to skewed value for display
+            const newSkewedValue = this.getSkewedValue(newLinearValue);
+
+            // Apply increment snapping to the skewed value
+            this.props.value = Math.round(newSkewedValue / increment) * increment;
+            this.props.value = Math.min(this.props.range.max, Math.max(this.props.range.min, this.props.value));
+
+            // Send linear normalized value to Cabbage
+            const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newLinearNormalized };
             Cabbage.sendParameterUpdate(msg, this.vscode);
             this.updateSliderValue();
         }
@@ -152,7 +169,7 @@ export class NumberSlider {
         if (this.props.visible === 0) {
             return '';
         }
-    
+
         console.log('NumberSlider rendering:', this.props);
         const fontSize = this.props.font.size > 0 ? this.props.font.size : 18;
         const alignMap = {
@@ -164,7 +181,7 @@ export class NumberSlider {
         const svgAlign = alignMap[this.props.font.align] || 'middle';
         const currentValue = this.props.value === null ? this.props.range.defaultValue : this.props.value;
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
-    
+
         const html = `
             <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
@@ -184,5 +201,20 @@ export class NumberSlider {
         `;
         console.log('Generated HTML:', html);
         return html;
+    }
+
+    // Helper methods for skew functionality
+    getSkewedValue(linearValue) {
+        const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        // Invert the skew for JUCE-like behavior
+        const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
+        return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    }
+
+    getLinearValue(skewedValue) {
+        const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        // Invert the skew for JUCE-like behavior
+        const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
+        return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
     }
 }

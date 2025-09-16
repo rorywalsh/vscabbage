@@ -164,13 +164,13 @@ export class RotarySlider {
     if (this.props.active === 0) {
       return '';
     }
-  
+
     this.isMouseDown = true;
     this.startY = evt.clientY;
     this.startValue = this.props.value ?? this.props.range.defaultValue;
     // Initialize linearStartValue here
     this.linearStartValue = this.getLinearValue(this.startValue);
-    
+
     window.addEventListener("pointermove", this.moveListener);
     window.addEventListener("pointerup", this.upListener);
   }
@@ -247,65 +247,56 @@ export class RotarySlider {
     if (this.props.active === 0) {
       return '';
     }
-  
+
     const steps = 200;
-    const currentValue = this.props.value ?? this.props.range.defaultValue;
-    // Get the linear start value if we're just starting movement
-    if (this.startValue === currentValue) {
-      // If we're just starting, convert the skewed startValue to linear
-      this.linearStartValue = this.getLinearValue(this.startValue);
-    }
-    
-    // Calculate movement using linear values
-    const valueDiff = ((this.props.range.max - this.props.range.min) * (clientY - this.startY)) / steps;
-    
+
+    // Calculate movement delta in normalized space
+    const movementDelta = (clientY - this.startY) / steps;
+
+    // Work entirely in linear normalized space (0-1) internally
+    // Get the starting linear position from the start value
+    const startLinearNormalized = (this.getLinearValue(this.startValue) - this.props.range.min) / (this.props.range.max - this.props.range.min);
+
     // Apply movement in linear space
-    const linearValue = CabbageUtils.clamp(
-      this.linearStartValue - valueDiff,
-      this.props.range.min,
-      this.props.range.max
-    );
-    
-    // Apply increment snapping to the linear movement
-    const snappedLinearValue = Math.round(linearValue / this.props.range.increment) * this.props.range.increment;
-    
-    // Store the linear value for slider position
-    this.props.linearValue = snappedLinearValue;
-    
-    // Calculate the normalized value (0-1) for Cabbage - no skew applied
-    const normalizedValue = (snappedLinearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    
-    // Apply skew only for display purposes
-    const skewedNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-    const skewedValue = skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
-    
-    // Store the skewed value for display
-    this.props.value = skewedValue;
-    
+    const newLinearNormalized = CabbageUtils.clamp(startLinearNormalized - movementDelta, 0, 1);
+
+    // Convert to linear value in actual range
+    const newLinearValue = newLinearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+
+    // Convert to skewed value for display
+    const newSkewedValue = this.getSkewedValue(newLinearValue);
+
+    // Apply increment snapping to the skewed display value
+    const snappedSkewedValue = Math.round(newSkewedValue / this.props.range.increment) * this.props.range.increment;
+
+    // Store the values
+    this.props.value = snappedSkewedValue; // What user sees (skewed)
+    this.props.linearValue = newLinearValue; // For positioning
+
     // Update the widget display
     const widgetDiv = document.getElementById(this.props.channel);
     widgetDiv.innerHTML = this.getInnerHTML();
-  
-    // Send the non-skewed normalized value to Cabbage
-    const msg = { 
-      paramIdx: this.parameterIndex, 
-      channel: this.props.channel, 
-      value: normalizedValue,  // Using normalizedValue instead of skewedNormalizedValue
-      channelType: "number" 
+
+    // Send linear normalized value to Cabbage
+    const msg = {
+      paramIdx: this.parameterIndex,
+      channel: this.props.channel,
+      value: newLinearNormalized,
+      channelType: "number"
     };
     Cabbage.sendParameterUpdate(msg, this.vscode);
-  }
-  
-  // Add this helper method to convert between linear and skewed values
+  }  // Add this helper method to convert between linear and skewed values
   getSkewedValue(linearValue) {
     const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    const skewedNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
+    // Invert the skew for JUCE-like behavior
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
     return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
   }
-  
+
   getLinearValue(skewedValue) {
     const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    const linearNormalizedValue = Math.pow(normalizedValue, 1/this.props.range.skew);
+    // Invert the skew for JUCE-like behavior
+    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
     return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
   }
 
@@ -339,26 +330,29 @@ export class RotarySlider {
       const inputValue = parseFloat(evt.target.value);
 
       if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
-        // Store the skewed value for display
+        // Store the input value as the skewed value (what user sees)
         this.props.value = inputValue;
-        
-        // Calculate and store the linear value for knob position
-        this.props.linearValue = this.getLinearValue(inputValue);
-        
-        // Calculate normalized value for Cabbage (from linear value, no skew)
-        const normalizedValue = (this.props.linearValue - this.props.range.min) / 
-                              (this.props.range.max - this.props.range.min);
-        
+
+        // Convert to normalized space for the input value
+        const skewedNormalized = (inputValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+
+        // Convert to linear space
+        const linearNormalized = Math.pow(skewedNormalized, 1 / this.props.range.skew);
+        const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+
+        // Store the linear value for knob positioning
+        this.props.linearValue = linearValue;
+
         // Update the display
         const widgetDiv = document.getElementById(this.props.channel);
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
-        
-        // Send non-skewed normalized value to Cabbage
+
+        // Send linear normalized value to Cabbage
         const msg = {
           paramIdx: this.parameterIndex,
           channel: this.props.channel,
-          value: normalizedValue,
+          value: linearNormalized,
           channelType: "number"
         };
         Cabbage.sendParameterUpdate(msg, this.vscode);
@@ -373,17 +367,17 @@ export class RotarySlider {
     if (!this.isImageLoaded) {
       return '';
     }
-  
+
     const totalFrames = this.props.filmStrip.frames.count;
     const originalFrameWidth = this.props.filmStrip.frames.width;
     const originalFrameHeight = this.props.filmStrip.frames.height;
-  
-    // Get normalized value for frame calculation
-    const normalizedValue = (this.props.value ?? this.props.range.defaultValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    // Convert to linear for visual position
-    const linearNormalizedValue = Math.pow(normalizedValue, 1/this.props.range.skew);
+
+    // Use linear value for frame calculation
+    const currentValue = this.props.value ?? this.props.range.defaultValue;
+    const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);
+    const linearNormalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const frameIndex = Math.round(linearNormalizedValue * (totalFrames - 1));
-  
+
     // Use the stored image dimensions
     const imgWidth = this.imageWidth;
     const imgHeight = this.imageHeight;
@@ -426,12 +420,12 @@ export class RotarySlider {
     }
 
     const currentValue = this.props.value ?? this.props.range.defaultValue;
-
+    console.log("Cabbage: Drawing rotary slider with value", currentValue);
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
     }
-  
+
     if (this.isImageLoaded) {
 
       const filmStripElement = this.drawFilmStrip();
@@ -445,7 +439,7 @@ export class RotarySlider {
       `;
       }
     }
-    console.log("Cabbage: Drawing rotary slider", this.props.colour);
+
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
     const innerTrackerWidth = this.props.trackerWidth - this.props.colour.stroke.width; // Updated reference
     const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;
@@ -454,17 +448,17 @@ export class RotarySlider {
     const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
     const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
 
-    const normalizedValue = (currentValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    // Convert to linear for visual position
-    const linearNormalizedValue = Math.pow(normalizedValue, 1/this.props.range.skew);
-    // Map to angle range
+    // Use the linear value for knob positioning (currentValue is skewed, so convert it to linear)
+    const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);
+    const linearNormalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Map to angle range using the linear normalized value
     const angle = CabbageUtils.map(linearNormalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
-    
+
     const trackerArcPath = this.describeArc(
-      this.props.bounds.width / 2, 
-      this.props.bounds.height / 2, 
-      (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)), 
-      -(130 - innerTrackerEndPoints), 
+      this.props.bounds.width / 2,
+      this.props.bounds.height / 2,
+      (w / 2) * (1 - (this.props.trackerWidth / this.props.bounds.width / 2)),
+      -(130 - innerTrackerEndPoints),
       angle
     );
     // Calculate proportional font size if this.props.fontSize is 0
