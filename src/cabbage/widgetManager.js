@@ -24,6 +24,29 @@ export class WidgetManager {
     }
 
     /**
+     * Deep merge function to merge nested objects properly.
+     * @param {object} target - The target object to merge into.
+     * @param {object} source - The source object to merge from.
+     */
+    static deepMerge(target, source) {
+        for (const key in source) {
+            if (source.hasOwnProperty(key)) {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                    // If the property doesn't exist in target, create it
+                    if (!target[key] || typeof target[key] !== 'object') {
+                        target[key] = {};
+                    }
+                    // Recursively merge nested objects
+                    this.deepMerge(target[key], source[key]);
+                } else {
+                    // For primitive values, arrays, or null, do direct assignment
+                    target[key] = source[key];
+                }
+            }
+        }
+    }
+
+    /**
      * Dynamically creates a widget based on the provided type.
      * @param {string} type - The type of the widget to create.
      * @returns {object|null} - The created widget object or null if the type is invalid.
@@ -79,7 +102,10 @@ export class WidgetManager {
             delete props.top;
             delete props.left;
         }
-        Object.assign(widget.props, props);
+        
+        // Deep merge props instead of shallow assign to preserve nested object properties
+        this.deepMerge(widget.props, props);
+        
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
             if (props?.range && props.range.hasOwnProperty("defaultValue")) {
                 widget.props.value = props.range.defaultValue;

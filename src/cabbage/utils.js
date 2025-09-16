@@ -293,11 +293,17 @@ export class CabbageUtils {
     if (element && props.bounds) {
       switch (identifier) {
         case 'bounds.left':
-          element.style.left = props.bounds.left + "px";
+          // Use transform instead of left to avoid adding to existing transform positioning
+          element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+          element.setAttribute('data-x', props.bounds.left);
+          element.setAttribute('data-y', props.bounds.top);
           console.log('Cabbage: Updated left to:', props.bounds.left);
           break;
         case 'bounds.top':
-          element.style.top = props.bounds.top + "px";
+          // Use transform instead of top to avoid adding to existing transform positioning
+          element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+          element.setAttribute('data-x', props.bounds.left);
+          element.setAttribute('data-y', props.bounds.top);
           console.log('Cabbage: Updated top to:', props.bounds.top);
           break;
         case 'bounds.width':

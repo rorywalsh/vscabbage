@@ -60,7 +60,16 @@ export class GroupBox {
 
         const width = Number(this.props.bounds.width) || 200;
         const height = Number(this.props.bounds.height) || 150;
-        const outlineOffset = this.props.colour.stroke.width / 2;
+
+        // Handle stroke format - could be string or object
+        const strokeColour = typeof this.props.colour.stroke === 'string'
+            ? this.props.colour.stroke
+            : this.props.colour.stroke.colour;
+        const strokeWidth = typeof this.props.colour.stroke === 'string'
+            ? 1
+            : this.props.colour.stroke.width;
+
+        const outlineOffset = strokeWidth / 2;
         const textSize = this.props.font.size > 0 ? this.props.font.size : 16;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
@@ -97,31 +106,33 @@ export class GroupBox {
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
                  width="${width}" height="${height}"  preserveAspectRatio="none">
-                <!-- Transparent rectangle as the background -->
-                <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" 
-                      x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="transparent"></rect>
+                <defs>
+                    <!-- Mask to create transparent area behind text -->
+                    <mask id="textMask_${this.props.channel}">
+                        <!-- White rectangle covers everything (visible) -->
+                        <rect x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}" fill="white"/>
+                        <!-- Black rectangle behind text creates transparent area with rounded corners and extra padding -->
+                        <rect x="${gapStart}" y="${yOffset - textSize / 2}" width="${gapEnd - gapStart}" height="${textSize + padding}" 
+                              rx="${this.props.corners}" ry="${this.props.corners}" fill="black"/>
+                    </mask>
+                </defs>
                 
-                <!-- Top border lines with gap adjusted for text alignment -->
-                <line x1="0" y1="${outlineOffset + yOffset}" x2="${gapStart}" y2="${outlineOffset + yOffset}" 
-                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
-                <line x1="${gapEnd}" y1="${outlineOffset + yOffset}" x2="${this.props.bounds.width}" y2="${outlineOffset + yOffset}" 
-                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
+                <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
+                <rect width="${this.props.bounds.width - (strokeWidth * 2)}" height="${this.props.bounds.height - (yOffset + strokeWidth)}" 
+                      x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.corners}" ry="${this.props.corners}" 
+                      fill="${this.props.colour.fill}" mask="url(#textMask_${this.props.channel})"></rect>
+                
+                <!-- Rounded rectangle border outline with gap for text -->
+                <rect width="${this.props.bounds.width - strokeWidth}" height="${this.props.bounds.height - (yOffset + strokeWidth / 2)}" 
+                      x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.corners}" ry="${this.props.corners}" 
+                      fill="none" stroke="${strokeColour}" stroke-width="${strokeWidth}" 
+                      mask="url(#textMask_${this.props.channel})"/>
                 
                 <!-- Text at the top with alignment support -->
                 <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
                       font-family="${this.props.font.family}" font-size="${textSize}" fill="${this.props.font.colour}">
                     ${this.props.text}
                 </text>
-                
-                <!-- Bottom border line -->
-                <line x1="0" y1="${this.props.bounds.height - outlineOffset}" x2="${this.props.bounds.width}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
-                
-                <!-- Left and right border lines adjusted to start at yOffset -->
-                <line x1="${outlineOffset}" y1="${yOffset}" x2="${outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
-                <line x1="${this.props.bounds.width - outlineOffset}" y1="${yOffset}" x2="${this.props.bounds.width - outlineOffset}" y2="${this.props.bounds.height - outlineOffset}" 
-                      stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" />
             </svg>
         `;
     }

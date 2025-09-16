@@ -105,6 +105,7 @@ export class PropertyPanel {
             }
 
             if (typeof sectionProperties === 'object' && sectionProperties !== null && !Array.isArray(sectionProperties)) {
+                console.log(`Creating section for: ${sectionName}`);
                 const sectionDiv = this.createSection(sectionName);
 
                 // Add each property to the section
@@ -339,7 +340,7 @@ export class PropertyPanel {
                 input.value = value || 'Verdana'; // Set default value if none provided
             }
             // Handle text alignment selection
-            else if (key.toLowerCase() === 'align') {
+            else if (key.toLowerCase() === 'align' || key.toLowerCase().endsWith('.align')) {
                 input = document.createElement('select');
                 const alignments = ['left', 'right', 'centre'];
 
