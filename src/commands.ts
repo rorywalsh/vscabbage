@@ -497,7 +497,7 @@ export class Commands {
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
 
         console.log("Cabbage: onDidSave", editor.fileName);
-        
+
         // Check if file needs .csd extension
         let finalFileName = editor.fileName;
         if (!editor.fileName.endsWith('.csd') && await this.hasCabbageTags(editor)) {
@@ -508,18 +508,18 @@ export class Commands {
                     vscode.Uri.file(editor.fileName),
                     vscode.Uri.file(newFileName)
                 );
-                
+
                 // Open the renamed file
                 const newDocument = await vscode.workspace.openTextDocument(newFileName);
                 await vscode.window.showTextDocument(newDocument);
-                
+
                 finalFileName = newFileName;
                 vscode.window.showInformationMessage(`File renamed to ${path.basename(newFileName)}`);
             } catch (error) {
                 console.error('Failed to rename file to .csd:', error);
             }
         }
-        
+
         this.lastSavedFileName = finalFileName;
         this.getOutputChannel().appendLine(`Saving file: ${finalFileName}`);
 
@@ -753,8 +753,8 @@ export class Commands {
         // Get the new file contents based on the type
         const newFileContents = ExtensionUtils.getNewCabbageFile(type);
         // Create a new untitled document with .csd extension and appropriate language
-        const document = await vscode.workspace.openTextDocument({ 
-            content: newFileContents, 
+        const document = await vscode.workspace.openTextDocument({
+            content: newFileContents,
             language: 'csound-csd'  // Set proper language mode for .csd files
         });
 
