@@ -95,8 +95,10 @@ export class VerticalSlider {
       window.addEventListener("pointerup", this.upListener);
       CabbageUtils.updateInnerHTML(this.props.channel, this);
 
-      const newValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-      const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" }
+      // Send value that will result in correct output after backend applies skew
+      const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+      const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+      const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
       Cabbage.sendParameterUpdate(msg, this.vscode);
     }
   }
@@ -216,8 +218,10 @@ export class VerticalSlider {
     const widgetDiv = document.getElementById(this.props.channel);
     widgetDiv.innerHTML = this.getInnerHTML();
 
-    // Send the linear normalized value to Cabbage (no skew applied)
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: linearNormalized, channelType: "number" }
+    // Send value that will result in correct output after backend applies skew
+    const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 

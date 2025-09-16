@@ -206,8 +206,13 @@ export class HorizontalSlider {
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props.channel, this);
 
-    // Send the linear normalized value to Cabbage (no skew applied)
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: linearNormalized, channelType: "number" }
+    // Send value that will result in correct output after backend applies skew
+    // Backend does: min + (max - min) * pow(normalized, skew)
+    // We want: backend to output skewedValue
+    // So we need to send: pow((skewedValue - min) / (max - min), 1/skew)
+    const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
     console.log(skewedValue);
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
@@ -227,11 +232,13 @@ export class HorizontalSlider {
         const widgetDiv = document.getElementById(this.props.channel);
         widgetDiv.querySelector('input').focus();
 
-        // Send linear normalized value to Cabbage
+        // Send value that will result in correct output after backend applies skew
+        const targetNormalized = (inputValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
         const msg = {
           paramIdx: this.parameterIndex,
           channel: this.props.channel,
-          value: linearNormalized,
+          value: valueToSend,
           channelType: "number"
         };
         Cabbage.sendParameterUpdate(msg, this.vscode);

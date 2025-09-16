@@ -33,7 +33,7 @@ export class HorizontalRangeSlider {
         "align": "centre",
         "colour": "#dddddd" // Added colour property to font
       },
-      "valueTextBox": 0,      
+      "valueTextBox": 0,
       "markerThickness": 0.2,
       "markerStart": 0.1,
       "markerEnd": 0.9,
@@ -186,11 +186,12 @@ export class HorizontalRangeSlider {
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props.channel, this);
 
-    //values sent to Cabbage should be normalized between 0 and 1
-    const normValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-    console.log("Cabbage: Norm value: " + normValue);
+    // Send value that will result in correct output after backend applies skew
+    const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normValue, channelType: "number" }
+    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 

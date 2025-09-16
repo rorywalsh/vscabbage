@@ -54,7 +54,6 @@ export class MidiKeyboard {
         if (midiNote >= 0 && midiNote <= 127) {
           const noteName = noteNames[i] + octave;
           this.noteMap[noteName] = midiNote;
-          console.log("Cabbage: Mapping", noteName, "to MIDI note", midiNote);
         }
       }
     }

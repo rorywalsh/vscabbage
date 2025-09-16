@@ -102,10 +102,10 @@ export class WidgetManager {
             delete props.top;
             delete props.left;
         }
-        
+
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
-        
+
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
             if (props?.range && props.range.hasOwnProperty("defaultValue")) {
                 widget.props.value = props.range.defaultValue;

@@ -106,8 +106,10 @@ export class NumberSlider {
             this.props.value = Math.round(newSkewedValue / increment) * increment;
             this.props.value = Math.min(this.props.range.max, Math.max(this.props.range.min, this.props.value));
 
-            // Send linear normalized value to Cabbage
-            const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newLinearNormalized };
+            // Send value that will result in correct output after backend applies skew
+            const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+            const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+            const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend };
             Cabbage.sendParameterUpdate(msg, this.vscode);
             this.updateSliderValue();
         }
@@ -139,8 +141,10 @@ export class NumberSlider {
                 const newValue = parseFloat(input.value);
                 if (!isNaN(newValue) && newValue >= this.props.range.min && newValue <= this.props.range.max) {
                     this.props.value = newValue;
-                    const normalValue = CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, 1);
-                    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: normalValue };
+                    // Send value that will result in correct output after backend applies skew
+                    const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+                    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+                    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend };
                     Cabbage.sendParameterUpdate(msg, this.vscode);
                     this.updateSliderValue();
                 } else {
