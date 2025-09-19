@@ -163,6 +163,21 @@ export async function activate(context: vscode.ExtensionContext):
     // automatically
     context.subscriptions.push(configurationChangeListener);
 
+    // Listen for theme changes and update webview accordingly
+    const themeChangeListener = vscode.window.onDidChangeActiveColorTheme(() => {
+        const panel = Commands.getPanel();
+        if (panel) {
+            const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark || 
+                               vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+            panel.webview.postMessage({
+                command: 'updateTheme',
+                isDarkTheme: isDarkTheme
+            });
+        }
+    });
+
+    context.subscriptions.push(themeChangeListener);
+
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.makeForDaisy', async () => {
             await Commands.makeForDaisy('');

@@ -870,7 +870,8 @@ export class ExtensionUtils {
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri) {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, isDarkTheme: boolean) {
+        const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         return `
 <!doctype html>
 <html lang="en">
@@ -895,7 +896,7 @@ export class ExtensionUtils {
   </style>
 </head>
 
-<body data-vscode-context='{"webviewSection": "nav", "preventDefaultContextMenuItems": true}'>
+<body data-vscode-context='{"webviewSection": "nav", "preventDefaultContextMenuItems": true}' class="${themeClass}">
 
 
 <div id="parent" class="full-height-div">
@@ -927,6 +928,16 @@ export class ExtensionUtils {
 </div>
   <script type="module" src="${widgetWrapper}"></script>
   <script type="module" src="${mainJS}"></script>
+  <script>
+    // Theme change handling
+    window.addEventListener('message', event => {
+      const message = event.data;
+      if (message.command === 'updateTheme') {
+        const body = document.body;
+        body.className = message.isDarkTheme ? 'vscode-dark' : 'vscode-light';
+      }
+    });
+  </script>
 </body>
 
 </html>`;
