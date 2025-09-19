@@ -10,7 +10,7 @@ let interactPromise;
  * @param {string} interactJSUri - The URI of the interact.js script.
  */
 export function initializeInteract(interactJSUri) {
-    console.log("Initializing interact", interactJSUri);
+    console.log("Cabbage: Initializing interact", interactJSUri);
     interactPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = interactJSUri; // Set the source of the script
@@ -37,6 +37,9 @@ export class WidgetWrapper {
         this.widgets = widgets; // All widgets in the UI
         this.vscode = vscode; // VSCode API for messaging
 
+        // Add global event listeners for context menu handling
+        this.setupGlobalEventListeners();
+
         // Wait for interact to load before applying the configuration
         interactPromise.then(() => {
             this.applyInteractConfig({
@@ -44,10 +47,314 @@ export class WidgetWrapper {
                 endOnly: true
             });
         }).catch(error => {
-            console.error("Failed to load interact.min.js:", error);
+            console.error("Cabbage: Failed to load interact.min.js:", error);
         });
 
         this.applyInteractConfig(restrictions); // Apply the initial interact configuration
+    }
+
+    /**
+     * Sets up global event listeners for context menu handling.
+     */
+    setupGlobalEventListeners() {
+        // Store mouse position for context menu positioning
+        let mousePosition = { x: 0, y: 0 };
+        
+        // Track mouse position
+        document.addEventListener('mousemove', (event) => {
+            mousePosition.x = event.clientX;
+            mousePosition.y = event.clientY;
+        });
+
+        // Handle right-click context menu for selected widgets
+        document.addEventListener('contextmenu', (event) => {
+            const draggableElement = event.target.closest('.draggable');
+            if (draggableElement) {
+                console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);
+                console.log('Cabbage: Selected elements count:', this.selectedElements.size);
+                console.log('Cabbage: Selected element IDs:', Array.from(this.selectedElements).map(el => el.id));
+                
+                // Check if the clicked element is selected or if there are selected elements
+                const isClickedElementSelected = this.selectedElements.has(draggableElement);
+                const hasSelectedElements = this.selectedElements.size > 0;
+                
+                console.log('Cabbage: Is clicked element selected:', isClickedElementSelected);
+                console.log('Cabbage: Has selected elements:', hasSelectedElements);
+                
+                // For now, show context menu if there are any selected elements
+                // Later we can make it more specific to only show when clicking on selected elements
+                if (hasSelectedElements) {
+                    // Show context menu for selected widgets
+                    console.log('Cabbage: Showing context menu for selected widgets:', Array.from(this.selectedElements).map(el => el.id));
+                    
+                    // Create custom context menu positioned at mouse location
+                    this.showSelectionContextMenu(mousePosition.x, mousePosition.y);
+                    event.preventDefault(); // Prevent default context menu
+                    return false;
+                } else {
+                    console.log('Cabbage: No selected elements, preventing context menu');
+                    // Prevent context menu on non-selected draggable elements
+                    event.preventDefault();
+                    return false;
+                }
+            }
+        });
+
+        // Handle mouse down to prevent dragging when right-clicking on selected elements
+        document.addEventListener('mousedown', (event) => {
+            // Hide custom context menu on any mouse down
+            this.hideCustomContextMenu();
+        });
+
+        // Re-enable dragging when Alt is released (keep for other functionality)
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'Alt') {
+                document.querySelectorAll('[data-alt-pressed]').forEach(element => {
+                    element.removeAttribute('data-alt-pressed');
+                });
+            }
+        });
+
+        // Hide context menu when clicking elsewhere
+        document.addEventListener('click', () => {
+            this.hideCustomContextMenu();
+        });
+    }
+
+    /**
+     * Shows a custom context menu for selected widgets at the specified position.
+     * @param {number} x - The x coordinate for the menu position
+     * @param {number} y - The y coordinate for the menu position
+     */
+    showSelectionContextMenu(x, y) {
+        // Remove any existing context menu
+        this.hideCustomContextMenu();
+        
+        const selectedCount = this.selectedElements.size;
+        const isMultipleSelection = selectedCount > 1;
+        
+        // Create custom context menu
+        const contextMenu = document.createElement('div');
+        contextMenu.id = 'custom-context-menu';
+        contextMenu.style.cssText = `
+            position: fixed;
+            top: ${y}px;
+            left: ${x}px;
+            background: var(--vscode-menu-background, #ffffff);
+            border: 1px solid var(--vscode-menu-border, #ccc);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 999999;
+            min-width: 180px;
+            padding: 4px 0;
+            font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
+            font-size: 13px;
+            color: var(--vscode-menu-foreground, #333);
+        `;
+        
+        // Add context menu items based on selection
+        const menuItems = [];
+        
+        if (isMultipleSelection) {
+            // Menu items for multiple selection
+            menuItems.push(
+                { label: `Group ${selectedCount} Widgets`, action: () => this.groupSelectedWidgets() },
+                { label: 'Align Left', action: () => this.alignSelectedWidgets('left') },
+                { label: 'Align Right', action: () => this.alignSelectedWidgets('right') },
+                { label: 'Align Top', action: () => this.alignSelectedWidgets('top') },
+                { label: 'Align Bottom', action: () => this.alignSelectedWidgets('bottom') },
+                { label: 'Distribute Horizontally', action: () => this.distributeSelectedWidgets('horizontal') },
+                { label: 'Distribute Vertically', action: () => this.distributeSelectedWidgets('vertical') },
+                { label: '---', action: null }, // Separator
+                { label: `Copy ${selectedCount} Widgets`, action: () => this.copySelectedWidgets() },
+                { label: `Delete ${selectedCount} Widgets`, action: () => this.deleteSelectedWidgets() }
+            );
+        } else {
+            // Menu items for single selection
+            const singleElement = Array.from(this.selectedElements)[0];
+            menuItems.push(
+                { label: 'Copy Widget', action: () => this.copySelectedWidgets() },
+                { label: 'Duplicate Widget', action: () => this.duplicateWidget(singleElement) },
+                { label: 'Delete Widget', action: () => this.deleteSelectedWidgets() },
+                { label: '---', action: null }, // Separator
+                { label: 'Bring to Front', action: () => this.bringToFront(singleElement) },
+                { label: 'Send to Back', action: () => this.sendToBack(singleElement) }
+            );
+        }
+        
+        menuItems.forEach(item => {
+            if (item.label === '---') {
+                // Add separator
+                const separator = document.createElement('div');
+                separator.style.cssText = `
+                    height: 1px;
+                    background: var(--vscode-menu-separatorBackground, #e5e5e5);
+                    margin: 4px 0;
+                `;
+                contextMenu.appendChild(separator);
+                return;
+            }
+            
+            const menuItem = document.createElement('div');
+            menuItem.textContent = item.label;
+            menuItem.style.cssText = `
+                padding: 6px 12px;
+                cursor: pointer;
+                transition: background-color 0.1s ease;
+            `;
+            
+            menuItem.addEventListener('mouseenter', () => {
+                menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
+            });
+            
+            menuItem.addEventListener('mouseleave', () => {
+                menuItem.style.backgroundColor = 'transparent';
+            });
+            
+            menuItem.addEventListener('click', () => {
+                if (item.action) {
+                    item.action();
+                }
+                this.hideCustomContextMenu();
+            });
+            
+            contextMenu.appendChild(menuItem);
+        });
+        
+        // Add to document
+        document.body.appendChild(contextMenu);
+        
+        // Adjust position if menu would go off-screen
+        const rect = contextMenu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            contextMenu.style.left = (x - rect.width) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            contextMenu.style.top = (y - rect.height) + 'px';
+        }
+    }
+
+    /**
+     * Hides the custom context menu.
+     */
+    hideCustomContextMenu() {
+        const existingMenu = document.getElementById('custom-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+    }
+
+    /**
+     * Context menu action: Copy selected widgets
+     */
+    copySelectedWidgets() {
+        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+        console.log('Cabbage: Copy selected widgets:', selectedIds);
+        // Implement copy functionality here
+        this.updatePanelCallback(this.vscode, {
+            eventType: "copySelection",
+            selection: selectedIds,
+            bounds: {}
+        }, this.widgets);
+    }
+
+    /**
+     * Context menu action: Delete selected widgets
+     */
+    deleteSelectedWidgets() {
+        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+        console.log('Cabbage: Delete selected widgets:', selectedIds);
+        // Implement delete functionality here
+        this.updatePanelCallback(this.vscode, {
+            eventType: "deleteSelection",
+            selection: selectedIds,
+            bounds: {}
+        }, this.widgets);
+    }
+
+    /**
+     * Context menu action: Group selected widgets
+     */
+    groupSelectedWidgets() {
+        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+        console.log('Cabbage: Group selected widgets:', selectedIds);
+        // Implement group functionality here
+        this.updatePanelCallback(this.vscode, {
+            eventType: "groupSelection",
+            selection: selectedIds,
+            bounds: {}
+        }, this.widgets);
+    }
+
+    /**
+     * Context menu action: Align selected widgets
+     */
+    alignSelectedWidgets(alignment) {
+        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+        console.log(`Cabbage: Align selected widgets ${alignment}:`, selectedIds);
+        // Implement alignment functionality here
+        this.updatePanelCallback(this.vscode, {
+            eventType: "alignSelection",
+            selection: selectedIds,
+            alignment: alignment,
+            bounds: {}
+        }, this.widgets);
+    }
+
+    /**
+     * Context menu action: Distribute selected widgets
+     */
+    distributeSelectedWidgets(direction) {
+        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+        console.log(`Cabbage: Distribute selected widgets ${direction}:`, selectedIds);
+        // Implement distribution functionality here
+        this.updatePanelCallback(this.vscode, {
+            eventType: "distributeSelection",
+            selection: selectedIds,
+            direction: direction,
+            bounds: {}
+        }, this.widgets);
+    }
+
+    /**
+     * Context menu action: Copy widget (legacy - keeping for single widget operations)
+     */
+    copyWidget(element) {
+        console.log('Cabbage: Copy widget:', element.id);
+        // Implement copy functionality here
+    }
+
+    /**
+     * Context menu action: Delete widget (legacy - now calls delete selection for single items)
+     */
+    deleteWidget(element) {
+        console.log('Cabbage: Delete widget:', element.id);
+        // Use the selection-based delete method
+        this.deleteSelectedWidgets();
+    }
+
+    /**
+     * Context menu action: Duplicate widget
+     */
+    duplicateWidget(element) {
+        console.log('Cabbage: Duplicate widget:', element.id);
+        // Implement duplicate functionality here
+    }
+
+    /**
+     * Context menu action: Bring to front
+     */
+    bringToFront(element) {
+        console.log('Cabbage: Bring to front:', element.id);
+        element.style.zIndex = '10000';
+    }
+
+    /**
+     * Context menu action: Send to back
+     */
+    sendToBack(element) {
+        console.log('Cabbage: Send to back:', element.id);
+        element.style.zIndex = '1';
     }
 
     /**
@@ -92,7 +399,7 @@ export class WidgetWrapper {
                 bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
             }, this.widgets);
 
-            console.warn(`Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
+            console.warn(`Cabbage: Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
         });
     }
 
@@ -159,6 +466,9 @@ export class WidgetWrapper {
         }).draggable({
             startThreshold: 1, // Threshold for starting drag
             listeners: {
+                start: (event) => {
+                    // Context: Starting drag operation
+                },
                 move: this.dragMoveListener, // Handle drag move
                 end: this.dragEndListener // Handle drag end
             },

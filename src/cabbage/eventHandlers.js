@@ -34,7 +34,6 @@ const loadPropertyPanel = async () => {
 };
 
 if (vscode !== null) {
-    console.log("Cabbage: Attempting to load PropertyPanel");
     propertyPanelPromise = import("../propertyPanel.js")
         .then(module => {
             console.log("Cabbage: PropertyPanel module loaded:", module);
@@ -166,6 +165,16 @@ export function setupFormHandlers() {
                 e.preventDefault(); // Prevent default context menu
                 e.stopImmediatePropagation();
                 e.stopPropagation();
+
+                console.log("Cabbage: Context menu triggered, selected elements:", selectedElements.size);
+
+                // Check if we have selected widgets for context menu
+                if (selectedElements.size > 0 && cabbageMode === 'draggable') {
+                    // Show context menu for selected widgets
+                    console.log("Cabbage: Showing context menu for selected widgets");
+                    showSelectionContextMenu(e, selectedElements);
+                    return;
+                }
 
                 // Calculate correct context menu position
                 let x = e.offsetX, y = e.offsetY,
@@ -424,5 +433,220 @@ export function setupFormHandlers() {
                 event.stopPropagation(); // Prevent event from affecting other elements
             });
         }
+    }
+}
+
+/**
+ * Shows a context menu for selected widgets with relevant actions
+ * @param {MouseEvent} event - The context menu event
+ * @param {Set} selectedElements - Set of selected widget elements
+ */
+function showSelectionContextMenu(event, selectedElements) {
+    console.log("Cabbage: Creating context menu for", selectedElements.size, "selected widgets");
+    
+    // Remove any existing context menu
+    const existingMenu = document.getElementById('selection-context-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+
+    // Create context menu
+    const contextMenu = document.createElement('div');
+    contextMenu.id = 'selection-context-menu';
+    contextMenu.style.cssText = `
+        position: fixed;
+        background: var(--vscode-menu-background);
+        color: var(--vscode-menu-foreground);
+        border: 1px solid var(--vscode-menu-border);
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        min-width: 180px;
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        padding: 4px 0;
+    `;
+
+    const selectedCount = selectedElements.size;
+    const menuItems = [];
+
+    if (selectedCount === 1) {
+        menuItems.push(
+            { text: 'Properties', action: () => showProperties(selectedElements) },
+            { text: 'Duplicate', action: () => duplicateWidgets(selectedElements) },
+            { text: 'Delete', action: () => deleteWidgets(selectedElements) },
+            { text: '---' },
+            { text: 'Bring to Front', action: () => bringToFront(selectedElements) },
+            { text: 'Send to Back', action: () => sendToBack(selectedElements) }
+        );
+    } else {
+        menuItems.push(
+            { text: `${selectedCount} widgets selected`, disabled: true },
+            { text: '---' },
+            { text: 'Group', action: () => groupWidgets(selectedElements) },
+            { text: 'Duplicate All', action: () => duplicateWidgets(selectedElements) },
+            { text: 'Delete All', action: () => deleteWidgets(selectedElements) },
+            { text: '---' },
+            { text: 'Align Left', action: () => alignWidgets(selectedElements, 'left') },
+            { text: 'Align Right', action: () => alignWidgets(selectedElements, 'right') },
+            { text: 'Align Top', action: () => alignWidgets(selectedElements, 'top') },
+            { text: 'Align Bottom', action: () => alignWidgets(selectedElements, 'bottom') }
+        );
+    }
+
+    // Create menu items
+    menuItems.forEach(item => {
+        if (item.text === '---') {
+            const separator = document.createElement('div');
+            separator.style.cssText = `
+                height: 1px;
+                background: var(--vscode-menu-separatorBackground);
+                margin: 4px 0;
+            `;
+            contextMenu.appendChild(separator);
+        } else {
+            const menuItem = document.createElement('div');
+            menuItem.textContent = item.text;
+            menuItem.style.cssText = `
+                padding: 6px 12px;
+                cursor: ${item.disabled ? 'default' : 'pointer'};
+                color: ${item.disabled ? 'var(--vscode-disabledForeground)' : 'var(--vscode-menu-foreground)'};
+                white-space: nowrap;
+            `;
+
+            if (!item.disabled) {
+                menuItem.addEventListener('mouseenter', () => {
+                    menuItem.style.background = 'var(--vscode-menu-selectionBackground)';
+                    menuItem.style.color = 'var(--vscode-menu-selectionForeground)';
+                });
+
+                menuItem.addEventListener('mouseleave', () => {
+                    menuItem.style.background = 'transparent';
+                    menuItem.style.color = 'var(--vscode-menu-foreground)';
+                });
+
+                menuItem.addEventListener('click', () => {
+                    console.log("Cabbage: Context menu action:", item.text);
+                    item.action();
+                    contextMenu.remove();
+                });
+            }
+
+            contextMenu.appendChild(menuItem);
+        }
+    });
+
+    // Position the menu
+    const x = event.clientX;
+    const y = event.clientY;
+    
+    // Add to document to measure dimensions
+    document.body.appendChild(contextMenu);
+    
+    // Adjust position to keep menu in viewport
+    const rect = contextMenu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let finalX = x;
+    let finalY = y;
+    
+    if (x + rect.width > viewportWidth) {
+        finalX = viewportWidth - rect.width - 5;
+    }
+    
+    if (y + rect.height > viewportHeight) {
+        finalY = viewportHeight - rect.height - 5;
+    }
+    
+    contextMenu.style.left = `${finalX}px`;
+    contextMenu.style.top = `${finalY}px`;
+
+    // Close menu when clicking elsewhere
+    const closeMenu = (e) => {
+        if (!contextMenu.contains(e.target)) {
+            contextMenu.remove();
+            document.removeEventListener('click', closeMenu);
+            document.removeEventListener('contextmenu', closeMenu);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+        document.addEventListener('contextmenu', closeMenu);
+    }, 0);
+}
+
+// Context menu action functions
+function showProperties(selectedElements) {
+    console.log("Cabbage: Show properties for selected widgets");
+    // Implementation for showing properties
+}
+
+function duplicateWidgets(selectedElements) {
+    console.log("Cabbage: Duplicating", selectedElements.size, "widgets");
+    // Implementation for duplicating widgets
+}
+
+function deleteWidgets(selectedElements) {
+    console.log("Cabbage: Deleting", selectedElements.size, "widgets");
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+    console.log("Cabbage: Widget IDs to delete:", selectedIds);
+    
+    if (vscode) {
+        vscode.postMessage({
+            command: 'deleteWidgets',
+            widgetIds: selectedIds
+        });
+    }
+}
+
+function groupWidgets(selectedElements) {
+    console.log("Cabbage: Grouping", selectedElements.size, "widgets");
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+    console.log("Cabbage: Widget IDs to group:", selectedIds);
+    
+    if (vscode) {
+        vscode.postMessage({
+            command: 'groupWidgets',
+            widgetIds: selectedIds
+        });
+    }
+}
+
+function bringToFront(selectedElements) {
+    console.log("Cabbage: Bringing widgets to front");
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+    
+    if (vscode) {
+        vscode.postMessage({
+            command: 'bringToFront',
+            widgetIds: selectedIds
+        });
+    }
+}
+
+function sendToBack(selectedElements) {
+    console.log("Cabbage: Sending widgets to back");
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+    
+    if (vscode) {
+        vscode.postMessage({
+            command: 'sendToBack',
+            widgetIds: selectedIds
+        });
+    }
+}
+
+function alignWidgets(selectedElements, alignment) {
+    console.log("Cabbage: Aligning widgets", alignment);
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+    
+    if (vscode) {
+        vscode.postMessage({
+            command: 'alignWidgets',
+            widgetIds: selectedIds,
+            alignment: alignment
+        });
     }
 }

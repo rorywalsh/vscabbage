@@ -431,8 +431,7 @@ export class PropertyPanel {
         }
 
         this.widgets.forEach((widget) => {
-            console.log("Cabbage: Cabbage: widget", widget.props.channel, " input", input.dataset.parent);
-            if (widget.props.channel === input.dataset.parent) {
+             if (widget.props.channel === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
