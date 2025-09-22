@@ -266,6 +266,20 @@ export function setupFormHandlers() {
         let offsetX = 0;
         let offsetY = 0;
 
+        // Add document-level event listener for deselection
+        document.addEventListener('pointerdown', (event) => {
+            // Only handle deselection if not clicking on a widget, selection box, or context menu
+            const clickedElement = event.target.closest('.draggable');
+            const isSelectionBox = event.target.closest && event.target.closest('.selection-box');
+            const isContextMenu = event.target.closest && event.target.closest('#selection-context-menu');
+            
+            if (!clickedElement && !isSelectionBox && !isContextMenu && !event.shiftKey && !event.altKey) {
+                console.log("Cabbage: Deselecting all widgets (document click)");
+                selectedElements.forEach(element => element.classList.remove('selected'));
+                selectedElements.clear();
+            }
+        });
+
         form.addEventListener('dblclick', async (event) => {
             console.error("Cabbage: Double click event", event);
         });
@@ -290,7 +304,7 @@ export function setupFormHandlers() {
                 contextMenu.style.visibility = "hidden";
                 groupContextMenu.style.visibility = "hidden";
 
-                const clickedElement = event.target;
+                const clickedElement = event.target.closest('.draggable');
                 const selectionColour = CabbageColours.invertColor(clickedElement.getAttribute('fill'));
                 const formRect = form.getBoundingClientRect();
                 offsetX = formRect.left;
@@ -313,27 +327,38 @@ export function setupFormHandlers() {
                     selectionBox.style.left = `${startX}px`;
                     selectionBox.style.top = `${startY}px`;
                     form.appendChild(selectionBox);
-                } else if (clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
+                } else if (clickedElement && clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
                     // Handle individual widget selection and toggling
-                    if (!event.shiftKey && !event.altKey) {
-                        if (!selectedElements.has(clickedElement)) {
-                            selectedElements.forEach(element => element.classList.remove('selected'));
-                            selectedElements.clear();
-                            selectedElements.add(clickedElement);
-                        }
-                        clickedElement.classList.add('selected');
-                    } else {
-                        clickedElement.classList.toggle('selected');
-                        if (clickedElement.classList.contains('selected')) {
-                            selectedElements.add(clickedElement);
-                        } else {
-                            selectedElements.delete(clickedElement);
+                    let elementToSelect = clickedElement;
+                    
+                    // Check if clicked element is a child widget of a grouped container
+                    const widget = widgets.find(w => w.props.channel === clickedElement.id);
+                    if (widget && widget.props.parentChannel) {
+                        // This is a child widget - select the parent container instead
+                        const parentDiv = document.getElementById(widget.props.parentChannel);
+                        if (parentDiv) {
+                            elementToSelect = parentDiv;
+                            console.log("Cabbage: Selecting parent container", widget.props.parentChannel, "instead of child", clickedElement.id);
                         }
                     }
-                }
-
-                // Deselect all if clicking on the form background
-                if (event.target.id === "MainForm") {
+                    
+                    if (!event.shiftKey && !event.altKey) {
+                        if (!selectedElements.has(elementToSelect)) {
+                            selectedElements.forEach(element => element.classList.remove('selected'));
+                            selectedElements.clear();
+                            selectedElements.add(elementToSelect);
+                        }
+                        elementToSelect.classList.add('selected');
+                    } else {
+                        elementToSelect.classList.toggle('selected');
+                        if (elementToSelect.classList.contains('selected')) {
+                            selectedElements.add(elementToSelect);
+                        } else {
+                            selectedElements.delete(elementToSelect);
+                        }
+                    }
+                } else {
+                    // Deselect all if clicking elsewhere (including MainForm background)
                     selectedElements.forEach(element => element.classList.remove('selected'));
                     selectedElements.clear();
                 }
@@ -727,14 +752,142 @@ function deleteWidgets(selectedElements) {
 }function groupWidgets(selectedElements) {
     console.log("Cabbage: Grouping", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
-    console.log("Cabbage: Widget IDs to group:", selectedIds);
     
-    if (vscode) {
+    if (selectedElements.size < 2) {
+        console.log("Cabbage: Need at least 2 widgets to group");
+        return;
+    }
+    
+    // Get all selected widgets
+    const selectedWidgets = [];
+    selectedIds.forEach(id => {
+        const widget = widgets.find(w => w.props.channel === id);
+        if (widget) {
+            selectedWidgets.push(widget);
+        }
+    });
+    
+    // Find the first groupBox or image widget to use as container
+    const containerWidget = selectedWidgets.find(w => 
+        w.props.type === 'groupBox' || w.props.type === 'image'
+    );
+    
+    if (!containerWidget) {
+        console.error("Cabbage: No groupBox or image widget found in selection to use as container");
+        alert("Grouping requires at least one groupBox or image widget to be selected as the container.");
+        return;
+    }
+    
+    console.log("Cabbage: Using", containerWidget.props.channel, "as container");
+    
+    // Initialize children array if it doesn't exist
+    containerWidget.props.children = containerWidget.props.children || [];
+    
+    // Get child widgets (all selected widgets except the container)
+    const childWidgets = selectedWidgets.filter(w => w !== containerWidget);
+    
+    // Convert absolute positions to relative positions within container
+    childWidgets.forEach(childWidget => {
+        const childBounds = childWidget.props.bounds;
+        const containerBounds = containerWidget.props.bounds;
+        
+        // Calculate relative position
+        const relativeLeft = childBounds.left - containerBounds.left;
+        const relativeTop = childBounds.top - containerBounds.top;
+        
+        // Create child object with only essential properties (use defaults for everything else)
+        const childData = {
+            type: childWidget.props.type,
+            channel: childWidget.props.channel,
+            bounds: {
+                left: relativeLeft,
+                top: relativeTop,
+                width: childBounds.width,
+                height: childBounds.height
+            }
+        };
+        
+        // Include some key properties if they differ from defaults
+        if (childWidget.props.text && childWidget.props.text !== "") {
+            childData.text = childWidget.props.text;
+        }
+        if (childWidget.props.value !== null && childWidget.props.value !== undefined) {
+            childData.value = childWidget.props.value;
+        }
+        if (childWidget.props.range && childWidget.props.range.defaultValue !== 0) {
+            childData.range = { defaultValue: childWidget.props.range.defaultValue };
+        }
+        
+        // Add to container's children array
+        containerWidget.props.children.push(childData);
+        
+        // Remove from main widgets array
+        const widgetIndex = widgets.findIndex(w => w.props.channel === childWidget.props.channel);
+        if (widgetIndex !== -1) {
+            widgets.splice(widgetIndex, 1);
+            console.log("Cabbage: Moved", childWidget.props.channel, "into", containerWidget.props.channel, "children");
+        }
+        
+        // Remove from DOM
+        const childDiv = CabbageUtils.getWidgetDiv(childWidget.props.channel);
+        if (childDiv && childDiv.parentElement) {
+            childDiv.parentElement.removeChild(childDiv);
+            console.log("Cabbage: Removed", childWidget.props.channel, "from DOM");
+        }
+    });
+    
+    // Clear selection
+    selectedElements.clear();
+    
+    // Select the container widget
+    const containerDiv = CabbageUtils.getWidgetDiv(containerWidget.props.channel);
+    if (containerDiv) {
+        containerDiv.classList.add('selected');
+        selectedElements.add(containerDiv);
+    }
+    
+    // Update container in DOM
+    updateGroupedWidgetDisplay(containerWidget);
+    
+    // Send remove messages for each child first
+    if (childWidgets.length > 0) {
         vscode.postMessage({
-            command: 'groupWidgets',
-            widgetIds: selectedIds
+            command: 'removeWidgets',
+            channels: childWidgets.map(child => child.props.channel)
         });
     }
+    
+    // Send update to extension for the container
+    vscode.postMessage({
+        command: 'widgetUpdate',
+        text: JSON.stringify(containerWidget.props)
+    });
+}
+
+// Helper function to update how grouped widgets are displayed
+function updateGroupedWidgetDisplay(containerWidget) {
+    const containerDiv = CabbageUtils.getWidgetDiv(containerWidget.props.channel);
+    if (!containerDiv) return;
+    
+    // Instead of re-rendering innerHTML (which can break interact.js), 
+    // modify the existing SVG to have transparent background
+    if (containerWidget.props.children && containerWidget.props.children.length > 0) {
+        // Find the SVG element and make its background transparent
+        const svgElement = containerDiv.querySelector('svg');
+        if (svgElement) {
+            // Find the background rect and make it transparent
+            const bgRect = svgElement.querySelector('rect[fill]');
+            if (bgRect && bgRect.getAttribute('fill') !== 'transparent') {
+                bgRect.setAttribute('fill', 'transparent');
+                console.log("Cabbage: Made container background transparent for", containerWidget.props.channel);
+            }
+        }
+    }
+    
+    // Insert child widgets
+    WidgetManager.insertChildWidgets(containerWidget, containerDiv);
+    
+    console.log("Cabbage: Updated display for grouped widget", containerWidget.props.channel, "with", containerWidget.props.children.length, "children");
 }
 
 function bringToFront(selectedElements) {
@@ -762,14 +915,96 @@ function sendToBack(selectedElements) {
 }
 
 function alignWidgets(selectedElements, alignment) {
-    console.log("Cabbage: Aligning widgets", alignment);
+    console.log("Cabbage: Aligning", selectedElements.size, "widgets to", alignment);
     const selectedIds = Array.from(selectedElements).map(el => el.id);
     
+    if (selectedElements.size < 2) {
+        console.log("Cabbage: Need at least 2 widgets to align");
+        return;
+    }
+    
+    // Get all selected widgets
+    const selectedWidgets = [];
+    selectedIds.forEach(id => {
+        const widget = widgets.find(w => w.props.channel === id);
+        if (widget && widget.props.bounds) {
+            selectedWidgets.push(widget);
+        }
+    });
+    
+    if (selectedWidgets.length < 2) {
+        console.log("Cabbage: Not enough valid widgets found to align");
+        return;
+    }
+    
+    let referenceValue;
+    
+    switch (alignment) {
+        case 'left':
+            // Align to the leftmost widget's left position
+            referenceValue = Math.min(...selectedWidgets.map(w => w.props.bounds.left));
+            console.log("Cabbage: Aligning to left:", referenceValue);
+            selectedWidgets.forEach(widget => {
+                widget.props.bounds.left = referenceValue;
+                updateWidgetPosition(widget);
+            });
+            break;
+            
+        case 'right':
+            // Align to the rightmost widget's right edge
+            const maxRight = Math.max(...selectedWidgets.map(w => w.props.bounds.left + w.props.bounds.width));
+            console.log("Cabbage: Aligning to right edge:", maxRight);
+            selectedWidgets.forEach(widget => {
+                widget.props.bounds.left = maxRight - widget.props.bounds.width;
+                updateWidgetPosition(widget);
+            });
+            break;
+            
+        case 'top':
+            // Align to the topmost widget's top position
+            referenceValue = Math.min(...selectedWidgets.map(w => w.props.bounds.top));
+            console.log("Cabbage: Aligning to top:", referenceValue);
+            selectedWidgets.forEach(widget => {
+                widget.props.bounds.top = referenceValue;
+                updateWidgetPosition(widget);
+            });
+            break;
+            
+        case 'bottom':
+            // Align to the bottommost widget's bottom edge
+            const maxBottom = Math.max(...selectedWidgets.map(w => w.props.bounds.top + w.props.bounds.height));
+            console.log("Cabbage: Aligning to bottom edge:", maxBottom);
+            selectedWidgets.forEach(widget => {
+                widget.props.bounds.top = maxBottom - widget.props.bounds.height;
+                updateWidgetPosition(widget);
+            });
+            break;
+            
+        default:
+            console.error("Cabbage: Unknown alignment:", alignment);
+            return;
+    }
+    
+    // Send messages to extension to update CSD file
     if (vscode) {
-        vscode.postMessage({
-            command: 'alignWidgets',
-            widgetIds: selectedIds,
-            alignment: alignment
+        selectedWidgets.forEach(widget => {
+            vscode.postMessage({
+                command: 'widgetUpdate',
+                text: JSON.stringify(widget.props)
+            });
         });
+    }
+}
+
+// Helper function to update widget position in DOM
+function updateWidgetPosition(widget) {
+    const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+    if (widgetDiv && widget.props.bounds) {
+        if (vscode) {
+            widgetDiv.style.transform = `translate(${widget.props.bounds.left}px, ${widget.props.bounds.top}px)`;
+        }
+        widgetDiv.setAttribute('data-x', widget.props.bounds.left);
+        widgetDiv.setAttribute('data-y', widget.props.bounds.top);
+        console.log("Cabbage: Updated position for", widget.props.channel, "to", widget.props.bounds);
     }
 }

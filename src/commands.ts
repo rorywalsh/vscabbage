@@ -195,6 +195,17 @@ export class Commands {
                 }
                 break;
 
+            case 'removeWidgets':
+                if (getCabbageMode() !== "play") {
+                    const document = await this.getDocumentForEdit(textEditor);
+                    if (document && message.channels && Array.isArray(message.channels)) {
+                        for (const channel of message.channels) {
+                            await this.removeWidgetFromDocument(document, channel);
+                        }
+                    }
+                }
+                break;
+
             case 'widgetUpdate':
                 if (getCabbageMode() !== "play") {
                     ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel);

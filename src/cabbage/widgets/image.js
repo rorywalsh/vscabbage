@@ -82,10 +82,14 @@ export class Image {
             `;
         }
 
+        // For containers with children, make background transparent so children are visible
+        const hasChildren = this.props.children && Array.isArray(this.props.children) && this.props.children.length > 0;
+        const fillColor = hasChildren ? 'transparent' : this.props.colour.fill;
+
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                  style="position: absolute; top: 0; left: 0;">
-                <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" 
+                <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${fillColor}" 
                       stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" pointer-events="all"></rect>
             </svg>
         `;

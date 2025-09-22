@@ -145,10 +145,20 @@ export class WidgetManager {
             // Use requestAnimationFrame to ensure DOM is ready, then apply styles
             requestAnimationFrame(() => {
                 WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+                
+                // Handle children widgets if this is a container
+                if (widget.props.children && Array.isArray(widget.props.children)) {
+                    WidgetManager.insertChildWidgets(widget, widgetDiv);
+                }
             });
         }
         else {
             WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+            
+            // Handle children widgets if this is a container
+            if (widget.props.children && Array.isArray(widget.props.children)) {
+                WidgetManager.insertChildWidgets(widget, widgetDiv);
+            }
         }
 
         return widget.props;
@@ -301,6 +311,48 @@ export class WidgetManager {
         // Initialize form event handlers if in vscode mode
         if (typeof acquireVsCodeApi === 'function') {
             setupFormHandlers();
+        }
+    }
+
+    /**
+     * Inserts child widgets for a container widget (groupBox or image)
+     * @param {object} parentWidget - The parent container widget
+     * @param {HTMLElement} parentDiv - The parent's DOM element
+     */
+    static async insertChildWidgets(parentWidget, parentDiv) {
+        if (!parentWidget.props.children || !Array.isArray(parentWidget.props.children)) {
+            return;
+        }
+        
+        console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", parentWidget.props.channel);
+        
+        for (const childProps of parentWidget.props.children) {
+            // Calculate absolute position based on parent's position + relative position
+            const absoluteBounds = {
+                ...childProps.bounds,
+                left: parentWidget.props.bounds.left + childProps.bounds.left,
+                top: parentWidget.props.bounds.top + childProps.bounds.top
+            };
+            
+            const childWidgetProps = {
+                ...childProps,
+                bounds: absoluteBounds,
+                parentChannel: parentWidget.props.channel // Mark as child
+            };
+            
+            // Insert the child widget
+            const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
+            
+            // Ensure child widgets appear above their container
+            const childDiv = document.getElementById(childProps.channel);
+            if (childDiv) {
+                childDiv.style.zIndex = '10'; // Higher than container
+            }
+            
+            // Ensure container has lower z-index
+            if (parentDiv) {
+                parentDiv.style.zIndex = '5';
+            }
         }
     }
 

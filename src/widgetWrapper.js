@@ -376,6 +376,9 @@ export class WidgetWrapper {
             element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
             element.setAttribute('data-x', x); // Update data-x attribute
             element.setAttribute('data-y', y); // Update data-y attribute
+            
+            // If this element has children (grouped widgets), move them too
+            this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
         });
     }
     
@@ -393,6 +396,10 @@ export class WidgetWrapper {
             element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
             element.setAttribute('data-x', x); // Update data-x attribute
             element.setAttribute('data-y', y); // Update data-y attribute
+            
+            // If this element has children (grouped widgets), move them too
+            this.moveChildWidgets(element, dx, dy);
+            
             this.updatePanelCallback(this.vscode, {
                 eventType: "move", // Event type for movement
                 name: element.id, // Name of the element moved
@@ -404,11 +411,39 @@ export class WidgetWrapper {
     }
 
     /**
+     * Moves child widgets when their parent container is moved
+     * @param {HTMLElement} parentElement - The parent container element
+     * @param {number} deltaX - The change in X position
+     * @param {number} deltaY - The change in Y position
+     */
+    moveChildWidgets(parentElement, deltaX, deltaY) {
+        // Find the parent widget in the widgets array
+        const parentWidget = this.widgets.find(w => w.props.channel === parentElement.id);
+        if (!parentWidget || !parentWidget.props.children) {
+            return;
+        }
+        
+        // Move each child widget
+        parentWidget.props.children.forEach(childProps => {
+            const childElement = document.getElementById(childProps.channel);
+            if (childElement) {
+                const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
+                const childY = (parseFloat(childElement.getAttribute('data-y')) || 0) + deltaY;
+                
+                childElement.style.transform = `translate(${childX}px, ${childY}px)`;
+                childElement.setAttribute('data-x', childX);
+                childElement.setAttribute('data-y', childY);
+                
+                console.log(`Cabbage: Moved child ${childProps.channel} with parent ${parentElement.id}`);
+            }
+        });
+    }
+
+    /**
      * Applies interact.js configuration to the draggable elements.
      * @param {Object} restrictions - The restrictions for movement.
      */
     applyInteractConfig(restrictions) {
-        interact('.draggable').unset(); // Unset previous interact configuration
 
         interact('.draggable').on('down', (event) => {
             // Handle the down event if necessary (currently commented out)
@@ -440,6 +475,9 @@ export class WidgetWrapper {
 
                     x += event.deltaRect.left; // Adjust x position
                     y += event.deltaRect.top; // Adjust y position
+
+                    // If this element has children (grouped widgets), resize them too
+                    this.resizeChildWidgets(target, event.rect.width, event.rect.height);
 
                     this.updatePanelCallback(this.vscode, {
                         eventType: "resize", // Event type for resizing
@@ -524,11 +562,71 @@ export class WidgetWrapper {
     }
 
     /**
+     * Resizes child widgets when their parent container is resized
+     * @param {HTMLElement} parentElement - The parent container element
+     * @param {number} newWidth - The new width of the parent
+     * @param {number} newHeight - The new height of the parent
+     */
+    resizeChildWidgets(parentElement, newWidth, newHeight) {
+        // Find the parent widget in the widgets array
+        const parentWidget = this.widgets.find(w => w.props.channel === parentElement.id);
+        if (!parentWidget || !parentWidget.props.children) {
+            return;
+        }
+        
+        const oldWidth = parentWidget.props.bounds.width;
+        const oldHeight = parentWidget.props.bounds.height;
+        
+        // Calculate scale factors
+        const scaleX = newWidth / oldWidth;
+        const scaleY = newHeight / oldHeight;
+        
+        console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY}`);
+        
+        // Update each child widget
+        parentWidget.props.children.forEach(childProps => {
+            const childElement = document.getElementById(childProps.channel);
+            if (childElement) {
+                // Scale the child's bounds
+                const newChildWidth = childProps.bounds.width * scaleX;
+                const newChildHeight = childProps.bounds.height * scaleY;
+                const newChildX = childProps.bounds.left * scaleX;
+                const newChildY = childProps.bounds.top * scaleY;
+                
+                // Update the child's absolute position (relative to parent + parent's position)
+                const parentX = parseFloat(parentElement.getAttribute('data-x')) || 0;
+                const parentY = parseFloat(parentElement.getAttribute('data-y')) || 0;
+                
+                const absoluteX = parentX + newChildX;
+                const absoluteY = parentY + newChildY;
+                
+                // Update DOM
+                childElement.style.width = newChildWidth + 'px';
+                childElement.style.height = newChildHeight + 'px';
+                childElement.style.transform = `translate(${absoluteX}px, ${absoluteY}px)`;
+                childElement.setAttribute('data-x', absoluteX);
+                childElement.setAttribute('data-y', absoluteY);
+                
+                // Update the relative bounds in the parent's children array
+                childProps.bounds.width = newChildWidth;
+                childProps.bounds.height = newChildHeight;
+                childProps.bounds.left = newChildX;
+                childProps.bounds.top = newChildY;
+                
+                console.log(`Cabbage: Resized child ${childProps.channel} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
+            }
+        });
+        
+        // Update parent's bounds
+        parentWidget.props.bounds.width = newWidth;
+        parentWidget.props.bounds.height = newHeight;
+    }
+
+    /**
      * Sets the snap size for grid snapping.
      * @param {number} size - The new snap size.
      */
     setSnapSize(size) {
-        this.snapSize = size; // Update snap size
         this.applyInteractConfig({
             restriction: 'parent', // Apply parent restriction
             endOnly: true // Only restrict at the end of the movement

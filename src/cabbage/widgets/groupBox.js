@@ -103,6 +103,10 @@ export class GroupBox {
             gapEnd = (this.props.bounds.width / 2) + textWidth / 2 + padding;
         }
 
+        // For containers with children, make background transparent so children are visible
+        const hasChildren = this.props.children && Array.isArray(this.props.children) && this.props.children.length > 0;
+        const fillColor = hasChildren ? 'transparent' : this.props.colour.fill;
+
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
                  width="${width}" height="${height}"  preserveAspectRatio="none">
@@ -120,7 +124,7 @@ export class GroupBox {
                 <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
                 <rect width="${this.props.bounds.width - (strokeWidth * 2)}" height="${this.props.bounds.height - (yOffset + strokeWidth)}" 
                       x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.corners}" ry="${this.props.corners}" 
-                      fill="${this.props.colour.fill}" mask="url(#textMask_${this.props.channel})"></rect>
+                      fill="${fillColor}" mask="url(#textMask_${this.props.channel})"></rect>
                 
                 <!-- Rounded rectangle border outline with gap for text -->
                 <rect width="${this.props.bounds.width - strokeWidth}" height="${this.props.bounds.height - (yOffset + strokeWidth / 2)}" 
