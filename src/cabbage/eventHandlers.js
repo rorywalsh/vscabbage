@@ -109,7 +109,7 @@ export function updateSelectedElements(widgetDiv) {
  */
 export function setupFormHandlers() {
     let lastClickTime = 0; // Variable to store the last click time
-    const doubleClickThreshold = 300; // Time in milliseconds to consider as a double click
+    const doubleClickThreshold = 200; // Time in milliseconds to consider as a double click
 
     // Create a dynamic context menu for grouping and ungrouping widgets
     const groupContextMenu = document.createElement("div");
@@ -444,10 +444,15 @@ export function setupFormHandlers() {
 function showSelectionContextMenu(event, selectedElements) {
     console.log("Cabbage: Creating context menu for", selectedElements.size, "selected widgets");
     
-    // Remove any existing context menu
+    // Remove any existing context menu (defensive)
     const existingMenu = document.getElementById('selection-context-menu');
     if (existingMenu) {
+        console.log('Cabbage: Removing lingering selection-context-menu before creating new one');
         existingMenu.remove();
+        // Check if still in DOM
+        if (document.getElementById('selection-context-menu')) {
+            console.log('Cabbage: Menu node still in DOM after remove!');
+        }
     }
 
     // Create context menu
@@ -466,6 +471,7 @@ function showSelectionContextMenu(event, selectedElements) {
         font-size: var(--vscode-font-size);
         padding: 4px 0;
     `;
+    console.log('Cabbage: Creating new selection-context-menu');
 
     const selectedCount = selectedElements.size;
     const menuItems = [];
@@ -539,42 +545,68 @@ function showSelectionContextMenu(event, selectedElements) {
     // Position the menu
     const x = event.clientX;
     const y = event.clientY;
-    
+
     // Add to document to measure dimensions
     document.body.appendChild(contextMenu);
-    
+    console.log('Cabbage: selection-context-menu added to DOM, attaching close listeners');
+    // Confirm menu is in DOM
+    if (document.getElementById('selection-context-menu')) {
+        console.log('Cabbage: Menu node confirmed in DOM after append');
+    } else {
+        console.log('Cabbage: Menu node NOT in DOM after append!');
+    }
+
     // Adjust position to keep menu in viewport
     const rect = contextMenu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     let finalX = x;
     let finalY = y;
-    
+
     if (x + rect.width > viewportWidth) {
         finalX = viewportWidth - rect.width - 5;
     }
-    
+
     if (y + rect.height > viewportHeight) {
         finalY = viewportHeight - rect.height - 5;
     }
-    
+
     contextMenu.style.left = `${finalX}px`;
     contextMenu.style.top = `${finalY}px`;
 
-    // Close menu when clicking elsewhere
-    const closeMenu = (e) => {
-        if (!contextMenu.contains(e.target)) {
-            contextMenu.remove();
-            document.removeEventListener('click', closeMenu);
-            document.removeEventListener('contextmenu', closeMenu);
+    // Close menu robustly on any mousedown/click/contextmenu outside
+    function closeMenu(e) {
+        // Defensive: if menu is gone, remove listeners
+        const menu = document.getElementById('selection-context-menu');
+        const type = e.type;
+        if (!menu) {
+            console.log('Cabbage: closeMenu (' + type + ') called but menu not found, removing listeners');
+            document.removeEventListener('mousedown', closeMenu, true);
+            document.removeEventListener('click', closeMenu, true);
+            document.removeEventListener('contextmenu', closeMenu, true);
+            return;
         }
-    };
-
-    setTimeout(() => {
-        document.addEventListener('click', closeMenu);
-        document.addEventListener('contextmenu', closeMenu);
-    }, 0);
+        if (menu.contains(e.target)) {
+            console.log('Cabbage: closeMenu (' + type + ') event inside menu, not closing');
+        } else {
+            console.log('Cabbage: closeMenu (' + type + ') event outside menu, closing menu');
+            menu.remove();
+            // Check if still in DOM
+            if (document.getElementById('selection-context-menu')) {
+                console.log('Cabbage: Menu node still in DOM after attempted close!');
+            } else {
+                console.log('Cabbage: Menu node successfully removed from DOM');
+            }
+            document.removeEventListener('mousedown', closeMenu, true);
+            document.removeEventListener('click', closeMenu, true);
+            document.removeEventListener('contextmenu', closeMenu, true);
+        }
+    }
+    // Attach listeners in capture phase for reliability, immediately after menu is in DOM
+    document.addEventListener('mousedown', closeMenu, true);
+    document.addEventListener('click', closeMenu, true);
+    document.addEventListener('contextmenu', closeMenu, true);
 }
 
 // Context menu action functions
@@ -585,23 +617,114 @@ function showProperties(selectedElements) {
 
 function duplicateWidgets(selectedElements) {
     console.log("Cabbage: Duplicating", selectedElements.size, "widgets");
-    // Implementation for duplicating widgets
+    
+    // Get the MainForm to determine bounds for positioning
+    const form = document.getElementById('MainForm');
+    if (!form) {
+        console.error("Cabbage: MainForm not found for duplicate positioning");
+        return;
+    }
+    
+    const formWidth = parseInt(form.style.width);
+    const formHeight = parseInt(form.style.height);
+    
+    // Process each selected widget
+    Array.from(selectedElements).forEach(async (element) => {
+        const originalChannel = element.id;
+        const originalWidget = widgets.find(w => w.props.channel === originalChannel);
+        
+        if (!originalWidget) {
+            console.error("Cabbage: Original widget not found for channel:", originalChannel);
+            return;
+        }
+        
+        // Create deep copy of widget props
+        const newProps = JSON.parse(JSON.stringify(originalWidget.props));
+        
+        // Generate unique channel name
+        newProps.channel = CabbageUtils.getUniqueChannelName(newProps.type, widgets);
+        console.log("Cabbage: Generated new channel:", newProps.channel, "for type:", newProps.type);
+        
+        // Calculate new position based on original position and form bounds
+        const originalBounds = newProps.bounds || { left: 0, top: 0, width: 100, height: 50 };
+        const centerX = originalBounds.left + (originalBounds.width / 2);
+        const centerY = originalBounds.top + (originalBounds.height / 2);
+        
+        let offsetX = 30; // Default offset
+        let offsetY = 30;
+        
+        // Ensure bounds object exists
+        newProps.bounds = newProps.bounds || {};
+        
+        // If original is in top-left quadrant, duplicate to right and down
+        if (centerX < formWidth / 2 && centerY < formHeight / 2) {
+            // Top-left: duplicate to right and down
+            newProps.bounds.left = Math.min(originalBounds.left + offsetX, formWidth - originalBounds.width);
+            newProps.bounds.top = Math.min(originalBounds.top + offsetY, formHeight - originalBounds.height);
+        } else {
+            // Bottom-right or other quadrants: duplicate to left and up
+            newProps.bounds.left = Math.max(originalBounds.left - offsetX, 0);
+            newProps.bounds.top = Math.max(originalBounds.top - offsetY, 0);
+        }
+        
+        console.log("Cabbage: Duplicating widget from", originalBounds, "to", newProps.bounds);
+        
+        // Insert the new widget
+        try {
+            const newWidget = await WidgetManager.insertWidget(newProps.type, newProps, originalWidget.props.currentCsdFile);
+            console.log("Cabbage: Successfully duplicated widget:", newWidget);
+            
+            // Send message to extension to add to CSD file
+            if (vscode) {
+                vscode.postMessage({
+                    command: 'widgetUpdate',
+                    text: JSON.stringify(newWidget)
+                });
+            }
+        } catch (error) {
+            console.error("Cabbage: Error duplicating widget:", error);
+        }
+    });
 }
 
 function deleteWidgets(selectedElements) {
     console.log("Cabbage: Deleting", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
     console.log("Cabbage: Widget IDs to delete:", selectedIds);
-    
-    if (vscode) {
-        vscode.postMessage({
-            command: 'deleteWidgets',
-            widgetIds: selectedIds
-        });
-    }
-}
 
-function groupWidgets(selectedElements) {
+    // Import widgets array and CabbageUtils
+    import('./sharedState.js').then(({ widgets }) => {
+        import('../cabbage/utils.js').then(({ CabbageUtils }) => {
+            selectedIds.forEach(id => {
+                // Remove from widgets array
+                const idx = widgets.findIndex(w => w.props.channel === id);
+                if (idx !== -1) {
+                    widgets.splice(idx, 1);
+                    console.log('Cabbage: Removed widget from widgets array:', id);
+                }
+                // Remove from DOM
+                const div = CabbageUtils.getWidgetDiv(id);
+                if (div && div.parentElement) {
+                    div.parentElement.removeChild(div);
+                    console.log('Cabbage: Removed widget div from DOM:', id);
+                }
+            });
+
+            // Clear selection after deletion
+            selectedElements.clear();
+
+            // Send message to extension to remove from CSD file
+            if (vscode) {
+                selectedIds.forEach(id => {
+                    vscode.postMessage({
+                        command: 'removeWidget',
+                        channel: id
+                    });
+                });
+            }
+        });
+    });
+}function groupWidgets(selectedElements) {
     console.log("Cabbage: Grouping", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
     console.log("Cabbage: Widget IDs to group:", selectedIds);

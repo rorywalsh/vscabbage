@@ -201,6 +201,15 @@ export class Commands {
                 }
                 break;
 
+            case 'removeWidget':
+                if (getCabbageMode() !== "play") {
+                    const document = await this.getDocumentForEdit(textEditor);
+                    if (document) {
+                        await this.removeWidgetFromDocument(document, message.channel);
+                    }
+                }
+                break;
+
             case 'jumpToWidget':
                 // Get the panel's title and construct the corresponding file name
                 const panelFileName = `${this.panel?.title}.csd`;
