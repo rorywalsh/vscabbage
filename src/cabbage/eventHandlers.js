@@ -795,28 +795,20 @@ function deleteWidgets(selectedElements) {
         const relativeLeft = childBounds.left - containerBounds.left;
         const relativeTop = childBounds.top - containerBounds.top;
         
-        // Create child object with only essential properties (use defaults for everything else)
-        const childData = {
-            type: childWidget.props.type,
-            channel: childWidget.props.channel,
-            bounds: {
-                left: relativeLeft,
-                top: relativeTop,
-                width: childBounds.width,
-                height: childBounds.height
-            }
-        };
+        // Create child object by copying the widget props as they appear in the CSD file
+        const childData = JSON.parse(JSON.stringify(childWidget.props));
         
-        // Include some key properties if they differ from defaults
-        if (childWidget.props.text && childWidget.props.text !== "") {
-            childData.text = childWidget.props.text;
-        }
-        if (childWidget.props.value !== null && childWidget.props.value !== undefined) {
-            childData.value = childWidget.props.value;
-        }
-        if (childWidget.props.range && childWidget.props.range.defaultValue !== 0) {
-            childData.range = { defaultValue: childWidget.props.range.defaultValue };
-        }
+        // Remove runtime properties that shouldn't be in the CSD file
+        delete childData.currentCsdFile;
+        delete childData.parameterIndex;
+        
+        // Update bounds to be relative to the container
+        childData.bounds = {
+            left: relativeLeft,
+            top: relativeTop,
+            width: childBounds.width,
+            height: childBounds.height
+        };
         
         // Add to container's children array
         containerWidget.props.children.push(childData);
