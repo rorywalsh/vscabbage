@@ -824,11 +824,7 @@ function deleteWidgets(selectedElements) {
         const relativeTop = childBounds.top - containerBounds.top;
 
         // Create child object by copying the widget props as they appear in the CSD file
-        const childData = JSON.parse(JSON.stringify(childWidget.props));
-
-        // Remove runtime properties that shouldn't be in the CSD file
-        delete childData.currentCsdFile;
-        delete childData.parameterIndex;
+        const childData = JSON.parse(JSON.stringify(childWidget.originalProps || childWidget.props));
 
         // Update bounds to be relative to the container
         childData.bounds = {
