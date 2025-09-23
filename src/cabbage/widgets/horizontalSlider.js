@@ -42,7 +42,8 @@ export class HorizontalSlider {
         },
         "tracker": {
           "fill": "#93d200",
-          "background": "#ffffff"
+          "background": "#ffffff",
+          "width": 20
         }
       },
       "type": "horizontalSlider",
@@ -273,7 +274,7 @@ export class HorizontalSlider {
     const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding; // Subtract padding from sliderWidth
 
-    const w = (sliderWidth > this.props.bounds.height ? this.props.bounds.height : sliderWidth) * 0.75;
+  const w = (sliderWidth > this.props.bounds.height ? this.props.bounds.height : sliderWidth) * 0.75;
     const textY = this.props.bounds.height / 2 + (this.props.font.size > 0 ? this.props.textOffsetY : 0) + (this.props.bounds.height * 0.25); // Adjusted for vertical centering
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.8;
 
@@ -287,10 +288,15 @@ export class HorizontalSlider {
       </svg>
     ` : '';
 
+    // Use explicit tracker width from props and clamp to available slider height
+    const trackerWidth = this.props.colour?.tracker?.width ?? (this.props.bounds.height * 0.6);
+    const trackerHeight = Math.min(trackerWidth, this.props.bounds.height * 0.95);
+    const trackerY = (this.props.bounds.height - trackerHeight) / 2;
+
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${sliderWidth - 2}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-        <rect x="1" y="${this.props.bounds.height * .2}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${this.props.bounds.height * .6}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+        <rect x="1" y="${trackerY}" width="${sliderWidth - 2}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
         <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${sliderWidth * .05 - 1}" height="${this.props.bounds.height}" rx="4" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
       </svg>
     `;

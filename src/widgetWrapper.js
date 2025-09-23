@@ -577,21 +577,27 @@ export class WidgetWrapper {
         const oldWidth = parentWidget.props.bounds.width;
         const oldHeight = parentWidget.props.bounds.height;
 
-        // Calculate scale factors
-        const scaleX = newWidth / oldWidth;
-        const scaleY = newHeight / oldHeight;
+        // Use the grouping-time base bounds if available so scaling always uses a stable reference
+        const groupBase = parentWidget.props.groupBaseBounds || { width: oldWidth, height: oldHeight };
 
-        console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY}`);
+        // Calculate scale factors relative to the group's base size
+        const scaleX = newWidth / groupBase.width;
+        const scaleY = newHeight / groupBase.height;
 
-        // Update each child widget
+        console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY} (group base ${groupBase.width}x${groupBase.height})`);
+
+        // Update each child widget using original relative bounds when available
         parentWidget.props.children.forEach(childProps => {
             const childElement = document.getElementById(childProps.channel);
             if (childElement) {
-                // Scale the child's bounds
-                const newChildWidth = childProps.bounds.width * scaleX;
-                const newChildHeight = childProps.bounds.height * scaleY;
-                const newChildX = childProps.bounds.left * scaleX;
-                const newChildY = childProps.bounds.top * scaleY;
+                // Prefer stored original bounds (created at grouping time) to avoid compounded scaling
+                const base = childProps.origBounds || childProps.bounds;
+
+                // Compute new relative bounds from the base/original values
+                const newChildWidth = base.width * scaleX;
+                const newChildHeight = base.height * scaleY;
+                const newChildX = base.left * scaleX;
+                const newChildY = base.top * scaleY;
 
                 // Update the child's absolute position (relative to parent + parent's position)
                 const parentX = parseFloat(parentElement.getAttribute('data-x')) || 0;
@@ -607,7 +613,7 @@ export class WidgetWrapper {
                 childElement.setAttribute('data-x', absoluteX);
                 childElement.setAttribute('data-y', absoluteY);
 
-                // Update the relative bounds in the parent's children array
+                // Update the relative bounds in the parent's children array (so next save uses latest)
                 childProps.bounds.width = newChildWidth;
                 childProps.bounds.height = newChildHeight;
                 childProps.bounds.left = newChildX;

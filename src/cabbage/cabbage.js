@@ -38,7 +38,7 @@ export class Cabbage {
     console.log("Cabbage: sending widget update from UI", widget.props);
     const msg = {
       command: "widgetStateUpdate",
-      obj:JSON.stringify(widget.props)
+      obj:JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
     };
     if (vscode !== null) {
       vscode.postMessage(msg);

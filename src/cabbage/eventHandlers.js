@@ -246,7 +246,7 @@ export function setupFormHandlers() {
                         if (widgets) {
                             vscode.postMessage({
                                 command: 'widgetUpdate',
-                                text: JSON.stringify(widget)
+                                text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
                             });
                         }
                     });
@@ -731,7 +731,7 @@ function duplicateWidgets(selectedElements) {
             if (vscode) {
                 vscode.postMessage({
                     command: 'widgetUpdate',
-                    text: JSON.stringify(newWidget)
+                    text: JSON.stringify(CabbageUtils.sanitizeForEditor(newWidget))
                 });
             }
         } catch (error) {
@@ -811,6 +811,14 @@ function deleteWidgets(selectedElements) {
     // Initialize children array if it doesn't exist
     containerWidget.props.children = containerWidget.props.children || [];
 
+    // Store the container's base bounds at grouping time so resizing uses a stable reference
+    if (!containerWidget.props.groupBaseBounds) {
+        containerWidget.props.groupBaseBounds = {
+            width: containerWidget.props.bounds.width,
+            height: containerWidget.props.bounds.height
+        };
+    }
+
     // Get child widgets (all selected widgets except the container)
     const childWidgets = selectedWidgets.filter(w => w !== containerWidget);
 
@@ -828,6 +836,15 @@ function deleteWidgets(selectedElements) {
 
         // Update bounds to be relative to the container
         childData.bounds = {
+            left: relativeLeft,
+            top: relativeTop,
+            width: childBounds.width,
+            height: childBounds.height
+        };
+
+        // Save a copy of the original relative bounds (no underscore) so resizing uses this as the base
+        // This prevents compounded scaling when the parent is resized multiple times
+        childData.origBounds = {
             left: relativeLeft,
             top: relativeTop,
             width: childBounds.width,
@@ -876,7 +893,7 @@ function deleteWidgets(selectedElements) {
     // Send update to extension for the container
     vscode.postMessage({
         command: 'widgetUpdate',
-        text: JSON.stringify(containerWidget.props)
+        text: JSON.stringify(CabbageUtils.sanitizeForEditor(containerWidget))
     });
 }
 
@@ -1101,7 +1118,7 @@ function alignWidgets(selectedElements, alignment) {
         selectedWidgets.forEach(widget => {
             vscode.postMessage({
                 command: 'widgetUpdate',
-                text: JSON.stringify(widget.props)
+                text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
             });
         });
     }

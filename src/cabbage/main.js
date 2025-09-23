@@ -143,11 +143,11 @@ window.addEventListener('message', async event => {
 
             const widgetUpdatesMessages = [];
             widgets.forEach(widget => {
-                // Save current state of widgets
+                // Save current state of widgets (sanitized)
                 widgetUpdatesMessages.push({
                     command: "widgetUpdate",
                     channel: widget.props.channel,
-                    data: JSON.stringify(widget.props)
+                    data: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
                 });
             });
 

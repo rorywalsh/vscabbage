@@ -778,8 +778,24 @@ export class ExtensionUtils {
      * @returns The updated JSON array with merged properties.
      */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
-        // Define properties to exclude from JSON output
-        const excludeFromJson = ['samples', 'currentCsdFile']; // Add any properties you want to exclude
+        // Define properties to exclude from JSON output (internal-only fields)
+        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps']; // Add any properties you want to exclude
+
+        // Recursively clone and remove excluded properties from an object
+        function cleanForEditor(obj: any): any {
+            if (obj === null || obj === undefined) return obj;
+            if (Array.isArray(obj)) return obj.map(cleanForEditor);
+            if (typeof obj === 'object') {
+                const out: any = {};
+                Object.keys(obj).forEach((k) => {
+                    if (excludeFromJson.includes(k)) return; // skip excluded keys
+                    const v = obj[k];
+                    out[k] = cleanForEditor(v);
+                });
+                return out;
+            }
+            return obj;
+        }
 
         // Helper function to remove excluded properties from an object
         const removeExcludedProps = (obj: any) => {
@@ -792,10 +808,11 @@ export class ExtensionUtils {
 
         // Check if the new object is of type 'form'
         if (props.type === 'form') {
+            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
             const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
 
             if (formIndex !== -1) {
-                let newFormObject = { ...jsonArray[formIndex], ...props };
+                let newFormObject = { ...jsonArray[formIndex], ...cleanedProps };
                 // Remove properties that match default values
                 for (let key in defaultProps) {
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
@@ -804,7 +821,7 @@ export class ExtensionUtils {
                 }
                 jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject));
             } else {
-                let newFormObject = { ...props };
+                let newFormObject = { ...cleanedProps };
                 // Remove properties that match default values
                 for (let key in defaultProps) {
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
@@ -819,7 +836,8 @@ export class ExtensionUtils {
         let existingObject = jsonArray.find(obj => obj.channel === props.channel);
 
         if (existingObject) {
-            let newObject = { ...existingObject, ...props };
+            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
+            let newObject = { ...existingObject, ...cleanedProps };
             // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
@@ -829,7 +847,8 @@ export class ExtensionUtils {
             const index = jsonArray.findIndex(obj => obj.channel === props.channel);
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
-            let newObject = { ...props };
+            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
+            let newObject = { ...cleanedProps };
             // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {

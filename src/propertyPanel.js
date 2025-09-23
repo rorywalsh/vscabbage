@@ -288,7 +288,7 @@ export class PropertyPanel {
                         // Then send the updated widget
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
-                            text: JSON.stringify(widget.props),
+                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget)),
                         });
 
                         input.blur();
@@ -431,7 +431,7 @@ export class PropertyPanel {
         }
 
         this.widgets.forEach((widget) => {
-             if (widget.props.channel === input.dataset.parent) {
+            if (widget.props.channel === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 

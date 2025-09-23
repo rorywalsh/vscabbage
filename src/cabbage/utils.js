@@ -272,6 +272,34 @@ export class CabbageUtils {
     return element || null;
   }
 
+  /**
+   * Return a deep-cloned copy of an object suitable for writing to the editor.
+   * This removes internal-only fields that should not be visible to end-users.
+   * Accepts either a widget instance (with a `props` member) or a plain props object.
+   * @param {Object} obj
+   * @returns {Object} sanitized clone
+   */
+  static sanitizeForEditor(obj) {
+    const internalKeys = new Set(['groupBaseBounds', 'origBounds', 'originalProps']);
+
+    function cloneAndClean(value) {
+      if (value === null || value === undefined) return value;
+      if (Array.isArray(value)) return value.map(cloneAndClean);
+      if (typeof value === 'object') {
+        const out = {};
+        Object.keys(value).forEach((k) => {
+          if (internalKeys.has(k)) return; // skip internal fields
+          out[k] = cloneAndClean(value[k]);
+        });
+        return out;
+      }
+      return value;
+    }
+
+    const target = (obj && obj.props) ? obj.props : obj;
+    return cloneAndClean(target);
+  }
+
   static sendToBack(currentDiv) {
     const parentElement = currentDiv.parentElement;
     const allDivs = parentElement.getElementsByTagName('div');
