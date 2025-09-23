@@ -59,7 +59,7 @@ export class WidgetWrapper {
     setupGlobalEventListeners() {
         // Store mouse position for context menu positioning
         let mousePosition = { x: 0, y: 0 };
-        
+
         // Track mouse position
         document.addEventListener('mousemove', (event) => {
             mousePosition.x = event.clientX;
@@ -73,20 +73,20 @@ export class WidgetWrapper {
                 console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);
                 console.log('Cabbage: Selected elements count:', this.selectedElements.size);
                 console.log('Cabbage: Selected element IDs:', Array.from(this.selectedElements).map(el => el.id));
-                
+
                 // Check if the clicked element is selected or if there are selected elements
                 const isClickedElementSelected = this.selectedElements.has(draggableElement);
                 const hasSelectedElements = this.selectedElements.size > 0;
-                
+
                 console.log('Cabbage: Is clicked element selected:', isClickedElementSelected);
                 console.log('Cabbage: Has selected elements:', hasSelectedElements);
-                
+
                 // For now, show context menu if there are any selected elements
                 // Later we can make it more specific to only show when clicking on selected elements
                 if (hasSelectedElements) {
                     // Show context menu for selected widgets
                     console.log('Cabbage: Showing context menu for selected widgets:', Array.from(this.selectedElements).map(el => el.id));
-                    
+
                     // Create custom context menu positioned at mouse location
                     this.showSelectionContextMenu(mousePosition.x, mousePosition.y);
                     event.preventDefault(); // Prevent default context menu
@@ -129,10 +129,10 @@ export class WidgetWrapper {
     showSelectionContextMenu(x, y) {
         // Remove any existing context menu
         this.hideCustomContextMenu();
-        
+
         const selectedCount = this.selectedElements.size;
         const isMultipleSelection = selectedCount > 1;
-        
+
         // Create custom context menu
         const contextMenu = document.createElement('div');
         contextMenu.id = 'custom-context-menu';
@@ -151,10 +151,10 @@ export class WidgetWrapper {
             font-size: 13px;
             color: var(--vscode-menu-foreground, #333);
         `;
-        
+
         // Add context menu items based on selection
         const menuItems = [];
-        
+
         if (isMultipleSelection) {
             // Menu items for multiple selection
             menuItems.push(
@@ -181,7 +181,7 @@ export class WidgetWrapper {
                 { label: 'Send to Back', action: () => this.sendToBack(singleElement) }
             );
         }
-        
+
         menuItems.forEach(item => {
             if (item.label === '---') {
                 // Add separator
@@ -194,7 +194,7 @@ export class WidgetWrapper {
                 contextMenu.appendChild(separator);
                 return;
             }
-            
+
             const menuItem = document.createElement('div');
             menuItem.textContent = item.label;
             menuItem.style.cssText = `
@@ -202,28 +202,28 @@ export class WidgetWrapper {
                 cursor: pointer;
                 transition: background-color 0.1s ease;
             `;
-            
+
             menuItem.addEventListener('mouseenter', () => {
                 menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
             });
-            
+
             menuItem.addEventListener('mouseleave', () => {
                 menuItem.style.backgroundColor = 'transparent';
             });
-            
+
             menuItem.addEventListener('click', () => {
                 if (item.action) {
                     item.action();
                 }
                 this.hideCustomContextMenu();
             });
-            
+
             contextMenu.appendChild(menuItem);
         });
-        
+
         // Add to document
         document.body.appendChild(contextMenu);
-        
+
         // Adjust position if menu would go off-screen
         const rect = contextMenu.getBoundingClientRect();
         if (rect.right > window.innerWidth) {
@@ -376,12 +376,12 @@ export class WidgetWrapper {
             element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
             element.setAttribute('data-x', x); // Update data-x attribute
             element.setAttribute('data-y', y); // Update data-y attribute
-            
+
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
         });
     }
-    
+
     /**
      * Handles the end of a drag event.
      * @param {Object} event - The event object containing drag data.
@@ -396,10 +396,10 @@ export class WidgetWrapper {
             element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
             element.setAttribute('data-x', x); // Update data-x attribute
             element.setAttribute('data-y', y); // Update data-y attribute
-            
+
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx, dy);
-            
+
             this.updatePanelCallback(this.vscode, {
                 eventType: "move", // Event type for movement
                 name: element.id, // Name of the element moved
@@ -422,18 +422,18 @@ export class WidgetWrapper {
         if (!parentWidget || !parentWidget.props.children) {
             return;
         }
-        
+
         // Move each child widget
         parentWidget.props.children.forEach(childProps => {
             const childElement = document.getElementById(childProps.channel);
             if (childElement) {
                 const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
                 const childY = (parseFloat(childElement.getAttribute('data-y')) || 0) + deltaY;
-                
+
                 childElement.style.transform = `translate(${childX}px, ${childY}px)`;
                 childElement.setAttribute('data-x', childX);
                 childElement.setAttribute('data-y', childY);
-                
+
                 console.log(`Cabbage: Moved child ${childProps.channel} with parent ${parentElement.id}`);
             }
         });
@@ -573,16 +573,16 @@ export class WidgetWrapper {
         if (!parentWidget || !parentWidget.props.children) {
             return;
         }
-        
+
         const oldWidth = parentWidget.props.bounds.width;
         const oldHeight = parentWidget.props.bounds.height;
-        
+
         // Calculate scale factors
         const scaleX = newWidth / oldWidth;
         const scaleY = newHeight / oldHeight;
-        
+
         console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY}`);
-        
+
         // Update each child widget
         parentWidget.props.children.forEach(childProps => {
             const childElement = document.getElementById(childProps.channel);
@@ -592,31 +592,31 @@ export class WidgetWrapper {
                 const newChildHeight = childProps.bounds.height * scaleY;
                 const newChildX = childProps.bounds.left * scaleX;
                 const newChildY = childProps.bounds.top * scaleY;
-                
+
                 // Update the child's absolute position (relative to parent + parent's position)
                 const parentX = parseFloat(parentElement.getAttribute('data-x')) || 0;
                 const parentY = parseFloat(parentElement.getAttribute('data-y')) || 0;
-                
+
                 const absoluteX = parentX + newChildX;
                 const absoluteY = parentY + newChildY;
-                
+
                 // Update DOM
                 childElement.style.width = newChildWidth + 'px';
                 childElement.style.height = newChildHeight + 'px';
                 childElement.style.transform = `translate(${absoluteX}px, ${absoluteY}px)`;
                 childElement.setAttribute('data-x', absoluteX);
                 childElement.setAttribute('data-y', absoluteY);
-                
+
                 // Update the relative bounds in the parent's children array
                 childProps.bounds.width = newChildWidth;
                 childProps.bounds.height = newChildHeight;
                 childProps.bounds.left = newChildX;
                 childProps.bounds.top = newChildY;
-                
+
                 console.log(`Cabbage: Resized child ${childProps.channel} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
             }
         });
-        
+
         // Update parent's bounds
         parentWidget.props.bounds.width = newWidth;
         parentWidget.props.bounds.height = newHeight;

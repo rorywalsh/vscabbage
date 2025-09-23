@@ -87,10 +87,10 @@ export class WidgetManager {
 
 
         // Assign class based on widget type and mode (draggable/non-draggable)
-        widgetDiv.className = (type === "form") ? "resizeOnly" : cabbageMode;
+        widgetDiv.className = (type === "form") ? "resizeOnly" : (props.parentChannel ? "grouped-child" : cabbageMode);
 
-        // Set up event listeners for draggable mode
-        if (cabbageMode === 'draggable') {
+        // Set up event listeners for draggable mode (skip for child widgets)
+        if (cabbageMode === 'draggable' && !props.parentChannel) {
             widgetDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, widgetDiv));
         }
 
@@ -118,11 +118,14 @@ export class WidgetManager {
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }
-        // Add the widget to the global widgets array
-
-        console.log("Cabbage: Pushing widget to widgets array", widget);
-        widgets.push(widget);
-        widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
+        // Add the widget to the global widgets array (skip child widgets)
+        if (!widget.props.parentChannel) {
+            console.log("Cabbage: Pushing widget to widgets array", widget);
+            widgets.push(widget);
+            widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
+        } else {
+            console.log("Cabbage: Skipping child widget from widgets array", widget.props.channel, "parent:", widget.props.parentChannel);
+        }
 
         // Handle non-draggable mode setup
         if (cabbageMode === 'nonDraggable') {
@@ -145,7 +148,7 @@ export class WidgetManager {
             // Use requestAnimationFrame to ensure DOM is ready, then apply styles
             requestAnimationFrame(() => {
                 WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
-                
+
                 // Handle children widgets if this is a container
                 if (widget.props.children && Array.isArray(widget.props.children)) {
                     WidgetManager.insertChildWidgets(widget, widgetDiv);
@@ -154,7 +157,7 @@ export class WidgetManager {
         }
         else {
             WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
-            
+
             // Handle children widgets if this is a container
             if (widget.props.children && Array.isArray(widget.props.children)) {
                 WidgetManager.insertChildWidgets(widget, widgetDiv);
@@ -323,9 +326,9 @@ export class WidgetManager {
         if (!parentWidget.props.children || !Array.isArray(parentWidget.props.children)) {
             return;
         }
-        
+
         console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", parentWidget.props.channel);
-        
+
         for (const childProps of parentWidget.props.children) {
             // Calculate absolute position based on parent's position + relative position
             const absoluteBounds = {
@@ -333,22 +336,24 @@ export class WidgetManager {
                 left: parentWidget.props.bounds.left + childProps.bounds.left,
                 top: parentWidget.props.bounds.top + childProps.bounds.top
             };
-            
+
             const childWidgetProps = {
                 ...childProps,
                 bounds: absoluteBounds,
                 parentChannel: parentWidget.props.channel // Mark as child
             };
-            
+
             // Insert the child widget
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
-            
-            // Ensure child widgets appear above their container
+
+            // Ensure child widgets appear above their container but are not individually selectable
             const childDiv = document.getElementById(childProps.channel);
             if (childDiv) {
                 childDiv.style.zIndex = '10'; // Higher than container
+                childDiv.setAttribute('data-parent-channel', parentWidget.props.channel); // Mark as child widget
+                childDiv.style.pointerEvents = 'none'; // Disable pointer events
             }
-            
+
             // Ensure container has lower z-index
             if (parentDiv) {
                 parentDiv.style.zIndex = '5';
@@ -448,6 +453,20 @@ export class WidgetManager {
                         widgetDiv.style.top = widget.props.bounds.top + "px";
                         widgetDiv.style.width = widget.props.bounds.width + "px";
                         widgetDiv.style.height = widget.props.bounds.height + "px";
+
+                        // If this widget has children, update their positions
+                        if (widget.props.children && Array.isArray(widget.props.children)) {
+                            widget.props.children.forEach(childProps => {
+                                const childDiv = document.getElementById(childProps.channel);
+                                if (childDiv) {
+                                    const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
+                                    const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
+                                    childDiv.style.left = absoluteLeft + "px";
+                                    childDiv.style.top = absoluteTop + "px";
+                                    console.log(`Cabbage: Updated child ${childProps.channel} position to (${absoluteLeft}, ${absoluteTop})`);
+                                }
+                            });
+                        }
                     }
 
                     if (widget.props.type === "genTable") {

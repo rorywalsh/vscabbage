@@ -288,7 +288,6 @@ export class CabbageUtils {
 
 
   static updateBounds(props, identifier) {
-    console.log('Cabbage: updateBounds called with:', JSON.stringify(props), identifier);
     const element = document.getElementById(props.channel);
     if (element && props.bounds) {
       switch (identifier) {

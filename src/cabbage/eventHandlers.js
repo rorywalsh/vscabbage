@@ -272,7 +272,7 @@ export function setupFormHandlers() {
             const clickedElement = event.target.closest('.draggable');
             const isSelectionBox = event.target.closest && event.target.closest('.selection-box');
             const isContextMenu = event.target.closest && event.target.closest('#selection-context-menu');
-            
+
             if (!clickedElement && !isSelectionBox && !isContextMenu && !event.shiftKey && !event.altKey) {
                 console.log("Cabbage: Deselecting all widgets (document click)");
                 selectedElements.forEach(element => element.classList.remove('selected'));
@@ -330,18 +330,18 @@ export function setupFormHandlers() {
                 } else if (clickedElement && clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
                     // Handle individual widget selection and toggling
                     let elementToSelect = clickedElement;
-                    
+
                     // Check if clicked element is a child widget of a grouped container
-                    const widget = widgets.find(w => w.props.channel === clickedElement.id);
-                    if (widget && widget.props.parentChannel) {
+                    const parentChannel = clickedElement.getAttribute('data-parent-channel');
+                    if (parentChannel) {
                         // This is a child widget - select the parent container instead
-                        const parentDiv = document.getElementById(widget.props.parentChannel);
+                        const parentDiv = document.getElementById(parentChannel);
                         if (parentDiv) {
                             elementToSelect = parentDiv;
-                            console.log("Cabbage: Selecting parent container", widget.props.parentChannel, "instead of child", clickedElement.id);
+                            console.log("Cabbage: Selecting parent container", parentChannel, "instead of child", clickedElement.id);
                         }
                     }
-                    
+
                     if (!event.shiftKey && !event.altKey) {
                         if (!selectedElements.has(elementToSelect)) {
                             selectedElements.forEach(element => element.classList.remove('selected'));
@@ -468,7 +468,7 @@ export function setupFormHandlers() {
  */
 function showSelectionContextMenu(event, selectedElements) {
     console.log("Cabbage: Creating context menu for", selectedElements.size, "selected widgets");
-    
+
     // Remove any existing context menu (defensive)
     const existingMenu = document.getElementById('selection-context-menu');
     if (existingMenu) {
@@ -502,19 +502,47 @@ function showSelectionContextMenu(event, selectedElements) {
     const menuItems = [];
 
     if (selectedCount === 1) {
+        const selectedId = Array.from(selectedElements)[0].id;
+        const selectedWidget = widgets.find(w => w.props.channel === selectedId);
+
         menuItems.push(
             { text: 'Properties', action: () => showProperties(selectedElements) },
             { text: 'Duplicate', action: () => duplicateWidgets(selectedElements) },
             { text: 'Delete', action: () => deleteWidgets(selectedElements) },
-            { text: '---' },
+            { text: '---' }
+        );
+
+        // Add Ungroup option if the selected widget has children
+        if (selectedWidget && selectedWidget.props.children && selectedWidget.props.children.length > 0) {
+            menuItems.push(
+                { text: 'Ungroup', action: () => ungroupWidgets(selectedElements) }
+            );
+        }
+
+        menuItems.push(
             { text: 'Bring to Front', action: () => bringToFront(selectedElements) },
             { text: 'Send to Back', action: () => sendToBack(selectedElements) }
         );
     } else {
         menuItems.push(
             { text: `${selectedCount} widgets selected`, disabled: true },
-            { text: '---' },
-            { text: 'Group', action: () => groupWidgets(selectedElements) },
+            { text: '---' }
+        );
+
+        // Check if there are valid container widgets (groupBox or image) in the selection
+        const selectedIds = Array.from(selectedElements).map(el => el.id);
+        const hasValidContainer = selectedIds.some(id => {
+            const widget = widgets.find(w => w.props.channel === id);
+            return widget && (widget.props.type === 'groupBox' || widget.props.type === 'image');
+        });
+
+        if (hasValidContainer) {
+            menuItems.push(
+                { text: 'Group', action: () => groupWidgets(selectedElements) }
+            );
+        }
+
+        menuItems.push(
             { text: 'Duplicate All', action: () => duplicateWidgets(selectedElements) },
             { text: 'Delete All', action: () => deleteWidgets(selectedElements) },
             { text: '---' },
@@ -642,45 +670,45 @@ function showProperties(selectedElements) {
 
 function duplicateWidgets(selectedElements) {
     console.log("Cabbage: Duplicating", selectedElements.size, "widgets");
-    
+
     // Get the MainForm to determine bounds for positioning
     const form = document.getElementById('MainForm');
     if (!form) {
         console.error("Cabbage: MainForm not found for duplicate positioning");
         return;
     }
-    
+
     const formWidth = parseInt(form.style.width);
     const formHeight = parseInt(form.style.height);
-    
+
     // Process each selected widget
     Array.from(selectedElements).forEach(async (element) => {
         const originalChannel = element.id;
         const originalWidget = widgets.find(w => w.props.channel === originalChannel);
-        
+
         if (!originalWidget) {
             console.error("Cabbage: Original widget not found for channel:", originalChannel);
             return;
         }
-        
+
         // Create deep copy of widget props
         const newProps = JSON.parse(JSON.stringify(originalWidget.props));
-        
+
         // Generate unique channel name
         newProps.channel = CabbageUtils.getUniqueChannelName(newProps.type, widgets);
         console.log("Cabbage: Generated new channel:", newProps.channel, "for type:", newProps.type);
-        
+
         // Calculate new position based on original position and form bounds
         const originalBounds = newProps.bounds || { left: 0, top: 0, width: 100, height: 50 };
         const centerX = originalBounds.left + (originalBounds.width / 2);
         const centerY = originalBounds.top + (originalBounds.height / 2);
-        
+
         let offsetX = 30; // Default offset
         let offsetY = 30;
-        
+
         // Ensure bounds object exists
         newProps.bounds = newProps.bounds || {};
-        
+
         // If original is in top-left quadrant, duplicate to right and down
         if (centerX < formWidth / 2 && centerY < formHeight / 2) {
             // Top-left: duplicate to right and down
@@ -691,14 +719,14 @@ function duplicateWidgets(selectedElements) {
             newProps.bounds.left = Math.max(originalBounds.left - offsetX, 0);
             newProps.bounds.top = Math.max(originalBounds.top - offsetY, 0);
         }
-        
+
         console.log("Cabbage: Duplicating widget from", originalBounds, "to", newProps.bounds);
-        
+
         // Insert the new widget
         try {
             const newWidget = await WidgetManager.insertWidget(newProps.type, newProps, originalWidget.props.currentCsdFile);
             console.log("Cabbage: Successfully duplicated widget:", newWidget);
-            
+
             // Send message to extension to add to CSD file
             if (vscode) {
                 vscode.postMessage({
@@ -749,15 +777,15 @@ function deleteWidgets(selectedElements) {
             }
         });
     });
-}function groupWidgets(selectedElements) {
+} function groupWidgets(selectedElements) {
     console.log("Cabbage: Grouping", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
-    
+
     if (selectedElements.size < 2) {
         console.log("Cabbage: Need at least 2 widgets to group");
         return;
     }
-    
+
     // Get all selected widgets
     const selectedWidgets = [];
     selectedIds.forEach(id => {
@@ -766,42 +794,42 @@ function deleteWidgets(selectedElements) {
             selectedWidgets.push(widget);
         }
     });
-    
+
     // Find the first groupBox or image widget to use as container
-    const containerWidget = selectedWidgets.find(w => 
+    const containerWidget = selectedWidgets.find(w =>
         w.props.type === 'groupBox' || w.props.type === 'image'
     );
-    
+
     if (!containerWidget) {
         console.error("Cabbage: No groupBox or image widget found in selection to use as container");
         alert("Grouping requires at least one groupBox or image widget to be selected as the container.");
         return;
     }
-    
+
     console.log("Cabbage: Using", containerWidget.props.channel, "as container");
-    
+
     // Initialize children array if it doesn't exist
     containerWidget.props.children = containerWidget.props.children || [];
-    
+
     // Get child widgets (all selected widgets except the container)
     const childWidgets = selectedWidgets.filter(w => w !== containerWidget);
-    
+
     // Convert absolute positions to relative positions within container
     childWidgets.forEach(childWidget => {
         const childBounds = childWidget.props.bounds;
         const containerBounds = containerWidget.props.bounds;
-        
+
         // Calculate relative position
         const relativeLeft = childBounds.left - containerBounds.left;
         const relativeTop = childBounds.top - containerBounds.top;
-        
+
         // Create child object by copying the widget props as they appear in the CSD file
         const childData = JSON.parse(JSON.stringify(childWidget.props));
-        
+
         // Remove runtime properties that shouldn't be in the CSD file
         delete childData.currentCsdFile;
         delete childData.parameterIndex;
-        
+
         // Update bounds to be relative to the container
         childData.bounds = {
             left: relativeLeft,
@@ -809,17 +837,17 @@ function deleteWidgets(selectedElements) {
             width: childBounds.width,
             height: childBounds.height
         };
-        
+
         // Add to container's children array
         containerWidget.props.children.push(childData);
-        
+
         // Remove from main widgets array
         const widgetIndex = widgets.findIndex(w => w.props.channel === childWidget.props.channel);
         if (widgetIndex !== -1) {
             widgets.splice(widgetIndex, 1);
             console.log("Cabbage: Moved", childWidget.props.channel, "into", containerWidget.props.channel, "children");
         }
-        
+
         // Remove from DOM
         const childDiv = CabbageUtils.getWidgetDiv(childWidget.props.channel);
         if (childDiv && childDiv.parentElement) {
@@ -827,20 +855,20 @@ function deleteWidgets(selectedElements) {
             console.log("Cabbage: Removed", childWidget.props.channel, "from DOM");
         }
     });
-    
+
     // Clear selection
     selectedElements.clear();
-    
+
     // Select the container widget
     const containerDiv = CabbageUtils.getWidgetDiv(containerWidget.props.channel);
     if (containerDiv) {
         containerDiv.classList.add('selected');
         selectedElements.add(containerDiv);
     }
-    
+
     // Update container in DOM
     updateGroupedWidgetDisplay(containerWidget);
-    
+
     // Send remove messages for each child first
     if (childWidgets.length > 0) {
         vscode.postMessage({
@@ -848,7 +876,7 @@ function deleteWidgets(selectedElements) {
             channels: childWidgets.map(child => child.props.channel)
         });
     }
-    
+
     // Send update to extension for the container
     vscode.postMessage({
         command: 'widgetUpdate',
@@ -860,7 +888,7 @@ function deleteWidgets(selectedElements) {
 function updateGroupedWidgetDisplay(containerWidget) {
     const containerDiv = CabbageUtils.getWidgetDiv(containerWidget.props.channel);
     if (!containerDiv) return;
-    
+
     // Instead of re-rendering innerHTML (which can break interact.js), 
     // modify the existing SVG to have transparent background
     if (containerWidget.props.children && containerWidget.props.children.length > 0) {
@@ -875,17 +903,112 @@ function updateGroupedWidgetDisplay(containerWidget) {
             }
         }
     }
-    
+
     // Insert child widgets
     WidgetManager.insertChildWidgets(containerWidget, containerDiv);
-    
+
     console.log("Cabbage: Updated display for grouped widget", containerWidget.props.channel, "with", containerWidget.props.children.length, "children");
+}
+
+function ungroupWidgets(selectedElements) {
+    console.log("Cabbage: Ungrouping widgets");
+    const selectedIds = Array.from(selectedElements).map(el => el.id);
+
+    if (selectedElements.size !== 1) {
+        console.log("Cabbage: Can only ungroup one container at a time");
+        return;
+    }
+
+    const containerId = selectedIds[0];
+    const containerWidget = widgets.find(w => w.props.channel === containerId);
+
+    if (!containerWidget || !containerWidget.props.children || containerWidget.props.children.length === 0) {
+        console.log("Cabbage: Selected widget has no children to ungroup");
+        return;
+    }
+
+    console.log("Cabbage: Ungrouping", containerWidget.props.children.length, "widgets from", containerWidget.props.channel);
+
+    // Store children before clearing
+    const childrenToUngroup = [...containerWidget.props.children];
+
+    // Process each child widget
+    childrenToUngroup.forEach(childProps => {
+        // Convert relative positions back to absolute positions
+        const absoluteBounds = {
+            left: containerWidget.props.bounds.left + childProps.bounds.left,
+            top: containerWidget.props.bounds.top + childProps.bounds.top,
+            width: childProps.bounds.width,
+            height: childProps.bounds.height
+        };
+
+        // Create a new widget object for the child
+        const childWidgetProps = {
+            ...childProps,
+            bounds: absoluteBounds,
+            currentCsdFile: containerWidget.props.currentCsdFile
+        };
+
+        // Add child back to main widgets array
+        const childWidget = WidgetManager.createWidget(childProps.type);
+        if (childWidget) {
+            Object.assign(childWidget.props, childWidgetProps);
+            widgets.push(childWidget);
+            childWidget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
+            console.log("Cabbage: Added", childProps.channel, "back to widgets array");
+
+            // Make child widget selectable again
+            const childDiv = document.getElementById(childProps.channel);
+            if (childDiv) {
+                childDiv.className = cabbageMode; // Restore draggable class
+                childDiv.style.pointerEvents = 'auto'; // Re-enable pointer events
+                childDiv.removeAttribute('data-parent-channel'); // Remove parent reference
+
+                // Re-add event listeners for draggable mode
+                if (cabbageMode === 'draggable') {
+                    childDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, childDiv));
+                }
+            }
+        }
+    });
+
+    // Clear the container's children array
+    containerWidget.props.children = [];
+
+    // Update container display (make background opaque again)
+    const containerDiv = CabbageUtils.getWidgetDiv(containerWidget.props.channel);
+    if (containerDiv) {
+        const svgElement = containerDiv.querySelector('svg');
+        if (svgElement) {
+            const bgRect = svgElement.querySelector('rect[fill]');
+            if (bgRect && bgRect.getAttribute('fill') === 'transparent') {
+                // Restore original background color (you might need to get this from widget props)
+                bgRect.setAttribute('fill', containerWidget.props.color || '#ffffff');
+                console.log("Cabbage: Restored container background for", containerWidget.props.channel);
+            }
+        }
+    }
+
+    // Clear selection
+    selectedElements.clear();
+
+    // Send messages to add child widgets back to CSD file
+    if (vscode) {
+        childrenToUngroup.forEach(child => {
+            vscode.postMessage({
+                command: 'addWidget',
+                widget: child
+            });
+        });
+    }
+
+    console.log("Cabbage: Ungrouped widgets from", containerWidget.props.channel);
 }
 
 function bringToFront(selectedElements) {
     console.log("Cabbage: Bringing widgets to front");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
-    
+
     if (vscode) {
         vscode.postMessage({
             command: 'bringToFront',
@@ -897,7 +1020,7 @@ function bringToFront(selectedElements) {
 function sendToBack(selectedElements) {
     console.log("Cabbage: Sending widgets to back");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
-    
+
     if (vscode) {
         vscode.postMessage({
             command: 'sendToBack',
@@ -909,12 +1032,12 @@ function sendToBack(selectedElements) {
 function alignWidgets(selectedElements, alignment) {
     console.log("Cabbage: Aligning", selectedElements.size, "widgets to", alignment);
     const selectedIds = Array.from(selectedElements).map(el => el.id);
-    
+
     if (selectedElements.size < 2) {
         console.log("Cabbage: Need at least 2 widgets to align");
         return;
     }
-    
+
     // Get all selected widgets
     const selectedWidgets = [];
     selectedIds.forEach(id => {
@@ -923,14 +1046,14 @@ function alignWidgets(selectedElements, alignment) {
             selectedWidgets.push(widget);
         }
     });
-    
+
     if (selectedWidgets.length < 2) {
         console.log("Cabbage: Not enough valid widgets found to align");
         return;
     }
-    
+
     let referenceValue;
-    
+
     switch (alignment) {
         case 'left':
             // Align to the leftmost widget's left position
@@ -941,7 +1064,7 @@ function alignWidgets(selectedElements, alignment) {
                 updateWidgetPosition(widget);
             });
             break;
-            
+
         case 'right':
             // Align to the rightmost widget's right edge
             const maxRight = Math.max(...selectedWidgets.map(w => w.props.bounds.left + w.props.bounds.width));
@@ -951,7 +1074,7 @@ function alignWidgets(selectedElements, alignment) {
                 updateWidgetPosition(widget);
             });
             break;
-            
+
         case 'top':
             // Align to the topmost widget's top position
             referenceValue = Math.min(...selectedWidgets.map(w => w.props.bounds.top));
@@ -961,7 +1084,7 @@ function alignWidgets(selectedElements, alignment) {
                 updateWidgetPosition(widget);
             });
             break;
-            
+
         case 'bottom':
             // Align to the bottommost widget's bottom edge
             const maxBottom = Math.max(...selectedWidgets.map(w => w.props.bounds.top + w.props.bounds.height));
@@ -971,12 +1094,12 @@ function alignWidgets(selectedElements, alignment) {
                 updateWidgetPosition(widget);
             });
             break;
-            
+
         default:
             console.error("Cabbage: Unknown alignment:", alignment);
             return;
     }
-    
+
     // Send messages to extension to update CSD file
     if (vscode) {
         selectedWidgets.forEach(widget => {
