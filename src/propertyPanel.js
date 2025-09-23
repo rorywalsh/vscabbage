@@ -300,7 +300,8 @@ export class PropertyPanel {
             });
         } else {
             // Handle color input for properties that are specifically color values
-            if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width")) {
+            // But exclude numeric tracker width (e.g. `colour.tracker.width`) so it is shown as a number input
+            if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width") && !fullPath.toLowerCase().includes("tracker.width")) {
                 input = document.createElement('input');
                 input.value = value; // Set the initial color value
                 input.style.backgroundColor = value; // Set background color
