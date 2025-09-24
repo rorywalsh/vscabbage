@@ -694,9 +694,31 @@ function duplicateWidgets(selectedElements) {
         // Create deep copy of widget props
         const newProps = JSON.parse(JSON.stringify(originalWidget.props));
 
-        // Generate unique channel name
+        // Generate unique channel name for the container
         newProps.channel = CabbageUtils.getUniqueChannelName(newProps.type, widgets);
         console.log("Cabbage: Generated new channel:", newProps.channel, "for type:", newProps.type);
+
+        // If this widget has children, duplicate them with new channel names
+        if (newProps.children && Array.isArray(newProps.children)) {
+            console.log("Cabbage: Duplicating", newProps.children.length, "child widgets for", newProps.channel);
+
+            // Create a mapping of old channel names to new channel names
+            const channelMapping = {};
+
+            // Duplicate each child with a new channel name
+            newProps.children = newProps.children.map(childProps => {
+                const newChildProps = JSON.parse(JSON.stringify(childProps));
+
+                // Generate unique channel name for this child
+                const newChildChannel = CabbageUtils.getUniqueChannelName(newChildProps.type, widgets);
+                channelMapping[childProps.channel] = newChildChannel;
+
+                newChildProps.channel = newChildChannel;
+                console.log("Cabbage: Child channel", childProps.channel, "->", newChildChannel);
+
+                return newChildProps;
+            });
+        }
 
         // Calculate new position based on original position and form bounds
         const originalBounds = newProps.bounds || { left: 0, top: 0, width: 100, height: 50 };
@@ -738,9 +760,7 @@ function duplicateWidgets(selectedElements) {
             console.error("Cabbage: Error duplicating widget:", error);
         }
     });
-}
-
-function deleteWidgets(selectedElements) {
+}function deleteWidgets(selectedElements) {
     console.log("Cabbage: Deleting", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
     console.log("Cabbage: Widget IDs to delete:", selectedIds);
