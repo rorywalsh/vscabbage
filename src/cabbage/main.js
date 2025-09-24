@@ -134,6 +134,9 @@ window.addEventListener('message', async event => {
             }
             widgets.length = 0; // Clear the widgets array
             // currentFileName = message.lastSavedFileName; // Update the current file name
+
+            // Update child widget pointer events for performance mode
+            updateChildWidgetPointerEvents('nonDraggable');
             break;
 
         // Called when entering edit mode. Converts existing widgets to draggable mode.
@@ -163,6 +166,9 @@ window.addEventListener('message', async event => {
 
             // Update each widget after clearing the form
             widgetUpdatesMessages.forEach(msg => WidgetManager.updateWidget(msg));
+
+            // Update child widget pointer events for draggable mode
+            updateChildWidgetPointerEvents('draggable');
             break;
 
         // Called when there are new Csound console messages to display
@@ -187,3 +193,22 @@ window.addEventListener('message', async event => {
             return; // If the command is not recognized, do nothing
     }
 });
+
+/**
+ * Updates pointer events for child widgets based on the current mode
+ * @param {string} mode - The current mode ('draggable' or 'nonDraggable')
+ */
+function updateChildWidgetPointerEvents(mode) {
+    console.log("Cabbage: Updating child widget pointer events for mode:", mode);
+
+    // Find all child widgets (those with data-parent-channel attribute)
+    const childWidgets = document.querySelectorAll('[data-parent-channel]');
+
+    childWidgets.forEach(childDiv => {
+        if (mode === 'draggable') {
+            childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
+        } else {
+            childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
+        }
+    });
+}

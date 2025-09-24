@@ -389,12 +389,18 @@ export class WidgetManager {
             // Insert the child widget
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
 
-            // Ensure child widgets appear above their container but are not individually selectable
+            // Ensure child widgets appear above their container
             const childDiv = document.getElementById(childProps.channel);
             if (childDiv) {
                 childDiv.style.zIndex = '10'; // Higher than container
                 childDiv.setAttribute('data-parent-channel', parentWidget.props.channel); // Mark as child widget
-                childDiv.style.pointerEvents = 'none'; // Disable pointer events
+
+                // Set pointer events based on mode
+                if (cabbageMode === 'draggable') {
+                    childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
+                } else {
+                    childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
+                }
             }
 
             // Ensure container has lower z-index
@@ -402,9 +408,7 @@ export class WidgetManager {
                 parentDiv.style.zIndex = '5';
             }
         }
-    }
-
-    /**
+    }    /**
      * Updates the styles and positioning of a widget based on its properties.
      * @param {HTMLElement} widgetDiv - The widget's DOM element.
      * @param {object} props - The widget's properties containing size and position data.
