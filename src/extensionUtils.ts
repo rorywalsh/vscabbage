@@ -38,7 +38,7 @@ export class ExtensionUtils {
         if (!showWarning) {
             return "";
         }
-        return `\n<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
+        return `\n<!--⚠️ Warning: Although you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
     }
 
     /**
@@ -498,11 +498,8 @@ export class ExtensionUtils {
                         ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ')
                         : JSON.stringify(updatedJsonArray, null, 4);
 
-                    const warningComment = 
-                    `\n\n<!--⚠️ Warning: Although you can manually edit the Cabbage JSON code, it will also be rewritten by the 
-Cabbage UI editor. This means any custom formatting (indentation, spacing, or comments) may be lost when 
-the file is saved through the editor. -->\n`;
-                    const updatedCabbageSection = warningComment + `<Cabbage>${formattedArray}</Cabbage>`;
+
+                    const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedArray}</Cabbage>`;
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
@@ -580,7 +577,7 @@ ${JSON.stringify(props, null, 4)}
 ]</Cabbage>`;
 
             const workspaceEdit = new vscode.WorkspaceEdit();
-            
+
             if (cabbageSectionPosition === 'top') {
                 // Insert at the beginning of the file
                 workspaceEdit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
@@ -588,7 +585,7 @@ ${JSON.stringify(props, null, 4)}
                 // Insert after </CsoundSynthesizer> tag
                 const csoundEndTag = '</CsoundSynthesizer>';
                 const endIndex = originalText.indexOf(csoundEndTag);
-                
+
                 if (endIndex !== -1) {
                     // Insert after the closing tag
                     const insertPosition = document.positionAt(endIndex + csoundEndTag.length);
