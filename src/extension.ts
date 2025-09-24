@@ -25,6 +25,7 @@ const originalContentCache: { [key: string]: string } = {};
 let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
+let warningDecoration: vscode.TextEditorDecorationType | undefined;
 
 
 /**
@@ -68,6 +69,53 @@ export async function activate(context: vscode.ExtensionContext):
     }
 
     Commands.createStatusBarIcon(context);
+
+    // Create a decoration type for the warning comment so it stands out
+    warningDecoration = vscode.window.createTextEditorDecorationType({
+        fontStyle: 'italic',
+        color: 'rgba(102, 102, 102, 0.9)',
+        overviewRulerLane: vscode.OverviewRulerLane.Right
+    });
+
+    // Helper: find warning comment blocks and apply decoration
+    const updateWarningDecorations = (editor?: vscode.TextEditor) => {
+        const editors = editor ? [editor] : vscode.window.visibleTextEditors;
+        const regex = /<!--[\s\S]*?⚠️\s*Warning:[\s\S]*?-->/g;
+        for (const ed of editors) {
+            try {
+                if (!ed || !ed.document) continue;
+                const text = ed.document.getText();
+                const decorations: vscode.DecorationOptions[] = [];
+                let match: RegExpExecArray | null;
+                while ((match = regex.exec(text)) !== null) {
+                    const start = ed.document.positionAt(match.index);
+                    const end = ed.document.positionAt(match.index + match[0].length);
+                    decorations.push({ range: new vscode.Range(start, end) });
+                }
+                if (warningDecoration) {
+                    ed.setDecorations(warningDecoration, decorations);
+                }
+            } catch (err) {
+                console.error('Failed to update warning decorations:', err);
+            }
+        }
+    };
+
+    // Initial decorate for currently visible editors
+    updateWarningDecorations();
+
+    // Update decorations on relevant editor/document events
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (editor) updateWarningDecorations(editor);
+    }));
+    context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => {
+        const editor = vscode.window.visibleTextEditors.find(e => e.document === doc);
+        if (editor) updateWarningDecorations(editor);
+    }));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
+        const editor = vscode.window.visibleTextEditors.find(e => e.document === event.document);
+        if (editor) updateWarningDecorations(editor);
+    }));
 
     // Get the output channel from Commands class
     const vscodeOutputChannel = Commands.getOutputChannel();

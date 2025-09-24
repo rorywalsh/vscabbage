@@ -29,9 +29,26 @@ interface Widget {
 export class ExtensionUtils {
 
     /**
-     * Sends text to the webview for parsing, only if the file has a `.csd` extension
-     * and includes valid Cabbage tags.
+     * Gets the warning comment for Cabbage sections based on user settings.
+     * @returns The warning comment string if enabled, otherwise an empty string.
      */
+    static getWarningComment(): string {
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const showWarning = config.get("showWarningComment", true);
+        if (!showWarning) {
+            return "";
+        }
+        return `\n<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
+    }
+
+    /**
+     * Removes any warning comment from the text.
+     * @param text The text to clean.
+     * @returns The text with warning comments removed.
+     */
+    static removeWarningComment(text: string): string {
+        return text.replace(/<!--[\s\S]*?Warning:[\s\S]*?-->[\s\n]*/g, '');
+    }
     static sendTextToWebView(editor: vscode.TextDocument | undefined, command: string, panel: vscode.WebviewPanel | undefined) {
         if (editor) {
             if (editor.fileName.split('.').pop() === 'csd') {
@@ -456,8 +473,9 @@ export class ExtensionUtils {
             return;
         }
 
+        const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
-        const cabbageMatch = originalText.match(cabbageRegex);
+        const cabbageMatch = cleanedText.match(cabbageRegex);
 
         let externalFile = '';
 
@@ -480,21 +498,55 @@ export class ExtensionUtils {
                         ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ')
                         : JSON.stringify(updatedJsonArray, null, 4);
 
-                    const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
+                    const warningComment = 
+                    `\n\n<!--⚠️ Warning: Although you can manually edit the Cabbage JSON code, it will also be rewritten by the 
+Cabbage UI editor. This means any custom formatting (indentation, spacing, or comments) may be lost when 
+the file is saved through the editor. -->\n`;
+                    const updatedCabbageSection = warningComment + `<Cabbage>${formattedArray}</Cabbage>`;
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
-                    // Always update the document content
-                    const workspaceEdit = new vscode.WorkspaceEdit();
-                    workspaceEdit.replace(
-                        document.uri,
-                        new vscode.Range(
-                            document.positionAt(cabbageMatch.index ?? 0),
-                            document.positionAt((cabbageMatch.index ?? 0) + cabbageMatch[0].length)
-                        ),
-                        updatedCabbageSection
-                    );
+                    // Relocate the cabbage section according to user setting if needed.
                     try {
+                        const config = vscode.workspace.getConfiguration("cabbage");
+                        const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
+
+                        // Build the new document text by removing the old cabbage section and inserting the updated one
+                        const oldStart = cabbageMatch.index ?? 0;
+                        const oldEnd = oldStart + (cabbageMatch[0]?.length ?? 0);
+
+                        // Remove the old cabbage section
+                        let withoutCabbage = originalText.slice(0, oldStart) + originalText.slice(oldEnd);
+
+                        // Find insertion index in the text *after* removal. Compute desired index based on originalText,
+                        // then adjust if the old cabbage was before that index.
+                        let insertIndex: number;
+                        if (cabbageSectionPosition === 'top') {
+                            const csoundStartRegex = /<CsoundSynthesizer\b[^>]*>/i;
+                            const startMatch = originalText.match(csoundStartRegex);
+                            insertIndex = startMatch && typeof startMatch.index === 'number' ? startMatch.index : 0;
+                        } else {
+                            const csoundEndRegex = /<\/CsoundSynthesizer>/i;
+                            const endMatch = originalText.match(csoundEndRegex);
+                            insertIndex = endMatch && typeof endMatch.index === 'number' ? endMatch.index + endMatch[0].length : originalText.length;
+                        }
+
+                        // If the old cabbage appeared before the desired insert point, the insertIndex must be shifted left
+                        if (oldStart < insertIndex) {
+                            insertIndex -= (oldEnd - oldStart);
+                        }
+
+                        // Compose the new document text with the updated cabbage section inserted
+                        const newText = withoutCabbage.slice(0, insertIndex) + updatedCabbageSection + withoutCabbage.slice(insertIndex);
+
+                        const workspaceEdit = new vscode.WorkspaceEdit();
+                        // Replace entire document for simplicity to avoid positional complexity
+                        workspaceEdit.replace(
+                            document.uri,
+                            new vscode.Range(0, 0, document.lineCount, 0),
+                            newText
+                        );
+
                         const success = await vscode.workspace.applyEdit(workspaceEdit);
                         if (!success && retryCount > 0) {
                             // If the edit failed, wait a bit and try again
@@ -502,16 +554,57 @@ export class ExtensionUtils {
                             return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, retryCount - 1);
                         }
 
-                        if (cabbageMatch.index !== undefined && textEditor) {
-                            ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageMatch.index, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
+                        // Attempt to highlight the updated object. Use the insertion index (where the Cabbage section now starts)
+                        if (textEditor) {
+                            ExtensionUtils.highlightAndScrollToUpdatedObject(props, insertIndex, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
                         }
                     } catch (error) {
-                        console.error("Failed to apply edit:", error);
+                        console.error("Failed to relocate/apply Cabbage edit:", error);
                         vscodeOutputChannel.append(`Failed to apply edit: ${error}`);
                     }
                 }
             } catch (parseError) {
                 return;
+            }
+        } else {
+            // No Cabbage section found, add one using the setting
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
+
+            const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
+
+            const cabbageContent = warningComment + `
+<Cabbage>[
+{"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"},
+${JSON.stringify(props, null, 4)}
+]</Cabbage>`;
+
+            const workspaceEdit = new vscode.WorkspaceEdit();
+            
+            if (cabbageSectionPosition === 'top') {
+                // Insert at the beginning of the file
+                workspaceEdit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
+            } else {
+                // Insert after </CsoundSynthesizer> tag
+                const csoundEndTag = '</CsoundSynthesizer>';
+                const endIndex = originalText.indexOf(csoundEndTag);
+                
+                if (endIndex !== -1) {
+                    // Insert after the closing tag
+                    const insertPosition = document.positionAt(endIndex + csoundEndTag.length);
+                    workspaceEdit.insert(document.uri, insertPosition, '\n' + cabbageContent.trim());
+                } else {
+                    // If no CsoundSynthesizer tag found, insert at the end
+                    const endPosition = document.positionAt(originalText.length);
+                    workspaceEdit.insert(document.uri, endPosition, '\n' + cabbageContent.trim());
+                }
+            }
+
+            try {
+                await vscode.workspace.applyEdit(workspaceEdit);
+            } catch (error) {
+                console.error("Failed to add Cabbage section:", error);
+                vscodeOutputChannel.append(`Failed to add Cabbage section: ${error}`);
             }
         }
 

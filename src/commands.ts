@@ -664,14 +664,39 @@ export class Commands {
         }
 
         const document = editor.document;
-        const cabbageContent = `
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
+
+    const warningComment = ExtensionUtils.getWarningComment();
+
+    const cabbageContent = warningComment + `
 <Cabbage>[
 {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"}
 ]</Cabbage>`;
-        const edit = new vscode.WorkspaceEdit();
-        edit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
-        vscode.workspace.applyEdit(edit);
 
+        const edit = new vscode.WorkspaceEdit();
+        
+        if (cabbageSectionPosition === 'top') {
+            // Insert at the beginning of the file
+            edit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
+        } else {
+            // Insert after </CsoundSynthesizer> tag
+            const text = document.getText();
+            const csoundEndTag = '</CsoundSynthesizer>';
+            const endIndex = text.indexOf(csoundEndTag);
+            
+            if (endIndex !== -1) {
+                // Insert after the closing tag
+                const insertPosition = document.positionAt(endIndex + csoundEndTag.length);
+                edit.insert(document.uri, insertPosition, '\n' + cabbageContent.trim());
+            } else {
+                // If no CsoundSynthesizer tag found, insert at the end
+                const endPosition = document.positionAt(text.length);
+                edit.insert(document.uri, endPosition, '\n' + cabbageContent.trim());
+            }
+        }
+
+        vscode.workspace.applyEdit(edit);
     }
 
     /**
