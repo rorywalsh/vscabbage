@@ -5,8 +5,8 @@
 console.log("Cabbage: loading cabbage.js");
 
 export class Cabbage {
-  
-  static sendParameterUpdate(message, vscode=null) {
+
+  static sendParameterUpdate(message, vscode = null) {
     const msg = {
       command: "parameterChange",
       obj: JSON.stringify(message)
@@ -15,12 +15,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      console.log("Cabbage: sending parameter change from UI", msg);
       window.sendMessageFromUI(msg);
     }
   }
 
-  static sendCustomCommand(command, vscode=null) {
+  static sendCustomCommand(command, vscode = null) {
     const msg = {
       command: command,
       text: JSON.stringify({})
@@ -29,16 +28,16 @@ export class Cabbage {
     if (vscode !== null) {
       vscode.postMessage(msg);
     }
-    else {      
+    else {
       window.sendMessageFromUI(msg);
     }
-  } 
+  }
 
-  static sendWidgetUpdate(widget, vscode=null) {
+  static sendWidgetUpdate(widget, vscode = null) {
     console.log("Cabbage: sending widget update from UI", widget.props);
     const msg = {
       command: "widgetStateUpdate",
-      obj:JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
+      obj: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
     };
     if (vscode !== null) {
       vscode.postMessage(msg);
@@ -48,7 +47,7 @@ export class Cabbage {
     }
   }
 
-  static sendMidiMessageFromUI(statusByte, dataByte1, dataByte2, vscode=null) {
+  static sendMidiMessageFromUI(statusByte, dataByte1, dataByte2, vscode = null) {
     var message = {
       "statusByte": statusByte,
       "dataByte1": dataByte1,

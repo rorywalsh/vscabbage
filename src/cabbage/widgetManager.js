@@ -111,6 +111,9 @@ export class WidgetManager {
             return;
         }
 
+        // attach the instance to the div so future updates can find it
+        widgetDiv.__cabbage_instance = widget;
+
 
         // Assign class based on widget type and mode (draggable/non-draggable)
         widgetDiv.className = (type === "form") ? "resizeOnly" : (props.parentChannel ? "grouped-child" : cabbageMode);
@@ -443,7 +446,7 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-
+        console.warn("Cabbage: Updating widget", obj);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => w.props.channel === obj.channel);
@@ -524,7 +527,42 @@ export class WidgetManager {
                 }
             }
         } else {
-            // console.log(`Widget with channel ${obj.channel} not found - going to create it now`);
+            // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
+            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => c.channel === obj.channel));
+            if (parentWithChild) {
+                console.log(`Cabbage: Found child widget ${obj.channel} in parent ${parentWithChild.props.channel}, updating child.`);
+                const childProps = parentWithChild.props.children.find(c => c.channel === obj.channel);
+
+                // If data is an object (and not null/array) merge it, otherwise treat as a value update
+                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    WidgetManager.deepMerge(childProps, data);
+                } else {
+                    childProps.value = data;
+                }
+
+                // Update child DOM / instance if present
+                const childDiv = document.getElementById(obj.channel);
+                if (childDiv) {
+                    // Prefer canonical attached instance
+                    const instance = childDiv.__cabbage_instance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
+                    if (instance) {
+                        WidgetManager.deepMerge(instance.props, childProps);
+                        childDiv.innerHTML = instance.getInnerHTML();
+                        console.warn("Cabbage: Updated child widget instance", obj.channel, instance.props.value);
+                    } else {
+                        // Fallback: create a temporary widget instance to render HTML
+                        const tempWidget = WidgetManager.createWidget(childProps.type);
+                        WidgetManager.deepMerge(tempWidget.props, childProps);
+                        childDiv.innerHTML = tempWidget.getInnerHTML();
+                        console.warn("Cabbage: Updated temporary child widget", obj.channel);
+                    }
+                } else {
+                    console.warn(`Cabbage: child div for ${obj.channel} not found in DOM`);
+                }
+                widgetFound = true;
+            } else {
+                console.log(`Cabbage: Widget with channel ${obj.channel} not found - going to create it now`);
+            }
         }
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound) {

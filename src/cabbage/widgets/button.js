@@ -15,7 +15,7 @@ export class Button {
         "height": 30
       },
       "channel": "button",
-      "corners": 2,
+      "corners": 6,
       "min": 0,
       "max": 1,
       "defaultValue": 0,
@@ -39,19 +39,19 @@ export class Button {
           "fill": "#3d800a",
           "stroke": {
             "colour": "#dddddd",
-            "width": 2
+            "width": 0
           }
         },
         "off": {
           "fill": "#3d800a",
           "stroke": {
             "colour": "#dddddd",
-            "width": 2
+            "width": 0
           }
         }
       },
       "name": "",
-      "type":"button",
+      "type": "button",
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0
@@ -77,10 +77,10 @@ export class Button {
     }
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
-    if(this.props.value === null) {
+    if (this.props.value === null) {
       this.props.value = 0;
     }
-    
+
     this.props.value = (this.props.value === 0 ? 1 : 0);
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);
@@ -149,7 +149,7 @@ export class Button {
     };
 
     const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
+    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.4;
     const padding = 5;
 
     let textX;

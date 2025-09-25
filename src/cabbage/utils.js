@@ -84,6 +84,7 @@ export class CabbageUtils {
         // Increment the counter if the type matches
         count++;
       }
+
     }
 
     // Return the final count

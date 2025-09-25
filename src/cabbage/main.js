@@ -103,6 +103,7 @@ window.addEventListener('message', async event => {
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
+            console.warn("Cabbage: widgetUpdate", message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
@@ -122,7 +123,7 @@ window.addEventListener('message', async event => {
                 }
             });
             break;
-            
+
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
             console.log("Cabbage: onFileChanged", message);

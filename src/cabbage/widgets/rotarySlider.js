@@ -284,6 +284,7 @@ export class RotarySlider {
     const targetNormalized = (snappedSkewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
     console.log(`Cabbage: Sending slider ${this.props.channel}: displayValue=${snappedSkewedValue}, sending=${valueToSend}, targetNormalized=${targetNormalized}, skew=${this.props.range.skew}`);
+
     const msg = {
       paramIdx: this.parameterIndex,
       channel: this.props.channel,
@@ -449,14 +450,14 @@ export class RotarySlider {
     }
 
     let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
-  // tracker width is stored under colour.tracker.width
-  const trackerWidth = this.props.colour.tracker.width;
+    // tracker width is stored under colour.tracker.width
+    const trackerWidth = this.props.colour.tracker.width;
     const innerTrackerWidth = trackerWidth - this.props.colour.stroke.width; // Updated reference
     const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;
     const trackerOutlineColour = this.props.colour.stroke.width === 0 ? this.props.colour.tracker.background : this.props.colour.stroke.colour;
 
-  const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
-  const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
+    const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
+    const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
 
     // Use the linear value for knob positioning (currentValue is skewed, so convert it to linear)
     const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);

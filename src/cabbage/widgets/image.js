@@ -73,13 +73,16 @@ export class Image {
             `;
         }
 
-        const imagePath = CabbageUtils.getFullMediaPath(this.props.file, this.props.currentCsdFile || '');
-        console.log(imagePath);
-        if (imagePath) {
-            console.log("Cabbage: setting file");
-            return `
-                <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: all;" />
-            `;
+        // Only try to load image if file property is set
+        if (this.props.file) {
+            const imagePath = CabbageUtils.getFullMediaPath(this.props.file, this.props.currentCsdFile || '');
+            console.log(imagePath);
+            if (imagePath) {
+                console.log("Cabbage: setting file");
+                return `
+                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: all;" />
+                `;
+            }
         }
 
         // For containers with children, make background transparent so children are visible
