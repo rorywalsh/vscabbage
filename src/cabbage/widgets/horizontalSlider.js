@@ -89,22 +89,56 @@ export class HorizontalSlider {
       return '';
     }
 
-    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props) : 0;
-    textWidth = this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth;
+    const alignMap = {
+      'left': 'start',
+      'center': 'middle',
+      'centre': 'middle',
+      'right': 'end',
+    };
+    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+    const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
+
+    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props, 20) : 0;
+    textWidth = (this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth) - padding;
     const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
-    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth;
+    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
+    textWidth += padding;
 
     if (evt.offsetX >= textWidth && evt.offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
       this.isMouseDown = true;
       this.startX = evt.offsetX - textWidth;
-      this.props.value = CabbageUtils.map(this.startX, 0, sliderWidth, this.props.range.min, this.props.range.max);
+      console.log(`pointerDown: startX=${this.startX}, sliderWidth=${sliderWidth}`);
+
+      // Calculate the linear normalized position (0-1)
+      const linearNormalized = this.startX / sliderWidth;
+      console.log(`pointerDown: linearNormalized=${linearNormalized}`);
+
+      // Apply skew transformation for display value
+      const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+      console.log(`pointerDown: skewedNormalized=${skewedNormalized}`);
+
+      // Convert to actual range values
+      let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+      console.log(`pointerDown: skewedValue before rounding=${skewedValue}`);
+
+      // Apply increment snapping to the skewed value
+      skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+      console.log(`pointerDown: skewedValue after rounding=${skewedValue}`);
+
+      this.props.value = skewedValue;
 
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
 
-      this.props.value = Math.round(this.props.value ?? this.props.range.defaultValue / this.props.range.increment) * this.props.range.increment;
       this.startValue = this.props.value;
       CabbageUtils.updateInnerHTML(this.props.channel, this);
+
+      // Send value that will result in correct output after backend applies skew
+      const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+      const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+      const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" };
+      console.log(`pointerDown: sending valueToSend=${valueToSend}`);
+      Cabbage.sendParameterUpdate(msg, this.vscode);
     }
   }
 
@@ -188,10 +222,20 @@ export class HorizontalSlider {
       return '';
     }
 
-    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props) : 0;
-    textWidth = this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth;
+    const alignMap = {
+      'left': 'start',
+      'center': 'middle',
+      'centre': 'middle',
+      'right': 'end',
+    };
+    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+    const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
+
+    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props, 20) : 0;
+    textWidth = (this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth) - padding;
     const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
-    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth;
+    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
+    textWidth += padding;
 
     // Get the bounding rectangle of the slider
     const sliderRect = document.getElementById(this.props.channel).getBoundingClientRect();
@@ -218,6 +262,8 @@ export class HorizontalSlider {
     // Store the skewed value for display
     this.props.value = skewedValue;
 
+    console.log(`pointerMove: offsetX=${offsetX}, linearNormalized=${linearNormalized}, skewedValue=${skewedValue}`);
+
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props.channel, this);
 
@@ -228,7 +274,7 @@ export class HorizontalSlider {
     const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
-    console.log(skewedValue);
+    console.log(`pointerMove: sending valueToSend=${valueToSend}`);
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }
 
