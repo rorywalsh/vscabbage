@@ -4,6 +4,7 @@
 
 import { Cabbage } from "../cabbage.js";
 import { CabbageUtils, CabbageColours } from "../utils.js";
+import { getCabbageMode } from "../sharedState.js";
 
 /**
  * Horizontal Slider class
@@ -80,6 +81,11 @@ export class HorizontalSlider {
 
   pointerDown(evt) {
     if (this.props.active === 0) {
+      return '';
+    }
+
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
       return '';
     }
 
@@ -176,6 +182,12 @@ export class HorizontalSlider {
     if (this.props.active === 0) {
       return '';
     }
+
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props) : 0;
     textWidth = this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth;
     const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
@@ -221,6 +233,11 @@ export class HorizontalSlider {
   }
 
   handleInputChange(evt) {
+    // Don't allow input changes in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return;
+    }
+
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {

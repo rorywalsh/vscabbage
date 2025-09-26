@@ -4,6 +4,7 @@
 
 import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { getCabbageMode } from "../sharedState.js";
 
 /**
  * Rotary Slider (rslider) class
@@ -165,6 +166,11 @@ export class RotarySlider {
       return '';
     }
 
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     this.isMouseDown = true;
     this.startY = evt.clientY;
     this.startValue = this.props.value ?? this.props.range.defaultValue;
@@ -245,6 +251,11 @@ export class RotarySlider {
 
   pointerMove({ clientY }) {
     if (this.props.active === 0) {
+      return '';
+    }
+
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
       return '';
     }
 
@@ -333,6 +344,11 @@ export class RotarySlider {
   }
 
   handleInputChange(evt) {
+    // Don't allow input changes in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return;
+    }
+
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
 

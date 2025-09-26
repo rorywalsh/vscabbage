@@ -446,15 +446,21 @@ export class WidgetWrapper {
     applyInteractConfig(restrictions) {
 
         interact('.draggable').on('down', (event) => {
-            // Handle the down event if necessary (currently commented out)
-            if (this.selectedElements.size <= 1) {
-                // Uncomment if you need to handle click events
-                // if (event.target.id) {
-                //     this.updatePanelCallback(this.vscode, { eventType: "click", name: event.target.id, bounds: {} }, this.widgets);
-                // } else {
-                //     const widgetId = event.target.parentElement.parentElement.id.replace(/(<([^>]+)>)/ig, '');
-                //     this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
-                // }
+            // Handle widget selection on click
+            let widgetId = null;
+
+            // Try to find the widget ID by traversing up the DOM tree
+            let element = event.target;
+            while (element && element !== document.body) {
+                if (element.id && element.classList.contains('draggable')) {
+                    widgetId = element.id;
+                    break;
+                }
+                element = element.parentElement;
+            }
+
+            if (widgetId) {
+                this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
             }
         }).resizable({
             edges: { left: false, right: true, bottom: true, top: false }, // Resize edges configuration

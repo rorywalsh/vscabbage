@@ -4,6 +4,8 @@
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { WidgetManager } from "../widgetManager.js";
+import { getCabbageMode } from "../sharedState.js";
 
 export class Button {
   constructor() {
@@ -54,7 +56,8 @@ export class Button {
       "type": "button",
       "visible": 1,
       "automatable": 1,
-      "presetIgnore": 0
+      "presetIgnore": 0,
+      "radioGroup": -1
     };
 
     this.vscode = null;
@@ -75,13 +78,29 @@ export class Button {
     if (this.props.active === 0) {
       return '';
     }
+
+    // Don't perform button actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     if (this.props.value === null) {
       this.props.value = 0;
     }
 
-    this.props.value = (this.props.value === 0 ? 1 : 0);
+    // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
+    if (this.props.radioGroup && this.props.radioGroup !== -1) {
+      if (this.props.value === 0) {
+        this.props.value = 1;
+        WidgetManager.handleRadioGroup(this.props.radioGroup, this.props.channel);
+      }
+      // If already 1, do nothing (stay selected)
+    } else {
+      // Normal toggle behavior for buttons not in radioGroup
+      this.props.value = (this.props.value === 0 ? 1 : 0);
+    }
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }

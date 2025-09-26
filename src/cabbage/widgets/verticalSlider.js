@@ -4,6 +4,7 @@
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { getCabbageMode } from "../sharedState.js";
 
 export class VerticalSlider {
   constructor() {
@@ -80,6 +81,12 @@ export class VerticalSlider {
     if (this.props.active === 0) {
       return '';
     }
+
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     let textHeight = this.props.text ? this.props.bounds.height * 0.1 : 0;
     const valueTextBoxHeight = this.props.valueTextBox ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
@@ -170,6 +177,11 @@ export class VerticalSlider {
   }
 
   handleInputChange(evt) {
+    // Don't allow input changes in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return;
+    }
+
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
@@ -183,6 +195,11 @@ export class VerticalSlider {
 
   pointerMove({ clientY }) {
     if (this.props.active === 0) {
+      return '';
+    }
+
+    // Don't perform slider actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
       return '';
     }
 

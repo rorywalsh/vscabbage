@@ -9,6 +9,7 @@ import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
+import { Cabbage } from "../cabbage/cabbage.js";
 
 /**
  * WidgetManager class handles the creation, insertion, and management of widgets.
@@ -112,7 +113,7 @@ export class WidgetManager {
         }
 
         // attach the instance to the div so future updates can find it
-        widgetDiv.__cabbage_instance = widget;
+        widgetDiv.cabbageInstance = widget;
 
 
         // Assign class based on widget type and mode (draggable/non-draggable)
@@ -164,14 +165,10 @@ export class WidgetManager {
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }
-        // Add the widget to the global widgets array (skip child widgets)
-        if (!widget.props.parentChannel) {
-            console.log("Cabbage: Pushing widget to widgets array", widget);
-            widgets.push(widget);
-            widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
-        } else {
-            console.log("Cabbage: Skipping child widget from widgets array", widget.props.channel, "parent:", widget.props.parentChannel);
-        }
+        // Add the widget to the global widgets array
+        console.log("Cabbage: Pushing widget to widgets array", widget);
+        widgets.push(widget);
+        widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
 
         // Handle non-draggable mode setup
         if (cabbageMode === 'nonDraggable') {
@@ -412,10 +409,42 @@ export class WidgetManager {
             }
         }
     }    /**
-     * Updates the styles and positioning of a widget based on its properties.
-     * @param {HTMLElement} widgetDiv - The widget's DOM element.
-     * @param {object} props - The widget's properties containing size and position data.
+     * Handles radioGroup functionality for button and checkbox widgets.
+     * When a widget is activated, deactivates all other widgets in the same radioGroup.
+     * @param {string} radioGroup - The radioGroup identifier
+     * @param {string} activeChannel - The channel of the widget that was just activated
      */
+    static handleRadioGroup(radioGroup, activeChannel) {
+        if (!radioGroup || radioGroup === -1) return;
+
+        console.log(`Cabbage: Handling radioGroup ${radioGroup} for channel ${activeChannel}`);
+
+        // Find all widgets in the same radioGroup
+        const groupWidgets = widgets.filter(widget =>
+            widget.props.radioGroup === radioGroup && widget.props.channel !== activeChannel
+        );
+
+        // Deactivate all other widgets in the group
+        groupWidgets.forEach(groupWidget => {
+            if (groupWidget.props.value !== 0) {
+                groupWidget.props.value = 0;
+
+                // Update visual state
+                const widgetDiv = document.getElementById(groupWidget.props.channel);
+                if (widgetDiv) {
+                    widgetDiv.innerHTML = groupWidget.getInnerHTML();
+                }
+
+                // Send parameter update to Csound to keep it in sync
+                const msg = {
+                    paramIdx: groupWidget.parameterIndex,
+                    channel: groupWidget.props.channel,
+                    value: 0
+                };
+                Cabbage.sendParameterUpdate(msg, groupWidget.vscode || null);
+            }
+        });
+    }
     static updateWidgetStyles(widgetDiv, props) {
         widgetDiv.style.position = 'absolute';
         widgetDiv.style.top = '0px'; // Reset top position
@@ -535,6 +564,15 @@ export class WidgetManager {
 
                 // If data is an object (and not null/array) merge it, otherwise treat as a value update
                 if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    // Convert absolute bounds back to relative bounds before merging
+                    if (data.bounds && parentWithChild.props.bounds) {
+                        const relativeBounds = {
+                            ...data.bounds,
+                            left: data.bounds.left - parentWithChild.props.bounds.left,
+                            top: data.bounds.top - parentWithChild.props.bounds.top
+                        };
+                        data = { ...data, bounds: relativeBounds };
+                    }
                     WidgetManager.deepMerge(childProps, data);
                 } else {
                     childProps.value = data;
@@ -544,7 +582,7 @@ export class WidgetManager {
                 const childDiv = document.getElementById(obj.channel);
                 if (childDiv) {
                     // Prefer canonical attached instance
-                    const instance = childDiv.__cabbage_instance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
+                    const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
                     if (instance) {
                         WidgetManager.deepMerge(instance.props, childProps);
                         childDiv.innerHTML = instance.getInnerHTML();

@@ -4,6 +4,7 @@
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { getCabbageMode } from "../sharedState.js";
 
 export class NumberSlider {
     constructor() {
@@ -71,6 +72,11 @@ export class NumberSlider {
     }
 
     pointerDown(event) {
+        // Don't perform slider actions in edit mode (draggable mode)
+        if (getCabbageMode() === 'draggable') {
+            return;
+        }
+
         this.isDragging = true;
         this.startY = event.clientY;
         this.startValue = this.props.value;
@@ -80,6 +86,11 @@ export class NumberSlider {
     pointerMove(event) {
         const inputBox = document.querySelector(`#slider-${this.props.channel} input`);
         if (inputBox) {
+            return;
+        }
+
+        // Don't perform slider actions in edit mode (draggable mode)
+        if (getCabbageMode() === 'draggable') {
             return;
         }
 
@@ -121,6 +132,11 @@ export class NumberSlider {
     }
 
     doubleClick(event) {
+        // Don't allow input editing in edit mode (draggable mode)
+        if (getCabbageMode() === 'draggable') {
+            return;
+        }
+
         const sliderDiv = event.currentTarget;
         const input = document.createElement('input');
         input.type = 'text';

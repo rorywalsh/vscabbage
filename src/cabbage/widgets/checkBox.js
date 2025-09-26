@@ -4,6 +4,8 @@
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { WidgetManager } from "../widgetManager.js";
+import { getCabbageMode } from "../sharedState.js";
 
 export class Checkbox {
   constructor() {
@@ -50,7 +52,8 @@ export class Checkbox {
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0,
-      "opacity": 1
+      "opacity": 1,
+      "radioGroup": -1
     };
 
     this.vscode = null;
@@ -61,7 +64,24 @@ export class Checkbox {
     if (this.props.active === 0) {
       return '';
     }
-    this.props.value = (this.props.value === 0) ? 1 : 0;
+
+    // Don't perform checkbox actions in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
+    // For radioGroup checkboxes: if already on, stay on; if off, turn on and deactivate others
+    if (this.props.radioGroup && this.props.radioGroup !== -1) {
+      if (this.props.value === 0) {
+        this.props.value = 1;
+        WidgetManager.handleRadioGroup(this.props.radioGroup, this.props.channel);
+      }
+      // If already 1, do nothing (stay selected)
+    } else {
+      // Normal toggle behavior for checkboxes not in radioGroup
+      this.props.value = (this.props.value === 0) ? 1 : 0;
+    }
+
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
     Cabbage.sendParameterUpdate(msg, this.vscode);
