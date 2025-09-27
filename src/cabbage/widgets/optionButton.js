@@ -65,18 +65,18 @@ export class OptionButton {
   pointerDown(evt) {
     evt.stopPropagation();
     console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', this.props.channel);
-    
+
     if (this.props.visible === 0) {
       return '';
     }
 
     this.isMouseDown = true;
-    const itemsLength = this.props.items.split(",").length;
+    const itemsLength = this.getItems().length;
     this.currentIndex = (this.currentIndex + 1) % itemsLength;
     this.props.value = this.currentIndex;
 
     CabbageUtils.updateInnerHTML(this.props.channel, this, evt.currentTarget);
-    
+
     const newValue = CabbageUtils.map(this.props.value, 0, itemsLength, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
     console.log('Sending parameter update:', msg);
@@ -85,10 +85,10 @@ export class OptionButton {
 
   getItems() {
 
-    if (!this.props.items){
+    if (!this.props.items) {
       return ["Option 1", "Option 2", "Option 3"];
-    } 
-    if (Array.isArray(this.props.items)){
+    }
+    if (Array.isArray(this.props.items)) {
       return this.props.items;
     }
 

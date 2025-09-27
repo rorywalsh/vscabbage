@@ -162,6 +162,7 @@ export class RotarySlider {
   }
 
   pointerDown(evt) {
+    console.log("Cabbage: RotarySlider pointerDown called", this.props.channel);
     if (this.props.active === 0) {
       return '';
     }
@@ -243,6 +244,7 @@ export class RotarySlider {
   }
 
   addEventListeners(widgetDiv) {
+    console.log("Cabbage: Adding event listeners to rotary slider", this.props.channel);
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));

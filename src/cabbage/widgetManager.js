@@ -136,6 +136,11 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
+        // Initialize children object only for widgets that actually have children
+        if (widget.props.children && Array.isArray(widget.props.children)) {
+            widget.children = {};
+        }
+
         // Store the minimal original props for grouping/ungrouping
         try {
             const defaultProps = new widgetConstructors[type]().props;
@@ -170,20 +175,22 @@ export class WidgetManager {
         widgets.push(widget);
         widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
 
-        // Handle non-draggable mode setup
-        if (cabbageMode === 'nonDraggable') {
-            WidgetManager.setPerformanceMode(widget, widgetDiv);
-        }
-
         // Append widget to the form
         if (widget.props.type !== "form") {
-            widgetDiv.innerHTML = widget.getInnerHTML();
+            const html = widget.getInnerHTML();
+            if (!html) return;
+            widgetDiv.innerHTML = html;
             WidgetManager.appendToMainForm(widgetDiv);
             if (widget.props.type === "genTable") {
                 widget.updateTable(); // Special handling for "gentable" widgets
             }
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
+        }
+
+        // Handle non-draggable mode setup
+        if (cabbageMode === 'nonDraggable') {
+            WidgetManager.setPerformanceMode(widget, widgetDiv);
         }
 
         // Apply styles and return the widget properties
@@ -462,7 +469,7 @@ export class WidgetManager {
 
             widgetDiv.setAttribute('data-x', props.bounds.left);
             widgetDiv.setAttribute('data-y', props.bounds.top);
-        } else if (typeof props?.size === 'object' && props.size !== null) {
+        } else if (props && props.size && typeof props.size === 'object') {
             widgetDiv.style.width = props.size.width + 'px';
             widgetDiv.style.height = props.size.height + 'px';
         }

@@ -48,7 +48,7 @@ export class ComboBox {
 
         this.isMouseInside = false;
         this.isOpen = false;
-        this.selectedItem = this.props.value > 0 ? this.props.items.split(",")[this.props.value] : this.props.items.split(",")[0];
+        this.selectedItem = this.props.value > 0 ? this.getItemsArray()[this.props.value] : this.getItemsArray()[0];
         this.parameterIndex = 0;
         this.vscode = null;
     }
@@ -73,7 +73,7 @@ export class ComboBox {
 
     handleItemClick(item) {
         this.selectedItem = item;
-        const items = this.props.items.split(",").map(i => i.trim());
+        const items = this.getItemsArray();
         const index = items.indexOf(this.selectedItem);
         this.props.value = index; // Update the value property
         const normalValue = CabbageUtils.map(index, 0, items.length - 1, 0, 1);
@@ -127,12 +127,18 @@ export class ComboBox {
         }
     }
 
+    getItemsArray() {
+        return Array.isArray(this.props.items)
+            ? this.props.items
+            : this.props.items.split(",").map(item => item.trim());
+    }
+
     getInnerHTML() {
         if (this.props.visible === 0) {
             return '';
         }
 
-        const items = this.props.items.split(",").map(item => item.trim());
+        const items = this.getItemsArray();
 
         // Ensure selectedItem is up-to-date with the current value
         this.selectedItem = items[this.props.value] || items[0];

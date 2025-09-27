@@ -8,11 +8,11 @@
 export class ListBox {
     constructor() {
         this.props = {
-            "bounds":{
-            "top": 0,
-            "left": 0,
-            "width": 200,
-            "height": 300
+            "bounds": {
+                "top": 0,
+                "left": 0,
+                "width": 200,
+                "height": 300
             },
             "type": "listBox",
             "backgroundColour": "#ffffff",
@@ -23,8 +23,8 @@ export class ListBox {
             "selectedIndex": -1,
             "automatable": 1,
             "channelType": "number",
-            "min":0,
-            "max":3
+            "min": 0,
+            "max": 3
         };
     }
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -58,12 +58,18 @@ export class ListBox {
         });
     }
 
+    getItemsArray() {
+        return Array.isArray(this.props.items)
+            ? this.props.items
+            : this.props.items.split(",").map(item => item.trim());
+    }
+
     getInnerHTML() {
         if (this.props.visible === 0) {
             return '';
         }
 
-        const items = this.props.items.split(',').map(item => item.trim());
+        const items = this.getItemsArray();
         const listItemsHTML = items.map((item, index) => `
             <div class="list-item" style="
                 width: 100%;
