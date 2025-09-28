@@ -79,7 +79,7 @@ export class Checkbox {
       // If already 1, do nothing (stay selected)
     } else {
       // Normal toggle behavior for checkboxes not in radioGroup
-      this.props.value = (this.props.value === 0) ? 1 : 0;
+      this.props.value = (this.props.value === 1) ? 0 : 1;
     }
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);

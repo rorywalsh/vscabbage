@@ -43,12 +43,17 @@ export class ComboBox {
                 "directory": "",
                 "fileType": ""
             },
-            "opacity": 1
+            "opacity": 1,
+            "indexOffset": false
         };
 
         this.isMouseInside = false;
         this.isOpen = false;
-        this.selectedItem = this.props.value > 0 ? this.getItemsArray()[this.props.value] : this.getItemsArray()[0];
+        const itemsArray = this.getItemsArray();
+        const safeItems = itemsArray.length > 0 ? itemsArray : [''];
+        this.selectedItem = this.props.indexOffset
+            ? (this.props.value > 0 ? safeItems[this.props.value - 1] : safeItems[0])
+            : (this.props.value >= 0 ? safeItems[this.props.value] : safeItems[0]);
         this.parameterIndex = 0;
         this.vscode = null;
     }
@@ -82,8 +87,16 @@ export class ComboBox {
         this.selectedItem = item;
         const items = this.getItemsArray();
         const index = items.indexOf(this.selectedItem);
-        this.props.value = index; // Update the value property
-        const normalValue = CabbageUtils.map(index, 0, items.length - 1, 0, 1);
+        this.props.value = this.props.indexOffset ? index + 1 : index; // Update the value property
+        let normalValue = 0;
+
+        //to accommodate cabbage2 instruments
+        if (this.props.indexOffset) {
+            normalValue = CabbageUtils.map(index + 1, 1, items.length, 0, 1);
+        }
+        else {
+            normalValue = CabbageUtils.map(index, 0, items.length - 1, 0, 1);
+        }
 
         const msg = {
             paramIdx: this.parameterIndex,
@@ -202,6 +215,9 @@ export class ComboBox {
     }
 
     getItemsArray() {
+        if (!this.props.items) {
+            return [''];
+        }
         return Array.isArray(this.props.items)
             ? this.props.items
             : this.props.items.split(",").map(item => item.trim());
@@ -215,7 +231,10 @@ export class ComboBox {
         const items = this.getItemsArray();
 
         // Ensure selectedItem is up-to-date with the current value
-        this.selectedItem = items[this.props.value] || items[0];
+        const safeItems = items.length > 0 ? items : [''];
+        this.selectedItem = this.props.indexOffset
+            ? (this.props.value > 0 ? (safeItems[this.props.value - 1] || safeItems[0]) : safeItems[0])
+            : (safeItems[this.props.value] || safeItems[0]);
 
         const alignMap = {
             'left': 'start',

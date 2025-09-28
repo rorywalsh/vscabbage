@@ -167,6 +167,11 @@ export class WidgetManager {
             }
         }
 
+        // Handle combobox default value for indexOffset compatibility
+        if (type === "comboBox" && widget.props.indexOffset && widget.props.value === null) {
+            widget.props.value = 1; // Cabbage2 comboboxes default to index 1
+        }
+
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }

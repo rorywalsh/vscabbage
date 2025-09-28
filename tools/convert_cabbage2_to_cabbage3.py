@@ -31,7 +31,8 @@ class Cabbage2To3Converter:
             'form': 'form'
         }
 
-        # Color mapping from named colors to hex values
+        # Mapping from identChannel to channel for orchestra code replacement
+        self.ident_channel_mappings = {}
         self.color_map = {
             'aliceblue': '#f0f8ff',
             'antiquewhite': '#faebd7',
@@ -205,6 +206,11 @@ class Cabbage2To3Converter:
             if widget_match:
                 widget_type, properties_str = widget_match.groups()
                 
+                # Check if properties_str ends with '{'
+                has_children = properties_str.strip().endswith('{')
+                if has_children:
+                    properties_str = properties_str.strip()[:-1].strip()
+                
                 # Map Cabbage2 widget type to Cabbage3 widget type
                 cabbage3_type = self.widget_type_mapping.get(widget_type.lower(), widget_type)
                 widget = {'type': cabbage3_type}
@@ -213,16 +219,15 @@ class Cabbage2To3Converter:
                 properties = self.parse_properties(properties_str)
 
                 # Handle special properties and mappings
-                self.handle_special_properties(widget, properties)
+                self.handle_special_properties(widget, properties, line)
 
-                # Add remaining properties
+                # Add remaining valid Cabbage3 properties
                 for key, value in properties.items():
-                    if key not in widget:
+                    if key not in widget and self.is_valid_cabbage3_property(key, cabbage3_type):
                         widget[key] = value
 
                 # Check for children (nested widgets)
-                i += 1
-                if i < len(lines) and lines[i].strip() == '{':
+                if has_children:
                     children = []
                     i += 1
                     brace_count = 1
@@ -244,11 +249,11 @@ class Cabbage2To3Converter:
                                 child_widget = {'type': cabbage3_child_type}
 
                                 child_properties = self.parse_properties(child_props_str)
-                                self.handle_special_properties(child_widget, child_properties)
+                                self.handle_special_properties(child_widget, child_properties, child_line)
 
-                                # Add remaining child properties
+                                # Add remaining valid Cabbage3 child properties
                                 for key, value in child_properties.items():
-                                    if key not in child_widget:
+                                    if key not in child_widget and self.is_valid_cabbage3_property(key, cabbage3_child_type):
                                         child_widget[key] = value
 
                                 children.append(child_widget)
@@ -257,6 +262,43 @@ class Cabbage2To3Converter:
 
                     if children:
                         widget['children'] = children
+                else:
+                    i += 1
+                    if i < len(lines) and lines[i].strip() == '{':
+                        children = []
+                        i += 1
+                        brace_count = 1
+
+                        while i < len(lines) and brace_count > 0:
+                            child_line = lines[i].strip()
+                            if child_line == '{':
+                                brace_count += 1
+                            elif child_line == '}':
+                                brace_count -= 1
+                            elif brace_count == 1 and child_line:
+                                # Parse child widget
+                                child_match = re.match(r'(\w+)\s+(.+)', child_line)
+                                if child_match:
+                                    child_type, child_props_str = child_match.groups()
+                                    
+                                    # Map Cabbage2 child widget type to Cabbage3 widget type
+                                    cabbage3_child_type = self.widget_type_mapping.get(child_type.lower(), child_type)
+                                    child_widget = {'type': cabbage3_child_type}
+
+                                    child_properties = self.parse_properties(child_props_str)
+                                    self.handle_special_properties(child_widget, child_properties, child_line)
+
+                                    # Add remaining valid Cabbage3 child properties
+                                    for key, value in child_properties.items():
+                                        if key not in child_widget and self.is_valid_cabbage3_property(key, cabbage3_child_type):
+                                            child_widget[key] = value
+
+                                    children.append(child_widget)
+
+                            i += 1
+
+                        if children:
+                            widget['children'] = children
 
                 widgets.append(widget)
             else:
@@ -524,12 +566,12 @@ class Cabbage2To3Converter:
 
         current[keys[-1]] = value
 
-    def handle_special_properties(self, widget, properties):
+    def handle_special_properties(self, widget, properties, original_line=None):
         """Handle special property mappings and defaults"""
         widget_type = widget.get('type', '')
 
         # Handle text property for widgets that use text object
-        if 'text' in properties and widget_type in ['button', 'checkBox', 'optionButton']:
+        if 'text' in properties and widget_type in ['button', 'optionButton']:
             text_value = properties['text']
             if isinstance(text_value, str):
                 # Single text state - use for both on and off
@@ -575,6 +617,17 @@ class Cabbage2To3Converter:
             # Remove the original property
             properties.pop('textColour', None)
 
+        # Handle fontColour -> font.colour mapping
+        if 'fontColour' in properties:
+            font_colour = properties['fontColour']
+            if isinstance(font_colour, str):
+                # Initialize font object if it doesn't exist
+                if 'font' not in widget:
+                    widget['font'] = {}
+                widget['font']['colour'] = font_colour
+            # Remove the original property
+            properties.pop('fontColour', None)
+
         # Handle trackerColour -> colour.tracker.fill mapping for sliders
         if 'trackerColour' in properties and widget_type in ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']:
             tracker_colour = properties['trackerColour']
@@ -616,6 +669,9 @@ class Cabbage2To3Converter:
             # Add items to widget if we found any
             if items:
                 widget['items'] = items
+            
+            # Add indexOffset for Cabbage2 compatibility (Cabbage2 comboboxes start at index 1)
+            widget['indexOffset'] = True
 
         # Handle button text on/off states
         if widget_type == 'button' and 'text' in properties:
@@ -628,8 +684,98 @@ class Cabbage2To3Converter:
         if 'channel' not in widget and 'channel' not in properties and widget_type != 'form':
             widget['channel'] = self.generate_unique_channel(widget_type)
 
+        # Collect identChannel -> channel mapping for orchestra code replacement
+        ident_channel = properties.get('identChannel')
+        channel = widget.get('channel') or properties.get('channel')
+        if ident_channel and channel:
+            # Store the original line for logging
+            self.ident_channel_mappings[ident_channel] = {
+                'channel': channel,
+                'original_line': original_line or f"{widget.get('type', 'unknown')} widget"
+            }
+
+        # Remove identChannel and plant properties as they are not needed in Cabbage3
+        properties.pop('identChannel', None)
+        properties.pop('plant', None)
+
         # Only add properties that were explicitly defined in the Cabbage2 file
         # Removed set_widget_defaults call
+
+    def is_valid_cabbage3_property(self, key, widget_type):
+        """Check if a property is valid for Cabbage3 widgets"""
+        # Common valid properties for all widgets
+        common_valid_props = {
+            'bounds', 'channel', 'text', 'value', 'range', 'colour', 'font', 
+            'visible', 'items', 'textBox', 'valueTextBox'
+        }
+        
+        # Widget-specific valid properties
+        widget_specific_props = {
+            'form': {'caption', 'pluginId', 'size'},
+            'label': set(),
+            'rotarySlider': set(),
+            'horizontalSlider': set(), 
+            'verticalSlider': set(),
+            'numberSlider': set(),
+            'comboBox': set(),
+            'button': set(),
+            'checkBox': set(),
+            'groupBox': set(),
+            'image': set(),  # image widgets have no additional properties in Cabbage3
+        }
+        
+        # Special exclusions
+        if widget_type == 'image' and key == 'colour':
+            return False
+        
+        # Check common properties
+        if key in common_valid_props:
+            return True
+            
+        # Check widget-specific properties
+        if widget_type in widget_specific_props and key in widget_specific_props[widget_type]:
+            return True
+            
+        return False
+
+    def replace_ident_channel_opcodes(self, instruments_content):
+        """Replace chnget/chnset opcodes that use identChannels with Cabbage3 equivalents"""
+        lines = instruments_content.split('\n')
+        modified_lines = []
+        
+        for line in lines:
+            original_line = line
+            
+            # First, replace chnget "identChannel" with cabbageGetValue "channel"
+            for ident_channel, mapping_info in self.ident_channel_mappings.items():
+                channel = mapping_info['channel']
+                chnget_pattern = r'chnget\s+"'+re.escape(ident_channel)+r'"'
+                if re.search(chnget_pattern, line):
+                    line = re.sub(chnget_pattern, f'cabbageGetValue "{channel}"', line)
+            
+            # Then, replace chnset value, "identChannel" with cabbageSet k(1), "channel", property, parsed_value
+            for ident_channel, mapping_info in self.ident_channel_mappings.items():
+                channel = mapping_info['channel']
+                chnset_pattern = r'chnset\s+([^,]+),\s*"'+re.escape(ident_channel)+r'"'
+                match = re.search(chnset_pattern, line)
+                if match:
+                    value_str = match.group(1).strip()
+                    if value_str.startswith('"') and value_str.endswith('"'):
+                        value_str = value_str[1:-1]  # Remove quotes
+                    
+                    # Check if it's a property(value) format like "visible(1)"
+                    prop_match = re.match(r'(\w+)\(([^)]+)\)', value_str)
+                    if prop_match:
+                        property_name, property_value = prop_match.groups()
+                        line = re.sub(chnset_pattern, f'cabbageSet k(1), "{channel}", "{property_name}", {property_value}', line)
+                    else:
+                        # For simple value setting
+                        line = re.sub(chnset_pattern, f'cabbageSet k(1), {value_str}, "{channel}"', line)
+                    break  # Only replace one identChannel per line
+            
+            modified_lines.append(line)
+        
+        return '\n'.join(modified_lines)
 
     def convert_file(self, input_file, output_dir):
         """Convert a single Cabbage2 file to Cabbage3"""
@@ -660,11 +806,39 @@ class Cabbage2To3Converter:
 
         new_content = content.replace(cabbage_match.group(0), new_cabbage_section)
 
+        # Replace identChannel references in orchestra code
+        if self.ident_channel_mappings:
+            # Extract CsInstruments section
+            instruments_match = re.search(r'<CsInstruments>(.*?)</CsInstruments>', new_content, re.DOTALL)
+            if instruments_match:
+                instruments_content = instruments_match.group(1)
+                
+                # Replace identChannel references with channel names
+                modified_instruments = instruments_content
+                
+                # First replace opcodes that use identChannels
+                modified_instruments = self.replace_ident_channel_opcodes(modified_instruments)
+                
+                # Then replace identChannel string references
+                for ident_channel, mapping_info in self.ident_channel_mappings.items():
+                    channel = mapping_info['channel']
+                    # Use word boundaries to avoid partial matches
+                    modified_instruments = re.sub(r'\b' + re.escape(ident_channel) + r'\b', channel, modified_instruments)
+                
+                # Replace the instruments section
+                new_content = new_content.replace(instruments_match.group(0), f"<CsInstruments>{modified_instruments}</CsInstruments>")
+
         # Write output file
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(new_content)
 
         print(f"Converted {input_file} -> {output_file}")
+        if self.ident_channel_mappings:
+            print(f"\nReplaced identChannel references in orchestra code:")
+            for ident_channel, mapping_info in self.ident_channel_mappings.items():
+                print(f"  '{ident_channel}' -> '{mapping_info['channel']}'")
+                print(f"    Original Cabbage2 line: {mapping_info['original_line']}")
+                print()
 
 def main():
     parser = argparse.ArgumentParser(description='Convert Cabbage2 files to Cabbage3 JSON syntax')
