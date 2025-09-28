@@ -162,7 +162,6 @@ export class RotarySlider {
   }
 
   pointerDown(evt) {
-    console.log("Cabbage: RotarySlider pointerDown called", this.props.channel);
     if (this.props.active === 0) {
       return '';
     }
@@ -207,12 +206,10 @@ export class RotarySlider {
       if (sliderLeft + (sliderWidth) > sliderCenter) {
         // Place popup on the left of the slider thumb
         popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
-        console.log("Cabbage: Pointer on the left");
         popup.classList.add('right');
       } else {
         // Place popup on the right of the slider thumb
         popupLeft = formLeft + sliderLeft + sliderWidth + 10;
-        console.log("Cabbage: Pointer on the right");
         popup.classList.remove('right');
       }
 
@@ -222,12 +219,10 @@ export class RotarySlider {
       popup.style.left = `${popupLeft}px`;
       popup.style.top = `${popupTop}px`;
       popup.style.display = 'block';
-      console.log("Cabbage: Popup left", popup.style.left, "Popup top", popup.style.top);
       popup.classList.add('show');
       popup.classList.remove('hide');
     }
 
-    console.log("Cabbage: pointerEnter", this);
   }
 
   mouseLeave(evt) {
@@ -244,7 +239,6 @@ export class RotarySlider {
   }
 
   addEventListeners(widgetDiv) {
-    console.log("Cabbage: Adding event listeners to rotary slider", this.props.channel);
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
@@ -296,7 +290,6 @@ export class RotarySlider {
     // So we need to send: pow((snappedSkewedValue - min) / (max - min), 1/skew)
     const targetNormalized = (snappedSkewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
-    console.log(`Cabbage: Sending slider ${this.props.channel}: displayValue=${snappedSkewedValue}, sending=${valueToSend}, targetNormalized=${targetNormalized}, skew=${this.props.range.skew}`);
 
     const msg = {
       paramIdx: this.parameterIndex,
@@ -411,7 +404,6 @@ export class RotarySlider {
 
     // Determine the orientation based on the loaded image dimensions
     const isHorizontal = imgWidth > imgHeight; // true if horizontal, false if vertical
-    console.log("Cabbage: Original image:", imgWidth, imgHeight);
 
     // Determine the current frame based on the slider value
     //const frameIndex = Math.round(CabbageUtils.map(this.props.value, this.props.range.min, this.props.range.max, 0, totalFrames - 1));
@@ -431,9 +423,6 @@ export class RotarySlider {
     const offsetY = isHorizontal ? 0 : frameIndex * frameHeight; // Only offset Y for vertical
 
     // Log the calculated values for debugging
-    console.log("Cabbage: Frame Index:", frameIndex, "Frame width", frameWidth, "Frame height", frameHeight);
-    console.log("Cabbage: Offset X:", offsetX, "Offset Y:", offsetY);
-    console.log("Cabbage: Image Width:", imageWidth, "Image Height:", imageHeight);
     const imagePath = CabbageUtils.getFullMediaPath(this.props.filmStrip.file, this.props.currentCsdFile || '');
 
     return `
@@ -447,7 +436,6 @@ export class RotarySlider {
     }
 
     const currentValue = this.props.value ?? this.props.range.defaultValue;
-    console.log("Cabbage: Drawing rotary slider with value", currentValue);
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;

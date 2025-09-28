@@ -161,8 +161,6 @@ export class HorizontalSlider {
 
       // Default position for the popup to the bottom of the slider
       let popupTop = sliderTop + sliderHeight + 5; // 5px padding below the slider
-      console.log("Cabbage: SliderTop" + popupTop);
-      console.log("Cabbage: ForHeight" + mainFormHeight);
 
       let popupLeft = rect.left + this.props.bounds.left + (this.props.bounds.width / 2) - (popup.offsetWidth / 2); // Center the popup
 

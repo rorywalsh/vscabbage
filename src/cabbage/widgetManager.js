@@ -487,7 +487,6 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-        console.warn("Cabbage: Updating widget", obj);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => w.props.channel === obj.channel);

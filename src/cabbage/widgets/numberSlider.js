@@ -190,8 +190,7 @@ export class NumberSlider {
             return '';
         }
 
-        console.log('NumberSlider rendering:', this.props);
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : 18;
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : 12;
         const alignMap = {
             'left': 'end',
             'center': 'middle',
@@ -219,7 +218,6 @@ export class NumberSlider {
                 </svg>
             </div>
         `;
-        console.log('Generated HTML:', html);
         return html;
     }
 

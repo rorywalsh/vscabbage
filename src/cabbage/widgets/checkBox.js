@@ -27,7 +27,7 @@ export class Checkbox {
         "family": "Verdana",
         "size": 0,
         "align": "left",
-        "colour": { 
+        "colour": {
           "on": "#dddddd",
           "off": "#000000"
         }

@@ -33,6 +33,16 @@ class Cabbage2To3Converter:
 
         # Mapping from identChannel to channel for orchestra code replacement
         self.ident_channel_mappings = {}
+        
+        # Track conversions applied
+        self.conversions_applied = {
+            'widgets_converted': 0,
+            'ident_channels_mapped': 0,
+            'chnset_property_ops': 0,
+            'chnset_value_ops': 0,
+            'chnget_ops': 0,
+            'string_replacements': 0
+        }
         self.color_map = {
             'aliceblue': '#f0f8ff',
             'antiquewhite': '#faebd7',
@@ -301,6 +311,7 @@ class Cabbage2To3Converter:
                             widget['children'] = children
 
                 widgets.append(widget)
+                self.conversions_applied['widgets_converted'] += 1
             else:
                 i += 1
 
@@ -684,18 +695,26 @@ class Cabbage2To3Converter:
                 properties.pop('text', None)
 
         # Ensure all widgets have a unique channel name (except form widgets)
-        if 'channel' not in widget and 'channel' not in properties and widget_type != 'form':
+        # Don't generate if channel already exists or if identChannel is present (will be used as channel)
+        if 'channel' not in widget and 'channel' not in properties and 'identChannel' not in properties and widget_type != 'form':
             widget['channel'] = self.generate_unique_channel(widget_type)
 
         # Collect identChannel -> channel mapping for orchestra code replacement
         ident_channel = properties.get('identChannel')
         channel = widget.get('channel') or properties.get('channel')
+
+        # If widget has identChannel but no channel, use identChannel as channel name
+        if ident_channel and not channel:
+            widget['channel'] = ident_channel
+            channel = ident_channel
+
         if ident_channel and channel:
             # Store the original line for logging
             self.ident_channel_mappings[ident_channel] = {
                 'channel': channel,
                 'original_line': original_line or f"{widget.get('type', 'unknown')} widget"
             }
+            self.conversions_applied['ident_channels_mapped'] += 1
 
         # Remove identChannel and plant properties as they are not needed in Cabbage3
         properties.pop('identChannel', None)
@@ -755,8 +774,9 @@ class Cabbage2To3Converter:
                 chnget_pattern = r'chnget\s+"'+re.escape(ident_channel)+r'"'
                 if re.search(chnget_pattern, line):
                     line = re.sub(chnget_pattern, f'cabbageGetValue "{channel}"', line)
+                    self.conversions_applied['chnget_ops'] += 1
             
-            # Then, replace chnset value, "identChannel" with cabbageSet k(1), "channel", property, parsed_value
+            # Then, replace chnset value, "identChannel" with appropriate Cabbage3 syntax
             for ident_channel, mapping_info in self.ident_channel_mappings.items():
                 channel = mapping_info['channel']
                 chnset_pattern = r'chnset\s+([^,]+),\s*"'+re.escape(ident_channel)+r'"'
@@ -770,10 +790,14 @@ class Cabbage2To3Converter:
                     prop_match = re.match(r'(\w+)\(([^)]+)\)', value_str)
                     if prop_match:
                         property_name, property_value = prop_match.groups()
-                        line = re.sub(chnset_pattern, f'cabbageSet k(1), "{channel}", "{property_name}", {property_value}', line)
+                        # For property setting, use the mapped channel name with comment showing identChannel mapping
+                        comment = f" ; {ident_channel} -> {channel}" if ident_channel != channel else ""
+                        line = re.sub(chnset_pattern, f'cabbageSet k(1), "{channel}", "{property_name}", {property_value}{comment}', line)
+                        self.conversions_applied['chnset_property_ops'] += 1
                     else:
-                        # For simple value setting
+                        # For simple value setting, use the mapped channel name
                         line = re.sub(chnset_pattern, f'cabbageSet k(1), {value_str}, "{channel}"', line)
+                        self.conversions_applied['chnset_value_ops'] += 1
                     break  # Only replace one identChannel per line
             
             modified_lines.append(line)
@@ -819,14 +843,18 @@ class Cabbage2To3Converter:
                 # Replace identChannel references with channel names
                 modified_instruments = instruments_content
                 
-                # First replace opcodes that use identChannels
+                # First, handle chnset property operations (these should keep identChannel names)
                 modified_instruments = self.replace_ident_channel_opcodes(modified_instruments)
                 
-                # Then replace identChannel string references
+                # Then replace remaining identChannel string references (skip lines with cabbageSet)
                 for ident_channel, mapping_info in self.ident_channel_mappings.items():
                     channel = mapping_info['channel']
-                    # Use word boundaries to avoid partial matches
-                    modified_instruments = re.sub(r'\b' + re.escape(ident_channel) + r'\b', channel, modified_instruments)
+                    # Split into lines, replace only in lines that don't contain cabbageSet
+                    lines = modified_instruments.split('\n')
+                    for i, line in enumerate(lines):
+                        if 'cabbageSet' not in line:
+                            lines[i] = re.sub(r'\b' + re.escape(ident_channel) + r'\b', channel, line)
+                    modified_instruments = '\n'.join(lines)
                 
                 # Replace the instruments section
                 new_content = new_content.replace(instruments_match.group(0), f"<CsInstruments>{modified_instruments}</CsInstruments>")
@@ -835,13 +863,40 @@ class Cabbage2To3Converter:
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(new_content)
 
-        print(f"Converted {input_file} -> {output_file}")
+        # Print user-friendly conversion summary
+        print(f"✅ Successfully converted: {Path(input_file).name}")
+        print(f"📁 Output: {output_file}")
+        print(f"\n📋 Conversion Rules Applied:")
+        
+        if self.conversions_applied['widgets_converted'] > 0:
+            print(f"   • {self.conversions_applied['widgets_converted']} widgets converted from Cabbage2 syntax to Cabbage3 JSON")
+        
+        if self.conversions_applied['ident_channels_mapped'] > 0:
+            print(f"   • {self.conversions_applied['ident_channels_mapped']} identChannel mappings created for orchestra code")
+        
+        if self.conversions_applied['chnget_ops'] > 0:
+            print(f"   • {self.conversions_applied['chnget_ops']} chnget operations converted to cabbageGetValue")
+        
+        if self.conversions_applied['chnset_property_ops'] > 0:
+            print(f"   • {self.conversions_applied['chnset_property_ops']} chnset property operations converted to cabbageSet (using channel names with identChannel comments)")
+        
+        if self.conversions_applied['chnset_value_ops'] > 0:
+            print(f"   • {self.conversions_applied['chnset_value_ops']} chnset value operations converted to cabbageSet (using channel names)")
+        
+        if self.conversions_applied['string_replacements'] > 0:
+            print(f"   • {self.conversions_applied['string_replacements']} identChannel string references replaced with channel names")
+        
+        # Show specific mappings if any exist
         if self.ident_channel_mappings:
-            print(f"\nReplaced identChannel references in orchestra code:")
+            print(f"\n🔄 IdentChannel Mappings:")
             for ident_channel, mapping_info in self.ident_channel_mappings.items():
-                print(f"  '{ident_channel}' -> '{mapping_info['channel']}'")
-                print(f"    Original Cabbage2 line: {mapping_info['original_line']}")
-                print()
+                channel = mapping_info['channel']
+                if ident_channel != channel:
+                    print(f"   • '{ident_channel}' → '{channel}'")
+                else:
+                    print(f"   • '{ident_channel}' → '{channel}' (unchanged)")
+        
+        print(f"\n🎯 Ready to use with Cabbage3!")
 
 def main():
     parser = argparse.ArgumentParser(description='Convert Cabbage2 files to Cabbage3 JSON syntax')

@@ -136,12 +136,10 @@ export class VerticalSlider {
       if (sliderLeft + (sliderWidth) > sliderCenter) {
         // Place popup on the left of the slider thumb
         popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
-        console.log("Cabbage: Pointer on the left");
         popup.classList.add('right');
       } else {
         // Place popup on the right of the slider thumb
         popupLeft = formLeft + sliderLeft + sliderWidth + 10;
-        console.log("Cabbage: Pointer on the right");
         popup.classList.remove('right');
       }
 
@@ -271,9 +269,9 @@ export class VerticalSlider {
     const textX = this.props.bounds.width / 2;
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.width * 0.3;
 
-  // Use tracker width if provided for the thumb/track thickness
-  const trackerWidth = this.props.colour?.tracker?.width ?? (sliderHeight * 0.05);
-  const thumbHeight = Math.min(trackerWidth, sliderHeight * 0.95);
+    // Use tracker width if provided for the thumb/track thickness
+    const trackerWidth = this.props.colour?.tracker?.width ?? (sliderHeight * 0.05);
+    const thumbHeight = Math.min(trackerWidth, sliderHeight * 0.95);
 
     const textElement = this.props.text ? `
     <svg x="0" y="${this.props.valueTextBox ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">

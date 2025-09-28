@@ -10,7 +10,6 @@ let interactPromise;
  * @param {string} interactJSUri - The URI of the interact.js script.
  */
 export function initializeInteract(interactJSUri) {
-    console.log("Cabbage: Initializing interact", interactJSUri);
     interactPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = interactJSUri; // Set the source of the script

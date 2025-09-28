@@ -215,8 +215,8 @@ export async function activate(context: vscode.ExtensionContext):
     const themeChangeListener = vscode.window.onDidChangeActiveColorTheme(() => {
         const panel = Commands.getPanel();
         if (panel) {
-            const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark || 
-                               vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+            const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
+                vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
             panel.webview.postMessage({
                 command: 'updateTheme',
                 isDarkTheme: isDarkTheme
@@ -678,7 +678,6 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
                                     data: msg['data'],
                                     currentCsdPath: Commands.getCurrentFileName(),
                                 });
-                                console.log("Cabbage: updating widget ");
                             } else if (msg.hasOwnProperty('value')) {
                                 panel.webview.postMessage({
                                     command: 'widgetUpdate',

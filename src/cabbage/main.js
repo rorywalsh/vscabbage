@@ -88,7 +88,6 @@ Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {
-    console.log("Cabbage: onMsessage", event.data);
     const message = event.data; // Extract the message data from the event
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
@@ -103,7 +102,6 @@ window.addEventListener('message', async event => {
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
-            console.warn("Cabbage: widgetUpdate", message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
@@ -126,7 +124,6 @@ window.addEventListener('message', async event => {
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
-            console.log("Cabbage: onFileChanged", message);
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
             if (mainForm) {
                 mainForm.remove(); // Remove the MainForm element from the DOM
@@ -200,7 +197,6 @@ window.addEventListener('message', async event => {
  * @param {string} mode - The current mode ('draggable' or 'nonDraggable')
  */
 function updateChildWidgetPointerEvents(mode) {
-    console.log("Cabbage: Updating child widget pointer events for mode:", mode);
 
     // Find all child widgets (those with data-parent-channel attribute)
     const childWidgets = document.querySelectorAll('[data-parent-channel]');

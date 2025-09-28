@@ -24,7 +24,6 @@ const loadPropertyPanel = async () => {
         try {
             const module = await import("../propertyPanel.js");
             PropertyPanel = module.default || module.PropertyPanel;
-            console.log("Cabbage: PropertyPanel loaded successfully:", PropertyPanel);
         } catch (error) {
             console.error("Error loading PropertyPanel:", error);
             throw error; // Re-throw to be caught by the caller
@@ -36,9 +35,7 @@ const loadPropertyPanel = async () => {
 if (vscode !== null) {
     propertyPanelPromise = import("../propertyPanel.js")
         .then(module => {
-            console.log("Cabbage: PropertyPanel module loaded:", module);
             PropertyPanel = loadPropertyPanel();
-            console.log("Cabbage: PropertyPanel assigned:", PropertyPanel);
             return PropertyPanel;
         })
         .catch(error => {
@@ -141,13 +138,11 @@ export function setupFormHandlers() {
 
     // Add event listeners for group and ungroup functionality (Currently just logs actions)
     groupOption.addEventListener("click", () => {
-        console.log("Cabbage: Group option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Group" functionality here
     });
 
     unGroupOption.addEventListener("click", () => {
-        console.log("Cabbage: Ungroup option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Ungroup" functionality here
     });
@@ -760,7 +755,7 @@ function duplicateWidgets(selectedElements) {
             console.error("Cabbage: Error duplicating widget:", error);
         }
     });
-}function deleteWidgets(selectedElements) {
+} function deleteWidgets(selectedElements) {
     console.log("Cabbage: Deleting", selectedElements.size, "widgets");
     const selectedIds = Array.from(selectedElements).map(el => el.id);
     console.log("Cabbage: Widget IDs to delete:", selectedIds);
@@ -802,7 +797,6 @@ function duplicateWidgets(selectedElements) {
     const selectedIds = Array.from(selectedElements).map(el => el.id);
 
     if (selectedElements.size < 2) {
-        console.log("Cabbage: Need at least 2 widgets to group");
         return;
     }
 

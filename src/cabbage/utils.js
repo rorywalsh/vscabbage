@@ -9,7 +9,6 @@ export class CabbageUtils {
     // Otherwise fall back to finding by ID
     const targetElement = element || document.getElementById(channel);
     if (targetElement && targetElement.id === channel) {  // Extra check to ensure ID matches
-      console.log('Updating innerHTML for:', channel, 'Element ID:', targetElement.id, 'Element:', targetElement);
       targetElement.innerHTML = instance.getInnerHTML();
     } else {
       console.log('Element mismatch or not found:', channel, 'Element:', targetElement);

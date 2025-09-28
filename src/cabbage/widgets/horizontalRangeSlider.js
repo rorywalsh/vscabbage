@@ -115,12 +115,10 @@ export class HorizontalRangeSlider {
       if (sliderLeft + (sliderWidth) > sliderCenter) {
         // Place popup on the left of the slider thumb
         popupLeft = formLeft + sliderLeft - popup.offsetWidth - 10;
-        console.log("Cabbage: Pointer on the left");
         popup.classList.add('right');
       } else {
         // Place popup on the right of the slider thumb
         popupLeft = formLeft + sliderLeft + sliderWidth + 10;
-        console.log("Cabbage: Pointer on the right");
         popup.classList.remove('right');
       }
 
