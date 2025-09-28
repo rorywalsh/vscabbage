@@ -642,7 +642,10 @@ class Cabbage2To3Converter:
             # Remove the original property
             properties.pop('trackerColour', None)
 
-        # Handle combobox items/text -> items array conversion
+        # Handle value -> defaultValue conversion (Cabbage2 value() becomes Cabbage3 defaultValue)
+        if 'value' in properties:
+            widget['defaultValue'] = properties['value']
+            properties.pop('value', None)
         if widget_type == 'comboBox':
             items = []
             
