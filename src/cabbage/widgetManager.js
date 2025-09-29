@@ -512,6 +512,13 @@ export class WidgetManager {
             }
             // Update widget properties
             Object.assign(widget.props, data);
+
+            // Ensure slider values are not null or NaN
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                if (widget.props.value === null || isNaN(widget.props.value)) {
+                    widget.props.value = widget.props.range.defaultValue;
+                }
+            }
             widgetFound = true;
             if (widget.props.type === "form") {
                 // Special handling for form widget
@@ -606,12 +613,24 @@ export class WidgetManager {
                     const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
                     if (instance) {
                         WidgetManager.deepMerge(instance.props, childProps);
+                        // Ensure slider values are not null or NaN
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
+                            if (instance.props.value === null || isNaN(instance.props.value)) {
+                                instance.props.value = instance.props.range.defaultValue;
+                            }
+                        }
                         childDiv.innerHTML = instance.getInnerHTML();
                         console.warn("Cabbage: Updated child widget instance", obj.channel, instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
                         const tempWidget = WidgetManager.createWidget(childProps.type);
                         WidgetManager.deepMerge(tempWidget.props, childProps);
+                        // Ensure slider values are not null
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
+                            if (tempWidget.props.value === null) {
+                                tempWidget.props.value = tempWidget.props.range.defaultValue;
+                            }
+                        }
                         childDiv.innerHTML = tempWidget.getInnerHTML();
                         console.warn("Cabbage: Updated temporary child widget", obj.channel);
                     }

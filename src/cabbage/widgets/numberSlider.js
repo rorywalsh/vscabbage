@@ -47,7 +47,8 @@ export class NumberSlider {
             "valuePrefix": "",
             "valuePostfix": "",
             "presetIgnore": 0,
-            "opacity": 1
+            "opacity": 1,
+            "sensitivity": 0.5
         };
 
         this.isDragging = false;
@@ -96,7 +97,7 @@ export class NumberSlider {
 
         if (this.isDragging) {
             const dy = event.clientY - this.startY;
-            const steps = dy / 10; // Number of steps to move based on drag distance
+            const steps = dy / (10 * this.props.sensitivity); // Number of steps to move based on drag distance
 
             // Convert the start value to linear space for movement calculation
             const startLinearValue = this.getLinearValue(this.startValue);
@@ -212,8 +213,8 @@ export class NumberSlider {
                 <!-- Text SVG with proper alignment -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
-                    <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-                        fill="${this.props.font.colour}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
+                    <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="59%" font-family="${this.props.font.family}" font-size="${fontSize}"
+                        fill="${this.props.font.colour}" text-anchor="${svgAlign}" 
                         style="pointer-events: none;">${valueText}</text>
                 </svg>
             </div>
