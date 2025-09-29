@@ -136,6 +136,11 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
+        // Recalculate derived properties after merging props
+        if (widget.props.range && widget.props.range.increment !== undefined) {
+            widget.decimalPlaces = CabbageUtils.getDecimalPlaces(widget.props.range.increment);
+        }
+
         // Initialize children object only for widgets that actually have children
         if (widget.props.children && Array.isArray(widget.props.children)) {
             widget.children = {};
