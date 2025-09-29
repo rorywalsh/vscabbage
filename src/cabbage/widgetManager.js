@@ -537,26 +537,31 @@ export class WidgetManager {
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
 
-                    // Update widget position and size for non-form widgets
-                    if (widget.props.bounds) {
-                        widgetDiv.style.left = widget.props.bounds.left + "px";
-                        widgetDiv.style.top = widget.props.bounds.top + "px";
-                        widgetDiv.style.width = widget.props.bounds.width + "px";
-                        widgetDiv.style.height = widget.props.bounds.height + "px";
+                    // Update widget position and size for non-form widgets using consistent styling
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
 
-                        // If this widget has children, update their positions
-                        if (widget.props.children && Array.isArray(widget.props.children)) {
-                            widget.props.children.forEach(childProps => {
-                                const childDiv = document.getElementById(childProps.channel);
-                                if (childDiv) {
-                                    const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
-                                    const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
-                                    childDiv.style.left = absoluteLeft + "px";
-                                    childDiv.style.top = absoluteTop + "px";
-                                    console.log(`Cabbage: Updated child ${childProps.channel} position to (${absoluteLeft}, ${absoluteTop})`);
+                    // If this widget has children, update their positions
+                    if (widget.props.children && Array.isArray(widget.props.children)) {
+                        widget.props.children.forEach(childProps => {
+                            const childDiv = document.getElementById(childProps.channel);
+                            if (childDiv) {
+                                const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
+                                const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
+                                // Update child widget styles consistently
+                                const childWidget = widgets.find(w => w.props.channel === childProps.channel);
+                                if (childWidget) {
+                                    WidgetManager.updateWidgetStyles(childDiv, {
+                                        ...childWidget.props,
+                                        bounds: {
+                                            ...childWidget.props.bounds,
+                                            left: absoluteLeft,
+                                            top: absoluteTop
+                                        }
+                                    });
                                 }
-                            });
-                        }
+                                console.log(`Cabbage: Updated child ${childProps.channel} position to (${absoluteLeft}, ${absoluteTop})`);
+                            }
+                        });
                     }
 
                     if (widget.props.type === "genTable") {

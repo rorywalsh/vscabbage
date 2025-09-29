@@ -146,6 +146,12 @@ export class HorizontalSlider {
     if (this.props.active === 0) {
       return '';
     }
+
+    // Don't show popup in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
     const rect = form.getBoundingClientRect();
@@ -191,6 +197,12 @@ export class HorizontalSlider {
     if (this.props.active === 0) {
       return '';
     }
+
+    // Don't hide popup in edit mode (draggable mode) since it's not shown
+    if (getCabbageMode() === 'draggable') {
+      return '';
+    }
+
     if (!this.isMouseDown) {
       const popup = document.getElementById('popupValue');
       popup.classList.add('hide');
