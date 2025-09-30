@@ -66,8 +66,10 @@ export class WidgetManager {
                     // Recursively merge nested objects
                     this.deepMerge(target[key], source[key]);
                 } else {
-                    // For primitive values, arrays, or null, do direct assignment
-                    target[key] = source[key];
+                    // For primitive values, arrays, or null, do direct assignment, but skip undefined
+                    if (source[key] !== undefined) {
+                        target[key] = source[key];
+                    }
                 }
             }
         }
@@ -492,31 +494,79 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
+        // console.log(`WidgetManager.updateWidget called with:`, JSON.stringify(obj, null, 2));
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
         if (widget) {
+            // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, data=${obj.data}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
-
-                widget.props.value = obj.value; // Update the value property
-                // Call getInnerHTML to refresh the widget's display
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-                if (widgetDiv) {
-                    widgetDiv.innerHTML = widget.getInnerHTML();
+                // console.log(`Value update case: obj.value = ${obj.value} (type: ${typeof obj.value})`);
+                // Don't update value for sliders that are currently being dragged
+                if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
+                    if (obj.value != null) {
+                        // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
+                        let newValue = obj.value;
+                        // For sliders, convert received linear normalized value to skewed value
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                            // Assume received value is linear normalized [0,1], convert to skewed
+                            const linearNormalized = obj.value;
+                            if (!isNaN(linearNormalized) && linearNormalized >= 0 && linearNormalized <= 1) {
+                                const skewedNormalized = Math.pow(linearNormalized, widget.props.range.skew);
+                                newValue = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
+                                // console.log(`WidgetManager.updateWidget: converting linear ${obj.value} to skewed ${newValue} for ${widget.props.type}`);
+                            } else {
+                                // console.log(`WidgetManager.updateWidget: invalid linear value ${obj.value} for ${widget.props.type}, skipping update`);
+                                return; // Skip update for invalid values
+                            }
+                        }
+                        // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
+                        widget.props.value = newValue; // Update the value property
+                        // Call getInnerHTML to refresh the widget's display
+                        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                        if (widgetDiv) {
+                            widgetDiv.innerHTML = widget.getInnerHTML();
+                        }
+                    } else {
+                        console.log(`Skipping value update because obj.value is null/undefined: ${obj.value}`);
+                    }
+                } else {
+                    // console.log(`WidgetManager.updateWidget: skipping update for dragging ${widget.props.type}`);
                 }
                 return; // Early return
             }
             // Update widget properties
-            Object.assign(widget.props, data);
+            console.log(`Merge case: data =`, JSON.stringify(data, null, 2));
+            // Save current value for sliders to prevent accidental null resets during visibility changes
+            let savedSliderValue;
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                savedSliderValue = widget.props.value;
+            }
+            WidgetManager.deepMerge(widget.props, data);
+            // Restore value if accidentally set to null
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                if (widget.props.value === null && savedSliderValue !== null && savedSliderValue !== undefined) {
+                    widget.props.value = savedSliderValue;
+                    console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
+                }
+            }
 
-            // Ensure slider values are not null or NaN
+            // Ensure slider values are not null or NaN and convert linear to skewed
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 if (widget.props.value === null || isNaN(widget.props.value)) {
                     widget.props.value = widget.props.range.defaultValue;
+                } else {
+                    // Convert linear normalized value to skewed value
+                    const linearNormalized = widget.props.value;
+                    if (!isNaN(linearNormalized) && linearNormalized >= 0 && linearNormalized <= 1) {
+                        const skewedNormalized = Math.pow(linearNormalized, widget.props.range.skew);
+                        widget.props.value = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
+                        console.log(`WidgetManager.updateWidget: converted linear ${linearNormalized} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
+                    }
                 }
             }
             widgetFound = true;
@@ -587,11 +637,12 @@ export class WidgetManager {
             // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
             const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => c.channel === obj.channel));
             if (parentWithChild) {
-                console.log(`Cabbage: Found child widget ${obj.channel} in parent ${parentWithChild.props.channel}, updating child.`);
+                // console.log(`Cabbage: Found child widget ${obj.channel} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
                 const childProps = parentWithChild.props.children.find(c => c.channel === obj.channel);
 
                 // If data is an object (and not null/array) merge it, otherwise treat as a value update
                 if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    console.log(`Child merge case: data =`, JSON.stringify(data, null, 2));
                     // Convert absolute bounds back to relative bounds before merging
                     if (data.bounds && parentWithChild.props.bounds) {
                         const relativeBounds = {
@@ -603,7 +654,12 @@ export class WidgetManager {
                     }
                     WidgetManager.deepMerge(childProps, data);
                 } else {
-                    childProps.value = data;
+                    console.log(`Child value update: data = ${data} (type: ${typeof data})`);
+                    if (data != null) {
+                        childProps.value = data;
+                    } else {
+                        console.log(`Skipping child value update because data is null/undefined`);
+                    }
                 }
 
                 // Update child DOM / instance if present

@@ -109,10 +109,12 @@ window.addEventListener('message', async event => {
 
         // Called when the host triggers a parameter change in the UI
         case 'parameterChange':
+            console.log(`main.js parameterChange: paramIdx=${parameterMessage.data.paramIdx}, value=${parameterMessage.data.value}`);
             const parameterMessage = message;
             // {command: "parameterChange", data: {paramIdx: 0, value: 0.32499998807907104}}
             widgets.forEach(widget => {
                 if (widget.parameterIndex == parameterMessage.data.paramIdx) {
+                    console.log(`main.js parameterChange: updating widget ${widget.props.channel} (${widget.props.type}) with value ${parameterMessage.data.value}`);
                     const updateMsg = {
                         channel: widget.props.channel,
                         value: parameterMessage.data.value

@@ -77,8 +77,10 @@ export class RotarySlider {
     this.startValue = 0;
     this.vscode = null;
     this.isMouseDown = false;
+    this.isDragging = false;
     this.decimalPlaces = 0;
     this.parameterIndex = 0;
+    this.widgetDiv = null;
 
     // Create a Proxy to listen for changes
     this.props = new Proxy(this.props, {
@@ -89,6 +91,14 @@ export class RotarySlider {
 
         // Set the value as usual
         target[key] = value;
+
+        // Log visibility changes
+        if (key === 'visible') {
+          console.log(`RotarySlider: visible changed from ${oldValue} to ${value}`);
+          if (this.widgetDiv) {
+            this.widgetDiv.style.pointerEvents = value === 0 ? 'none' : 'auto';
+          }
+        }
 
         // Custom logic: trigger your onPropertyChange method with the path
         if (this.onPropertyChange) {
@@ -159,9 +169,18 @@ export class RotarySlider {
     window.removeEventListener("pointermove", this.moveListener);
     window.removeEventListener("pointerup", this.upListener);
     this.isMouseDown = false;
+    this.isDragging = false;
   }
 
   pointerDown(evt) {
+    console.log(`RotarySlider pointerDown:`, {
+      channel: this.props.channel,
+      value: this.props.value,
+      visible: this.props.visible,
+      active: this.props.active,
+      range: this.props.range,
+      parameterIndex: this.parameterIndex
+    });
     if (this.props.active === 0) {
       return '';
     }
@@ -172,8 +191,14 @@ export class RotarySlider {
     }
 
     this.isMouseDown = true;
+    this.isDragging = true;
     this.startY = evt.clientY;
     this.startValue = this.props.value ?? this.props.range.defaultValue;
+    // Validate startValue to prevent NaN
+    if (isNaN(this.startValue) || this.startValue === null || this.startValue === undefined) {
+      console.warn('Invalid startValue in rotarySlider pointerDown, using default', this.startValue);
+      this.startValue = this.props.range.defaultValue ?? 0;
+    }
     // Initialize linearStartValue here
     this.linearStartValue = this.getLinearValue(this.startValue);
 
@@ -249,6 +274,7 @@ export class RotarySlider {
   }
 
   addEventListeners(widgetDiv) {
+    this.widgetDiv = widgetDiv;
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
@@ -265,6 +291,12 @@ export class RotarySlider {
       return '';
     }
 
+    // Validate range to prevent NaN calculations
+    if (isNaN(this.props.range.min) || isNaN(this.props.range.max) || this.props.range.max <= this.props.range.min) {
+      console.warn('Invalid range in rotarySlider pointerMove, using default', this.props.range);
+      this.props.range = { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.001 };
+    }
+
     const steps = 200;
 
     // Calculate movement delta in normalized space
@@ -272,19 +304,31 @@ export class RotarySlider {
 
     // Work entirely in linear normalized space (0-1) internally
     // Get the starting linear position from the start value
-    const startLinearNormalized = (this.getLinearValue(this.startValue) - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const rangeSpan = this.props.range.max - this.props.range.min;
+    const startLinearNormalized = (this.getLinearValue(this.startValue) - this.props.range.min) / rangeSpan;
 
     // Apply movement in linear space
     const newLinearNormalized = CabbageUtils.clamp(startLinearNormalized - movementDelta, 0, 1);
 
     // Convert to linear value in actual range
-    const newLinearValue = newLinearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const newLinearValue = newLinearNormalized * rangeSpan + this.props.range.min;
 
     // Convert to skewed value for display
     const newSkewedValue = this.getSkewedValue(newLinearValue);
 
     // Apply increment snapping to the skewed display value
-    const snappedSkewedValue = Math.round(newSkewedValue / this.props.range.increment) * this.props.range.increment;
+    let snappedSkewedValue = Math.round(newSkewedValue / this.props.range.increment) * this.props.range.increment;
+
+    // Clamp to range
+    snappedSkewedValue = Math.min(this.props.range.max, Math.max(this.props.range.min, snappedSkewedValue));
+
+    // Prevent NaN in snappedSkewedValue
+    if (isNaN(snappedSkewedValue)) {
+      console.error('snappedSkewedValue is NaN, setting to min');
+      snappedSkewedValue = this.props.range.min;
+    }
+
+    // console.log(`RotarySlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, snappedSkewedValue=${snappedSkewedValue}`);
 
     // Store the values
     this.props.value = snappedSkewedValue; // What user sees (skewed)
@@ -296,9 +340,13 @@ export class RotarySlider {
 
     // Send value that will result in correct output after backend applies skew
     // Backend does: min + (max - min) * pow(normalized, skew)
-    // We want: backend to output snappedSkewedValue
-    // So we need to send: pow((snappedSkewedValue - min) / (max - min), 1/skew)
-    const targetNormalized = (snappedSkewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    let targetNormalized;
+    if (rangeSpan === 0) {
+      targetNormalized = 0;
+    } else {
+      targetNormalized = (snappedSkewedValue - this.props.range.min) / rangeSpan;
+    }
+    targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
 
     const msg = {
@@ -310,17 +358,21 @@ export class RotarySlider {
     Cabbage.sendParameterUpdate(msg, this.vscode);
   }  // Add this helper method to convert between linear and skewed values
   getSkewedValue(linearValue) {
-    const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const rangeSpan = this.props.range.max - this.props.range.min;
+    if (rangeSpan === 0) return this.props.range.min;
+    const normalizedValue = (linearValue - this.props.range.min) / rangeSpan;
     // Invert the skew for JUCE-like behavior
     const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-    return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    return skewedNormalizedValue * rangeSpan + this.props.range.min;
   }
 
   getLinearValue(skewedValue) {
-    const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const rangeSpan = this.props.range.max - this.props.range.min;
+    if (rangeSpan === 0) return this.props.range.min;
+    const normalizedValue = (skewedValue - this.props.range.min) / rangeSpan;
     // Invert the skew for JUCE-like behavior
     const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-    return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    return linearNormalizedValue * rangeSpan + this.props.range.min;
   }
 
   // https://stackoverflow.com/questions/20593575/making-circular-progress-bar-with-html5-svg
@@ -441,6 +493,7 @@ export class RotarySlider {
   }
 
   getInnerHTML() {
+    // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
     const currentValue = this.props.value ?? this.props.range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
@@ -453,7 +506,7 @@ export class RotarySlider {
 
       if (filmStripElement) {
         return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
           ${filmStripElement}
           <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
         </svg>
@@ -515,7 +568,7 @@ export class RotarySlider {
       const inputX = 0;
 
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
         <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
@@ -534,7 +587,7 @@ export class RotarySlider {
     }
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />

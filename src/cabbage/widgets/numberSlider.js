@@ -1,6 +1,6 @@
 // MIT License
 // Copyright (c) 2024 Rory Walsh
-// See the LICENSE file for details.
+// See the LICENSE for details.
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
@@ -57,6 +57,30 @@ export class NumberSlider {
         this.parameterIndex = 0;
         this.vscode = null;
         this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
+
+        this.props = new Proxy(this.props, {
+            set: (target, key, value) => {
+                const oldValue = target[key];
+                // Track the path of the key being set, including the parent object
+                const path = CabbageUtils.getPath(target, key);
+
+                // Set the value as usual
+                target[key] = value;
+
+                // Log visibility changes
+                if (key === 'visible') {
+                    console.log(`NumberSlider: visible changed from ${oldValue} to ${value}`);
+                    if (this.widgetDiv) {
+                        this.widgetDiv.style.pointerEvents = value === 0 ? 'none' : 'auto';
+                    }
+                }                // Custom logic: trigger your onPropertyChange method with the path
+                if (this.onPropertyChange) {
+                    this.onPropertyChange(path, key, value, oldValue);  // Pass the full path and value
+                }
+
+                return true;
+            }
+        });
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -65,6 +89,7 @@ export class NumberSlider {
     }
 
     addEventListeners(widgetDiv) {
+        this.widgetDiv = widgetDiv;
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
         widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
         widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
@@ -73,6 +98,13 @@ export class NumberSlider {
     }
 
     pointerDown(event) {
+        console.log(`NumberSlider pointerDown:`, {
+            channel: this.props.channel,
+            value: this.props.value,
+            visible: this.props.visible,
+            range: this.props.range,
+            parameterIndex: this.parameterIndex
+        });
         // Don't perform slider actions in edit mode (draggable mode)
         if (getCabbageMode() === 'draggable') {
             return;
@@ -81,6 +113,11 @@ export class NumberSlider {
         this.isDragging = true;
         this.startY = event.clientY;
         this.startValue = this.props.value;
+        // Validate startValue to prevent NaN
+        if (isNaN(this.startValue) || this.startValue === null || this.startValue === undefined) {
+            console.warn('Invalid startValue in numberSlider pointerDown, using default', this.startValue);
+            this.startValue = this.props.range.defaultValue ?? 0;
+        }
         event.target.setPointerCapture(event.pointerId);
     }
 
@@ -96,30 +133,52 @@ export class NumberSlider {
         }
 
         if (this.isDragging) {
+            // Validate range to prevent NaN calculations
+            if (isNaN(this.props.range.min) || isNaN(this.props.range.max) || this.props.range.max <= this.props.range.min) {
+                console.warn('Invalid range in numberSlider pointerMove, using default', this.props.range);
+                this.props.range = { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.001 };
+            }
+
             const dy = event.clientY - this.startY;
             const steps = dy / (10 * this.props.sensitivity); // Number of steps to move based on drag distance
 
             // Convert the start value to linear space for movement calculation
             const startLinearValue = this.getLinearValue(this.startValue);
-            const startLinearNormalized = (startLinearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+            const rangeSpan = this.props.range.max - this.props.range.min;
+            const startLinearNormalized = (startLinearValue - this.props.range.min) / rangeSpan;
 
             // Apply movement in linear space
             const increment = this.props.range.increment;
-            const normalizedIncrement = increment / (this.props.range.max - this.props.range.min);
+            const normalizedIncrement = increment / rangeSpan;
             const newLinearNormalized = CabbageUtils.clamp(startLinearNormalized - steps * normalizedIncrement, 0, 1);
 
             // Convert back to actual linear value
-            const newLinearValue = newLinearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+            const newLinearValue = newLinearNormalized * rangeSpan + this.props.range.min;
 
             // Convert to skewed value for display
             const newSkewedValue = this.getSkewedValue(newLinearValue);
 
             // Apply increment snapping to the skewed value
+            const oldValue = this.props.value;
             this.props.value = Math.round(newSkewedValue / increment) * increment;
             this.props.value = Math.min(this.props.range.max, Math.max(this.props.range.min, this.props.value));
 
+            // Prevent NaN in value
+            if (isNaN(this.props.value)) {
+                console.error('NumberSlider value is NaN, setting to min');
+                this.props.value = this.props.range.min;
+            }
+
+            // console.log(`NumberSlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, newSkewedValue=${newSkewedValue}, final value=${this.props.value} (was ${oldValue})`);
+
             // Send value that will result in correct output after backend applies skew
-            const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
+            let targetNormalized;
+            if (rangeSpan === 0) {
+                targetNormalized = 0;
+            } else {
+                targetNormalized = (this.props.value - this.props.range.min) / rangeSpan;
+            }
+            targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
             const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
             const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend };
             Cabbage.sendParameterUpdate(msg, this.vscode);
@@ -187,6 +246,7 @@ export class NumberSlider {
     }
 
     getInnerHTML() {
+        // console.log(`NumberSlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
         const fontSize = this.props.font.size > 0 ? this.props.font.size : 12;
         const alignMap = {
             'left': 'end',
@@ -199,11 +259,11 @@ export class NumberSlider {
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         const html = `
-            <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+            <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible === 0 ? '0' : '1'}; pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" 
-                        pointer-events="all" opacity="${this.props.opacity}"></rect>
+                        pointer-events="${this.props.visible === 0 ? 'none' : 'all'}" opacity="${this.props.opacity}"></rect>
                 </svg>
     
                 <!-- Text SVG with proper alignment -->
@@ -220,16 +280,20 @@ export class NumberSlider {
 
     // Helper methods for skew functionality
     getSkewedValue(linearValue) {
-        const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        const rangeSpan = this.props.range.max - this.props.range.min;
+        if (rangeSpan === 0) return this.props.range.min;
+        const normalizedValue = (linearValue - this.props.range.min) / rangeSpan;
         // Invert the skew for JUCE-like behavior
         const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-        return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+        return skewedNormalizedValue * rangeSpan + this.props.range.min;
     }
 
     getLinearValue(skewedValue) {
-        const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        const rangeSpan = this.props.range.max - this.props.range.min;
+        if (rangeSpan === 0) return this.props.range.min;
+        const normalizedValue = (skewedValue - this.props.range.min) / rangeSpan;
         // Invert the skew for JUCE-like behavior
         const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-        return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+        return linearNormalizedValue * rangeSpan + this.props.range.min;
     }
 }

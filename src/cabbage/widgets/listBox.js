@@ -29,7 +29,8 @@ export class ListBox {
     }
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
-        this.addEventListeners(widgetDiv);
+        // VS Code specific listeners are already added by addEventListeners
+
     }
 
     addEventListeners(widgetDiv) {
@@ -65,10 +66,6 @@ export class ListBox {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const items = this.getItemsArray();
         const listItemsHTML = items.map((item, index) => `
             <div class="list-item" style="
@@ -84,7 +81,7 @@ export class ListBox {
         `).join('');
 
         return `
-            <div style="position: relative; width: 100%; height: 100%; overflow-y: auto;">
+            <div style="position: relative; width: 100%; height: 100%; overflow-y: auto; display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 ${listItemsHTML}
             </div>
         `;
