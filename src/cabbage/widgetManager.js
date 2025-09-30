@@ -511,16 +511,19 @@ export class WidgetManager {
                     if (obj.value != null) {
                         // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
                         let newValue = obj.value;
-                        // For sliders, convert received linear normalized value to skewed value
+                        // For sliders, handle value conversion
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                            // Assume received value is linear normalized [0,1], convert to skewed
-                            const linearNormalized = obj.value;
-                            if (!isNaN(linearNormalized) && linearNormalized >= 0 && linearNormalized <= 1) {
-                                const skewedNormalized = Math.pow(linearNormalized, widget.props.range.skew);
+                            if (!isNaN(obj.value) && obj.value >= 0 && obj.value <= 1) {
+                                // Assume received value is linear normalized [0,1], convert to skewed
+                                const skewedNormalized = Math.pow(obj.value, widget.props.range.skew);
                                 newValue = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
-                                // console.log(`WidgetManager.updateWidget: converting linear ${obj.value} to skewed ${newValue} for ${widget.props.type}`);
+                                console.log(`WidgetManager.updateWidget: converting linear ${obj.value} to skewed ${newValue} for ${widget.props.type}`);
+                            } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
+                                // Assume received value is already skewed
+                                newValue = obj.value;
+                                console.log(`WidgetManager.updateWidget: received skewed value ${obj.value} for ${widget.props.type}, using directly`);
                             } else {
-                                // console.log(`WidgetManager.updateWidget: invalid linear value ${obj.value} for ${widget.props.type}, skipping update`);
+                                console.log(`WidgetManager.updateWidget: invalid value ${obj.value} for ${widget.props.type}, skipping update`);
                                 return; // Skip update for invalid values
                             }
                         }
@@ -555,17 +558,19 @@ export class WidgetManager {
                 }
             }
 
-            // Ensure slider values are not null or NaN and convert linear to skewed
+            // Ensure slider values are not null or NaN and handle value conversion
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 if (widget.props.value === null || isNaN(widget.props.value)) {
                     widget.props.value = widget.props.range.defaultValue;
                 } else {
-                    // Convert linear normalized value to skewed value
-                    const linearNormalized = widget.props.value;
-                    if (!isNaN(linearNormalized) && linearNormalized >= 0 && linearNormalized <= 1) {
-                        const skewedNormalized = Math.pow(linearNormalized, widget.props.range.skew);
+                    if (!isNaN(widget.props.value) && widget.props.value >= 0 && widget.props.value <= 1) {
+                        // Convert linear normalized value to skewed value
+                        const skewedNormalized = Math.pow(widget.props.value, widget.props.range.skew);
                         widget.props.value = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
-                        console.log(`WidgetManager.updateWidget: converted linear ${linearNormalized} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
+                        console.log(`WidgetManager.updateWidget: converted linear ${widget.props.value} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
+                    } else if (!isNaN(widget.props.value) && (widget.props.value < 0 || widget.props.value > 1)) {
+                        // Assume already skewed
+                        console.log(`WidgetManager.updateWidget: value ${widget.props.value} assumed skewed for ${widget.props.type} in merge case`);
                     }
                 }
             }

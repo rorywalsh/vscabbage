@@ -524,11 +524,10 @@ export class RotarySlider {
     const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
     const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
 
-    // Use the linear value for knob positioning (currentValue is skewed, so convert it to linear)
-    const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);
-    const linearNormalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    // Map to angle range using the linear normalized value
-    const angle = CabbageUtils.map(linearNormalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
+    // Calculate normalized value for positioning (currentValue is skewed)
+    const normalizedValue = (currentValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    // Map to angle range using the normalized value
+    const angle = CabbageUtils.map(normalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
 
     const trackerArcPath = this.describeArc(
       this.props.bounds.width / 2,
