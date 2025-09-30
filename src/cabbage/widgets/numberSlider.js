@@ -187,10 +187,6 @@ export class NumberSlider {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const fontSize = this.props.font.size > 0 ? this.props.font.size : 12;
         const alignMap = {
             'left': 'end',
@@ -203,7 +199,7 @@ export class NumberSlider {
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         const html = `
-            <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none;">
+            <div id="slider-${this.props.channel}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" 

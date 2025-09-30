@@ -43,10 +43,6 @@ export class TextEditor {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
         const alignMap = {
             'left': 'start',
@@ -59,7 +55,7 @@ export class TextEditor {
         return `
                 <textarea style="width: 100%; height: 100%; background-color: ${this.props.colour.fill}; 
                 color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity};">
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity}; display: ${this.props.visible === 0 ? 'none' : 'block'};">
 ${this.props.text}
                 </textarea>
         `;

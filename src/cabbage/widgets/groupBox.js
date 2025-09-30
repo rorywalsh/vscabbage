@@ -54,10 +54,6 @@ export class GroupBox {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const width = Number(this.props.bounds.width) || 200;
         const height = Number(this.props.bounds.height) || 150;
 
@@ -109,7 +105,7 @@ export class GroupBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
-                 width="${width}" height="${height}"  preserveAspectRatio="none">
+                 width="${width}" height="${height}"  preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 <defs>
                     <!-- Mask to create transparent area behind text -->
                     <mask id="textMask_${this.props.channel}">

@@ -102,10 +102,6 @@ export class Checkbox {
   }
 
   getInnerHTML() {
-    if (this.props.visible === 0) {
-      return '';
-    }
-
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -123,7 +119,7 @@ export class Checkbox {
     const adjustedTextAnchor = this.props.font.align === 'right' ? 'end' : 'start';
 
     return `
-      <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none">
+      <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
         <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${this.props.value === 1 ? this.props.colour.on.fill : this.props.colour.off.fill}" stroke="${this.props.value === 1 ? this.props.colour.on.stroke.colour : this.props.colour.off.stroke.colour}" stroke-width="${this.props.value === 1 ? this.props.colour.on.stroke.width : this.props.colour.off.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.font.colour[this.props.value === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
       </svg>

@@ -1,8 +1,10 @@
 // MIT License
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
+
 import { Cabbage } from "../cabbage.js";
-import { CabbageUtils } from "../utils.js";
+import { CabbageUtils, CabbageColours } from "../utils.js";
+import { getCabbageMode } from "../sharedState.js";
 /**
  * Label class
  */
@@ -56,16 +58,12 @@ export class Image {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const outlineOffset = this.props.colour.stroke.width / 2;
 
         // Check if svgText is not empty and render it
         if (this.props.svgText) {
             return `
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden;">
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; display: ${this.props.visible === 0 ? 'none' : 'block'};">
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                         ${this.props.svgText}
                     </div>
@@ -80,7 +78,7 @@ export class Image {
             if (imagePath) {
                 console.log("Cabbage: setting file");
                 return `
-                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: none;" />
+                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: none; display: ${this.props.visible === 0 ? 'none' : 'block'};" />
                 `;
             }
         }
@@ -92,7 +90,7 @@ export class Image {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
-                 style="position: absolute; top: 0; left: 0;">
+                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${fillColor}" 
                       stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" pointer-events="${pointerEvents}"></rect>
             </svg>

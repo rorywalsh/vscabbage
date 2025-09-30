@@ -156,10 +156,6 @@ export class Button {
   }
 
   getInnerHTML() {
-    if (this.props.visible === 0) {
-      return '';
-    }
-
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -186,7 +182,7 @@ export class Button {
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
         <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.colour.on.stroke.colour}"
           stroke-width="${this.props.colour.on.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"

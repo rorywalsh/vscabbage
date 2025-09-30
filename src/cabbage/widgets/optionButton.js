@@ -150,10 +150,6 @@ export class OptionButton {
   }
 
   getInnerHTML() {
-    if (this.props.visible === 0) {
-      return '';
-    }
-
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -178,7 +174,7 @@ export class OptionButton {
 
     const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.colour.fill, 0.2) : this.props.colour.fill;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.colour.stroke.colour}"
                   stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"

@@ -224,10 +224,6 @@ export class ComboBox {
     }
 
     getInnerHTML() {
-        if (this.props.visible === 0) {
-            return '';
-        }
-
         const items = this.getItemsArray();
 
         // Ensure selectedItem is up-to-date with the current value
@@ -262,7 +258,7 @@ export class ComboBox {
         const selectedItemTextY = this.props.bounds.height / 2;
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour.fill}" stroke="${this.props.colour.stroke.colour}"
                     stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 

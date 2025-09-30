@@ -98,14 +98,14 @@ export class GenTable {
         this.ctx.arcTo(0, 0, this.props.bounds.width, 0, this.props.corners);
         this.ctx.closePath();
         this.ctx.fill();
-        console.log("Cabbage: Cabbage: sample array length:",  this.props.samples.length);
+        console.log("Cabbage: Cabbage: sample array length:", this.props.samples.length);
         const increment = Math.max(1, Math.floor(this.props.samples.length / this.props.bounds.width));
 
         // Draw waveform - First, handle the fill
         if (this.props.fill === 1) {
             this.ctx.strokeStyle = this.props.colour.fill; // Set fill color for vertical lines
             this.ctx.lineWidth = 2; // Line width for the filled waveform
-            
+
             for (let i = 0; i < this.props.samples.length; i += increment) {
 
                 const x = CabbageUtils.map(i, 0, this.props.samples.length - 1, 0, this.props.bounds.width);
@@ -181,6 +181,7 @@ export class GenTable {
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content
+            this.canvas.style.display = this.props.visible === 0 ? 'none' : 'block';
             widgetElement.appendChild(this.canvas); // Append canvas
 
             // Add event listeners
