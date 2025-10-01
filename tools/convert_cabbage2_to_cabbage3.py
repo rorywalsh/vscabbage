@@ -5,6 +5,29 @@ from pathlib import Path
 import argparse
 
 class Cabbage2To3Converter:
+    def replace_parallelwidgets_blocks(self, instruments_content):
+        """Detect and replace ParallelWidgets opcode blocks with a modernized version."""
+        # Regex: match from 'opcode ParallelWidgets' to next 'endop', non-greedy, multiline, robust to whitespace
+        pattern = re.compile(r'(opcode\s+ParallelWidgets.*?endop)', re.DOTALL | re.IGNORECASE)
+        matches = list(pattern.finditer(instruments_content))
+        replaced = 0
+        new_content = instruments_content
+        for match in matches:
+            old_block = match.group(1)
+            # New modernized version
+            new_block = (
+                "opcode ParallelWidgets, k, SS\n"
+                "   SStr1,SStr2 xin\n"
+                "   k1, ktrig1 cabbageGetValue SStr1\n"
+                "   k2, ktrig2 cabbageGetValue SStr2\n"
+                "   cabbageSetValue SStr1, k2, ktrig2\n"
+                "   cabbageSetValue SStr2, k1, ktrig1\n"
+                "   xout k1\n"
+                "endop"
+            )
+            new_content = new_content.replace(old_block, new_block)
+            replaced += 1
+        return new_content, replaced
     def __init__(self):
         self.widget_counter = 0
         
@@ -833,19 +856,22 @@ class Cabbage2To3Converter:
 
         new_content = content.replace(cabbage_match.group(0), new_cabbage_section)
 
-        # Replace identChannel references in orchestra code
-        if self.ident_channel_mappings:
-            # Extract CsInstruments section
-            instruments_match = re.search(r'<CsInstruments>(.*?)</CsInstruments>', new_content, re.DOTALL)
-            if instruments_match:
-                instruments_content = instruments_match.group(1)
-                
-                # Replace identChannel references with channel names
-                modified_instruments = instruments_content
-                
+        # Replace identChannel references and ParallelWidgets blocks in orchestra code
+        instruments_match = re.search(r'<CsInstruments>(.*?)</CsInstruments>', new_content, re.DOTALL)
+        if instruments_match:
+            instruments_content = instruments_match.group(1)
+            modified_instruments = instruments_content
+
+            # Replace ParallelWidgets blocks first
+            modified_instruments, pw_replaced = self.replace_parallelwidgets_blocks(modified_instruments)
+            if pw_replaced > 0:
+                print(f"   • {pw_replaced} ParallelWidgets opcode block(s) updated with cabbageSet/Get opcodes.")
+
+            # Replace identChannel references if any
+            if self.ident_channel_mappings:
                 # First, handle chnset property operations (these should keep identChannel names)
                 modified_instruments = self.replace_ident_channel_opcodes(modified_instruments)
-                
+
                 # Then replace remaining identChannel string references (skip lines with cabbageSet)
                 for ident_channel, mapping_info in self.ident_channel_mappings.items():
                     channel = mapping_info['channel']
@@ -855,9 +881,9 @@ class Cabbage2To3Converter:
                         if 'cabbageSet' not in line:
                             lines[i] = re.sub(r'\b' + re.escape(ident_channel) + r'\b', channel, line)
                     modified_instruments = '\n'.join(lines)
-                
-                # Replace the instruments section
-                new_content = new_content.replace(instruments_match.group(0), f"<CsInstruments>{modified_instruments}</CsInstruments>")
+
+            # Replace the instruments section
+            new_content = new_content.replace(instruments_match.group(0), f"<CsInstruments>{modified_instruments}</CsInstruments>")
 
         # Write output file
         with open(output_file, 'w', encoding='utf-8') as f:

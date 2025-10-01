@@ -194,6 +194,64 @@ export class CabbageUtils {
     return null;
   }
 
+  static printDOMTree(node = document.body, indent = 0) {
+    // Only consider element nodes
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      // Build info string: tag name, id, class
+      let info = node.tagName;
+      if (node.id) info += `#${node.id}`;
+      if (node.className) info += `.${node.className.split(" ").join(".")}`;
+
+      // Print with indentation
+      console.log(" ".repeat(indent) + info);
+
+      // Recursively print children
+      node.childNodes.forEach(child => printDOMTree(child, indent + 2));
+    }
+  }
+
+  static printElementById(id) {
+    const node = document.getElementById(id);
+    if (!node) {
+      console.log(`No element found with id="${id}"`);
+      return;
+    }
+
+    function printNode(node, indent = 0) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        let info = node.tagName;
+
+        if (node.id) info += `#${node.id}`;
+
+        // Safely handle className for any element
+        let classStr = "";
+        if (typeof node.className === "string") {
+          classStr = node.className;
+        } else if (node.classList) {
+          classStr = [...node.classList].join(".");
+        }
+
+        if (classStr) info += `.${classStr}`;
+
+        // Get absolute position and size
+        const rect = node.getBoundingClientRect();
+        const absX = rect.left + window.scrollX;
+        const absY = rect.top + window.scrollY;
+        const width = rect.width;
+        const height = rect.height;
+
+        info += ` [X: ${absX.toFixed(1)}, Y: ${absY.toFixed(1)}, W: ${width.toFixed(1)}, H: ${height.toFixed(1)}]`;
+
+        console.log(" ".repeat(indent) + info);
+
+        node.childNodes.forEach(child => printNode(child, indent + 2));
+      }
+    }
+
+    printNode(node);
+  }
+
+
   static getElementByIdInChildren(parentElement, targetId) {
     const queue = [parentElement];
 
@@ -218,11 +276,27 @@ export class CabbageUtils {
   }
 
   static getWidgetFromChannel(channel, widgets) {
-    widgets.forEach((widget) => {
-      console.log("Cabbage: widget channel", widget.channel);
-      if (widget["channel"] === channel) { return widget; }
-    });
+    for (const widget of widgets) {
+      if (widget.props.channel === channel) {
+        return widget;
+      }
+    }
     return null;
+  }
+
+  static printPropsOnClick(channel, widgets) {
+    const element = document.getElementById(channel);
+    if (element) {
+      element.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const widget = this.getWidgetFromChannel(channel, widgets);
+        if (widget) {
+          console.log('Widget props for', channel, ':', widget);
+        } else {
+          console.log('No widget found for channel', channel);
+        }
+      });
+    }
   }
 
   static getStringWidth(text, props, padding = 10) {

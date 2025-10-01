@@ -36,8 +36,6 @@ export class GroupBox {
             "automatable": 0,
             "opacity": 1
         };
-
-        this.children = {};
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {

@@ -143,11 +143,6 @@ export class WidgetManager {
             widget.decimalPlaces = CabbageUtils.getDecimalPlaces(widget.props.range.increment);
         }
 
-        // Initialize children object only for widgets that actually have children
-        if (widget.props.children && Array.isArray(widget.props.children)) {
-            widget.children = {};
-        }
-
         // Store the minimal original props for grouping/ungrouping
         try {
             const defaultProps = new widgetConstructors[type]().props;

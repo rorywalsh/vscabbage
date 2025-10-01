@@ -36,7 +36,6 @@ export class Image {
             "max": 1
         };
 
-        this.children = {};
         this.vscode = null;
     }
 
@@ -84,7 +83,7 @@ export class Image {
         }
 
         // For containers with children, make background transparent
-        const hasChildren = this.children && Object.keys(this.children).length > 0;
+        const hasChildren = this.props.children && this.props.children.length > 0;
         const fillColor = hasChildren ? 'transparent' : this.props.colour.fill;
         const pointerEvents = 'none'; // Images should not capture pointer events to allow child widgets or underlying widgets to be interactive
 
