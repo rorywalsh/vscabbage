@@ -107,8 +107,8 @@ export class WidgetManager {
         // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
         // Handle both string and object channels (xyPad has object channel)
-        widgetDiv.id = (typeof props.channel === 'object') 
-            ? (props.channel.id || props.channel.x) 
+        widgetDiv.id = (typeof props.channel === 'object')
+            ? (props.channel.id || props.channel.x)
             : props.channel;
 
         const widget = WidgetManager.createWidget(type);
@@ -388,7 +388,7 @@ export class WidgetManager {
         }
 
         console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", parentWidget.props.channel);
-        
+
         // Log parent container info
         if (parentDiv) {
             const parentStyle = window.getComputedStyle(parentDiv);
@@ -419,7 +419,7 @@ export class WidgetManager {
             if (childDiv) {
                 const computedStyle = window.getComputedStyle(childDiv);
                 console.log(`Cabbage: Child ${childProps.channel} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
-                
+
                 // Explicitly set position and transform for child widgets
                 childDiv.style.position = 'absolute';
                 childDiv.style.top = '0px';
@@ -436,7 +436,7 @@ export class WidgetManager {
                 } else {
                     childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
                 }
-                
+
                 // Log final position after style application
                 const finalStyle = window.getComputedStyle(childDiv);
                 console.log(`Cabbage: Child ${childProps.channel} final position: ${finalStyle.position}, transform: ${finalStyle.transform}, zIndex: ${finalStyle.zIndex}, pointerEvents: ${finalStyle.pointerEvents}`);
@@ -518,15 +518,15 @@ export class WidgetManager {
         if (typeof channel1 === 'string' && typeof channel2 === 'string') {
             return channel1 === channel2;
         }
-        
+
         // If both are objects, compare their id fields (or x field as fallback)
         if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'object' && channel2 !== null) {
             const id1 = channel1.id || channel1.x;
             const id2 = channel2.id || channel2.x;
             console.log(`channelsMatch: comparing object channels: id1="${id1}" vs id2="${id2}" => ${id1 === id2}`);
-            return id1 === id2;
+            return id1 === id2
         }
-        
+
         // If one is string and one is object, compare string with object's id
         if (typeof channel1 === 'string' && typeof channel2 === 'object' && channel2 !== null) {
             return channel1 === (channel2.id || channel2.x);
@@ -534,7 +534,7 @@ export class WidgetManager {
         if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'string') {
             return (channel1.id || channel1.x) === channel2;
         }
-        
+
         return false;
     }
 
@@ -546,8 +546,8 @@ export class WidgetManager {
     */
     static async updateWidget(obj) {
         // Extract channel ID for logging (handle both string and object channels)
-        const channelStr = typeof obj.channel === 'object' 
-            ? (obj.channel.id || obj.channel.x) 
+        const channelStr = typeof obj.channel === 'object'
+            ? (obj.channel.id || obj.channel.x)
             : obj.channel;
         console.log(`WidgetManager.updateWidget called with channel: ${channelStr}, hasValue: ${obj.hasOwnProperty('value')}, hasData: ${obj.hasOwnProperty('data')}`);
         console.log(`WidgetManager.updateWidget: obj.channel type=${typeof obj.channel}, value=`, obj.channel);
@@ -558,13 +558,13 @@ export class WidgetManager {
             return WidgetManager.channelsMatch(w.props.channel, obj.channel);
         });
         let widgetFound = false;
-        
+
         // Check if this is a child widget
         const isChildWidget = widget && widget.props.parentChannel;
         if (isChildWidget) {
             console.log(`WidgetManager.updateWidget: ${channelStr} is a child of ${widget.props.parentChannel}`);
         }
-        
+
         if (widget) {
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, data=${obj.data}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
@@ -597,7 +597,7 @@ export class WidgetManager {
                         }
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
                         widget.props.value = newValue; // Update the value property
-                        
+
                         // Throttle DOM updates using requestAnimationFrame to prevent jitter during rapid updates
                         if (!widget._updateScheduled) {
                             widget._updateScheduled = true;
