@@ -536,6 +536,8 @@ export class WidgetManager {
                 if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
                     if (obj.value != null) {
                         // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
+                        // Set flag to indicate this is a programmatic update from backend
+                        widget.isUpdatingFromBackend = true;
                         let newValue = obj.value;
                         // For sliders, handle value conversion
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
@@ -555,10 +557,20 @@ export class WidgetManager {
                         }
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
                         widget.props.value = newValue; // Update the value property
-                        // Call getInnerHTML to refresh the widget's display
-                        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
-                        if (widgetDiv) {
-                            widgetDiv.innerHTML = widget.getInnerHTML();
+                        
+                        // Throttle DOM updates using requestAnimationFrame to prevent jitter during rapid updates
+                        if (!widget._updateScheduled) {
+                            widget._updateScheduled = true;
+                            requestAnimationFrame(() => {
+                                widget._updateScheduled = false;
+                                // Call getInnerHTML to refresh the widget's display
+                                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                                if (widgetDiv) {
+                                    widgetDiv.innerHTML = widget.getInnerHTML();
+                                }
+                                // Clear the flag after update is complete
+                                widget.isUpdatingFromBackend = false;
+                            });
                         }
                     } else {
                         console.log(`Skipping value update because obj.value is null/undefined: ${obj.value}`);
