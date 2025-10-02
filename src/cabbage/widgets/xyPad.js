@@ -60,7 +60,7 @@ export class XyPad {
                     "width": 2
                 }
             },
-
+            "ballSize": 20,
             "type": "xyPad",
             "corners": 5,
             "decimalPlaces": 1,
@@ -132,9 +132,7 @@ export class XyPad {
         // Calculate effective interactive area (accounting for padding/stroke)
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const ballRadius = Math.min(effectiveWidth, effectiveHeight) * 0.05; // Ball is 5% of smallest dimension
-
-        // Account for value boxes if present
+        const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
@@ -179,9 +177,7 @@ export class XyPad {
         // Calculate effective interactive area (accounting for padding/stroke)
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const ballRadius = Math.min(effectiveWidth, effectiveHeight) * 0.05; // Ball is 5% of smallest dimension
-
-        // Account for value boxes if present
+        const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
@@ -233,7 +229,7 @@ export class XyPad {
 
         // Update value displays
         if (valueBoxX || valueBoxY) {
-            const ballRadius = Math.min(effectiveWidth, effectiveHeight) * 0.05;
+            const ballRadius = this.props.ballSize / 2;
             const maxXRange = 1 - (ballRadius / effectiveWidth);
             const maxYRange = 1 - (ballRadius / activeHeight);
             const minXRange = ballRadius / effectiveWidth;
@@ -264,7 +260,7 @@ export class XyPad {
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
-        const ballRadius = Math.min(effectiveWidth, effectiveHeight) * 0.05;
+        const ballRadius = this.props.ballSize / 2;
 
         // Calculate the constrained range for the ball center
         const maxXRange = 1 - (ballRadius / effectiveWidth);
@@ -320,8 +316,8 @@ export class XyPad {
             ? `border-top-left-radius: ${innerCornerRadius}px; border-top-right-radius: ${innerCornerRadius}px;`
             : `border-radius: ${innerCornerRadius}px;`;
 
-        const ballRadius = Math.min(effectiveWidth, effectiveHeight) * 0.05;
-        const ballSize = ballRadius * 2;
+        const ballRadius = this.props.ballSize / 2;
+        const ballSize = this.props.ballSize;
 
         // Initialize ball position if needed
         if (this.props.value && this.props.value.x !== undefined && this.props.value.y !== undefined) {
