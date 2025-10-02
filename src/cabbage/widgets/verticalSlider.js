@@ -65,13 +65,24 @@ export class VerticalSlider {
     this.parameterIndex = 0;
   }
 
-  pointerUp() {
+  pointerUp(evt) {
     if (this.props.active === 0) {
       return '';
     }
     const popup = document.getElementById('popupValue');
     popup.classList.add('hide');
     popup.classList.remove('show');
+
+    // Release pointer capture
+    if (this.activePointerId !== undefined && evt.target) {
+      try {
+        evt.target.releasePointerCapture(this.activePointerId);
+      } catch (e) {
+        // Ignore errors if pointer was already released
+      }
+      this.activePointerId = undefined;
+    }
+
     window.removeEventListener("pointermove", this.moveListener);
     window.removeEventListener("pointerup", this.upListener);
     this.isMouseDown = false;

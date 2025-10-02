@@ -70,10 +70,21 @@ export class HorizontalSlider {
     this.decimalPlaces = 0;
   }
 
-  pointerUp() {
+  pointerUp(evt) {
     const popup = document.getElementById('popupValue');
     popup.classList.add('hide');
     popup.classList.remove('show');
+
+    // Release pointer capture
+    if (this.activePointerId !== undefined && evt.target) {
+      try {
+        evt.target.releasePointerCapture(this.activePointerId);
+      } catch (e) {
+        // Ignore errors if pointer was already released
+      }
+      this.activePointerId = undefined;
+    }
+
     window.removeEventListener("pointermove", this.moveListener);
     window.removeEventListener("pointerup", this.upListener);
     this.isMouseDown = false;
@@ -126,6 +137,10 @@ export class HorizontalSlider {
       console.log(`pointerDown: skewedValue after rounding=${skewedValue}`);
 
       this.props.value = skewedValue;
+
+      // Capture pointer to ensure we receive pointerup even if pointer leaves element
+      evt.target.setPointerCapture(evt.pointerId);
+      this.activePointerId = evt.pointerId;
 
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
