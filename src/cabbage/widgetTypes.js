@@ -42,6 +42,8 @@ import { GenTable } from "./widgets/genTable.js";
 import { TextEditor } from "./widgets/textEditor.js";
 // @ts-ignore
 import { Form } from "./widgets/form.js";
+// @ts-ignore
+import { XyPad } from "./widgets/xyPad.js";
 
 
 export const widgetConstructors = {
@@ -64,7 +66,8 @@ export const widgetConstructors = {
 	"groupBox": GroupBox,
 	"checkBox": Checkbox,
 	"csoundOutput": CsoundOutput,
-	"textEditor": TextEditor
+	"textEditor": TextEditor,
+	"xyPad": XyPad
 };
 
 export const WidgetProps = {

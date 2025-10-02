@@ -106,7 +106,10 @@ export class WidgetManager {
     static async insertWidget(type, props, currentCsdFile) {
         // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
-        widgetDiv.id = props.channel;
+        // Handle both string and object channels (xyPad has object channel)
+        widgetDiv.id = (typeof props.channel === 'object') 
+            ? (props.channel.id || props.channel.x) 
+            : props.channel;
 
         const widget = WidgetManager.createWidget(type);
         if (!widget) {
@@ -507,22 +510,59 @@ export class WidgetManager {
     }
 
     /**
+    * Helper function to check if two channel values match
+    * Handles both string channels and object channels (for xyPad)
+    */
+    static channelsMatch(channel1, channel2) {
+        // If both are strings, do simple comparison
+        if (typeof channel1 === 'string' && typeof channel2 === 'string') {
+            return channel1 === channel2;
+        }
+        
+        // If both are objects, compare their id fields (or x field as fallback)
+        if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'object' && channel2 !== null) {
+            const id1 = channel1.id || channel1.x;
+            const id2 = channel2.id || channel2.x;
+            console.log(`channelsMatch: comparing object channels: id1="${id1}" vs id2="${id2}" => ${id1 === id2}`);
+            return id1 === id2;
+        }
+        
+        // If one is string and one is object, compare string with object's id
+        if (typeof channel1 === 'string' && typeof channel2 === 'object' && channel2 !== null) {
+            return channel1 === (channel2.id || channel2.x);
+        }
+        if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'string') {
+            return (channel1.id || channel1.x) === channel2;
+        }
+        
+        return false;
+    }
+
+    /**
     * This is called from the plugin and updates a corresponding widget.
     * It searches for a widget based on its 'channel' property and updates its data and display.
     * If the widget is not found, it attempts to create a new widget based on the provided data.
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-        console.log(`WidgetManager.updateWidget called with channel: ${obj.channel}, hasValue: ${obj.hasOwnProperty('value')}, hasData: ${obj.hasOwnProperty('data')}`);
+        // Extract channel ID for logging (handle both string and object channels)
+        const channelStr = typeof obj.channel === 'object' 
+            ? (obj.channel.id || obj.channel.x) 
+            : obj.channel;
+        console.log(`WidgetManager.updateWidget called with channel: ${channelStr}, hasValue: ${obj.hasOwnProperty('value')}, hasData: ${obj.hasOwnProperty('data')}`);
+        console.log(`WidgetManager.updateWidget: obj.channel type=${typeof obj.channel}, value=`, obj.channel);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
-        const widget = widgets.find(w => w.props.channel === obj.channel);
+        const widget = widgets.find(w => {
+            console.log(`Comparing widget channel:`, w.props.channel, `with obj.channel:`, obj.channel, `match=`, WidgetManager.channelsMatch(w.props.channel, obj.channel));
+            return WidgetManager.channelsMatch(w.props.channel, obj.channel);
+        });
         let widgetFound = false;
         
         // Check if this is a child widget
         const isChildWidget = widget && widget.props.parentChannel;
         if (isChildWidget) {
-            console.log(`WidgetManager.updateWidget: ${obj.channel} is a child of ${widget.props.parentChannel}`);
+            console.log(`WidgetManager.updateWidget: ${channelStr} is a child of ${widget.props.parentChannel}`);
         }
         
         if (widget) {
@@ -756,7 +796,7 @@ export class WidgetManager {
                 }
                 widgetFound = true;
             } else {
-                console.log(`Cabbage: Widget with channel ${obj.channel} not found - going to create it now`);
+                console.log(`Cabbage: Widget with channel ${channelStr} not found - going to create it now`);
             }
         }
         // If the widget is not found, attempt to create a new widget from the provided data

@@ -56,6 +56,34 @@ export class Commands {
  * @param channel The channel to set the file as input for.
  */
     static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channel: number) {
+        // Log the file being sent for debugging
+        this.vscodeOutputChannel.appendLine(`=== SENDING FILE TO CABBAGE ===`);
+        this.vscodeOutputChannel.appendLine(`File: ${file}`);
+        this.vscodeOutputChannel.appendLine(`Channel: ${channel}`);
+        this.vscodeOutputChannel.appendLine(`WebSocket connected: ${websocket ? 'yes' : 'no'}`);
+        
+        // Log file contents if it contains xyPad (for debugging the specific issue)
+        if (file && fs.existsSync(file)) {
+            try {
+                const fileContent = fs.readFileSync(file, 'utf8');
+                const hasXyPad = fileContent.toLowerCase().includes('xypad');
+                this.vscodeOutputChannel.appendLine(`File size: ${fileContent.length} chars`);
+                this.vscodeOutputChannel.appendLine(`Contains xyPad widget: ${hasXyPad ? 'yes' : 'no'}`);
+                if (hasXyPad) {
+                    // Extract xyPad lines for debugging
+                    const xyPadLines = fileContent.split('\n').filter(line => 
+                        line.toLowerCase().includes('xypad')).slice(0, 5); // First 5 xyPad lines
+                    this.vscodeOutputChannel.appendLine(`xyPad widget lines:`);
+                    xyPadLines.forEach(line => this.vscodeOutputChannel.appendLine(`  ${line.trim()}`));
+                }
+            } catch (err) {
+                this.vscodeOutputChannel.appendLine(`Failed to read file: ${err}`);
+            }
+        } else {
+            this.vscodeOutputChannel.appendLine(`File does not exist or is empty`);
+        }
+        this.vscodeOutputChannel.appendLine(`=== END FILE INFO ===`);
+
         // Construct the message to send via the websocket
         const m = {
             fileName: file,
@@ -65,6 +93,8 @@ export class Commands {
             command: "setFileAsInput",
             obj: JSON.stringify(m),
         };
+        
+        this.vscodeOutputChannel.appendLine(`Sending WebSocket message: ${JSON.stringify(msg)}`);
         websocket?.send(JSON.stringify(msg));
 
         // Retrieve existing soundFileInput state or initialize it as an empty object
@@ -595,8 +625,20 @@ export class Commands {
 
             // this.vscodeOutputChannel.clear();
             process.on('error', (err) => {
-                this.vscodeOutputChannel.appendLine('Failed to start process: ' + err.message);
-                this.vscodeOutputChannel.appendLine('Error stack: ' + err.stack);
+                this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS ERROR ===');
+                this.vscodeOutputChannel.appendLine(`Error name: ${err.name}`);
+                this.vscodeOutputChannel.appendLine(`Error message: ${err.message}`);
+                this.vscodeOutputChannel.appendLine(`Error code: ${(err as any).code || 'unknown'}`);
+                this.vscodeOutputChannel.appendLine(`Error errno: ${(err as any).errno || 'unknown'}`);
+                this.vscodeOutputChannel.appendLine(`Error syscall: ${(err as any).syscall || 'unknown'}`);
+                this.vscodeOutputChannel.appendLine(`Command: ${command}`);
+                this.vscodeOutputChannel.appendLine(`Arguments: --portNumber=${this.portNumber.toString()} --startTestServer=false`);
+                if (err.stack) {
+                    this.vscodeOutputChannel.appendLine('Error stack:');
+                    this.vscodeOutputChannel.appendLine(err.stack);
+                }
+                this.vscodeOutputChannel.appendLine('=== END ERROR ===');
+                this.vscodeOutputChannel.show(true);
                 const index = this.processes.indexOf(process);
                 if (index > -1) {
                     this.processes.splice(index, 1);
@@ -608,10 +650,49 @@ export class Commands {
                 if (index > -1) {
                     this.processes.splice(index, 1);
                 }
-                this.vscodeOutputChannel.appendLine(`Cabbage server has successfully terminated.`);
-                if (code === 3221225785) {
-                    this.vscodeOutputChannel.appendLine('This may indicate a missing or incompatible library - is Csound installed?');
+                
+                this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
+                this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
+                this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
+                this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
+                this.vscodeOutputChannel.appendLine(`Command: ${command}`);
+                
+                if (signal) {
+                    this.vscodeOutputChannel.appendLine(`Signal details:`);
+                    switch (signal) {
+                        case 'SIGTERM':
+                            this.vscodeOutputChannel.appendLine('  - SIGTERM (15): Process was asked to terminate gracefully');
+                            break;
+                        case 'SIGKILL':
+                            this.vscodeOutputChannel.appendLine('  - SIGKILL (9): Process was forcefully killed');
+                            break;
+                        case 'SIGPIPE':
+                            this.vscodeOutputChannel.appendLine('  - SIGPIPE (13): Broken pipe - likely trying to write to closed connection');
+                            this.vscodeOutputChannel.appendLine('  - This often indicates WebSocket/communication issues or invalid widget configurations');
+                            break;
+                        case 'SIGABRT':
+                            this.vscodeOutputChannel.appendLine('  - SIGABRT (6): Process aborted - likely due to assertion failure or critical error');
+                            break;
+                        case 'SIGSEGV':
+                            this.vscodeOutputChannel.appendLine('  - SIGSEGV (11): Segmentation fault - memory access violation');
+                            break;
+                        default:
+                            this.vscodeOutputChannel.appendLine(`  - Signal ${signal}: Check system documentation for details`);
+                    }
                 }
+                
+                if (code !== null) {
+                    if (code === 0) {
+                        this.vscodeOutputChannel.appendLine('Cabbage server terminated successfully.');
+                    } else if (code === 3221225785) {
+                        this.vscodeOutputChannel.appendLine('Exit code indicates missing or incompatible library - is Csound installed?');
+                    } else {
+                        this.vscodeOutputChannel.appendLine(`Cabbage server terminated with non-zero exit code: ${code}`);
+                    }
+                }
+                
+                this.vscodeOutputChannel.appendLine('=== END EXIT ===');
+                this.vscodeOutputChannel.show(true);
             });
 
             this.processes.push(process);
@@ -631,6 +712,14 @@ export class Commands {
                         this.vscodeOutputChannel.show(true);
                     }
                 }
+            });
+
+            process.stderr.on("data", (data: { toString: () => string; }) => {
+                const dataString = data.toString();
+                this.vscodeOutputChannel.appendLine('=== CABBAGE STDERR ===');
+                this.vscodeOutputChannel.appendLine(dataString);
+                this.vscodeOutputChannel.appendLine('=== END STDERR ===');
+                this.vscodeOutputChannel.show(true);
             });
             this.cabbageServerStarted = true;
         }

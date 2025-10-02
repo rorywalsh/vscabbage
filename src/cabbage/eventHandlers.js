@@ -262,13 +262,6 @@ export function setupFormHandlers() {
 
         // Event listener for pointer down events on the form
         form.addEventListener('pointerdown', async (event) => {
-            CabbageUtils.printElementById('image_4');
-            const widget = CabbageUtils.getWidgetFromChannel('image_4', widgets);
-            if (widget) {
-                console.log('Widget props for image_4', ':', widget);
-            } else {
-                console.log('No widget found for channel');
-            }
 
             const currentTime = Date.now(); // Get the current time
             // Check if the time since the last click is within the double-click threshold

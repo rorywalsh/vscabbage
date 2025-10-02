@@ -19,11 +19,20 @@ export class HorizontalRangeSlider {
       },
       "channel": "hrslider",
       "range": {
+        "x":{
         "min": 0,
         "max": 1,
         "defaultValue": 0,
         "skew": 1,
         "increment": 0.001
+        },
+        "y":{
+        "min": 0,
+        "max": 1,
+        "defaultValue": 0,
+        "skew": 1,
+        "increment": 0.001
+        }
       },
       "value": null,
       "text": "",
