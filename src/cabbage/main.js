@@ -104,6 +104,7 @@ window.addEventListener('message', async event => {
         case 'widgetUpdate':
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
+            console.log(`main.js widgetUpdate: channel=${updateMsg.channel}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 

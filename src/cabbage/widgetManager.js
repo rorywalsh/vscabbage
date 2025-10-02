@@ -178,7 +178,7 @@ export class WidgetManager {
             widget.props.currentCsdFile = currentCsdFile;
         }
         // Add the widget to the global widgets array
-        console.log("Cabbage: Pushing widget to widgets array", widget);
+        console.log("Cabbage: Pushing widget to widgets array", widget, `parentChannel: ${widget.props.parentChannel || 'none'}`);
         widgets.push(widget);
         widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
 
@@ -385,6 +385,12 @@ export class WidgetManager {
         }
 
         console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", parentWidget.props.channel);
+        
+        // Log parent container info
+        if (parentDiv) {
+            const parentStyle = window.getComputedStyle(parentDiv);
+            console.log(`Cabbage: Parent ${parentWidget.props.channel} - position: ${parentStyle.position}, zIndex: ${parentStyle.zIndex}, display: ${parentStyle.display}, transform: ${parentStyle.transform}`);
+        }
 
         for (const childProps of parentWidget.props.children) {
             // Calculate absolute position based on parent's position + relative position
@@ -400,13 +406,25 @@ export class WidgetManager {
                 parentChannel: parentWidget.props.channel // Mark as child
             };
 
+            console.log(`Cabbage: Inserting child ${childProps.channel} (type: ${childProps.type}) at position (${absoluteBounds.left}, ${absoluteBounds.top})`);
+
             // Insert the child widget
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
 
             // Ensure child widgets appear above their container
             const childDiv = document.getElementById(childProps.channel);
             if (childDiv) {
-                childDiv.style.zIndex = '10'; // Higher than container
+                const computedStyle = window.getComputedStyle(childDiv);
+                console.log(`Cabbage: Child ${childProps.channel} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
+                
+                // Explicitly set position and transform for child widgets
+                childDiv.style.position = 'absolute';
+                childDiv.style.top = '0px';
+                childDiv.style.left = '0px';
+                childDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
+                childDiv.style.width = childProps.bounds.width + 'px';
+                childDiv.style.height = childProps.bounds.height + 'px';
+                childDiv.style.zIndex = '10000'; // Higher than container (parent is 9999)
                 childDiv.setAttribute('data-parent-channel', parentWidget.props.channel); // Mark as child widget
 
                 // Set pointer events based on mode
@@ -415,11 +433,17 @@ export class WidgetManager {
                 } else {
                     childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
                 }
+                
+                // Log final position after style application
+                const finalStyle = window.getComputedStyle(childDiv);
+                console.log(`Cabbage: Child ${childProps.channel} final position: ${finalStyle.position}, transform: ${finalStyle.transform}, zIndex: ${finalStyle.zIndex}, pointerEvents: ${finalStyle.pointerEvents}`);
+            } else {
+                console.error(`Cabbage: Child div for ${childProps.channel} NOT FOUND!`);
             }
 
-            // Ensure container has lower z-index
+            // Ensure container has lower z-index than children
             if (parentDiv) {
-                parentDiv.style.zIndex = '5';
+                parentDiv.style.zIndex = '9999';
             }
         }
     }    /**
@@ -489,11 +513,18 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-        // console.log(`WidgetManager.updateWidget called with:`, JSON.stringify(obj, null, 2));
+        console.log(`WidgetManager.updateWidget called with channel: ${obj.channel}, hasValue: ${obj.hasOwnProperty('value')}, hasData: ${obj.hasOwnProperty('data')}`);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => w.props.channel === obj.channel);
         let widgetFound = false;
+        
+        // Check if this is a child widget
+        const isChildWidget = widget && widget.props.parentChannel;
+        if (isChildWidget) {
+            console.log(`WidgetManager.updateWidget: ${obj.channel} is a child of ${widget.props.parentChannel}`);
+        }
+        
         if (widget) {
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, data=${obj.data}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
@@ -600,7 +631,25 @@ export class WidgetManager {
                     widgetDiv.innerHTML = widget.getInnerHTML();
 
                     // Update widget position and size for non-form widgets using consistent styling
-                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+                    // For child widgets, calculate absolute position
+                    let propsForStyling = widget.props;
+                    if (widget.props.parentChannel) {
+                        const parentWidget = widgets.find(w => w.props.channel === widget.props.parentChannel);
+                        if (parentWidget) {
+                            const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
+                            const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
+                            propsForStyling = {
+                                ...widget.props,
+                                bounds: {
+                                    ...widget.props.bounds,
+                                    left: absoluteLeft,
+                                    top: absoluteTop
+                                }
+                            };
+                            console.log(`Cabbage: Child widget ${widget.props.channel} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                        }
+                    }
+                    WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
 
                     // If this widget has children, update their positions
                     if (widget.props.children && Array.isArray(widget.props.children)) {
