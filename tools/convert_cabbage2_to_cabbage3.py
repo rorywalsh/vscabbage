@@ -51,6 +51,7 @@ class Cabbage2To3Converter:
             'image': 'image',
             'label': 'label',
             'button': 'button',
+            'xypad': 'xyPad',
             'form': 'form'
         }
 
@@ -429,8 +430,8 @@ class Cabbage2To3Converter:
         if key.lower() in ['colour', 'color', 'textcolour', 'textcolor', 'trackercolour', 'trackercolor', 'outlinecolour', 'outlinecolor', 'fontcolour', 'fontcolor']:
             return self.parse_color_value(value_str)
 
-        # Handle range
-        if key.lower() == 'range':
+        # Handle range, rangeX, rangeY
+        if key.lower() in ['range', 'rangex', 'rangey']:
             return self.parse_range_value(value_str)
 
         # Handle bounds/size
@@ -440,6 +441,14 @@ class Cabbage2To3Converter:
         # Handle text
         if key.lower() == 'text':
             return self.parse_text_value(value_str)
+
+        # Handle channel (can have multiple values for xyPad)
+        if key.lower() == 'channel':
+            if ',' in value_str:
+                # Multiple channel values (like for xyPad)
+                return [self.parse_single_value(v.strip()) for v in value_str.split(',')]
+            else:
+                return self.parse_single_value(value_str)
 
         # Handle numeric values
         if ',' in value_str:
@@ -507,14 +516,14 @@ class Cabbage2To3Converter:
         return value_str
 
     def parse_range_value(self, value_str):
-        """Parse range(min,max,default,skew)"""
+        """Parse range(min,max,default,skew,increment)"""
         values = [self.parse_single_value(v.strip()) for v in value_str.split(',')]
         range_obj = {
             'min': values[0] if len(values) > 0 else 0,
             'max': values[1] if len(values) > 1 else 1,
             'defaultValue': values[2] if len(values) > 2 else values[0] if len(values) > 0 else 0,
             'skew': values[3] if len(values) > 3 else 1,
-            'increment': 0.001  # Default increment
+            'increment': values[4] if len(values) > 4 else 0.001  # Use 5th value if provided, else default
         }
         return range_obj
 
@@ -604,14 +613,62 @@ class Cabbage2To3Converter:
         """Handle special property mappings and defaults"""
         widget_type = widget.get('type', '')
 
+        # Special handling for xyPad widget
+        if widget_type == 'xyPad':
+            # Handle channel("x", "y") format - convert to object with id, x, y
+            if 'channel' in properties:
+                channel_value = properties['channel']
+                if isinstance(channel_value, list) and len(channel_value) >= 2:
+                    widget['channel'] = {
+                        'id': self.generate_unique_channel('xyPad'),
+                        'x': channel_value[0],
+                        'y': channel_value[1]
+                    }
+                    properties.pop('channel', None)
+            
+            # Handle rangeX and rangeY - convert to nested range object
+            if 'rangeX' in properties or 'rangeY' in properties:
+                range_obj = {}
+                if 'rangeX' in properties:
+                    rangeX_value = properties['rangeX']
+                    if isinstance(rangeX_value, dict):
+                        range_obj['x'] = rangeX_value
+                    else:
+                        # If it's a list of values, parse as range
+                        range_obj['x'] = self.parse_range_value(','.join(str(v) for v in rangeX_value)) if isinstance(rangeX_value, list) else rangeX_value
+                    properties.pop('rangeX', None)
+                
+                if 'rangeY' in properties:
+                    rangeY_value = properties['rangeY']
+                    if isinstance(rangeY_value, dict):
+                        range_obj['y'] = rangeY_value
+                    else:
+                        # If it's a list of values, parse as range
+                        range_obj['y'] = self.parse_range_value(','.join(str(v) for v in rangeY_value)) if isinstance(rangeY_value, list) else rangeY_value
+                    properties.pop('rangeY', None)
+                
+                if range_obj:
+                    widget['range'] = range_obj
+            
+            # Handle text property for xyPad - convert array to object
+            if 'text' in properties:
+                text_value = properties['text']
+                if isinstance(text_value, list) and len(text_value) >= 2:
+                    widget['text'] = {'x': text_value[0], 'y': text_value[1]}
+                    properties.pop('text', None)
+                elif isinstance(text_value, str):
+                    widget['text'] = {'x': text_value, 'y': text_value}
+                    properties.pop('text', None)
+
         # Handle text property for widgets that use text object
-        if 'text' in properties and widget_type in ['button', 'optionButton']:
+        if 'text' in properties:
             text_value = properties['text']
-            if isinstance(text_value, str):
-                # Single text state - use for both on and off
-                widget['text'] = {'on': text_value, 'off': text_value}
-            elif isinstance(text_value, dict):
-                widget['text'] = text_value
+            if widget_type in ['button', 'optionButton']:
+                if isinstance(text_value, str):
+                    # Single text state - use for both on and off
+                    widget['text'] = {'on': text_value, 'off': text_value}
+                elif isinstance(text_value, dict):
+                    widget['text'] = text_value
 
         # Handle colour mappings - only if not already handled by nested properties
         if 'colour' in properties and 'colour' not in widget:
@@ -783,6 +840,25 @@ class Cabbage2To3Converter:
             
         return False
 
+    def collect_all_channels(self, widgets):
+        """Collect all channel names from widgets, including nested channels for xyPad"""
+        channels = set()
+        for widget in widgets:
+            if 'channel' in widget:
+                channel = widget['channel']
+                if isinstance(channel, str):
+                    channels.add(channel)
+                elif isinstance(channel, dict):
+                    # For xyPad and similar multi-channel widgets
+                    if 'x' in channel:
+                        channels.add(channel['x'])
+                    if 'y' in channel:
+                        channels.add(channel['y'])
+            # Recursively check children
+            if 'children' in widget:
+                channels.update(self.collect_all_channels(widget['children']))
+        return channels
+
     def replace_ident_channel_opcodes(self, instruments_content):
         """Replace chnget/chnset opcodes that use identChannels with Cabbage3 equivalents"""
         lines = instruments_content.split('\n')
@@ -827,6 +903,38 @@ class Cabbage2To3Converter:
         
         return '\n'.join(modified_lines)
 
+    def replace_chnset_with_cabbagesetvalue(self, instruments_content, all_channels):
+        """Replace chnset k-rate-var, \"channel\" with cabbageSetValue \"channel\", k-rate-var, changed:k(k-rate-var)
+        Only converts if the channel is found in the Cabbage section and the variable is k-rate"""
+        lines = instruments_content.split('\n')
+        modified_lines = []
+        chnset_value_pattern = r'chnset\s+(k\w+)\s*,\s*"([^"]+)"'
+        
+        for line in lines:
+            # Check if this line has a chnset with a k-rate variable
+            match = re.search(chnset_value_pattern, line)
+            if match:
+                k_var = match.group(1)
+                channel_name = match.group(2)
+                
+                # Only convert if the channel exists in the Cabbage section
+                if channel_name in all_channels:
+                    # Replace with cabbageSetValue
+                    new_line = re.sub(
+                        chnset_value_pattern,
+                        f'cabbageSetValue "{channel_name}", {k_var}, changed:k({k_var})',
+                        line
+                    )
+                    modified_lines.append(new_line)
+                    self.conversions_applied['chnset_value_ops'] += 1
+                else:
+                    # Channel not in Cabbage section, leave as is
+                    modified_lines.append(line)
+            else:
+                modified_lines.append(line)
+        
+        return '\n'.join(modified_lines)
+
     def convert_file(self, input_file, output_dir):
         """Convert a single Cabbage2 file to Cabbage3"""
         with open(input_file, 'r', encoding='utf-8') as f:
@@ -856,6 +964,9 @@ class Cabbage2To3Converter:
 
         new_content = content.replace(cabbage_match.group(0), new_cabbage_section)
 
+        # Collect all channel names from widgets for chnset conversion
+        all_channels = self.collect_all_channels(widgets)
+
         # Replace identChannel references and ParallelWidgets blocks in orchestra code
         instruments_match = re.search(r'<CsInstruments>(.*?)</CsInstruments>', new_content, re.DOTALL)
         if instruments_match:
@@ -881,6 +992,10 @@ class Cabbage2To3Converter:
                         if 'cabbageSet' not in line:
                             lines[i] = re.sub(r'\b' + re.escape(ident_channel) + r'\b', channel, line)
                     modified_instruments = '\n'.join(lines)
+
+            # Convert general chnset statements to cabbageSetValue for k-rate variables
+            # This handles cases like: chnset kcf, "cfDisp" -> cabbageSetValue "cfDisp", kcf, changed:k(kcf)
+            modified_instruments = self.replace_chnset_with_cabbagesetvalue(modified_instruments, all_channels)
 
             # Replace the instruments section
             new_content = new_content.replace(instruments_match.group(0), f"<CsInstruments>{modified_instruments}</CsInstruments>")
