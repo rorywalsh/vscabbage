@@ -549,12 +549,9 @@ export class WidgetManager {
         const channelStr = typeof obj.channel === 'object'
             ? (obj.channel.id || obj.channel.x)
             : obj.channel;
-        console.log(`WidgetManager.updateWidget called with channel: ${channelStr}, hasValue: ${obj.hasOwnProperty('value')}, hasData: ${obj.hasOwnProperty('data')}`);
-        console.log(`WidgetManager.updateWidget: obj.channel type=${typeof obj.channel}, value=`, obj.channel);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => {
-            console.log(`Comparing widget channel:`, w.props.channel, `with obj.channel:`, obj.channel, `match=`, WidgetManager.channelsMatch(w.props.channel, obj.channel));
             return WidgetManager.channelsMatch(w.props.channel, obj.channel);
         });
         let widgetFound = false;
@@ -585,14 +582,11 @@ export class WidgetManager {
                                 // Assume received value is linear normalized [0,1], convert to skewed
                                 const skewedNormalized = Math.pow(obj.value, widget.props.range.skew);
                                 newValue = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
-                                console.log(`WidgetManager.updateWidget: converting linear ${obj.value} to skewed ${newValue} for ${widget.props.type}`);
                             } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
                                 // Assume received value is already skewed
                                 newValue = obj.value;
-                                console.log(`WidgetManager.updateWidget: received skewed value ${obj.value} for ${widget.props.type}, using directly`);
                             } else {
-                                console.log(`WidgetManager.updateWidget: invalid value ${obj.value} for ${widget.props.type}, skipping update`);
-                                return; // Skip update for invalid values
+                               return; // Skip update for invalid values
                             }
                         }
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);

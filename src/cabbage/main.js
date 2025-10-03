@@ -107,7 +107,7 @@ window.addEventListener('message', async event => {
             const channelId = typeof updateMsg.channel === 'object' 
                 ? (updateMsg.channel.id || updateMsg.channel.x) 
                 : updateMsg.channel;
-            console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
+            // console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 

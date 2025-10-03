@@ -663,6 +663,11 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
 
             websocket = ws;
 
+            // Add error handler for the websocket
+            ws.on('error', (error) => {
+                console.error('Cabbage: WebSocket error:', error);
+            });
+
             // Listen for messages from the Cabbage service app
             ws.on('message', (message) => {
                 const msg = JSON.parse(message.toString());

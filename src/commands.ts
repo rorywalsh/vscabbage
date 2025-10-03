@@ -344,8 +344,22 @@ export class Commands {
                 break;
 
             default:
+                console.log('Cabbage: handleWebviewMessage default case, command:', message.command);
                 if (this.websocket) {
-                    this.websocket.send(JSON.stringify(message));
+                    const jsonMessage = JSON.stringify(message);
+                    console.log('Cabbage: Forwarding message to websocket:', message);
+                    console.log('Cabbage: Stringified message being sent:', jsonMessage);
+                    console.log('Cabbage: WebSocket readyState:', this.websocket.readyState);
+                    console.log('Cabbage: WebSocket readyState meaning: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED');
+                    
+                    if (this.websocket.readyState === 1) {
+                        this.websocket.send(jsonMessage);
+                        console.log('Cabbage: Message sent successfully');
+                    } else {
+                        console.error('Cabbage: WebSocket not in OPEN state, cannot send. State:', this.websocket.readyState);
+                    }
+                } else {
+                    console.error('Cabbage: websocket is null, cannot send message');
                 }
         }
     }

@@ -81,6 +81,16 @@ export class XyPad {
         this.decimalPlaces = 0;
         this.ballX = 0.5; // Normalized position [0,1]
         this.ballY = 0.5; // Normalized position [0,1]
+        
+        // Slingshot animation properties
+        this.isRightDragging = false;
+        this.slingshotStartX = 0;
+        this.slingshotStartY = 0;
+        this.velocityX = 0;
+        this.velocityY = 0;
+        this.isAnimating = false;
+        this.animationFrameId = null;
+        this.trajectoryLine = null;
     }
 
     /**
@@ -101,6 +111,27 @@ export class XyPad {
             popup.classList.remove('show');
         }
 
+        // Handle slingshot release
+        if (this.isRightDragging) {
+            this.isRightDragging = false;
+            this.removeTrajectoryLine();
+            
+            // Calculate velocity from drag distance (reverse direction for slingshot effect)
+            const dragDistanceX = this.ballX - this.slingshotStartX;
+            const dragDistanceY = this.ballY - this.slingshotStartY;
+            const dragDistance = Math.sqrt(dragDistanceX * dragDistanceX + dragDistanceY * dragDistanceY);
+            
+            // Scale velocity by drag distance and reverse direction (slingshot pulls back)
+            const speedMultiplier = 0.02; // Adjust this to control overall speed
+            this.velocityX = -dragDistanceX * speedMultiplier;
+            this.velocityY = -dragDistanceY * speedMultiplier;
+            
+            // Start animation if there's meaningful velocity
+            if (Math.abs(this.velocityX) > 0.0001 || Math.abs(this.velocityY) > 0.0001) {
+                this.startAnimation();
+            }
+        }
+
         // Release pointer capture
         if (this.activePointerId !== undefined && evt.target) {
             try {
@@ -117,6 +148,28 @@ export class XyPad {
     }
 
     pointerDown(evt) {
+        // Stop any ongoing animation on any click
+        if (this.isAnimating) {
+            this.stopAnimation();
+            return; // Don't start a new drag, just stop animation
+        }
+
+        // Check if this is a right-click (button 2)
+        if (evt.button === 2) {
+            evt.preventDefault(); // Prevent context menu
+            this.isRightDragging = true;
+            this.slingshotStartX = this.ballX;
+            this.slingshotStartY = this.ballY;
+            
+            // Capture pointer
+            evt.target.setPointerCapture(evt.pointerId);
+            this.activePointerId = evt.pointerId;
+            
+            window.addEventListener("pointermove", this.moveListener);
+            window.addEventListener("pointerup", this.upListener);
+            return;
+        }
+
         this.isMouseDown = true;
 
         // Capture pointer to ensure we receive pointerup even if pointer leaves element
@@ -161,7 +214,7 @@ export class XyPad {
     }
 
     pointerMove(evt) {
-        if (!this.isMouseDown) return;
+        if (!this.isMouseDown && !this.isRightDragging) return;
 
         const channelId = typeof this.props.channel === 'object'
             ? (this.props.channel.id || this.props.channel.x)
@@ -199,7 +252,13 @@ export class XyPad {
         this.ballY = Math.max(minYRange, Math.min(maxYRange, normalizedY));
 
         this.updateBallPosition();
-        this.sendParameterUpdates();
+        
+        // Handle slingshot trajectory line
+        if (this.isRightDragging) {
+            this.updateTrajectoryLine();
+        } else {
+            this.sendParameterUpdates();
+        }
     }
 
     updateBallPosition() {
@@ -212,6 +271,8 @@ export class XyPad {
         const ball = padDiv.querySelector('.xypad-ball');
         const valueBoxX = padDiv.querySelector('.xypad-value-x');
         const valueBoxY = padDiv.querySelector('.xypad-value-y');
+        const crosshairH = padDiv.querySelector('.xypad-crosshair-h');
+        const crosshairV = padDiv.querySelector('.xypad-crosshair-v');
 
         // Define dimensions at method scope
         const padWidth = this.props.bounds.width;
@@ -222,9 +283,20 @@ export class XyPad {
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
+        const ballLeft = this.ballX * effectiveWidth;
+        const ballTop = this.ballY * activeHeight;
+
         if (ball) {
-            ball.style.left = (this.ballX * effectiveWidth) + 'px';
-            ball.style.top = (this.ballY * activeHeight) + 'px';
+            ball.style.left = ballLeft + 'px';
+            ball.style.top = ballTop + 'px';
+        }
+
+        // Update crosshair positions to follow the ball
+        if (crosshairH) {
+            crosshairH.style.top = ballTop + 'px';
+        }
+        if (crosshairV) {
+            crosshairV.style.left = ballLeft + 'px';
         }
 
         // Update value displays
@@ -290,15 +362,17 @@ export class XyPad {
             value: xToSend,
             channelType: "number"
         };
+        console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
         Cabbage.sendParameterUpdate(msgX, this.vscode);
 
         // Send Y channel update
         const msgY = {
             paramIdx: this.parameterIndex + 1,
-            channel: this.props.channel.y,
+            channel: this.props.channel.y,  
             value: yToSend,
             channelType: "number"
         };
+        console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
         Cabbage.sendParameterUpdate(msgY, this.vscode);
     }
 
@@ -365,6 +439,39 @@ export class XyPad {
                 background-color: ${this.props.colour.fill}; 
                 position: relative; cursor: crosshair;
                 ${padCornerStyle}">
+                    <!-- Crosshairs using divs with CSS gradients for fading effect -->
+                    <!-- Horizontal crosshair -->
+                    <div class="xypad-crosshair-h" style="
+                        position: absolute;
+                        left: 0;
+                        top: ${ballTop}px;
+                        width: 100%;
+                        height: 2px;
+                        background: linear-gradient(to right, 
+                            transparent 0%, 
+                            ${this.props.colour.ball.fill}40 20%, 
+                            ${this.props.colour.ball.fill}B3 50%, 
+                            ${this.props.colour.ball.fill}40 80%, 
+                            transparent 100%);
+                        pointer-events: none;
+                        transform: translateY(-50%);
+                    "></div>
+                    <!-- Vertical crosshair -->
+                    <div class="xypad-crosshair-v" style="
+                        position: absolute;
+                        left: ${ballLeft}px;
+                        top: 0;
+                        width: 2px;
+                        height: 100%;
+                        background: linear-gradient(to bottom, 
+                            transparent 0%, 
+                            ${this.props.colour.ball.fill}40 20%, 
+                            ${this.props.colour.ball.fill}B3 50%, 
+                            ${this.props.colour.ball.fill}40 80%, 
+                            transparent 100%);
+                        pointer-events: none;
+                        transform: translateX(-50%);
+                    "></div>
                     <div class="xypad-ball" style="
                         position: absolute;
                         width: ${ballSize}px;
@@ -412,14 +519,131 @@ export class XyPad {
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
-        console.log("XyPad.addVsCodeEventListeners called for div:", widgetDiv.id);
         this.vscode = vs;
         this.addEventListeners(widgetDiv);
     }
 
     addEventListeners(widgetDiv) {
-        console.log("XyPad.addEventListeners called for div:", widgetDiv.id);
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        console.log("XyPad: pointerdown listener attached to", widgetDiv.id);
+        
+        // Prevent context menu on right-click
+        widgetDiv.addEventListener("contextmenu", (evt) => {
+            evt.preventDefault();
+            return false;
+        });
+    }
+
+    updateTrajectoryLine() {
+        const channelId = typeof this.props.channel === 'object'
+            ? (this.props.channel.id || this.props.channel.x)
+            : this.props.channel;
+        const padDiv = document.getElementById(channelId);
+        if (!padDiv) return;
+
+        const padArea = padDiv.querySelector('div[style*="cursor: crosshair"]');
+        if (!padArea) return;
+
+        // Remove old line if exists
+        this.removeTrajectoryLine();
+
+        const padWidth = this.props.bounds.width;
+        const padHeight = this.props.bounds.height;
+        const strokeWidth = this.props.colour.stroke.width;
+        const effectiveWidth = padWidth - (2 * strokeWidth);
+        const effectiveHeight = padHeight - (2 * strokeWidth);
+        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const activeHeight = effectiveHeight - valueBoxHeight;
+
+        // Calculate pixel positions
+        const startX = this.slingshotStartX * effectiveWidth;
+        const startY = this.slingshotStartY * activeHeight;
+        const endX = this.ballX * effectiveWidth;
+        const endY = this.ballY * activeHeight;
+
+        // Create SVG line for trajectory
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('style', 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;');
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', startX);
+        line.setAttribute('y1', startY);
+        line.setAttribute('x2', endX);
+        line.setAttribute('y2', endY);
+        line.setAttribute('stroke', this.props.colour.ball.fill);
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-dasharray', '5,5');
+        
+        svg.appendChild(line);
+        padArea.appendChild(svg);
+        this.trajectoryLine = svg;
+    }
+
+    removeTrajectoryLine() {
+        if (this.trajectoryLine && this.trajectoryLine.parentNode) {
+            this.trajectoryLine.parentNode.removeChild(this.trajectoryLine);
+            this.trajectoryLine = null;
+        }
+    }
+
+    startAnimation() {
+        if (this.isAnimating) return;
+        
+        this.isAnimating = true;
+        const animate = () => {
+            if (!this.isAnimating) return;
+
+            const padWidth = this.props.bounds.width;
+            const padHeight = this.props.bounds.height;
+            const strokeWidth = this.props.colour.stroke.width;
+            const effectiveWidth = padWidth - (2 * strokeWidth);
+            const effectiveHeight = padHeight - (2 * strokeWidth);
+            const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+            const activeHeight = effectiveHeight - valueBoxHeight;
+            const ballRadius = this.props.ballSize / 2;
+
+            // Calculate boundaries accounting for ball radius
+            const maxXRange = 1 - (ballRadius / effectiveWidth);
+            const maxYRange = 1 - (ballRadius / activeHeight);
+            const minXRange = ballRadius / effectiveWidth;
+            const minYRange = ballRadius / activeHeight;
+
+            // Update ball position
+            this.ballX += this.velocityX;
+            this.ballY += this.velocityY;
+
+            // Bounce off boundaries
+            if (this.ballX <= minXRange) {
+                this.ballX = minXRange;
+                this.velocityX = Math.abs(this.velocityX); // Reverse and make positive
+            } else if (this.ballX >= maxXRange) {
+                this.ballX = maxXRange;
+                this.velocityX = -Math.abs(this.velocityX); // Reverse and make negative
+            }
+
+            if (this.ballY <= minYRange) {
+                this.ballY = minYRange;
+                this.velocityY = Math.abs(this.velocityY); // Reverse and make positive
+            } else if (this.ballY >= maxYRange) {
+                this.ballY = maxYRange;
+                this.velocityY = -Math.abs(this.velocityY); // Reverse and make negative
+            }
+
+            this.updateBallPosition();
+            this.sendParameterUpdates();
+
+            this.animationFrameId = requestAnimationFrame(animate);
+        };
+
+        this.animationFrameId = requestAnimationFrame(animate);
+    }
+
+    stopAnimation() {
+        this.isAnimating = false;
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        this.velocityX = 0;
+        this.velocityY = 0;
     }
 }

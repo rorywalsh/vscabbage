@@ -11,10 +11,13 @@ export class Cabbage {
       command: "parameterChange",
       obj: JSON.stringify(message)
     };
+    console.log("Cabbage.sendParameterUpdate:", message, "vscode:", vscode, "msg:", msg);
     if (vscode !== null) {
+      console.log("Sending via vscode.postMessage");
       vscode.postMessage(msg);
     }
     else {
+      console.log("Sending via window.sendMessageFromUI");
       window.sendMessageFromUI(msg);
     }
   }
