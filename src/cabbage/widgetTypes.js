@@ -19,6 +19,8 @@ import { Button } from "./widgets/button.js";
 // @ts-ignore
 import { FileButton } from "./widgets/fileButton.js";
 // @ts-ignore
+import { InfoButton } from "./widgets/infoButton.js";
+// @ts-ignore
 import { OptionButton } from "./widgets/optionButton.js";
 // @ts-ignore
 import { Checkbox } from "./widgets/checkBox.js";
@@ -57,6 +59,7 @@ export const widgetConstructors = {
 	"form": Form,
 	"button": Button,
 	"fileButton": FileButton,
+	"infoButton": InfoButton,
 	"optionButton": OptionButton,
 	"genTable": GenTable,
 	"label": Label,

@@ -92,5 +92,23 @@ export class Cabbage {
     }
   }
 
+  static openUrl(vscode, url, file) {
+    var message = {
+      "url": url,
+      "file": file
+    };
+
+    const msg = {
+      command: "openUrl",
+      obj: JSON.stringify(message)
+    };
+    if (vscode !== null) {
+      vscode.postMessage(msg);
+    }
+    else {
+      window.sendMessageFromUI(msg);
+    }
+  }
+
 
 }

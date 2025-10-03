@@ -61,7 +61,7 @@ export class Commands {
         this.vscodeOutputChannel.appendLine(`File: ${file}`);
         this.vscodeOutputChannel.appendLine(`Channel: ${channel}`);
         this.vscodeOutputChannel.appendLine(`WebSocket connected: ${websocket ? 'yes' : 'no'}`);
-        
+
         // Log file contents if it contains xyPad (for debugging the specific issue)
         if (file && fs.existsSync(file)) {
             try {
@@ -71,7 +71,7 @@ export class Commands {
                 this.vscodeOutputChannel.appendLine(`Contains xyPad widget: ${hasXyPad ? 'yes' : 'no'}`);
                 if (hasXyPad) {
                     // Extract xyPad lines for debugging
-                    const xyPadLines = fileContent.split('\n').filter(line => 
+                    const xyPadLines = fileContent.split('\n').filter(line =>
                         line.toLowerCase().includes('xypad')).slice(0, 5); // First 5 xyPad lines
                     this.vscodeOutputChannel.appendLine(`xyPad widget lines:`);
                     xyPadLines.forEach(line => this.vscodeOutputChannel.appendLine(`  ${line.trim()}`));
@@ -93,7 +93,7 @@ export class Commands {
             command: "setFileAsInput",
             obj: JSON.stringify(m),
         };
-        
+
         this.vscodeOutputChannel.appendLine(`Sending WebSocket message: ${JSON.stringify(msg)}`);
         websocket?.send(JSON.stringify(msg));
 
@@ -310,6 +310,34 @@ export class Commands {
                 });
                 break;
 
+            case 'openUrl':
+                const urlData = JSON.parse(message.obj);
+                let urlToOpen = urlData.url;
+
+                // If no URL provided, check if file property has a URL or path
+                if (!urlToOpen && urlData.file) {
+                    // Check if the file property is actually a URL
+                    if (urlData.file.startsWith('http://') || urlData.file.startsWith('https://')) {
+                        urlToOpen = urlData.file;
+                    } else {
+                        // It's a file path - construct a file:// URL
+                        const path = require('path');
+                        const activeEditor = vscode.window.activeTextEditor;
+                        if (activeEditor) {
+                            const csdDir = path.dirname(activeEditor.document.fileName);
+                            const fullPath = path.resolve(csdDir, urlData.file);
+                            urlToOpen = vscode.Uri.file(fullPath).toString();
+                        }
+                    }
+                }
+
+                if (urlToOpen) {
+                    vscode.env.openExternal(vscode.Uri.parse(urlToOpen));
+                } else {
+                    vscode.window.showWarningMessage('InfoButton: No URL or file specified');
+                }
+                break;
+
             case 'saveFromUIEditor':
                 let documentToSave: vscode.TextDocument | undefined;
 
@@ -351,7 +379,7 @@ export class Commands {
                     console.log('Cabbage: Stringified message being sent:', jsonMessage);
                     console.log('Cabbage: WebSocket readyState:', this.websocket.readyState);
                     console.log('Cabbage: WebSocket readyState meaning: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED');
-                    
+
                     if (this.websocket.readyState === 1) {
                         this.websocket.send(jsonMessage);
                         console.log('Cabbage: Message sent successfully');
@@ -471,8 +499,8 @@ export class Commands {
         const colourPickerStyles = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'color-picker.css'));
 
         // Detect current VS Code theme
-        const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark || 
-                           vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+        const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
+            vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
 
         this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, isDarkTheme);
         return this.panel;
@@ -664,13 +692,13 @@ export class Commands {
                 if (index > -1) {
                     this.processes.splice(index, 1);
                 }
-                
+
                 this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
                 this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
                 this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
                 this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
                 this.vscodeOutputChannel.appendLine(`Command: ${command}`);
-                
+
                 if (signal) {
                     this.vscodeOutputChannel.appendLine(`Signal details:`);
                     switch (signal) {
@@ -694,7 +722,7 @@ export class Commands {
                             this.vscodeOutputChannel.appendLine(`  - Signal ${signal}: Check system documentation for details`);
                     }
                 }
-                
+
                 if (code !== null) {
                     if (code === 0) {
                         this.vscodeOutputChannel.appendLine('Cabbage server terminated successfully.');
@@ -704,7 +732,7 @@ export class Commands {
                         this.vscodeOutputChannel.appendLine(`Cabbage server terminated with non-zero exit code: ${code}`);
                     }
                 }
-                
+
                 this.vscodeOutputChannel.appendLine('=== END EXIT ===');
                 this.vscodeOutputChannel.show(true);
             });
@@ -770,15 +798,15 @@ export class Commands {
         const config = vscode.workspace.getConfiguration('cabbage');
         const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
 
-    const warningComment = ExtensionUtils.getWarningComment();
+        const warningComment = ExtensionUtils.getWarningComment();
 
-    const cabbageContent = warningComment + `
+        const cabbageContent = warningComment + `
 <Cabbage>[
 {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"}
 ]</Cabbage>`;
 
         const edit = new vscode.WorkspaceEdit();
-        
+
         if (cabbageSectionPosition === 'top') {
             // Insert at the beginning of the file
             edit.insert(document.uri, new vscode.Position(0, 0), cabbageContent);
@@ -787,7 +815,7 @@ export class Commands {
             const text = document.getText();
             const csoundEndTag = '</CsoundSynthesizer>';
             const endIndex = text.indexOf(csoundEndTag);
-            
+
             if (endIndex !== -1) {
                 // Insert after the closing tag
                 const insertPosition = document.positionAt(endIndex + csoundEndTag.length);

@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 import argparse
+import platform
 
 class Cabbage2To3Converter:
     def replace_parallelwidgets_blocks(self, instruments_content):
@@ -42,6 +43,7 @@ class Cabbage2To3Converter:
             'combobox': 'comboBox',
             'groupbox': 'groupBox',
             'optionbutton': 'optionButton',
+            'infobutton': 'infoButton',
             'keyboard': 'keyboard',
             'gentable': 'genTable',
             'texteditor': 'textEditor',
@@ -1042,7 +1044,17 @@ class Cabbage2To3Converter:
 def main():
     parser = argparse.ArgumentParser(description='Convert Cabbage2 files to Cabbage3 JSON syntax')
     parser.add_argument('input_file', help='Input Cabbage2 .csd file')
-    parser.add_argument('--outdir', default=r'C:\Users\rory\OneDrive\Csoundfiles\cabbage3\converted',
+    # Cross-platform OneDrive default path
+    def get_default_outdir():
+        system = platform.system()
+        if system == "Windows":
+            return os.path.expanduser(r"~\OneDrive\Csoundfiles\cabbage3\converted")
+        elif system == "Darwin":  # macOS
+            return os.path.expanduser("~/Library/CloudStorage/OneDrive-Personal/Csoundfiles/cabbage3/converted")
+        else:  # Linux or other
+            return os.path.expanduser("~/OneDrive/Csoundfiles/cabbage3/converted")
+    
+    parser.add_argument('--outdir', default=get_default_outdir(),
                        help='Output directory for converted files')
 
     args = parser.parse_args()
