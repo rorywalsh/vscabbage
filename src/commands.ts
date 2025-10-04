@@ -286,7 +286,7 @@ export class Commands {
                 break;
 
             case 'fileOpen':
-                const jsonText = JSON.parse(message.text);
+                const jsonText = JSON.parse(message.obj);
                 vscode.window.showOpenDialog({
                     canSelectFiles: true,
                     canSelectFolders: false,
@@ -305,6 +305,9 @@ export class Commands {
                             command: "fileOpenFromVSCode",
                             text: JSON.stringify(m)
                         };
+                        // Send to webview to update the UI
+                        this.panel?.webview.postMessage(msg);
+                        // Also send to backend via WebSocket
                         this.websocket?.send(JSON.stringify(msg));
                     }
                 });

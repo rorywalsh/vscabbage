@@ -175,7 +175,9 @@ export class Button {
     } else {
       textX = this.props.bounds.width / 2;
     }
-    const buttonText = this.props.type === "filebutton" ? this.props.text : (this.props.value === 1 ? this.props.text.on : this.props.text.off);
+    const buttonText = (this.props.type === "fileButton" || this.props.type === "infoButton") ?
+      (this.props.value === 1 ? this.props.text.on : this.props.text.off) :
+      (this.props.value === 1 ? this.props.text.on : this.props.text.off);
     const baseColour = this.props.colour.on.fill !== this.props.colour.off.fill ? (this.props.value === 1 ? this.props.colour.on.fill : this.props.colour.off.fill) : this.props.colour.on.fill;
     const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;

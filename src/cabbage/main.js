@@ -143,6 +143,21 @@ window.addEventListener('message', async event => {
             updateChildWidgetPointerEvents('nonDraggable');
             break;
 
+        // Called when a file is selected from the file dialog
+        case 'fileOpenFromVSCode':
+            const fileData = JSON.parse(message.text);
+            const fileButtonWidget = widgets.find(w => w.props.channel === fileData.channel);
+            if (fileButtonWidget) {
+                // Toggle the button value
+                fileButtonWidget.props.value = fileButtonWidget.props.value === 1 ? 0 : 1;
+                // Update the button's visual state
+                CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
+                // Send parameter update to backend
+                Cabbage.sendParameterUpdate(fileButtonWidget.parameterIndex, fileButtonWidget.props.value);
+                console.log(`Cabbage: FileButton ${fileData.channel} toggled to ${fileButtonWidget.props.value}, file: ${fileData.fileName}`);
+            }
+            break;
+
         // Called when entering edit mode. Converts existing widgets to draggable mode.
         case 'onEnterEditMode':
             CabbageUtils.hideOverlay(); // Hide the overlay

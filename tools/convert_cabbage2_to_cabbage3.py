@@ -46,6 +46,7 @@ class Cabbage2To3Converter:
             'infobutton': 'infoButton',
             'keyboard': 'keyboard',
             'gentable': 'genTable',
+            'soundfiler': 'genTable',  # soundfiler converts to genTable
             'texteditor': 'textEditor',
             'csoundoutput': 'csoundOutput',
             'filebutton': 'fileButton',
@@ -67,7 +68,8 @@ class Cabbage2To3Converter:
             'chnset_property_ops': 0,
             'chnset_value_ops': 0,
             'chnget_ops': 0,
-            'string_replacements': 0
+            'string_replacements': 0,
+            'soundfiler_conversions': 0  # Track soundfiler to genTable conversions
         }
         self.color_map = {
             'aliceblue': '#f0f8ff',
@@ -250,6 +252,10 @@ class Cabbage2To3Converter:
                 # Map Cabbage2 widget type to Cabbage3 widget type
                 cabbage3_type = self.widget_type_mapping.get(widget_type.lower(), widget_type)
                 widget = {'type': cabbage3_type}
+                
+                # Track soundfiler conversions
+                if widget_type.lower() == 'soundfiler':
+                    self.conversions_applied['soundfiler_conversions'] += 1
 
                 # Parse properties
                 properties = self.parse_properties(properties_str)
@@ -369,7 +375,8 @@ class Cabbage2To3Converter:
 
                 # Handle multiple properties with same key (like multiple colour definitions)
                 if key in properties:
-                    if key.lower() == 'colour' and isinstance(properties[key], dict):
+                    # Merge color-related dictionaries (colour, fontColour, textColour, etc.)
+                    if key.lower() in ['colour', 'fontcolour', 'textcolour', 'trackercolour'] and isinstance(properties[key], dict):
                         # Merge colour dictionaries
                         if isinstance(value, dict):
                             properties[key].update(value)
@@ -383,7 +390,7 @@ class Cabbage2To3Converter:
                                     properties[key]['on'] = value
                                 else:
                                     properties[key]['fill'] = value
-                    elif key.lower() == 'colour' and isinstance(value, dict):
+                    elif key.lower() in ['colour', 'fontcolour', 'textcolour', 'trackercolour'] and isinstance(value, dict):
                         # Current is simple, new is dict - convert current to dict
                         if isinstance(properties[key], str):
                             properties[key] = {'fill': properties[key]}
@@ -462,6 +469,7 @@ class Cabbage2To3Converter:
     def parse_color_value(self, value_str):
         """Parse color values"""
         # Handle colour:state(r,g,b) format that becomes state(r,g,b)
+        # state 0 = off, state 1 = on
         match = re.match(r'(\d+)\(([^)]+)\)', value_str)
         if match:
             state, rgb = match.groups()
@@ -473,6 +481,7 @@ class Cabbage2To3Converter:
                     color_hex = self.color_map[color_name]
                 else:
                     color_hex = rgb.strip().strip('"')
+                # state 0 = off, state 1 = on
                 if state == '0':
                     return {'off': color_hex}
                 elif state == '1':
@@ -483,6 +492,7 @@ class Cabbage2To3Converter:
                     rgb_values = [int(x.strip()) for x in rgb.split(',')]
                     if len(rgb_values) == 3:
                         color_hex = f'#{rgb_values[0]:02x}{rgb_values[1]:02x}{rgb_values[2]:02x}'
+                        # state 0 = off, state 1 = on
                         if state == '0':
                             return {'off': color_hex}
                         elif state == '1':
@@ -693,12 +703,19 @@ class Cabbage2To3Converter:
         # Handle text property for widgets that use text object
         if 'text' in properties:
             text_value = properties['text']
-            if widget_type in ['button', 'optionButton']:
+            if widget_type in ['button', 'optionButton', 'fileButton']:
                 if isinstance(text_value, str):
                     # Single text state - use for both on and off
                     widget['text'] = {'on': text_value, 'off': text_value}
+                elif isinstance(text_value, list):
+                    # Array with 1 or 2 values - convert to on/off object
+                    if len(text_value) >= 2:
+                        widget['text'] = {'on': text_value[0], 'off': text_value[1]}
+                    elif len(text_value) == 1:
+                        widget['text'] = {'on': text_value[0], 'off': text_value[0]}
                 elif isinstance(text_value, dict):
                     widget['text'] = text_value
+                properties.pop('text', None)
 
         # Handle colour mappings - only if not already handled by nested properties
         if 'colour' in properties and 'colour' not in widget:
@@ -727,27 +744,63 @@ class Cabbage2To3Converter:
                 # Single colour
                 widget['colour'] = {'fill': colour_value}
 
-        # Handle textColour -> font.colour mapping
+        # Handle textColour/textColor -> font.colour mapping
+        text_colour_key = None
         if 'textColour' in properties:
-            text_colour = properties['textColour']
-            if isinstance(text_colour, str):
-                # Initialize font object if it doesn't exist
-                if 'font' not in widget:
-                    widget['font'] = {}
-                widget['font']['colour'] = text_colour
+            text_colour_key = 'textColour'
+        elif 'textColor' in properties:
+            text_colour_key = 'textColor'
+        
+        if text_colour_key:
+            text_colour = properties[text_colour_key]
+            # Initialize font object if it doesn't exist
+            if 'font' not in widget:
+                widget['font'] = {}
+            
+            # For button widgets, font.colour needs on/off states
+            if widget_type in ['button', 'optionButton', 'fileButton', 'infoButton', 'checkBox']:
+                if isinstance(text_colour, str):
+                    widget['font']['colour'] = {
+                        'on': text_colour,
+                        'off': text_colour
+                    }
+                elif isinstance(text_colour, dict):
+                    widget['font']['colour'] = text_colour
+            else:
+                # For other widgets, simple string is fine
+                if isinstance(text_colour, str):
+                    widget['font']['colour'] = text_colour
             # Remove the original property
-            properties.pop('textColour', None)
+            properties.pop(text_colour_key, None)
 
-        # Handle fontColour -> font.colour mapping
+        # Handle fontColour/fontColor -> font.colour mapping
+        font_colour_key = None
         if 'fontColour' in properties:
-            font_colour = properties['fontColour']
-            if isinstance(font_colour, str):
-                # Initialize font object if it doesn't exist
-                if 'font' not in widget:
-                    widget['font'] = {}
-                widget['font']['colour'] = font_colour
+            font_colour_key = 'fontColour'
+        elif 'fontColor' in properties:
+            font_colour_key = 'fontColor'
+        
+        if font_colour_key:
+            font_colour = properties[font_colour_key]
+            # Initialize font object if it doesn't exist
+            if 'font' not in widget:
+                widget['font'] = {}
+            
+            # For button widgets, font.colour needs on/off states
+            if widget_type in ['button', 'optionButton', 'fileButton', 'infoButton', 'checkBox']:
+                if isinstance(font_colour, str):
+                    widget['font']['colour'] = {
+                        'on': font_colour,
+                        'off': font_colour
+                    }
+                elif isinstance(font_colour, dict):
+                    widget['font']['colour'] = font_colour
+            else:
+                # For other widgets, simple string is fine
+                if isinstance(font_colour, str):
+                    widget['font']['colour'] = font_colour
             # Remove the original property
-            properties.pop('fontColour', None)
+            properties.pop(font_colour_key, None)
 
         # Handle trackerColour -> colour.tracker.fill mapping for sliders
         if 'trackerColour' in properties and widget_type in ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']:
@@ -1016,6 +1069,9 @@ class Cabbage2To3Converter:
                 # Then replace remaining identChannel string references (skip lines with cabbageSet)
                 for ident_channel, mapping_info in self.ident_channel_mappings.items():
                     channel = mapping_info['channel']
+                    # Skip if channel is not a string (e.g., it's a list for multi-channel widgets)
+                    if not isinstance(channel, str):
+                        continue
                     # Split into lines, replace only in lines that don't contain cabbageSet
                     lines = modified_instruments.split('\n')
                     for i, line in enumerate(lines):
@@ -1056,6 +1112,10 @@ class Cabbage2To3Converter:
         
         if self.conversions_applied['string_replacements'] > 0:
             print(f"   • {self.conversions_applied['string_replacements']} identChannel string references replaced with channel names")
+        
+        if self.conversions_applied['soundfiler_conversions'] > 0:
+            print(f"   ⚠️  {self.conversions_applied['soundfiler_conversions']} soundfiler widget(s) converted to genTable")
+            print(f"      Note: soundfiler channel properties are not supported in Cabbage3 genTable and have been removed.")
         
         # Show specific mappings if any exist
         if self.ident_channel_mappings:

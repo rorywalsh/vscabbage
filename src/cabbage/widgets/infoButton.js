@@ -12,19 +12,64 @@ import { Cabbage } from "../cabbage.js";
 export class InfoButton extends Button {
     constructor() {
         super();
-        this.props.channel = "infoButton";
-        this.props.file = "";
-        this.props.url = "";
+        this.props = {
+            "bounds": {
+                "top": 10,
+                "left": 10,
+                "width": 80,
+                "height": 30
+            },
+            "channel": "infoButton",
+            "corners": 6,
+            "min": 0,
+            "max": 1,
+            "defaultValue": 0,
+            "value": null,
+            "text": {
+                "on": "Info Button",
+                "off": "Info Button"
+            },
+            "opacity": 1,
+            "font": {
+                "family": "Verdana",
+                "size": 0,
+                "align": "centre",
+                "colour": {
+                    "on": "#dddddd",
+                    "off": "#dddddd"
+                }
+            },
+            "colour": {
+                "on": {
+                    "fill": "#3d800a",
+                    "stroke": {
+                        "colour": "#dddddd",
+                        "width": 0
+                    }
+                },
+                "off": {
+                    "fill": "#3d800a",
+                    "stroke": {
+                        "colour": "#dddddd",
+                        "width": 0
+                    }
+                }
+            },
+            "name": "",
+            "type": "infoButton",
+            "visible": 1,
+            "automatable": 0,
+            "presetIgnore": 0,
+            "radioGroup": -1,
+            "mode": "info",
+            "file": "",
+            "url": ""
+        };
 
-        this.props.colour.on.fill = this.props.colour.off.fill;
-        this.props.mode = "info";
-        delete this.props.text.off;
-        delete this.props.text.on;
-        this.props.text = "Info Button";
-        this.props.text.on = this.props.text;
-        this.props.text.off = this.props.text;
-        this.props.type = "infoButton";
-        this.props.automatable = 0;
+        this.vscode = null;
+        this.isMouseDown = false;
+        this.isMouseInside = false;
+        this.parameterIndex = 0;
     }
 
     pointerDown(evt) {

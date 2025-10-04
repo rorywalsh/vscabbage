@@ -75,7 +75,7 @@ export class GenTable {
     }
 
     getInnerHTML() {
-        return ``;
+        return `<div id="${this.props.channel}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
     updateTable() {
