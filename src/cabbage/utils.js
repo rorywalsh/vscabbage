@@ -342,7 +342,11 @@ export class CabbageUtils {
 
 
   static getWidgetDiv(channel) {
-    const element = document.getElementById(channel);
+    // Handle both string channels and object channels (for xyPad)
+    const channelId = typeof channel === 'object' && channel !== null
+      ? (channel.id || channel.x)
+      : channel;
+    const element = document.getElementById(channelId);
     return element || null;
   }
 
@@ -390,7 +394,11 @@ export class CabbageUtils {
 
 
   static updateBounds(props, identifier) {
-    const element = document.getElementById(props.channel);
+    // Handle both string channels and object channels (for xyPad)
+    const channelId = typeof props.channel === 'object' && props.channel !== null
+      ? (props.channel.id || props.channel.x)
+      : props.channel;
+    const element = document.getElementById(channelId);
     if (element && props.bounds) {
       switch (identifier) {
         case 'bounds.left':

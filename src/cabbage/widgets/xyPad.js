@@ -50,7 +50,7 @@ export class XyPad {
                 "colour": "#dddddd"
             },
             "colour": {
-                "fill": "#0295cf",
+                "fill": "#323232",
                 "stroke": {
                     "colour": "#525252",
                     "width": 1
@@ -81,7 +81,7 @@ export class XyPad {
         this.decimalPlaces = 0;
         this.ballX = 0.5; // Normalized position [0,1]
         this.ballY = 0.5; // Normalized position [0,1]
-        
+
         // Slingshot animation properties
         this.isRightDragging = false;
         this.slingshotStartX = 0;
@@ -115,17 +115,17 @@ export class XyPad {
         if (this.isRightDragging) {
             this.isRightDragging = false;
             this.removeTrajectoryLine();
-            
+
             // Calculate velocity from drag distance (reverse direction for slingshot effect)
             const dragDistanceX = this.ballX - this.slingshotStartX;
             const dragDistanceY = this.ballY - this.slingshotStartY;
             const dragDistance = Math.sqrt(dragDistanceX * dragDistanceX + dragDistanceY * dragDistanceY);
-            
+
             // Scale velocity by drag distance and reverse direction (slingshot pulls back)
-            const speedMultiplier = 0.02; // Adjust this to control overall speed
+            const speedMultiplier = 0.05; // Adjust this to control overall speed
             this.velocityX = -dragDistanceX * speedMultiplier;
             this.velocityY = -dragDistanceY * speedMultiplier;
-            
+
             // Start animation if there's meaningful velocity
             if (Math.abs(this.velocityX) > 0.0001 || Math.abs(this.velocityY) > 0.0001) {
                 this.startAnimation();
@@ -160,11 +160,11 @@ export class XyPad {
             this.isRightDragging = true;
             this.slingshotStartX = this.ballX;
             this.slingshotStartY = this.ballY;
-            
+
             // Capture pointer
             evt.target.setPointerCapture(evt.pointerId);
             this.activePointerId = evt.pointerId;
-            
+
             window.addEventListener("pointermove", this.moveListener);
             window.addEventListener("pointerup", this.upListener);
             return;
@@ -252,7 +252,7 @@ export class XyPad {
         this.ballY = Math.max(minYRange, Math.min(maxYRange, normalizedY));
 
         this.updateBallPosition();
-        
+
         // Handle slingshot trajectory line
         if (this.isRightDragging) {
             this.updateTrajectoryLine();
@@ -291,12 +291,30 @@ export class XyPad {
             ball.style.top = ballTop + 'px';
         }
 
-        // Update crosshair positions to follow the ball
+        // Update crosshair positions and gradients to follow the ball
         if (crosshairH) {
             crosshairH.style.top = ballTop + 'px';
+            // Update horizontal gradient to fade from ball position
+            const ballXPercent = (ballLeft / effectiveWidth) * 100;
+            const fadeSpread = 20; // How far the fade extends (in percentage)
+            crosshairH.style.background = `linear-gradient(to right, 
+                transparent 0%, 
+                ${this.props.colour.ball.fill}40 ${Math.max(0, ballXPercent - fadeSpread)}%, 
+                ${this.props.colour.ball.fill}B3 ${ballXPercent}%, 
+                ${this.props.colour.ball.fill}40 ${Math.min(100, ballXPercent + fadeSpread)}%, 
+                transparent 100%)`;
         }
         if (crosshairV) {
             crosshairV.style.left = ballLeft + 'px';
+            // Update vertical gradient to fade from ball position
+            const ballYPercent = (ballTop / activeHeight) * 100;
+            const fadeSpread = 20; // How far the fade extends (in percentage)
+            crosshairV.style.background = `linear-gradient(to bottom, 
+                transparent 0%, 
+                ${this.props.colour.ball.fill}40 ${Math.max(0, ballYPercent - fadeSpread)}%, 
+                ${this.props.colour.ball.fill}B3 ${ballYPercent}%, 
+                ${this.props.colour.ball.fill}40 ${Math.min(100, ballYPercent + fadeSpread)}%, 
+                transparent 100%)`;
         }
 
         // Update value displays
@@ -368,7 +386,7 @@ export class XyPad {
         // Send Y channel update
         const msgY = {
             paramIdx: this.parameterIndex + 1,
-            channel: this.props.channel.y,  
+            channel: this.props.channel.y,
             value: yToSend,
             channelType: "number"
         };
@@ -439,7 +457,41 @@ export class XyPad {
                 background-color: ${this.props.colour.fill}; 
                 position: relative; cursor: crosshair;
                 ${padCornerStyle}">
-                    <!-- Crosshairs using divs with CSS gradients for fading effect -->
+                    <!-- Static background crosshairs (centered, gray, fading) - DISABLED BY DEFAULT -->
+                    <!-- Uncomment the following divs to enable static center crosshairs:
+                    <div class="xypad-static-crosshair-h" style="
+                        position: absolute;
+                        left: 0;
+                        top: 50%;
+                        width: 100%;
+                        height: 1px;
+                        background: linear-gradient(to right, 
+                            transparent 0%, 
+                            rgba(128, 128, 128, 0.15) 20%, 
+                            rgba(128, 128, 128, 0.3) 50%, 
+                            rgba(128, 128, 128, 0.15) 80%, 
+                            transparent 100%);
+                        pointer-events: none;
+                        transform: translateY(-50%);
+                    "></div>
+                    <div class="xypad-static-crosshair-v" style="
+                        position: absolute;
+                        left: 50%;
+                        top: 0;
+                        width: 1px;
+                        height: 100%;
+                        background: linear-gradient(to bottom, 
+                            transparent 0%, 
+                            rgba(128, 128, 128, 0.15) 20%, 
+                            rgba(128, 128, 128, 0.3) 50%, 
+                            rgba(128, 128, 128, 0.15) 80%, 
+                            transparent 100%);
+                        pointer-events: none;
+                        transform: translateX(-50%);
+                    "></div>
+                    -->
+                    
+                    <!-- Dynamic crosshairs (follow ball) -->
                     <!-- Horizontal crosshair -->
                     <div class="xypad-crosshair-h" style="
                         position: absolute;
@@ -525,7 +577,7 @@ export class XyPad {
 
     addEventListeners(widgetDiv) {
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        
+
         // Prevent context menu on right-click
         widgetDiv.addEventListener("contextmenu", (evt) => {
             evt.preventDefault();
@@ -563,7 +615,7 @@ export class XyPad {
         // Create SVG line for trajectory
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('style', 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;');
-        
+
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', startX);
         line.setAttribute('y1', startY);
@@ -572,7 +624,7 @@ export class XyPad {
         line.setAttribute('stroke', this.props.colour.ball.fill);
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-dasharray', '5,5');
-        
+
         svg.appendChild(line);
         padArea.appendChild(svg);
         this.trajectoryLine = svg;
@@ -587,7 +639,7 @@ export class XyPad {
 
     startAnimation() {
         if (this.isAnimating) return;
-        
+
         this.isAnimating = true;
         const animate = () => {
             if (!this.isAnimating) return;

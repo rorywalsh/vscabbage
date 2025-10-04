@@ -652,14 +652,42 @@ class Cabbage2To3Converter:
                 if range_obj:
                     widget['range'] = range_obj
             
-            # Handle text property for xyPad - convert array to object
+            # Handle text property for xyPad - convert array to object or split single string with separator
             if 'text' in properties:
                 text_value = properties['text']
                 if isinstance(text_value, list) and len(text_value) >= 2:
                     widget['text'] = {'x': text_value[0], 'y': text_value[1]}
                     properties.pop('text', None)
                 elif isinstance(text_value, str):
-                    widget['text'] = {'x': text_value, 'y': text_value}
+                    # Check for common separators used in Cabbage2 xyPad text labels
+                    # Try to split by /, |, or \ (with optional whitespace)
+                    x_text = text_value
+                    y_text = text_value
+                    
+                    # Try splitting by pipe with optional spaces
+                    if '|' in text_value:
+                        parts = text_value.split('|')
+                        if len(parts) >= 2:
+                            x_text = parts[0].strip()
+                            y_text = parts[1].strip()
+                    # Try splitting by forward slash with optional spaces
+                    elif '/' in text_value:
+                        parts = text_value.split('/')
+                        if len(parts) >= 2:
+                            x_text = parts[0].strip()
+                            y_text = parts[1].strip()
+                    # Try splitting by backslash with optional spaces
+                    elif '\\' in text_value:
+                        parts = text_value.split('\\')
+                        if len(parts) >= 2:
+                            x_text = parts[0].strip()
+                            y_text = parts[1].strip()
+                    
+                    # Clean up common prefixes like "x:", "X:", "y:", "Y:"
+                    x_text = re.sub(r'^[xX]\s*[:=]\s*', '', x_text).strip()
+                    y_text = re.sub(r'^[yY]\s*[:=]\s*', '', y_text).strip()
+                    
+                    widget['text'] = {'x': x_text, 'y': y_text}
                     properties.pop('text', None)
 
         # Handle text property for widgets that use text object

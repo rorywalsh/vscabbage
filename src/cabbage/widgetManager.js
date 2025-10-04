@@ -415,7 +415,10 @@ export class WidgetManager {
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
 
             // Ensure child widgets appear above their container
-            const childDiv = document.getElementById(childProps.channel);
+            const childChannelId = typeof childProps.channel === 'object' && childProps.channel !== null
+                ? (childProps.channel.id || childProps.channel.x)
+                : childProps.channel;
+            const childDiv = document.getElementById(childChannelId);
             if (childDiv) {
                 const computedStyle = window.getComputedStyle(childDiv);
                 console.log(`Cabbage: Child ${childProps.channel} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
@@ -471,7 +474,10 @@ export class WidgetManager {
                 groupWidget.props.value = 0;
 
                 // Update visual state
-                const widgetDiv = document.getElementById(groupWidget.props.channel);
+                const groupChannelId = typeof groupWidget.props.channel === 'object' && groupWidget.props.channel !== null
+                    ? (groupWidget.props.channel.id || groupWidget.props.channel.x)
+                    : groupWidget.props.channel;
+                const widgetDiv = document.getElementById(groupChannelId);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 }
@@ -527,12 +533,12 @@ export class WidgetManager {
             return id1 === id2
         }
 
-        // If one is string and one is object, compare string with object's id
+        // If one is string and one is object, check if string matches id, x, or y
         if (typeof channel1 === 'string' && typeof channel2 === 'object' && channel2 !== null) {
-            return channel1 === (channel2.id || channel2.x);
+            return channel1 === channel2.id || channel1 === channel2.x || channel1 === channel2.y;
         }
         if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'string') {
-            return (channel1.id || channel1.x) === channel2;
+            return channel1.id === channel2 || channel1.x === channel2 || channel1.y === channel2;
         }
 
         return false;
@@ -568,7 +574,54 @@ export class WidgetManager {
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
-                // console.log(`Value update case: obj.value = ${obj.value} (type: ${typeof obj.value})`);
+                // Special handling for xyPad - determine which axis to update
+                if (widget.props.type === "xyPad") {
+                    if (obj.value != null && !isNaN(obj.value)) {
+                        // Determine which axis by checking if obj.channel matches x or y
+                        const channelStr = typeof obj.channel === 'string' ? obj.channel : obj.channel.id;
+                        const isXChannel = channelStr === widget.props.channel.x;
+                        const isYChannel = channelStr === widget.props.channel.y;
+
+                        if (isXChannel || isYChannel) {
+                            widget.isUpdatingFromBackend = true;
+                            const axis = isXChannel ? 'x' : 'y';
+                            const range = widget.props.range[axis];
+
+                            // Normalize the value to [0,1] based on the range
+                            let normalizedValue;
+                            if (obj.value >= 0 && obj.value <= 1) {
+                                // Value is already normalized
+                                normalizedValue = obj.value;
+                            } else {
+                                // Convert from actual value to normalized [0,1]
+                                normalizedValue = (obj.value - range.min) / (range.max - range.min);
+                                normalizedValue = Math.max(0, Math.min(1, normalizedValue)); // Clamp to [0,1]
+                            }
+
+                            // Update the ball position
+                            if (isXChannel) {
+                                widget.ballX = normalizedValue;
+                            } else {
+                                widget.ballY = normalizedValue;
+                            }
+
+                            // Redraw the widget
+                            if (!widget._updateScheduled) {
+                                widget._updateScheduled = true;
+                                requestAnimationFrame(() => {
+                                    widget._updateScheduled = false;
+                                    const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                                    if (widgetDiv) {
+                                        widgetDiv.innerHTML = widget.getInnerHTML();
+                                    }
+                                    widget.isUpdatingFromBackend = false;
+                                });
+                            }
+                        }
+                    }
+                    return; // Early return for xyPad
+                }
+
                 // Don't update value for sliders that are currently being dragged
                 if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
                     if (obj.value != null) {
@@ -586,7 +639,7 @@ export class WidgetManager {
                                 // Assume received value is already skewed
                                 newValue = obj.value;
                             } else {
-                               return; // Skip update for invalid values
+                                return; // Skip update for invalid values
                             }
                         }
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
@@ -700,7 +753,10 @@ export class WidgetManager {
                     // If this widget has children, update their positions
                     if (widget.props.children && Array.isArray(widget.props.children)) {
                         widget.props.children.forEach(childProps => {
-                            const childDiv = document.getElementById(childProps.channel);
+                            const childChannelId = typeof childProps.channel === 'object' && childProps.channel !== null
+                                ? (childProps.channel.id || childProps.channel.x)
+                                : childProps.channel;
+                            const childDiv = document.getElementById(childChannelId);
                             if (childDiv) {
                                 const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
                                 const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
@@ -725,7 +781,10 @@ export class WidgetManager {
                         widget.updateTable();
                     }
                 } else {
-                    console.error(`Widget div for channel ${widget.props.channel} not found`);
+                    const channelStr = typeof widget.props.channel === 'object' && widget.props.channel !== null
+                        ? (widget.props.channel.id || widget.props.channel.x)
+                        : widget.props.channel;
+                    console.error(`Widget div for channel ${channelStr} not found`);
                 }
             }
         } else {
@@ -758,7 +817,10 @@ export class WidgetManager {
                 }
 
                 // Update child DOM / instance if present
-                const childDiv = document.getElementById(obj.channel);
+                const objChannelId = typeof obj.channel === 'object' && obj.channel !== null
+                    ? (obj.channel.id || obj.channel.x)
+                    : obj.channel;
+                const childDiv = document.getElementById(objChannelId);
                 if (childDiv) {
                     // Prefer canonical attached instance
                     const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
@@ -795,6 +857,12 @@ export class WidgetManager {
         }
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound) {
+            // If this is a value-only update (no data field), we can't create a widget
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+                console.warn(`Cabbage: Cannot update value for non-existent widget "${channelStr}". Widget must be defined in the CSD file first.`);
+                return;
+            }
+
             try {
                 let p = typeof data === 'string' ? JSON.parse(data) : data;
 
