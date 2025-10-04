@@ -313,6 +313,11 @@ export class Commands {
                 });
                 break;
 
+            case 'channelStringData':
+                // Forward channel string data (e.g., from fileButton) to backend
+                this.websocket?.send(JSON.stringify(message));
+                break;
+
             case 'openUrl':
                 const urlData = JSON.parse(message.obj);
                 let urlToOpen = urlData.url;

@@ -71,6 +71,26 @@ export class Cabbage {
     }
   }
 
+  static sendChannelStringData(channel, stringData, vscode = null) {
+    var message = {
+      "channel": channel,
+      "stringData": stringData
+    };
+
+    const msg = {
+      command: "channelStringData",
+      obj: JSON.stringify(message)
+    };
+
+    console.log("Cabbage: sending channel string data from UI", message);
+    if (vscode !== null) {
+      vscode.postMessage(msg);
+    }
+    else {
+      window.sendMessageFromUI(msg);
+    }
+  }
+
   static MidiMessageFromHost(statusByte, dataByte1, dataByte2) {
     console.log("Cabbage: Got MIDI Message" + statusByte + ":" + dataByte1 + ":" + dataByte2);
   }

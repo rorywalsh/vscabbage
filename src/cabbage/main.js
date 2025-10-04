@@ -104,8 +104,8 @@ window.addEventListener('message', async event => {
         case 'widgetUpdate':
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
-            const channelId = typeof updateMsg.channel === 'object' 
-                ? (updateMsg.channel.id || updateMsg.channel.x) 
+            const channelId = typeof updateMsg.channel === 'object'
+                ? (updateMsg.channel.id || updateMsg.channel.x)
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
@@ -148,13 +148,13 @@ window.addEventListener('message', async event => {
             const fileData = JSON.parse(message.text);
             const fileButtonWidget = widgets.find(w => w.props.channel === fileData.channel);
             if (fileButtonWidget) {
-                // Toggle the button value
+                // Toggle the button value for visual feedback
                 fileButtonWidget.props.value = fileButtonWidget.props.value === 1 ? 0 : 1;
                 // Update the button's visual state
                 CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
-                // Send parameter update to backend
-                Cabbage.sendParameterUpdate(fileButtonWidget.parameterIndex, fileButtonWidget.props.value);
-                console.log(`Cabbage: FileButton ${fileData.channel} toggled to ${fileButtonWidget.props.value}, file: ${fileData.fileName}`);
+                // Send the filename string to Csound via the channel
+                Cabbage.sendChannelStringData(fileData.channel, fileData.fileName, vscode);
+                console.log(`Cabbage: FileButton ${fileData.channel} selected file: ${fileData.fileName}`);
             }
             break;
 
