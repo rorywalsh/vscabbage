@@ -153,7 +153,7 @@ window.addEventListener('message', async event => {
                 // Update the button's visual state
                 CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
                 // Send the filename string to Csound via the channel
-                Cabbage.sendChannelStringData(fileData.channel, fileData.fileName, vscode);
+                Cabbage.sendChannelData(fileData.channel, fileData.fileName, vscode);
                 console.log(`Cabbage: FileButton ${fileData.channel} selected file: ${fileData.fileName}`);
             }
             break;

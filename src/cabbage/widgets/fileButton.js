@@ -112,7 +112,7 @@ export class FileButton extends Button {
           CabbageUtils.updateInnerHTML(this.props.channel, this);
 
           // Send the file path/URL to Csound
-          Cabbage.sendChannelStringData(this.props.channel, fileUrl, null);
+          Cabbage.sendChannelData(this.props.channel, fileUrl, null);
           console.log(`Cabbage: FileButton ${this.props.channel} selected file: ${fileName}, URL: ${fileUrl}`);
         }
       });

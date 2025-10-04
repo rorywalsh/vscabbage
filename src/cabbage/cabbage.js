@@ -71,18 +71,27 @@ export class Cabbage {
     }
   }
 
-  static sendChannelStringData(channel, stringData, vscode = null) {
+  static sendChannelData(channel, data, vscode = null) {
     var message = {
-      "channel": channel,
-      "stringData": stringData
+      "channel": channel
     };
+
+    // Determine if data is a string or number and set appropriate property
+    if (typeof data === "string") {
+      message.stringData = data;
+    } else if (typeof data === "number") {
+      message.floatData = data;
+    } else {
+      console.warn("Cabbage: sendChannelData received unsupported data type:", typeof data);
+      return;
+    }
 
     const msg = {
       command: "channelStringData",
       obj: JSON.stringify(message)
     };
 
-    console.log("Cabbage: sending channel string data from UI", message);
+    console.log("Cabbage: sending channel data from UI", message);
     if (vscode !== null) {
       vscode.postMessage(msg);
     }
