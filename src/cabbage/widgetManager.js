@@ -210,7 +210,11 @@ export class WidgetManager {
                 WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
 
                 // Handle children widgets if this is a container
-                if (widget.props.children && Array.isArray(widget.props.children)) {
+                // Normalize children to array if it's a single object
+                if (widget.props.children) {
+                    if (!Array.isArray(widget.props.children)) {
+                        widget.props.children = [widget.props.children];
+                    }
                     WidgetManager.insertChildWidgets(widget, widgetDiv);
                 }
             });
@@ -219,7 +223,11 @@ export class WidgetManager {
             WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
 
             // Handle children widgets if this is a container
-            if (widget.props.children && Array.isArray(widget.props.children)) {
+            // Normalize children to array if it's a single object
+            if (widget.props.children) {
+                if (!Array.isArray(widget.props.children)) {
+                    widget.props.children = [widget.props.children];
+                }
                 WidgetManager.insertChildWidgets(widget, widgetDiv);
             }
         }
