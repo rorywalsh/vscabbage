@@ -32,6 +32,11 @@ class Cabbage2To3Converter:
     def __init__(self):
         self.widget_counter = 0
         
+        # Font size scaling factors: 1.0 = 100% (no reduction), 0.95 = 95% (5% reduction), etc.
+        # Adjust these values to control how much font sizes are reduced during conversion
+        self.font_scale_factor = 0.6  # 90% of original size (10% reduction)
+        self.label_font_scale_factor = 0.9  # 100% of original size (no reduction for labels)
+        
         # Mapping from Cabbage2 widget names to Cabbage3 widget names
         self.widget_type_mapping = {
             'hslider': 'horizontalSlider',
@@ -47,6 +52,7 @@ class Cabbage2To3Converter:
             'keyboard': 'keyboard',
             'gentable': 'genTable',
             'soundfiler': 'genTable',  # soundfiler converts to genTable
+            'line': 'image',  # line converts to image
             'texteditor': 'textEditor',
             'csoundoutput': 'csoundOutput',
             'filebutton': 'fileButton',
@@ -69,7 +75,8 @@ class Cabbage2To3Converter:
             'chnset_value_ops': 0,
             'chnget_ops': 0,
             'string_replacements': 0,
-            'soundfiler_conversions': 0  # Track soundfiler to genTable conversions
+            'soundfiler_conversions': 0,  # Track soundfiler to genTable conversions
+            'line_conversions': 0  # Track line to image conversions
         }
         self.color_map = {
             'aliceblue': '#f0f8ff',
@@ -256,12 +263,16 @@ class Cabbage2To3Converter:
                 # Track soundfiler conversions
                 if widget_type.lower() == 'soundfiler':
                     self.conversions_applied['soundfiler_conversions'] += 1
+                
+                # Track line conversions
+                if widget_type.lower() == 'line':
+                    self.conversions_applied['line_conversions'] += 1
 
                 # Parse properties
                 properties = self.parse_properties(properties_str)
 
-                # Handle special properties and mappings
-                self.handle_special_properties(widget, properties, line)
+                # Handle special properties and mappings (pass original widget_type before mapping)
+                self.handle_special_properties(widget, properties, line, widget_type.lower())
 
                 # Add remaining valid Cabbage3 properties
                 for key, value in properties.items():
@@ -291,7 +302,7 @@ class Cabbage2To3Converter:
                                 child_widget = {'type': cabbage3_child_type}
 
                                 child_properties = self.parse_properties(child_props_str)
-                                self.handle_special_properties(child_widget, child_properties, child_line)
+                                self.handle_special_properties(child_widget, child_properties, child_line, child_type.lower())
 
                                 # Add remaining valid Cabbage3 child properties
                                 for key, value in child_properties.items():
@@ -328,7 +339,7 @@ class Cabbage2To3Converter:
                                     child_widget = {'type': cabbage3_child_type}
 
                                     child_properties = self.parse_properties(child_props_str)
-                                    self.handle_special_properties(child_widget, child_properties, child_line)
+                                    self.handle_special_properties(child_widget, child_properties, child_line, child_type.lower())
 
                                     # Add remaining valid Cabbage3 child properties
                                     for key, value in child_properties.items():
@@ -621,9 +632,14 @@ class Cabbage2To3Converter:
 
         current[keys[-1]] = value
 
-    def handle_special_properties(self, widget, properties, original_line=None):
+    def handle_special_properties(self, widget, properties, original_line=None, original_widget_type=None):
         """Handle special property mappings and defaults"""
         widget_type = widget.get('type', '')
+        # Use original_widget_type if provided (for widgets that have been mapped to different types)
+        if original_widget_type:
+            check_type = original_widget_type
+        else:
+            check_type = widget_type
 
         # Special handling for xyPad widget
         if widget_type == 'xyPad':
@@ -699,6 +715,89 @@ class Cabbage2To3Converter:
                     
                     widget['text'] = {'x': x_text, 'y': y_text}
                     properties.pop('text', None)
+
+        # Special handling for genTable widget
+        if widget_type == 'genTable':
+            # Check for identChannel first (for soundfiler conversions)
+            ident_channel = properties.get('identChannel')
+            
+            # Handle channel - convert to object with id, start, length
+            if 'channel' in properties:
+                channel_value = properties['channel']
+                if isinstance(channel_value, str):
+                    # Single channel - create object structure with auto-generated start/length
+                    widget['channel'] = {
+                        'id': channel_value,
+                        'start': f"{channel_value}_start",
+                        'length': f"{channel_value}_length"
+                    }
+                    properties.pop('channel', None)
+                elif isinstance(channel_value, list):
+                    if len(channel_value) == 2:
+                        # Two channels (from soundfiler): use as start/length
+                        # If identChannel exists, use it for id, otherwise generate one
+                        if ident_channel:
+                            widget['channel'] = {
+                                'id': ident_channel,
+                                'start': channel_value[0],
+                                'length': channel_value[1]
+                            }
+                        else:
+                            unique_id = self.generate_unique_channel('genTable')
+                            widget['channel'] = {
+                                'id': unique_id,
+                                'start': channel_value[0],
+                                'length': channel_value[1]
+                            }
+                        properties.pop('channel', None)
+                    elif len(channel_value) >= 3:
+                        # Three channels: id, start, length
+                        widget['channel'] = {
+                            'id': channel_value[0],
+                            'start': channel_value[1],
+                            'length': channel_value[2]
+                        }
+                        properties.pop('channel', None)
+            else:
+                # No channel provided
+                # If identChannel exists, use it for id, otherwise generate one
+                if ident_channel:
+                    widget['channel'] = {
+                        'id': ident_channel,
+                        'start': f"{ident_channel}_start",
+                        'length': f"{ident_channel}_length"
+                    }
+                else:
+                    unique_id = self.generate_unique_channel('genTable')
+                    widget['channel'] = {
+                        'id': unique_id,
+                        'start': f"{unique_id}_start",
+                        'length': f"{unique_id}_length"
+                    }
+
+        # Special handling for line widget (converted to image)
+        if check_type == 'line':
+            # Set a solid background color for the line
+            if 'colour' in properties:
+                colour_value = properties['colour']
+                # Colour might already be parsed as a dict with 'fill' or as a string
+                if isinstance(colour_value, dict) and 'fill' in colour_value:
+                    widget['colour'] = {'background': colour_value['fill']}
+                elif isinstance(colour_value, str):
+                    widget['colour'] = {'background': colour_value}
+                else:
+                    widget['colour'] = {'background': colour_value}
+                properties.pop('colour', None)
+            else:
+                # Default to black if no colour specified
+                widget['colour'] = {'background': 'black'}
+            
+            # Remove any file property that might have been set
+            properties.pop('file', None)
+            
+            # Ensure corners are 0 for sharp edges (lines should be rectangular)
+            if 'corners' not in properties:
+                widget['corners'] = 0
 
         # Handle text property for widgets that use text object
         if 'text' in properties:
@@ -802,6 +901,68 @@ class Cabbage2To3Converter:
             # Remove the original property
             properties.pop(font_colour_key, None)
 
+        # Apply font size scaling based on self.font_scale_factor (or label_font_scale_factor for labels)
+        # Only apply if scale factor is not 1.0 (to let widgets auto-calculate when no reduction needed)
+        scale_factor = self.label_font_scale_factor if widget_type == 'label' else self.font_scale_factor
+        
+        if scale_factor != 1.0 and widget_type in ['label', 'button', 'checkBox', 'comboBox', 'groupBox', 
+                          'horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider', 'optionButton', 
+                          'fileButton', 'infoButton', 'textBox', 'stringBox']:
+            # Initialize font object if it doesn't exist
+            if 'font' not in widget:
+                widget['font'] = {}
+            
+            # Only set font size if not already explicitly set in Cabbage2 file
+            if 'size' not in widget.get('font', {}):
+                # Get widget bounds from properties (bounds haven't been added to widget yet)
+                bounds = properties.get('bounds') or widget.get('bounds')
+                if bounds and isinstance(bounds, dict) and 'height' in bounds:
+                    height = bounds['height']
+                    width = bounds.get('width', height)
+                    
+                    # Use the actual default calculation from each widget type
+                    # Then scale by the appropriate scale factor
+                    if widget_type == 'label':
+                        # label: Math.max(height, 12)
+                        default_size = max(height, 12)
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'button':
+                        # button: height * 0.4
+                        default_size = height * 0.4
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'checkBox':
+                        # checkBox: height * 0.8
+                        default_size = height * 0.8
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'comboBox':
+                        # comboBox: height * 0.5
+                        default_size = height * 0.5
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'horizontalSlider':
+                        # horizontalSlider: height * 0.6
+                        default_size = height * 0.6
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'verticalSlider':
+                        # verticalSlider: width * 0.3
+                        default_size = width * 0.3
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'rotarySlider':
+                        # rotarySlider: width * 0.24
+                        default_size = width * 0.24
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'numberSlider':
+                        # numberSlider: 12 (fixed)
+                        default_size = 12
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    elif widget_type == 'optionButton':
+                        # optionButton: height * 0.5
+                        default_size = height * 0.5
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+                    else:
+                        # Default fallback: height * 0.1 with min 12
+                        default_size = max(height * 0.1, 12)
+                        widget['font']['size'] = max(round(default_size * scale_factor), 6)
+
         # Handle trackerColour -> colour.tracker.fill mapping for sliders
         if 'trackerColour' in properties and widget_type in ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']:
             tracker_colour = properties['trackerColour']
@@ -872,9 +1033,14 @@ class Cabbage2To3Converter:
             channel = ident_channel
 
         if ident_channel and channel:
+            # For genTable widgets, extract the 'id' from the channel object
+            channel_for_mapping = channel
+            if isinstance(channel, dict) and 'id' in channel:
+                channel_for_mapping = channel['id']
+            
             # Store the original line for logging
             self.ident_channel_mappings[ident_channel] = {
-                'channel': channel,
+                'channel': channel_for_mapping,
                 'original_line': original_line or f"{widget.get('type', 'unknown')} widget"
             }
             self.conversions_applied['ident_channels_mapped'] += 1
@@ -946,8 +1112,14 @@ class Cabbage2To3Converter:
         """Replace chnget/chnset opcodes that use identChannels with Cabbage3 equivalents"""
         lines = instruments_content.split('\n')
         modified_lines = []
+        skip_next = False  # Flag to skip lines that have been made redundant
         
-        for line in lines:
+        for i, line in enumerate(lines):
+            # Skip this line if it was marked for removal
+            if skip_next:
+                skip_next = False
+                continue
+                
             original_line = line
             
             # First, replace chnget "identChannel" with cabbageGetValue "channel"
@@ -965,21 +1137,57 @@ class Cabbage2To3Converter:
                 match = re.search(chnset_pattern, line)
                 if match:
                     value_str = match.group(1).strip()
-                    if value_str.startswith('"') and value_str.endswith('"'):
-                        value_str = value_str[1:-1]  # Remove quotes
                     
-                    # Check if it's a property(value) format like "visible(1)"
-                    prop_match = re.match(r'(\w+)\(([^)]+)\)', value_str)
-                    if prop_match:
-                        property_name, property_value = prop_match.groups()
-                        # For property setting, use the mapped channel name with comment showing identChannel mapping
+                    # Check if value is a variable that might have been set with sprintf on previous line
+                    # Pattern: Svar sprintfk "property(%s)", value  (or similar format codes)
+                    sprintf_var = None
+                    property_name = None
+                    format_vars = []
+                    found_sprintf = False
+                    
+                    if i > 0 and not value_str.startswith('"'):  # If value is a variable, not a string literal
+                        prev_line = lines[i-1]
+                        # Look for sprintf pattern: variable = sprintf[k] "property(%format)", vars...
+                        sprintf_pattern = r'^\s*' + re.escape(value_str) + r'\s+sprintf[k]?\s+"(\w+)\([^)]*\)"\s*,\s*(.+)'
+                        sprintf_match = re.search(sprintf_pattern, prev_line)
+                        if sprintf_match:
+                            property_name = sprintf_match.group(1)
+                            format_vars_str = sprintf_match.group(2).strip()
+                            # Split by comma but be careful of nested parentheses
+                            format_vars = [v.strip() for v in format_vars_str.split(',')]
+                            sprintf_var = value_str
+                            found_sprintf = True
+                    
+                    # If we found a sprintf pattern with property name
+                    if sprintf_var and property_name:
+                        # Build the cabbageSet call: cabbageSet "channel", "property", value1, value2, ...
+                        format_vars_str = ', '.join(format_vars)
                         comment = f" ; {ident_channel} -> {channel}" if ident_channel != channel else ""
-                        line = re.sub(chnset_pattern, f'cabbageSet k(1), "{channel}", "{property_name}", {property_value}{comment}', line)
+                        line = re.sub(chnset_pattern, f'cabbageSet "{channel}", "{property_name}", {format_vars_str}{comment}', line)
                         self.conversions_applied['chnset_property_ops'] += 1
+                        # Mark the previous sprintf line for removal
+                        if found_sprintf and len(modified_lines) > 0:
+                            modified_lines.pop()  # Remove the sprintf line we just added
                     else:
-                        # For simple value setting, use the mapped channel name
-                        line = re.sub(chnset_pattern, f'cabbageSet k(1), {value_str}, "{channel}"', line)
-                        self.conversions_applied['chnset_value_ops'] += 1
+                        # Check for inline property(value) format in string literal
+                        if value_str.startswith('"') and value_str.endswith('"'):
+                            value_str_inner = value_str[1:-1]  # Remove quotes
+                            # Check if it's a property(value) format like "visible(1)"
+                            prop_match = re.match(r'(\w+)\(([^)]+)\)', value_str_inner)
+                            if prop_match:
+                                property_name, property_value = prop_match.groups()
+                                # For property setting, use the mapped channel name
+                                comment = f" ; {ident_channel} -> {channel}" if ident_channel != channel else ""
+                                line = re.sub(chnset_pattern, f'cabbageSet k(1), "{channel}", "{property_name}", {property_value}{comment}', line)
+                                self.conversions_applied['chnset_property_ops'] += 1
+                            else:
+                                # Simple string value setting
+                                line = re.sub(chnset_pattern, f'cabbageSet k(1), {value_str}, "{channel}"', line)
+                                self.conversions_applied['chnset_value_ops'] += 1
+                        else:
+                            # For simple value setting (variable or expression), use the mapped channel name
+                            line = re.sub(chnset_pattern, f'cabbageSet k(1), {value_str}, "{channel}"', line)
+                            self.conversions_applied['chnset_value_ops'] += 1
                     break  # Only replace one identChannel per line
             
             modified_lines.append(line)
@@ -1033,6 +1241,11 @@ class Cabbage2To3Converter:
 
         # Parse widgets
         widgets = self.parse_cabbage2_section(cabbage_content)
+
+        # Reorder widgets to ensure keyboard is last (for proper z-order/interactivity)
+        keyboard_widgets = [w for w in widgets if w.get('type', '').lower() == 'keyboard']
+        other_widgets = [w for w in widgets if w.get('type', '').lower() != 'keyboard']
+        widgets = other_widgets + keyboard_widgets
 
         # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
@@ -1116,6 +1329,10 @@ class Cabbage2To3Converter:
         if self.conversions_applied['soundfiler_conversions'] > 0:
             print(f"   ⚠️  {self.conversions_applied['soundfiler_conversions']} soundfiler widget(s) converted to genTable")
             print(f"      Note: soundfiler channel properties are not supported in Cabbage3 genTable and have been removed.")
+        
+        if self.conversions_applied['line_conversions'] > 0:
+            print(f"   ⚠️  {self.conversions_applied['line_conversions']} line widget(s) converted to image")
+            print(f"      Note: line widgets are rendered as solid-color image rectangles in Cabbage3.")
         
         # Show specific mappings if any exist
         if self.ident_channel_mappings:

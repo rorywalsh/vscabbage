@@ -326,6 +326,12 @@ export class GenTable {
     /**
      * Renders the waveform (background, samples, text) to the offscreen canvas
      * This is the expensive operation that we cache
+     * 
+     * Color scheme:
+     * - colour.background: Widget background (behind waveform)
+     * - colour.fill: Waveform shape fill color
+     * - colour.stroke.colour: Outline color around waveform
+     * - colour.stroke.width: Outline thickness
      */
     renderWaveformToCache() {
         const ctx = this.waveformCtx;
@@ -336,7 +342,7 @@ export class GenTable {
         // Set the global alpha for the canvas context
         ctx.globalAlpha = this.props.opacity; // Apply opacity
 
-        // Draw background with rounded corners using the new background property
+        // Draw background with rounded corners
         ctx.fillStyle = this.props.colour.background;
         ctx.beginPath();
         ctx.moveTo(this.props.corners, 0);
@@ -347,63 +353,111 @@ export class GenTable {
         ctx.closePath();
         ctx.fill();
 
-        const increment = Math.max(1, Math.floor(this.props.samples.length / this.props.bounds.width));
+        // Only draw waveform if we have samples
+        if (this.props.samples.length === 0) {
+            // Draw text even if no samples
+            this.drawText(ctx);
+            return;
+        }
 
-        // Draw waveform - First, handle the fill
+        // Calculate how many samples per pixel
+        // Note: samples array is already decimated by C++ code to roughly match widget width
+        // So we need to scale from samples.length to bounds.width
+        const samplesPerPixel = this.props.samples.length / this.props.bounds.width;
+        const centerY = this.props.bounds.height / 2;
+
+        // Draw waveform with min/max peaks for better visualization
         if (this.props.fill === 1) {
-            ctx.strokeStyle = this.props.colour.fill; // Set fill color for vertical lines
-            ctx.lineWidth = 2; // Line width for the filled waveform
+            // Draw filled waveform
+            ctx.fillStyle = this.props.colour.fill;
+            ctx.beginPath();
 
-            for (let i = 0; i < this.props.samples.length; i += increment) {
+            // Start from center line at left edge
+            ctx.moveTo(0, centerY);
 
-                const x = CabbageUtils.map(i, 0, this.props.samples.length - 1, 0, this.props.bounds.width);
+            // Draw top half of waveform
+            for (let x = 0; x < this.props.bounds.width; x++) {
+                const startIdx = Math.floor(x * samplesPerPixel);
+                const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
 
-                if (x > this.props.bounds.width) {
-                    continue; // Skip drawing if x exceeds bounds
+                // Find max value in this pixel's sample range
+                let maxVal = 0; // Default to center (0) if no samples
+                if (startIdx < this.props.samples.length) {
+                    maxVal = -1;
+                    for (let i = startIdx; i < endIdx; i++) {
+                        maxVal = Math.max(maxVal, this.props.samples[i]);
+                    }
                 }
-                const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
 
-                ctx.beginPath();
-                ctx.moveTo(x, this.props.bounds.height / 2); // Move to middle
-                ctx.lineTo(x, y); // Draw to the sample point
-                ctx.stroke(); // Apply stroke
+                const y = CabbageUtils.map(maxVal, -1, 1, this.props.bounds.height, 0);
+                ctx.lineTo(x, y);
             }
+
+            // Draw bottom half of waveform (right to left)
+            for (let x = this.props.bounds.width - 1; x >= 0; x--) {
+                const startIdx = Math.floor(x * samplesPerPixel);
+                const endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
+
+                // Find min value in this pixel's sample range
+                let minVal = 0; // Default to center (0) if no samples
+                if (startIdx < this.props.samples.length) {
+                    minVal = 1;
+                    for (let i = startIdx; i < endIdx; i++) {
+                        minVal = Math.min(minVal, this.props.samples[i]);
+                    }
+                }
+
+                const y = CabbageUtils.map(minVal, -1, 1, this.props.bounds.height, 0);
+                ctx.lineTo(x, y);
+            }
+
+            ctx.closePath();
+            ctx.fill();
         }
 
-        // Second phase: Draw outline (stroke)
-        ctx.strokeStyle = this.props.colour.stroke.colour; // Set stroke color for outline
-        ctx.lineWidth = this.props.colour.stroke.width; // Set stroke width for outline
-        ctx.beginPath();
+        // Draw outline stroke on top
+        if (this.props.colour.stroke.width > 0) {
+            ctx.strokeStyle = this.props.colour.stroke.colour;
+            ctx.lineWidth = this.props.colour.stroke.width;
+            ctx.beginPath();
 
-        for (let i = 0; i < this.props.samples.length; i += increment) {
+            for (let x = 0; x < this.props.bounds.width; x++) {
+                const startIdx = Math.floor(x * samplesPerPixel);
+                const endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
 
-            const x = CabbageUtils.map(i, 0, this.props.samples.length - 1, 0, this.props.bounds.width);
+                // Find max value for outline
+                let maxVal = 0; // Default to center (0) if no samples
+                if (startIdx < this.props.samples.length) {
+                    maxVal = -1;
+                    for (let i = startIdx; i < endIdx; i++) {
+                        maxVal = Math.max(maxVal, this.props.samples[i]);
+                    }
+                }
 
-            if (x > this.props.bounds.width) {
-                continue; // Skip drawing if x exceeds bounds
+                const y = CabbageUtils.map(maxVal, -1, 1, this.props.bounds.height, 0);
+
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
             }
-            const y = CabbageUtils.map(this.props.samples[i], -1, 1, this.props.bounds.height, 0);
-            if (i === 0) {
-                ctx.moveTo(x, y); // Move to the first sample
-            } else {
-                ctx.lineTo(x, y); // Connect to the next sample
-            }
 
-            ctx.lineTo(x, y); // Draw line to the sample point for the outline
+            ctx.stroke();
         }
 
-        ctx.stroke(); // Apply stroke to complete the outline
-        ctx.closePath(); // Close the path to finalize the outline
+        // Draw text on top of everything
+        this.drawText(ctx);
+    }
 
+    /**
+     * Draw text overlay on the waveform
+     * @param {CanvasRenderingContext2D} ctx - The canvas context to draw on
+     */
+    drawText(ctx) {
+        if (!this.props.text) return;
 
-        // Draw text
         const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.1, 12);
-        const alignMap = {
-            'left': 'start',
-            'center': 'center',
-            'centre': 'center',
-            'right': 'end',
-        };
         const canvasAlignMap = {
             'left': 'left',
             'center': 'center',

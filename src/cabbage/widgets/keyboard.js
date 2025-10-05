@@ -33,7 +33,7 @@ export class MidiKeyboard {
       },
       "opacity": 1,
       "automatable": 0,
-      "octaves": 3
+      "octaves": -1
     };
 
     this.isMouseDown = false; // Track the state of the mouse button
@@ -192,8 +192,26 @@ export class MidiKeyboard {
   getInnerHTML() {
     const scaleFactor = 0.9; // Adjusting this to fit the UI designer bounding rect
 
-    const totalWhiteKeys = this.props.octaves * 7; // Total number of white keys to display
-    const whiteKeyWidth = (this.props.bounds.width / totalWhiteKeys) * scaleFactor; // Adjust width based on total white keys
+    let whiteKeyWidth;
+    let octavesToDisplay;
+
+    if (this.props.octaves === -1) {
+      // Fixed width mode: 30px per white key
+      whiteKeyWidth = 20;
+      // Calculate how many octaves fit in the available width
+      const buttonWidth = 25 * scaleFactor;
+      const availableWidth = (this.props.bounds.width * scaleFactor) - (buttonWidth * 2);
+      octavesToDisplay = Math.floor(availableWidth / (7 * whiteKeyWidth));
+      // Ensure at least 1 octave
+      octavesToDisplay = Math.max(1, octavesToDisplay);
+    } else {
+      // Auto-size mode: fit the specified number of octaves to the widget width
+      octavesToDisplay = this.props.octaves;
+      const totalWhiteKeys = octavesToDisplay * 7;
+      whiteKeyWidth = (this.props.bounds.width / totalWhiteKeys) * scaleFactor;
+    }
+
+    const totalWhiteKeys = octavesToDisplay * 7; // Total number of white keys to display
     const whiteKeyHeight = this.props.bounds.height * scaleFactor;
     const blackKeyWidth = whiteKeyWidth * 0.5;
     const blackKeyHeight = whiteKeyHeight * 0.6;
@@ -207,7 +225,7 @@ export class MidiKeyboard {
 
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.1;
 
-    for (let octave = 0; octave < this.props.octaves; octave++) {
+    for (let octave = 0; octave < octavesToDisplay; octave++) {
       for (let i = 0; i < whiteKeys.length; i++) {
         const key = whiteKeys[i];
         const note = key + (octave + this.octaveOffset);
@@ -234,11 +252,14 @@ export class MidiKeyboard {
     const buttonWidth = 25 * scaleFactor;
     const buttonHeight = this.props.bounds.height * scaleFactor;
 
+    // Calculate the actual keyboard width based on number of white keys
+    const keyboardWidth = totalWhiteKeys * whiteKeyWidth;
+
     return `
       <div id="${this.props.channel}" style="display: ${this.props.visible === 0 ? 'none' : 'flex'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
         <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.colour.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width * scaleFactor} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>
