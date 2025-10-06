@@ -362,17 +362,20 @@ export class HorizontalSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding; // Subtract padding from sliderWidth
 
     const w = (sliderWidth > this.props.bounds.height ? this.props.bounds.height : sliderWidth) * 0.75;
-    const textY = this.props.bounds.height / 2 + (this.props.font.size > 0 ? this.props.textOffsetY : 0) + (this.props.bounds.height * 0.25); // Adjusted for vertical centering
+
+    // Calculate fontSize - use explicit font.size if provided, otherwise calculate from widget height
+    // This ensures consistent font rendering for both text label and value box
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.6;
+    const textY = this.props.bounds.height / 2 + (this.props.font.size > 0 ? this.props.textOffsetY : 0) + (this.props.bounds.height * 0.25); // Adjusted for vertical centering
 
     textWidth += padding;
 
     const textElement = this.props.text ? `
-      <svg x="0" y="0" width="${textWidth}" height="${this.props.bounds.height}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">
-        <text text-anchor="${svgAlign}" x="${svgAlign === 'end' ? textWidth - padding : (svgAlign === 'middle' ? (textWidth - padding) / 2 : 0)}" y="${textY}" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}"> <!-- Updated to use this.props.font.colour -->
+      <foreignObject x="0" y="0" width="${textWidth}" height="${this.props.bounds.height}">
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${svgAlign === 'end' ? 'flex-end' : (svgAlign === 'middle' ? 'center' : 'flex-start')}; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; padding-right:${svgAlign === 'end' ? padding : 0}px;">
           ${this.props.text}
-        </text>
-      </svg>
+        </div>
+      </foreignObject>
     ` : '';
 
     // Use explicit tracker width from props and clamp to available slider height

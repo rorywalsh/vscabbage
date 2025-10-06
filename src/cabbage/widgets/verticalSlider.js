@@ -284,6 +284,9 @@ export class VerticalSlider {
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight * 1.1;
 
     const textX = this.props.bounds.width / 2;
+
+    // Calculate fontSize - use explicit font.size if provided, otherwise calculate from widget width
+    // This ensures consistent font rendering for both text label and value box
     const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.width * 0.3;
 
     // Use tracker width if provided for the thumb/track thickness
@@ -291,11 +294,11 @@ export class VerticalSlider {
     const thumbHeight = Math.min(trackerWidth, sliderHeight * 0.95);
 
     const textElement = this.props.text ? `
-    <svg x="0" y="${this.props.valueTextBox ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <text text-anchor="${svgAlign}" x="${textX}" y="${textHeight}" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}"> <!-- Updated to use this.props.font.colour -->
+    <foreignObject x="0" y="${this.props.valueTextBox ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}">
+      <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
         ${this.props.text}
-      </text>
-    </svg>
+      </div>
+    </foreignObject>
     ` : '';
 
     // calculate Y offset to center the track vertically

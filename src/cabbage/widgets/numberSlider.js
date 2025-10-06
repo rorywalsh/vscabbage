@@ -249,12 +249,12 @@ export class NumberSlider {
         // console.log(`NumberSlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
         const fontSize = this.props.font.size > 0 ? this.props.font.size : 12;
         const alignMap = {
-            'left': 'end',
-            'center': 'middle',
-            'centre': 'middle',
-            'right': 'start',
+            'left': 'flex-start',
+            'center': 'center',
+            'centre': 'center',
+            'right': 'flex-end',
         };
-        const svgAlign = alignMap[this.props.font.align] || 'middle';
+        const flexAlign = alignMap[this.props.font.align] || 'center';
         const currentValue = this.props.value === null ? this.props.range.defaultValue : this.props.value;
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
@@ -266,12 +266,14 @@ export class NumberSlider {
                         pointer-events="${this.props.visible === 0 ? 'none' : 'all'}" opacity="${this.props.opacity}"></rect>
                 </svg>
     
-                <!-- Text SVG with proper alignment -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="xMidYMid meet"
-                     style="position: absolute; top: 0; left: 0;">
-                    <text id="slider-text-${this.props.channel}" class="editable-text" x="${this.props.font.align === 'left' ? '10%' : this.props.font.align === 'right' ? '90%' : '50%'}" y="59%" font-family="${this.props.font.family}" font-size="${fontSize}"
-                        fill="${this.props.font.colour}" text-anchor="${svgAlign}" 
-                        style="pointer-events: none;">${valueText}</text>
+                <!-- Text using foreignObject for consistent rendering -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
+                     style="position: absolute; top: 0; left: 0; pointer-events: none;">
+                    <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}">
+                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; padding: 0 ${this.props.bounds.width * 0.1}px;">
+                            ${valueText}
+                        </div>
+                    </foreignObject>
                 </svg>
             </div>
         `;

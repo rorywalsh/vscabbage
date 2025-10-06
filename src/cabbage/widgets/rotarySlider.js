@@ -550,7 +550,7 @@ export class RotarySlider {
       -(130 - innerTrackerEndPoints),
       angle
     );
-    // Calculate proportional font size if this.props.fontSize is 0
+    // Calculate proportional font size if font.size is 0
     let fontSize = this.props.font.size > 0 ? this.props.font.size : w * 0.24;
     const textY = this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0);
     let scale = 100;
@@ -582,7 +582,11 @@ export class RotarySlider {
 
       return `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
-        <text text-anchor="middle" x=${this.props.bounds.width / 2} y="${fontSize}px" font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+        <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${fontSize * 1.2}">
+          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
+            ${this.props.text}
+          </div>
+        </foreignObject>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
@@ -605,7 +609,11 @@ export class RotarySlider {
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
   <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
-      <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${textY} font-size="${fontSize}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+      <foreignObject x="0" y="${textY - fontSize}" width="${this.props.bounds.width}" height="${fontSize * 1.2}">
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
+          ${this.props.text}
+        </div>
+      </foreignObject>
       </svg>
     `;
   }
