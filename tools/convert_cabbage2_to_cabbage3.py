@@ -29,6 +29,38 @@ class Cabbage2To3Converter:
             new_content = new_content.replace(old_block, new_block)
             replaced += 1
         return new_content, replaced
+
+    def apply_brute_force_replacements(self, instruments_content):
+        """Apply brute force string replacements for specific patterns that can't be handled generically."""
+        replacements = [
+            # Replace ScrubberID position setting pattern
+            {
+                'pattern': r'iScrubPos\s*=\s*5\s*\+\s*\(gindx\*50\)\s*;?\s*.*?\n\s*Smsg\s+sprintf\s+"pos\(%d,5\)",iScrubPos\s*;?\s*.*?\n\s*chnset\s+Smsg,"ScrubberID"\s*;?\s*.*?',
+                'replacement': '''iScrubPos    =    5 + (gindx*50)            ; derive x-position
+cabbageSet "ScrubberID", "bounds.left", iScrubPos             ; send new position to widget''',
+                'description': 'ScrubberID position setting'
+            }
+        ]
+        
+        modified_content = instruments_content
+        replacements_applied = 0
+        
+        for replacement in replacements:
+            # Use regex to find the pattern with flexible whitespace
+            pattern = re.compile(replacement['pattern'], re.MULTILINE | re.DOTALL)
+            matches = pattern.findall(modified_content)
+            
+            if matches:
+                print(f"   • Found {len(matches)} instance(s) of pattern: {replacement['description']}")
+                # Replace all occurrences
+                modified_content = pattern.sub(replacement['replacement'], modified_content)
+                print(f"   • Applied brute force replacement for {replacement['description']}")
+                replacements_applied += 1
+        
+        if replacements_applied > 0:
+            print(f"   • Total brute force replacements applied: {replacements_applied}")
+        
+        return modified_content
     def __init__(self):
         self.widget_counter = 0
         
@@ -498,11 +530,18 @@ class Cabbage2To3Converter:
                 elif state == '1':
                     return {'on': color_hex}
             else:
-                # Try to parse as RGB values
+                # Try to parse as RGB/RGBA values
                 try:
                     rgb_values = [int(x.strip()) for x in rgb.split(',')]
-                    if len(rgb_values) == 3:
-                        color_hex = f'#{rgb_values[0]:02x}{rgb_values[1]:02x}{rgb_values[2]:02x}'
+                    if len(rgb_values) >= 3:
+                        if len(rgb_values) == 3:
+                            color_hex = f'#{rgb_values[0]:02x}{rgb_values[1]:02x}{rgb_values[2]:02x}'
+                        elif len(rgb_values) == 4:
+                            # RGBA
+                            color_hex = f'#{rgb_values[0]:02x}{rgb_values[1]:02x}{rgb_values[2]:02x}{rgb_values[3]:02x}'
+                        else:
+                            # Invalid number of values
+                            color_hex = rgb.strip()
                         # state 0 = off, state 1 = on
                         if state == '0':
                             return {'off': color_hex}
@@ -775,6 +814,45 @@ class Cabbage2To3Converter:
                         'length': f"{unique_id}_length"
                     }
 
+            # Handle ampRange and sampleRange - convert to nested range object
+            range_obj = {}
+            
+            # Handle sampleRange - maps to range.x (sample selection range)
+            if 'sampleRange' in properties:
+                sample_range_value = properties['sampleRange']
+                if isinstance(sample_range_value, list) and len(sample_range_value) >= 2:
+                    range_obj['x'] = {
+                        'start': sample_range_value[0],
+                        'end': sample_range_value[1]
+                    }
+                properties.pop('sampleRange', None)
+            
+            # Handle ampRange - maps to range.y (amplitude display range)
+            if 'ampRange' in properties:
+                amp_range_value = properties['ampRange']
+                if isinstance(amp_range_value, list) and len(amp_range_value) >= 2:
+                    range_obj['y'] = {
+                        'min': amp_range_value[0],
+                        'max': amp_range_value[1]
+                    }
+                properties.pop('ampRange', None)
+            
+            # Add range object to widget if we have any range properties
+            if range_obj:
+                widget['range'] = range_obj
+
+            # Handle tableColour - maps to colour.fill
+            if 'tableColour' in properties:
+                table_colour = properties['tableColour']
+                # Parse the colour value (it might be a named color or hex)
+                parsed_colour = self.parse_color_value(str(table_colour).strip('"'))
+                if isinstance(parsed_colour, str):
+                    # Initialize colour object if it doesn't exist
+                    if 'colour' not in widget:
+                        widget['colour'] = {}
+                    widget['colour']['fill'] = parsed_colour
+                properties.pop('tableColour', None)
+
         # Special handling for line widget (converted to image)
         if check_type == 'line':
             # Set a solid background color for the line
@@ -887,19 +965,56 @@ class Cabbage2To3Converter:
             
             # For button widgets, font.colour needs on/off states
             if widget_type in ['button', 'optionButton', 'fileButton', 'infoButton', 'checkBox']:
-                if isinstance(font_colour, str):
+                if isinstance(font_colour, dict):
+                    # Handle parsed state-based colours (from fontColour:0(...) format)
+                    if 'on' in font_colour and 'off' in font_colour:
+                        widget['font']['colour'] = font_colour
+                    elif 'on' in font_colour:
+                        widget['font']['colour'] = {
+                            'on': font_colour['on'],
+                            'off': font_colour['on']  # Use same colour for off state if not specified
+                        }
+                    elif 'off' in font_colour:
+                        widget['font']['colour'] = {
+                            'on': font_colour['off'],  # Use off colour for on state if not specified
+                            'off': font_colour['off']
+                        }
+                    else:
+                        # Single parsed colour value
+                        widget['font']['colour'] = {
+                            'on': font_colour,
+                            'off': font_colour
+                        }
+                elif isinstance(font_colour, str):
+                    # Single colour string
                     widget['font']['colour'] = {
                         'on': font_colour,
                         'off': font_colour
                     }
-                elif isinstance(font_colour, dict):
-                    widget['font']['colour'] = font_colour
             else:
                 # For other widgets, simple string is fine
                 if isinstance(font_colour, str):
                     widget['font']['colour'] = font_colour
+                elif isinstance(font_colour, dict):
+                    # For non-button widgets, if we have a dict, use the first value
+                    if 'on' in font_colour:
+                        widget['font']['colour'] = font_colour['on']
+                    elif 'off' in font_colour:
+                        widget['font']['colour'] = font_colour['off']
+                    else:
+                        # Single parsed colour value
+                        widget['font']['colour'] = font_colour
             # Remove the original property
             properties.pop(font_colour_key, None)
+
+        # Set default font colour for checkBox widgets if not specified
+        if widget_type == 'checkBox' and ('font' not in widget or 'colour' not in widget['font']):
+            if 'font' not in widget:
+                widget['font'] = {}
+            widget['font']['colour'] = {
+                'on': '#dddddd',
+                'off': '#000000'
+            }
 
         # Apply font size scaling based on widget type
         # font_scale_factor for labels, buttons, combobox, groupbox, etc.
@@ -1115,9 +1230,10 @@ class Cabbage2To3Converter:
             'verticalSlider': set(),
             'numberSlider': set(),
             'comboBox': set(),
-            'button': set(),
-            'checkBox': set(),
+            'button': {'radioGroup'},
+            'checkBox': {'radioGroup'},
             'groupBox': set(),
+            'genTable': {'tableNumber'},
             'image': set(),  # image widgets have no additional properties in Cabbage3
         }
         
@@ -1314,6 +1430,9 @@ class Cabbage2To3Converter:
         if instruments_match:
             instruments_content = instruments_match.group(1)
             modified_instruments = instruments_content
+
+            # Apply brute force replacements first
+            modified_instruments = self.apply_brute_force_replacements(modified_instruments)
 
             # Replace ParallelWidgets blocks first
             modified_instruments, pw_replaced = self.replace_parallelwidgets_blocks(modified_instruments)
