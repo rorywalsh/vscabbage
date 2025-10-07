@@ -512,6 +512,25 @@ export class Commands {
             cabbageStatusBarItem.show();
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
+
+            this.getOutputChannel().appendLine('   _____      _     _                      ');
+            this.getOutputChannel().appendLine('  / ____|    | |   | |                     ');
+            this.getOutputChannel().appendLine(' | |     __ _| |__ | |__   __ _  __ _  ___ ');
+            this.getOutputChannel().appendLine(' | |    / _` | \'_ \\| \'_ \\ / _` |/ _` |/ _ \\');
+            this.getOutputChannel().appendLine(' | |___| (_| | |_) | |_) | (_| | (_| |  __/');
+            this.getOutputChannel().appendLine('  \\_____\\__,_|_.__/|_.__/ \\__,_|\\__, |\\___|');
+            this.getOutputChannel().appendLine('                                 __/ |     ');
+            this.getOutputChannel().appendLine('                                |___/      ');
+            this.getOutputChannel().appendLine('────────────────────────────────────────────────────────────');
+            this.getOutputChannel().appendLine(' Cabbage server started successfully.');
+            this.getOutputChannel().appendLine(' • To run an instrument: open a .csd file and hit Save.');
+            this.getOutputChannel().appendLine(' • To stop the server: click the Cabbage icon in the status bar.');
+            this.getOutputChannel().appendLine(' • All Cabbage extension commands can be accessed through the Command');
+            this.getOutputChannel().appendLine('   Palette (Ctrl+Shift+P / Cmd+Shift+P).');
+            this.getOutputChannel().appendLine('────────────────────────────────────────────────────────────');
+            this.getOutputChannel().appendLine('');
+
+
         } else {
             this.processes.forEach((p) => {
                 return ExtensionUtils.terminateProcess(p, this.websocket);
