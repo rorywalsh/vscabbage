@@ -480,32 +480,26 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         if (config.get("clearConsoleOnCompile")) {
             vscodeOutputChannel.clear();
         }
-        if (websocket) {
-            const soundFileInput = context.globalState.get<{ [key: number]: string }>(
-                'soundFileInput', {});
-            setTimeout(() => {
-                for (const [channel, file] of Object.entries(soundFileInput)) {
-                    if (Number(channel) > 0) {
-                        vscode.window.showInformationMessage(
-                            `Routing ${file} to channel ${channel}`);
-                    }
-                    Commands.sendFileToChannel(context, websocket, file, Number(channel));
+
+        // Send any saved sound file inputs to channels after a delay
+        const soundFileInput = context.globalState.get<{ [key: number]: string }>(
+            'soundFileInput', {});
+        setTimeout(() => {
+            for (const [channel, file] of Object.entries(soundFileInput)) {
+                if (Number(channel) > 0) {
+                    vscode.window.showInformationMessage(
+                        `Routing ${file} to channel ${channel}`);
                 }
-            }, 2000);
-        } else {
-            console.warn('Cabbage: websocket is undefined?');
-        }
+                Commands.sendFileToChannel(context, undefined, file, Number(channel));
+            }
+        }, 2000);
 
         const panel = Commands.getPanel();
         if (panel) {
             panel.webview.onDidReceiveMessage(message => {
-                if (websocket) {
-                    Commands.handleWebviewMessage(
-                        message, websocket, firstMessages, vscode.window.activeTextEditor,
-                        context);
-                } else {
-                    console.warn('Cabbage: websocket is undefined?');
-                }
+                Commands.handleWebviewMessage(
+                    message, undefined, firstMessages, vscode.window.activeTextEditor,
+                    context);
             });
         } else {
             console.warn('Cabbage: Cabbage: No webview found');

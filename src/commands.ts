@@ -14,7 +14,7 @@ export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
-import { setupWebSocketServer } from './extension';
+// setupWebSocketServer no longer needed - using pipes
 
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
@@ -46,45 +46,43 @@ export class Commands {
         });
     }
 
+    /**
+     * Sends a message to CabbageApp via stdin (replaces WebSocket send)
+     * @param message The message object to send
+     */
+    static sendMessageToCabbageApp(message: any) {
+        // Get the most recent process (the running CabbageApp)
+        const process = this.processes[this.processes.length - 1];
+
+        if (process && process.stdin && !process.stdin.destroyed) {
+            try {
+                const jsonString = typeof message === 'string' ? message : JSON.stringify(message);
+                process.stdin.write(jsonString + '\n');
+
+                // Only log if verbose logging is enabled
+                const config = vscode.workspace.getConfiguration("cabbage");
+                if (config.get("logVerbose")) {
+                    this.vscodeOutputChannel.appendLine(`Sent to CabbageApp: ${message.command || 'unknown command'}`);
+                }
+            } catch (err) {
+                this.vscodeOutputChannel.appendLine(`Error sending message to CabbageApp: ${err}`);
+            }
+        } else {
+            this.vscodeOutputChannel.appendLine('Cannot send message: CabbageApp process not available');
+        }
+    }
+
 
     /**
  * Sends a message to the Cabbage backend to set the specified file as the input channel.
  * Updates the global state with the new file assignment.
  * @param context The extension context provided by VSCode.
- * @param websocket The WebSocket connection to the Cabbage backend.
+ * @param websocket The WebSocket connection to the Cabbage backend (deprecated, pass undefined).
  * @param file The file to set as the input channel.
  * @param channel The channel to set the file as input for.
  */
     static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channel: number) {
-        // Log the file being sent for debugging
-        this.vscodeOutputChannel.appendLine(`=== SENDING FILE TO CABBAGE ===`);
-        this.vscodeOutputChannel.appendLine(`File: ${file}`);
-        this.vscodeOutputChannel.appendLine(`Channel: ${channel}`);
-        this.vscodeOutputChannel.appendLine(`WebSocket connected: ${websocket ? 'yes' : 'no'}`);
-
-        // Log file contents if it contains xyPad (for debugging the specific issue)
-        if (file && fs.existsSync(file)) {
-            try {
-                const fileContent = fs.readFileSync(file, 'utf8');
-                const hasXyPad = fileContent.toLowerCase().includes('xypad');
-                this.vscodeOutputChannel.appendLine(`File size: ${fileContent.length} chars`);
-                this.vscodeOutputChannel.appendLine(`Contains xyPad widget: ${hasXyPad ? 'yes' : 'no'}`);
-                if (hasXyPad) {
-                    // Extract xyPad lines for debugging
-                    const xyPadLines = fileContent.split('\n').filter(line =>
-                        line.toLowerCase().includes('xypad')).slice(0, 5); // First 5 xyPad lines
-                    this.vscodeOutputChannel.appendLine(`xyPad widget lines:`);
-                    xyPadLines.forEach(line => this.vscodeOutputChannel.appendLine(`  ${line.trim()}`));
-                }
-            } catch (err) {
-                this.vscodeOutputChannel.appendLine(`Failed to read file: ${err}`);
-            }
-        } else {
-            this.vscodeOutputChannel.appendLine(`File does not exist or is empty`);
-        }
-        this.vscodeOutputChannel.appendLine(`=== END FILE INFO ===`);
-
-        // Construct the message to send via the websocket
+        // Construct the message to send via stdin
         const m = {
             fileName: file,
             channels: channel,
@@ -94,8 +92,7 @@ export class Commands {
             obj: JSON.stringify(m),
         };
 
-        this.vscodeOutputChannel.appendLine(`Sending WebSocket message: ${JSON.stringify(msg)}`);
-        websocket?.send(JSON.stringify(msg));
+        this.sendMessageToCabbageApp(msg);
 
         // Retrieve existing soundFileInput state or initialize it as an empty object
         let soundFileInput = context.globalState.get<{ [key: number]: string }>('soundFileInput', {});
@@ -151,13 +148,13 @@ export class Commands {
     /**
      * Activates edit mode by setting Cabbage mode to "draggable", terminating
      * active processes, and notifying the webview panel.
-     * @param websocket The WebSocket connection to the Cabbage backend.
+     * @param websocket The WebSocket connection to the Cabbage backend (deprecated, kept for compatibility).
      */
     static enterEditMode(ws: WebSocket | undefined) {
         setCabbageMode("draggable");
 
         this.websocket = ws;
-        this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+        this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
 
         if (this.panel) {
             this.panel.webview.postMessage({ command: 'onEnterEditMode' });
@@ -263,7 +260,7 @@ export class Commands {
 
             case 'widgetStateUpdate':
                 firstMessages.push(message);
-                this.websocket?.send(JSON.stringify(message));
+                this.sendMessageToCabbageApp(message);
                 break;
 
             case 'cabbageSetupComplete':
@@ -272,17 +269,17 @@ export class Commands {
                     text: JSON.stringify({})
                 };
                 firstMessages.push(msg);
-                this.websocket?.send(JSON.stringify(msg));
+                this.sendMessageToCabbageApp(msg);
                 if (this.panel) {
                     this.panel.webview.postMessage({ command: "snapToSize", text: config.get("snapToSize") });
                 }
                 break;
 
             case 'cabbageIsReadyToLoad':
-                this.websocket?.send(JSON.stringify({
+                this.sendMessageToCabbageApp({
                     command: "initialiseWidgets",
                     text: ""
-                }));
+                });
                 break;
 
             case 'fileOpen':
@@ -307,15 +304,15 @@ export class Commands {
                         };
                         // Send to webview to update the UI
                         this.panel?.webview.postMessage(msg);
-                        // Also send to backend via WebSocket
-                        this.websocket?.send(JSON.stringify(msg));
+                        // Also send to backend via stdin
+                        this.sendMessageToCabbageApp(msg);
                     }
                 });
                 break;
 
             case 'channelStringData':
                 // Forward channel string data (e.g., from fileButton) to backend
-                this.websocket?.send(JSON.stringify(message));
+                this.sendMessageToCabbageApp(message);
                 break;
 
             case 'openUrl':
@@ -381,22 +378,9 @@ export class Commands {
 
             default:
                 console.log('Cabbage: handleWebviewMessage default case, command:', message.command);
-                if (this.websocket) {
-                    const jsonMessage = JSON.stringify(message);
-                    console.log('Cabbage: Forwarding message to websocket:', message);
-                    console.log('Cabbage: Stringified message being sent:', jsonMessage);
-                    console.log('Cabbage: WebSocket readyState:', this.websocket.readyState);
-                    console.log('Cabbage: WebSocket readyState meaning: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED');
-
-                    if (this.websocket.readyState === 1) {
-                        this.websocket.send(jsonMessage);
-                        console.log('Cabbage: Message sent successfully');
-                    } else {
-                        console.error('Cabbage: WebSocket not in OPEN state, cannot send. State:', this.websocket.readyState);
-                    }
-                } else {
-                    console.error('Cabbage: websocket is null, cannot send message');
-                }
+                // Forward the message to CabbageApp via stdin
+                this.sendMessageToCabbageApp(message);
+                console.log('Cabbage: Message sent to CabbageApp via stdin');
         }
     }
 
@@ -491,7 +475,7 @@ export class Commands {
 
         // Handle panel disposal
         this.panel.onDidDispose(async () => {
-            this.websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+            this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
             this.panel = undefined;
         }, null, context.subscriptions);
 
@@ -645,6 +629,12 @@ export class Commands {
                 text: fileContent,
                 lastSavedFileName: finalFileName
             });
+
+            // Also send the file change notification to CabbageApp
+            this.sendMessageToCabbageApp({
+                command: "onFileChanged",
+                lastSavedFileName: finalFileName
+            });
         }
 
 
@@ -653,11 +643,15 @@ export class Commands {
 
     /**
      * Start Cabbage Server as a background process
+     * Uses stdin/stdout pipes for communication instead of WebSocket
      * @returns 
      */
     static async startCabbageProcess() {
         const config = vscode.workspace.getConfiguration("cabbage");
         const runInDebugMode = config.get("runInDebugMode");
+
+        // Port number no longer needed for pipe communication
+        // this.portNumber is kept for backwards compatibility but not used
         if (runInDebugMode) {
             this.portNumber = 9991;
         }
@@ -668,10 +662,15 @@ export class Commands {
         if (!runInDebugMode) {
             const command = Settings.getCabbageBinaryPath('CabbageApp');
 
+            // Spawn CabbageApp without port number - it will use stdin/stdout pipes
             const process = cp.spawn(command, [
-                `--portNumber=${this.portNumber.toString()}`,
                 `--startTestServer=false`
-            ], {});
+            ], {
+                stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+            });
+
+            // Store stdout buffer for JSON line parsing
+            let stdoutBuffer = '';
 
             // this.vscodeOutputChannel.clear();
             process.on('error', (err) => {
@@ -682,7 +681,7 @@ export class Commands {
                 this.vscodeOutputChannel.appendLine(`Error errno: ${(err as any).errno || 'unknown'}`);
                 this.vscodeOutputChannel.appendLine(`Error syscall: ${(err as any).syscall || 'unknown'}`);
                 this.vscodeOutputChannel.appendLine(`Command: ${command}`);
-                this.vscodeOutputChannel.appendLine(`Arguments: --portNumber=${this.portNumber.toString()} --startTestServer=false`);
+                this.vscodeOutputChannel.appendLine(`Arguments: --startTestServer=false`);
                 if (err.stack) {
                     this.vscodeOutputChannel.appendLine('Error stack:');
                     this.vscodeOutputChannel.appendLine(err.stack);
@@ -718,7 +717,7 @@ export class Commands {
                             break;
                         case 'SIGPIPE':
                             this.vscodeOutputChannel.appendLine('  - SIGPIPE (13): Broken pipe - likely trying to write to closed connection');
-                            this.vscodeOutputChannel.appendLine('  - This often indicates WebSocket/communication issues or invalid widget configurations');
+                            this.vscodeOutputChannel.appendLine('  - This often indicates pipe communication issues or invalid widget configurations');
                             break;
                         case 'SIGABRT':
                             this.vscodeOutputChannel.appendLine('  - SIGABRT (6): Process aborted - likely due to assertion failure or critical error');
@@ -747,34 +746,103 @@ export class Commands {
 
             this.processes.push(process);
 
-            process.stdout.on("data", (data: { toString: () => string; }) => {
+            // Handle stdout - parse JSON messages from CabbageApp
+            process.stdout.on("data", (data: Buffer) => {
                 const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
                 const dataString = data.toString();
-                if (!ignoredTokens.some(token => dataString.startsWith(token))) {
-                    if (dataString.startsWith('DEBUG:')) {
-                        if (config.get("logVerbose")) {
-                            this.vscodeOutputChannel.append(dataString);
-                            this.vscodeOutputChannel.show(true); // scrolls to bottom
+
+                // Add to buffer
+                stdoutBuffer += dataString;
+
+                // Process complete JSON lines
+                let newlineIndex;
+                while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
+                    const line = stdoutBuffer.substring(0, newlineIndex).trim();
+                    stdoutBuffer = stdoutBuffer.substring(newlineIndex + 1);
+
+                    if (!line) {
+                        continue;
+                    }
+
+                    // Check if this is a JSON message from CabbageApp
+                    if (line.startsWith('CABBAGE_JSON:')) {
+                        // Extract the JSON part after the prefix
+                        const jsonString = line.substring('CABBAGE_JSON:'.length);
+                        try {
+                            const msg = JSON.parse(jsonString);
+
+                            // Handle widget update messages
+                            if (msg.hasOwnProperty('command')) {
+                                if (msg['command'] === 'widgetUpdate') {
+                                    const panel = Commands.getPanel();
+                                    if (panel) {
+                                        if (msg.hasOwnProperty('data')) {
+                                            panel.webview.postMessage({
+                                                command: 'widgetUpdate',
+                                                channel: msg['channel'],
+                                                data: msg['data'],
+                                                currentCsdPath: Commands.getCurrentFileName(),
+                                            });
+                                        } else if (msg.hasOwnProperty('value')) {
+                                            panel.webview.postMessage({
+                                                command: 'widgetUpdate',
+                                                channel: msg['channel'],
+                                                value: msg['value'],
+                                                currentCsdPath: Commands.getCurrentFileName(),
+                                            });
+                                        }
+                                    }
+                                }
+                                else if (msg['command'] === 'failedToCompile') {
+                                    // Handle panel disposal
+                                    let panel = Commands.getPanel();
+                                    if (panel) {
+                                        panel.dispose();
+                                        panel = undefined;
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            // Failed to parse JSON - log the error
+                            this.vscodeOutputChannel.appendLine(`Error parsing JSON message: ${e}`);
+                            this.vscodeOutputChannel.appendLine(`Raw message: ${jsonString}`);
                         }
                     } else {
-                        const msg = dataString.replace(/INFO:/g, "");
-                        this.vscodeOutputChannel.append(msg);
-                        this.vscodeOutputChannel.show(true);
+                        // Not a JSON message - treat as regular log output
+                        if (!ignoredTokens.some(token => line.startsWith(token))) {
+                            if (line.startsWith('DEBUG:')) {
+                                // Only show DEBUG lines if verbose logging is enabled
+                                if (config.get("logVerbose")) {
+                                    this.vscodeOutputChannel.appendLine(line);
+                                }
+                            } else if (line.startsWith('INFO:')) {
+                                // Show INFO lines with the INFO: prefix removed
+                                const msg = line.replace('INFO:', '').trim();
+                                this.vscodeOutputChannel.appendLine(msg);
+                            } else {
+                                // Show other messages as-is (Csound output, etc.)
+                                this.vscodeOutputChannel.appendLine(line);
+                            }
+                        }
                     }
                 }
             });
 
             process.stderr.on("data", (data: { toString: () => string; }) => {
                 const dataString = data.toString();
-                this.vscodeOutputChannel.appendLine('=== CABBAGE STDERR ===');
+                // Show stderr output (errors, warnings)
                 this.vscodeOutputChannel.appendLine(dataString);
-                this.vscodeOutputChannel.appendLine('=== END STDERR ===');
-                this.vscodeOutputChannel.show(true);
             });
             this.cabbageServerStarted = true;
         }
 
-        await setupWebSocketServer(this.portNumber);
+        // No longer need setupWebSocketServer - we're using pipes now
+        // Send initial message to CabbageApp via stdin to initialize
+        const process = this.processes[this.processes.length - 1];
+        if (process && process.stdin) {
+            const initMsg = { command: 'initialiseWidgets' };
+            process.stdin.write(JSON.stringify(initMsg) + '\n');
+        }
     }
     /**
      * Updates, or at least tries, old Cabbage syntax to JSON
