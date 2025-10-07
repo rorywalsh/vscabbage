@@ -25,7 +25,7 @@ export class ComboBox {
             "colour": {
                 "fill": "#0295cf",
                 "stroke": {
-                    "colour": "#dddddd",
+                    "colour": "#222222",
                     "width": 1
                 }
             },
@@ -136,20 +136,37 @@ export class ComboBox {
         const itemHeight = this.props.bounds.height * 0.8;
         const dropdownHeight = items.length * itemHeight;
 
+        // Calculate the maximum width needed for all items
+        const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
+        let maxWidth = rect.width;
+        items.forEach(item => {
+            const textWidth = CabbageUtils.getStringWidth(item, {
+                font: {
+                    family: this.props.font.family,
+                    size: fontSize
+                }
+            });
+            // Add some padding
+            const itemWidth = textWidth + 20;
+            if (itemWidth > maxWidth) {
+                maxWidth = itemWidth;
+            }
+        });
+
         // Create dropdown container
         const dropdown = document.createElement('div');
         dropdown.id = `dropdown-${this.props.channel}`;
         dropdown.style.position = 'fixed';
         dropdown.style.left = `${rect.left}px`;
         dropdown.style.top = `${rect.bottom}px`;
-        dropdown.style.width = `${rect.width}px`;
+        dropdown.style.width = `${maxWidth}px`;
         dropdown.style.height = `${dropdownHeight}px`;
         dropdown.style.zIndex = '9999';
         dropdown.style.backgroundColor = this.props.colour.fill;
         dropdown.style.border = `1px solid ${this.props.colour.stroke.colour}`;
         dropdown.style.borderRadius = `${this.props.corners}px`;
         dropdown.style.overflowY = 'auto';
-        dropdown.style.maxHeight = '200px';
+        dropdown.style.maxHeight = `${Math.min(dropdownHeight, 300)}px`;
 
         // Create dropdown items
         items.forEach((item, index) => {

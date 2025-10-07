@@ -39,14 +39,20 @@ export class GenTable {
                 "colour": "#dddddd"
             },
             "range": {
-                "start": 0,
-                "end": -1
+                "x": {
+                    "start": 0,
+                    "end": -1
+                },
+                "y": {
+                    "min": -1,
+                    "max": 1
+                }
             },
             "file": "",
             "corners": 4,
             "visible": 1,
             "text": "",
-            "tableNumber": 1,
+            "tableNumber": -9999,
             "samples": [],
             "automatable": 0,
             "opacity": 1,
@@ -120,8 +126,6 @@ export class GenTable {
         this.selectionStartSample = this.pixelToSample(x);
         this.selectionEndSample = this.selectionStartSample;
 
-        console.log(`GenTable: onPointerDown - pixel: ${x}, sample: ${this.selectionStartSample}, samples.length: ${this.props.samples.length}, range: ${this.props.range.start}-${this.props.range.end}`);
-
         // Draw selection overlay only (fast)
         this.drawSelectionOverlay();
     }
@@ -158,7 +162,6 @@ export class GenTable {
             this.selectionStartSample = null;
             this.selectionEndSample = null;
 
-            console.log('GenTable: Selection cleared');
 
             // Redraw to remove the selection overlay
             this.updateTable();
@@ -180,16 +183,13 @@ export class GenTable {
 
         // Send the sample positions to Csound via channels
         if (this.props.channel.start) {
-            console.log(`GenTable: Sending start channel: ${this.props.channel.start} = ${startSample} (sample position)`);
             Cabbage.sendChannelData(this.props.channel.start, startSample, this.vscode);
         }
 
         if (this.props.channel.length) {
-            console.log(`GenTable: Sending length channel: ${this.props.channel.length} = ${lengthSamples} (sample count)`);
             Cabbage.sendChannelData(this.props.channel.length, lengthSamples, this.vscode);
         }
 
-        console.log(`GenTable: Selected region from sample ${startSample} to ${endSample} (length: ${lengthSamples})`);
 
         // Redraw to show final selection
         this.updateTable();
@@ -208,15 +208,13 @@ export class GenTable {
 
         // Map pixel position to sample index
         // Account for the current range settings
-        const rangeStart = this.props.range.start || 0;
-        const rangeEnd = this.props.range.end === -1 ? totalSamples : this.props.range.end;
+        const rangeStart = this.props.range.x.start || 0;
+        const rangeEnd = this.props.range.x.end === -1 ? totalSamples : this.props.range.x.end;
         const rangeLength = rangeEnd - rangeStart;
 
         // Calculate the sample position
         const normalizedX = pixelX / this.props.bounds.width;
         const sampleIndex = Math.floor(rangeStart + (normalizedX * rangeLength));
-
-        console.log(`pixelToSample: pixel=${pixelX}, widgetWidth=${this.props.bounds.width}, displayedSamples=${this.props.samples.length}, totalSamples=${totalSamples}, rangeStart=${rangeStart}, rangeEnd=${rangeEnd}, rangeLength=${rangeLength}, normalizedX=${normalizedX.toFixed(4)}, sampleIndex=${sampleIndex}`);
 
         // Clamp to valid range
         return Math.max(rangeStart, Math.min(sampleIndex, rangeEnd - 1));
@@ -233,8 +231,8 @@ export class GenTable {
         // Get the total number of samples in the actual table
         const totalSamples = this.props.totalSamples || this.props.samples.length;
 
-        const rangeStart = this.props.range.start || 0;
-        const rangeEnd = this.props.range.end === -1 ? totalSamples : this.props.range.end;
+        const rangeStart = this.props.range.x.start || 0;
+        const rangeEnd = this.props.range.x.end === -1 ? totalSamples : this.props.range.x.end;
         const rangeLength = rangeEnd - rangeStart;
 
         const normalized = (sampleIndex - rangeStart) / rangeLength;
@@ -342,6 +340,10 @@ export class GenTable {
         // Set the global alpha for the canvas context
         ctx.globalAlpha = this.props.opacity; // Apply opacity
 
+        // Determine the Y-axis range for waveform display
+        const yMin = this.props.range.y.min;
+        const yMax = this.props.range.y.max;
+
         // Draw background with rounded corners
         ctx.fillStyle = this.props.colour.background;
         ctx.beginPath();
@@ -389,7 +391,7 @@ export class GenTable {
                     }
                 }
 
-                const y = CabbageUtils.map(maxVal, -1, 1, this.props.bounds.height, 0);
+                const y = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
                 ctx.lineTo(x, y);
             }
 
@@ -407,7 +409,7 @@ export class GenTable {
                     }
                 }
 
-                const y = CabbageUtils.map(minVal, -1, 1, this.props.bounds.height, 0);
+                const y = CabbageUtils.map(minVal, yMin, yMax, this.props.bounds.height, 0);
                 ctx.lineTo(x, y);
             }
 
@@ -434,7 +436,7 @@ export class GenTable {
                     }
                 }
 
-                const y = CabbageUtils.map(maxVal, -1, 1, this.props.bounds.height, 0);
+                const y = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
 
                 if (x === 0) {
                     ctx.moveTo(x, y);

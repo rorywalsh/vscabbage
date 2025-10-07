@@ -156,6 +156,9 @@ export class Button {
   }
 
   getInnerHTML() {
+    // Use defaultValue for visual state when value is null
+    const currentValue = this.props.value !== null ? this.props.value : this.props.defaultValue;
+
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -176,9 +179,9 @@ export class Button {
       textX = this.props.bounds.width / 2;
     }
     const buttonText = (this.props.type === "fileButton" || this.props.type === "infoButton") ?
-      (this.props.value === 1 ? this.props.text.on : this.props.text.off) :
-      (this.props.value === 1 ? this.props.text.on : this.props.text.off);
-    const baseColour = this.props.colour.on.fill !== this.props.colour.off.fill ? (this.props.value === 1 ? this.props.colour.on.fill : this.props.colour.off.fill) : this.props.colour.on.fill;
+      (currentValue === 1 ? this.props.text.on : this.props.text.off) :
+      (currentValue === 1 ? this.props.text.on : this.props.text.off);
+    const baseColour = this.props.colour.on.fill !== this.props.colour.off.fill ? (currentValue === 1 ? this.props.colour.on.fill : this.props.colour.off.fill) : this.props.colour.on.fill;
     const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
     const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;
 
@@ -188,7 +191,7 @@ export class Button {
         <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.colour.on.stroke.colour}"
           stroke-width="${this.props.colour.on.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-          fill="${this.props.value === 1 ? this.props.font.colour.on : this.props.font.colour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
+          fill="${currentValue === 1 ? this.props.font.colour.on : this.props.font.colour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
   }

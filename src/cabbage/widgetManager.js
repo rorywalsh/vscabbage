@@ -675,13 +675,13 @@ export class WidgetManager {
                 }
                 return; // Early return
             }
-            // Update widget properties
-            console.log(`Merge case: data =`, JSON.stringify(data, null, 2));
+
             // Save current value for sliders to prevent accidental null resets during visibility changes
             let savedSliderValue;
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 savedSliderValue = widget.props.value;
             }
+            // Update widget properties
             WidgetManager.deepMerge(widget.props, data);
             // Restore value if accidentally set to null
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {

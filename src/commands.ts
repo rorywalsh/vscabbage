@@ -651,13 +651,7 @@ export class Commands {
         const runInDebugMode = config.get("runInDebugMode");
 
         // Port number no longer needed for pipe communication
-        // this.portNumber is kept for backwards compatibility but not used
-        if (runInDebugMode) {
-            this.portNumber = 9991;
-        }
-        else {
-            this.portNumber = await ExtensionUtils.findFreePort(9991, 10000);
-        }
+        // Removed findFreePort call as we now use stdin/stdout pipes
 
         if (!runInDebugMode) {
             const command = Settings.getCabbageBinaryPath('CabbageApp');

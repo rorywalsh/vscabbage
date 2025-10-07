@@ -121,7 +121,16 @@ export async function activate(context: vscode.ExtensionContext):
     const vscodeOutputChannel = Commands.getOutputChannel();
     vscodeOutputChannel.show(true);
 
-    vscodeOutputChannel.appendLine('Cabbage extension is now active!');
+    vscodeOutputChannel.appendLine('   _____      _     _                      ');
+    vscodeOutputChannel.appendLine('  / ____|    | |   | |                     ');
+    vscodeOutputChannel.appendLine(' | |     __ _| |__ | |__   __ _  __ _  ___ ');
+    vscodeOutputChannel.appendLine(' | |    / _` | \'_ \\| \'_ \\ / _` |/ _` |/ _ \\');
+    vscodeOutputChannel.appendLine(' | |___| (_| | |_) | |_) | (_| | (_| |  __/');
+    vscodeOutputChannel.appendLine('  \\_____\\__,_|_.__/|_.__/ \\__,_|\\__, |\\___|');
+    vscodeOutputChannel.appendLine('                                 __/ |     ');
+    vscodeOutputChannel.appendLine('                                |___/      ');
+    vscodeOutputChannel.appendLine('');
+    vscodeOutputChannel.appendLine(' The audio development environment for Ccsound 7');
 
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.openCabbageExample', async () => {
