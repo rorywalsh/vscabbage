@@ -7,6 +7,7 @@ import { ExtensionUtils } from './extensionUtils';
 import WebSocket from 'ws';
 import * as cp from "child_process";
 import { Settings } from './settings';
+import stringify from 'json-stringify-pretty-compact';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
@@ -1000,8 +1001,12 @@ export class Commands {
         if (!range) { return; }; // Exit if the range is invalid
 
         try {
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+
             const jsonObject = JSON.parse(cabbageContent);
-            const formattedJson = JSON.stringify(jsonObject, null, 4);
+            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
 
             editor.edit(editBuilder => {
                 editBuilder.replace(range, '\n' + formattedJson + '\n');

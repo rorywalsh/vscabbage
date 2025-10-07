@@ -354,6 +354,27 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.updateCodeToJSON();
         }));
 
+    // Register document formatting provider for VSCode's built-in Format Document command
+    context.subscriptions.push(
+        vscode.languages.registerDocumentFormattingEditProvider('csound-csd', {
+            provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+                const text = document.getText();
+                const formattedText = ExtensionUtils.formatText(text);
+
+                // Only return edits if the text actually changed
+                if (formattedText !== text) {
+                    const range = new vscode.Range(
+                        document.positionAt(0),
+                        document.positionAt(text.length)
+                    );
+                    return [vscode.TextEdit.replace(range, formattedText)];
+                }
+
+                return [];
+            }
+        })
+    );
+
     /**
      * Event handler triggered when the text of a document is changed.
      * - Reverts changes to protected example files.

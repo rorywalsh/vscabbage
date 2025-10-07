@@ -175,6 +175,20 @@
             "Formats each widget object over multiple lines; typical of most JSON formatters"
           ]
         },
+        "cabbage.jsonIndentSpaces": {
+          "type": "number",
+          "default": 4,
+          "minimum": 2,
+          "maximum": 8,
+          "description": "Number of spaces to use for JSON indentation in Cabbage sections."
+        },
+        "cabbage.jsonMaxLength": {
+          "type": "number",
+          "default": 120,
+          "minimum": 0,
+          "maximum": 200,
+          "description": "Maximum line length for JSON formatting in Cabbage sections. Longer lines will be wrapped. 0 is equivalent to JSON.stringify(obj, null, indent)"
+        },
         "cabbage.showWarningComment": {
           "type": "boolean",
           "default": true,
@@ -401,6 +415,7 @@
     "@vscode/vsce": "^3.2.1",
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
+    "json-stringify-pretty-compact": "^4.0.0",
     "ws": "^8.16.0",
     "xml2js": "^0.6.2"
   },

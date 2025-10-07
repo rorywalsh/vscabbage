@@ -13,6 +13,7 @@ import { initialiseDefaultProps } from './cabbage/widgetTypes';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
 import WebSocket from 'ws';
+import stringify from 'json-stringify-pretty-compact';
 
 
 // Define an interface for the old-style widget structure
@@ -502,9 +503,12 @@ editor. -->\n`;
                     const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
+                    const indentSpaces = config.get("jsonIndentSpaces", 4);
+                    const maxLength = config.get("jsonMaxLength", 120);
+                    
                     const formattedArray = isSingleLine
-                        ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ')
-                        : JSON.stringify(updatedJsonArray, null, 4);
+                        ? ExtensionUtils.formatJsonObjects(updatedJsonArray, ' '.repeat(indentSpaces))
+                        : stringify(updatedJsonArray, { maxLength: maxLength, indent: indentSpaces });
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
@@ -591,6 +595,7 @@ ${JSON.stringify(props, null, 4)}
     /**
      * Formats the given text based on indentation and special formatting rules for `<Cabbage>` sections.
      * Uses custom indentation for control structures like `if`, `else`, `instr`, and `opcode`.
+     * Also formats JSON content within `<Cabbage>` sections.
      */
     static formatText(text: string, indentSpaces: number = 4): string {
 
@@ -614,7 +619,46 @@ ${JSON.stringify(props, null, 4)}
         const formattedBeforeCabbage = this.formatNonCabbageContent(beforeCabbage, ' '.repeat(indentSpaces));
         const formattedAfterCabbage = this.formatNonCabbageContent(afterCabbage, ' '.repeat(indentSpaces));
 
-        return formattedBeforeCabbage.join('\n') + cabbageSection + formattedAfterCabbage.join('\n');
+        // Format the JSON content within the Cabbage section
+        const formattedCabbageSection = this.formatCabbageSection(cabbageSection);
+
+        return formattedBeforeCabbage.join('\n') + formattedCabbageSection + formattedAfterCabbage.join('\n');
+    }
+
+    /**
+     * Formats the JSON content within a Cabbage section.
+     * @param cabbageSection The full Cabbage section including tags.
+     * @returns The formatted Cabbage section with formatted JSON.
+     */
+    static formatCabbageSection(cabbageSection: string): string {
+        const startTag = '<Cabbage>';
+        const endTag = '</Cabbage>';
+
+        const startIndex = cabbageSection.indexOf(startTag);
+        const endIndex = cabbageSection.indexOf(endTag);
+
+        if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
+            return cabbageSection; // Return as-is if tags are malformed
+        }
+
+        const beforeTag = cabbageSection.substring(0, startIndex + startTag.length);
+        const jsonContent = cabbageSection.substring(startIndex + startTag.length, endIndex);
+        const afterTag = cabbageSection.substring(endIndex);
+
+        try {
+            // Get formatting settings from configuration
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+
+            // Parse and format the JSON content
+            const jsonObject = JSON.parse(jsonContent.trim());
+            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            return beforeTag + '\n' + formattedJson + '\n' + afterTag;
+        } catch (error) {
+            // If JSON parsing fails, return the original section
+            return cabbageSection;
+        }
     }
 
     static collapseCabbageContent(cabbageContent: string): string {
