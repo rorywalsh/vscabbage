@@ -34,8 +34,8 @@ class Cabbage2To3Converter:
         
         # Font size scaling factors: 1.0 = 100% (no reduction), 0.95 = 95% (5% reduction), etc.
         # Adjust these values to control how much font sizes are reduced during conversion
-        self.font_scale_factor = 0.6  # 90% of original size (10% reduction)
-        self.label_font_scale_factor = 0.9  # 100% of original size (no reduction for labels)
+        self.font_scale_factor = 0.9  # Applied to labels, buttons, combobox, groupbox, etc.
+        self.font_scale_factor_sliders = 0.6  # Applied to sliders (horizontal, vertical, rotary, number)
         
         # Mapping from Cabbage2 widget names to Cabbage3 widget names
         self.widget_type_mapping = {
@@ -901,9 +901,12 @@ class Cabbage2To3Converter:
             # Remove the original property
             properties.pop(font_colour_key, None)
 
-        # Apply font size scaling based on self.font_scale_factor (or label_font_scale_factor for labels)
+        # Apply font size scaling based on widget type
+        # font_scale_factor for labels, buttons, combobox, groupbox, etc.
+        # font_scale_factor_sliders for sliders
         # Only apply if scale factor is not 1.0 (to let widgets auto-calculate when no reduction needed)
-        scale_factor = self.label_font_scale_factor if widget_type == 'label' else self.font_scale_factor
+        slider_widgets = ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']
+        scale_factor = self.font_scale_factor_sliders if widget_type in slider_widgets else self.font_scale_factor
         
         if scale_factor != 1.0 and widget_type in ['label', 'button', 'checkBox', 'comboBox', 'groupBox', 
                           'horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider', 'optionButton', 
@@ -932,7 +935,7 @@ class Cabbage2To3Converter:
                         widget['font']['size'] = max(round(default_size * scale_factor), 6)
                     elif widget_type == 'checkBox':
                         # checkBox: height * 0.8
-                        default_size = height * 0.8
+                        default_size = height * 0.6
                         widget['font']['size'] = max(round(default_size * scale_factor), 6)
                     elif widget_type == 'comboBox':
                         # comboBox: height * 0.5
@@ -976,6 +979,49 @@ class Cabbage2To3Converter:
                 widget['colour']['tracker']['fill'] = tracker_colour
             # Remove the original property
             properties.pop('trackerColour', None)
+
+        # Set default tracker width for rotarySlider
+        if widget_type == 'rotarySlider':
+            # Initialize colour object if it doesn't exist
+            if 'colour' not in widget:
+                widget['colour'] = {}
+            # Initialize tracker object if it doesn't exist
+            if 'tracker' not in widget['colour']:
+                widget['colour']['tracker'] = {}
+            # Set default tracker width if not already set
+            if 'width' not in widget['colour']['tracker']:
+                widget['colour']['tracker']['width'] = 14
+
+        # Set default background color and corners for comboBox
+        if widget_type == 'comboBox':
+            # Initialize colour object if it doesn't exist
+            if 'colour' not in widget:
+                widget['colour'] = {}
+            # Set default background fill if not already set
+            if 'fill' not in widget['colour']:
+                widget['colour']['fill'] = '222222'
+            # Set default corner size (as a simple number, not object)
+            if 'corners' not in widget:
+                widget['corners'] = 2
+
+        # Set default colors and corners for button and fileButton
+        if widget_type in ['button', 'fileButton']:
+            # Initialize colour object if it doesn't exist
+            if 'colour' not in widget:
+                widget['colour'] = {}
+            # Set default on state colors
+            if 'on' not in widget['colour']:
+                widget['colour']['on'] = {}
+            if 'fill' not in widget['colour']['on']:
+                widget['colour']['on']['fill'] = '222222'
+            # Set default off state colors
+            if 'off' not in widget['colour']:
+                widget['colour']['off'] = {}
+            if 'fill' not in widget['colour']['off']:
+                widget['colour']['off']['fill'] = '222222'
+            # Set default corner size (as a simple number, not object)
+            if 'corners' not in widget:
+                widget['corners'] = 2
 
         # Handle value -> defaultValue conversion (Cabbage2 value() becomes Cabbage3 defaultValue)
         if 'value' in properties:
