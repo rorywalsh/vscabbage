@@ -1095,6 +1095,32 @@ cabbageSet "ScrubberID", "bounds.left", iScrubPos             ; send new positio
             # Remove the original property
             properties.pop('trackerColour', None)
 
+        # Handle trackerBackgroundColour -> colour.tracker.background mapping for sliders
+        if 'trackerBackgroundColour' in properties and widget_type in ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']:
+            tracker_bg_colour = properties['trackerBackgroundColour']
+            if isinstance(tracker_bg_colour, str):
+                # Initialize colour object if it doesn't exist
+                if 'colour' not in widget:
+                    widget['colour'] = {}
+                # Initialize tracker object if it doesn't exist
+                if 'tracker' not in widget['colour']:
+                    widget['colour']['tracker'] = {}
+                widget['colour']['tracker']['background'] = tracker_bg_colour
+            # Remove the original property
+            properties.pop('trackerBackgroundColour', None)
+
+        # Set default tracker background for sliders
+        if widget_type in ['horizontalSlider', 'verticalSlider', 'rotarySlider', 'numberSlider']:
+            # Initialize colour object if it doesn't exist
+            if 'colour' not in widget:
+                widget['colour'] = {}
+            # Initialize tracker object if it doesn't exist
+            if 'tracker' not in widget['colour']:
+                widget['colour']['tracker'] = {}
+            # Set default background if not already set
+            if 'background' not in widget['colour']['tracker']:
+                widget['colour']['tracker']['background'] = '#222222'
+
         # Set default tracker width for rotarySlider
         if widget_type == 'rotarySlider':
             # Initialize colour object if it doesn't exist

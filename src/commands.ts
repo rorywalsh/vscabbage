@@ -677,9 +677,7 @@ export class Commands {
             const command = Settings.getCabbageBinaryPath('CabbageApp');
 
             // Spawn CabbageApp without port number - it will use stdin/stdout pipes
-            const process = cp.spawn(command, [
-                `--startTestServer=false`
-            ], {
+            const process = cp.spawn(command, [], {
                 stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
             });
 
