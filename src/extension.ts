@@ -486,6 +486,15 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
         await Commands.onDidSave(editor, context);
 
+        // Send message to webview to enter performance mode
+        const performancePanel = Commands.getPanel();
+        if (performancePanel) {
+            console.log('Cabbage: Sending onEnterPerformanceMode message to webview');
+            performancePanel.webview.postMessage({ command: 'onEnterPerformanceMode' });
+        } else {
+            console.log('Cabbage: No panel found to send performance mode message');
+        }
+
         if (websocket) {
             websocket.send(JSON.stringify({
                 command: "onFileChanged",
@@ -536,6 +545,27 @@ function pathExists(p: string): boolean {
         return false;
     }
 }
+
+/**
+ * Function to check if csound64.dll is available in the system PATH
+ */
+function isCsoundInPath(): boolean {
+    try {
+        const pathEnv = process.env.PATH || '';
+        const pathDirs = pathEnv.split(path.delimiter);
+        
+        for (const dir of pathDirs) {
+            const dllPath = path.join(dir, 'csound64.dll');
+            if (fs.existsSync(dllPath)) {
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('Error checking PATH for csound64.dll:', error);
+        return false;
+    }
+}
 /*
  * Logic to execute when the extension is installed for the first time. On MacOS
  * we need to sign the Csound library if it is not already signed. If it's only
@@ -568,9 +598,9 @@ function onInstall() {
             }
         }
     } else if (process.platform === 'win32') {
-        if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll')) {
+        if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll') && !isCsoundInPath()) {
             Commands.getOutputChannel().append(
-                'ERROR: C:/Program Files/Csound7/bin/csound64.dll not found\nA version of Csound 7 is required for the Cabbage extension to work\n');
+                'ERROR: C:/Program Files/Csound7/bin/csound64.dll not found and csound64.dll not found in PATH\nA version of Csound 7 is required for the Cabbage extension to work\nPlease ensure Csound 7 is installed and csound64.dll is in your PATH\n');
         }
     } else {
         if (!pathExists('/usr/local/bin/csound') &&

@@ -190,6 +190,15 @@ window.addEventListener('message', async event => {
             updateChildWidgetPointerEvents('draggable');
             break;
 
+        // Called when entering performance mode
+        case 'onEnterPerformanceMode':
+            console.log('Cabbage: Received onEnterPerformanceMode message, setting mode to nonDraggable');
+            setCabbageMode('nonDraggable'); // Set the mode to nonDraggable for performance mode
+            // Update child widget pointer events for performance mode
+            updateChildWidgetPointerEvents('nonDraggable');
+            console.log('Cabbage: Mode set to nonDraggable, mouse tracking should be active');
+            break;
+
         // Called when there are new Csound console messages to display
         case 'csoundOutputUpdate':
             // Find the csoundOutput widget by its channel
@@ -215,7 +224,7 @@ window.addEventListener('message', async event => {
 
 /**
  * Updates pointer events for child widgets based on the current mode
- * @param {string} mode - The current mode ('draggable' or 'nonDraggable')
+ * @param {string} mode - The current mode ('draggable', 'nonDraggable', or 'play')
  */
 function updateChildWidgetPointerEvents(mode) {
 
@@ -226,7 +235,7 @@ function updateChildWidgetPointerEvents(mode) {
         if (mode === 'draggable') {
             childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
         } else {
-            childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
+            childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance and nonDraggable modes
         }
     });
 }
