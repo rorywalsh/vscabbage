@@ -61,6 +61,11 @@ export function formatText(text: string, indentSpaces: number = 4): string {
                 indents++;
             }
 
+            // Special handling for kgoto: check current line
+            if (shouldIncreaseIndentForKgoto(trimmedLine)) {
+                indents++;
+            }
+
             // Decrease indentation level for end keywords
             if (shouldDecreaseIndent(trimmedLine)) {
                 indents = Math.max(0, indents - 1);
@@ -92,6 +97,15 @@ function shouldIncreaseIndent(previousLine: string): boolean {
 }
 
 /**
+ * Checks if the indentation should be increased for kgoto statements based on the current line.
+ * @param currentLine - The current line to check.
+ * @returns True if indentation should be increased, otherwise false.
+ */
+function shouldIncreaseIndentForKgoto(currentLine: string): boolean {
+    return currentLine.includes("kgoto");
+}
+
+/**
  * Checks if the indentation should be decreased based on the current line.
  * @param currentLine - The current line to check.
  * @returns True if indentation should be decreased, otherwise false.
@@ -103,7 +117,8 @@ function shouldDecreaseIndent(currentLine: string): boolean {
         currentLine.startsWith("endop") ||
         currentLine.startsWith("od") ||
         currentLine.startsWith("else") ||
-        currentLine.startsWith("enduntil")
+        currentLine.startsWith("enduntil") ||
+        currentLine.trim().endsWith(":")
     );
 }
 

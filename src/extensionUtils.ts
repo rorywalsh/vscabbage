@@ -680,7 +680,7 @@ ${JSON.stringify(props, null, 4)}
             const line = lines[index];
             const trimmedLine = line.trim();
 
-            // Decrease indentation level for end keywords
+            // Decrease indentation level for end keywords and labels
             if (
                 trimmedLine.startsWith("endif") ||
                 trimmedLine.startsWith("endin") ||
@@ -698,8 +698,8 @@ ${JSON.stringify(props, null, 4)}
 
             // Increase indentation level for specific keywords
             if (
-                trimmedLine.startsWith("if ") ||
-                trimmedLine.startsWith("if(") ||
+                (trimmedLine.startsWith("if ") && trimmedLine.includes("then")) ||
+                (trimmedLine.startsWith("if(") && trimmedLine.includes("then")) ||
                 trimmedLine.startsWith("instr") ||
                 trimmedLine.startsWith("opcode") ||
                 trimmedLine.startsWith("else") ||

@@ -5,6 +5,85 @@ from pathlib import Path
 import argparse
 import platform
 
+def format_json_compact(obj, indent=4, max_length=120):
+    """
+    Format JSON in a compact style similar to json-stringify-pretty-compact.
+    Keeps short objects on single lines, breaks long ones into multiple lines.
+    """
+    def _format_value(val, current_indent=0):
+        indent_str = ' ' * current_indent
+
+        if isinstance(val, dict):
+            if not val:
+                return '{}'
+
+            # For widget objects (have 'type' key), always use multi-line format for consistency
+            if 'type' in val:
+                lines = ['{']
+                for i, (k, v) in enumerate(val.items()):
+                    formatted_val = _format_value(v, current_indent + indent)
+                    comma = ',' if i < len(val) - 1 else ''
+                    lines.append(f'{" " * (current_indent + indent)}"{k}": {formatted_val}{comma}')
+                lines.append(f'{" " * current_indent}}}')
+                return '\n'.join(lines)
+
+            # Check if the dict would fit on one line
+            items = []
+            for k, v in val.items():
+                formatted_val = _format_value(v, 0)
+                items.append(f'"{k}": {formatted_val}')
+
+            one_line = f'{{{", ".join(items)}}}'
+
+            # If it fits within max_length and doesn't contain newlines, use one line
+            if len(one_line) + current_indent <= max_length and '\n' not in one_line:
+                return one_line
+            else:
+                # Multi-line format
+                lines = ['{']
+                for i, (k, v) in enumerate(val.items()):
+                    formatted_val = _format_value(v, current_indent + indent)
+                    comma = ',' if i < len(val) - 1 else ''
+                    lines.append(f'{" " * (current_indent + indent)}"{k}": {formatted_val}{comma}')
+                lines.append(f'{" " * current_indent}}}')
+                return '\n'.join(lines)
+
+        elif isinstance(val, list):
+            if not val:
+                return '[]'
+
+            # Check if the array would fit on one line
+            items = []
+            for item in val:
+                formatted_item = _format_value(item, 0)
+                items.append(formatted_item)
+
+            one_line = f'[{", ".join(items)}]'
+
+            # If it fits within max_length and doesn't contain newlines, use one line
+            if len(one_line) + current_indent <= max_length and '\n' not in one_line:
+                return one_line
+            else:
+                # Multi-line format
+                lines = ['[']
+                for i, item in enumerate(val):
+                    formatted_item = _format_value(item, current_indent + indent)
+                    comma = ',' if i < len(val) - 1 else ''
+                    lines.append(f'{" " * (current_indent + indent)}{formatted_item}{comma}')
+                lines.append(f'{" " * current_indent}]')
+                return '\n'.join(lines)
+
+        elif isinstance(val, str):
+            return f'"{val}"'
+        elif isinstance(val, bool):
+            return 'true' if val else 'false'
+        elif val is None:
+            return 'null'
+        else:
+            return str(val)
+
+    return _format_value(obj, 0)
+
 class Cabbage2To3Converter:
     def replace_parallelwidgets_blocks(self, instruments_content):
         """Detect and replace ParallelWidgets opcode blocks with a modernized version."""
@@ -1443,7 +1522,7 @@ cabbageSet "ScrubberID", "bounds.left", iScrubPos             ; send new positio
         output_file = os.path.join(output_dir, f"{input_name}_cabbage3.csd")
 
         # Replace Cabbage section with JSON
-        json_content = json.dumps(widgets, indent=4)
+        json_content = format_json_compact(widgets, indent=4, max_length=120)
         new_cabbage_section = f"<Cabbage>\n{json_content}\n</Cabbage>"
 
         new_content = content.replace(cabbage_match.group(0), new_cabbage_section)
