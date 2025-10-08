@@ -26,6 +26,15 @@ export class Image {
                     "width": 1
                 }
             },
+            "rotate":{
+                "x":0,
+                "y":0,
+                "radians":0
+            },
+            "currentCsdFile": "",
+            "parameterIndex": -1,
+            "children": [
+            ],
             "file": "",
             "corners": 4,
             "visible": 1,
@@ -59,10 +68,18 @@ export class Image {
     getInnerHTML() {
         const outlineOffset = this.props.colour.stroke.width / 2;
 
+        // Calculate rotation transform if rotate values are set
+        // Transform origin is relative to the widget's position within the form
+        const rotationDegrees = this.props.rotate.radians * (180 / Math.PI);
+        const transformOriginX = this.props.rotate.x + this.props.bounds.left;
+        const transformOriginY = this.props.rotate.y + this.props.bounds.top;
+        const transformStyle = this.props.rotate.radians !== 0 ?
+            `transform: rotate(${rotationDegrees}deg); transform-origin: ${transformOriginX}px ${transformOriginY}px;` : '';
+
         // Check if svgText is not empty and render it
         if (this.props.svgText) {
             return `
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; display: ${this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                         ${this.props.svgText}
                     </div>
@@ -77,7 +94,7 @@ export class Image {
             if (imagePath) {
                 console.log("Cabbage: setting file");
                 return `
-                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: none; display: ${this.props.visible === 0 ? 'none' : 'block'};" />
+                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.corners}px; pointer-events: none; display: ${this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}" />
                 `;
             }
         }
@@ -89,7 +106,7 @@ export class Image {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
-                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
                 <rect width="${this.props.bounds.width - this.props.colour.stroke.width}" height="${this.props.bounds.height - this.props.colour.stroke.width}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${fillColor}" 
                       stroke="${this.props.colour.stroke.colour}" stroke-width="${this.props.colour.stroke.width}" pointer-events="${pointerEvents}"></rect>
             </svg>
