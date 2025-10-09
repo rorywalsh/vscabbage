@@ -26,10 +26,10 @@ export class Image {
                     "width": 1
                 }
             },
-            "rotate":{
-                "x":0,
-                "y":0,
-                "radians":0
+            "rotate": {
+                "x": 0,
+                "y": 0,
+                "radians": 0
             },
             "currentCsdFile": "",
             "parameterIndex": -1,
@@ -62,7 +62,9 @@ export class Image {
     pointerDown() {
         this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
         const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
-        Cabbage.sendParameterUpdate(msg, this.vscode);
+        if (this.props.automatable === 1) {
+            Cabbage.sendParameterUpdate(msg, this.vscode);
+        }
     }
 
     getInnerHTML() {

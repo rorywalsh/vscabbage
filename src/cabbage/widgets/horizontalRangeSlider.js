@@ -19,19 +19,19 @@ export class HorizontalRangeSlider {
       },
       "channel": "hrslider",
       "range": {
-        "x":{
-        "min": 0,
-        "max": 1,
-        "defaultValue": 0,
-        "skew": 1,
-        "increment": 0.001
+        "x": {
+          "min": 0,
+          "max": 1,
+          "defaultValue": 0,
+          "skew": 1,
+          "increment": 0.001
         },
-        "y":{
-        "min": 0,
-        "max": 1,
-        "defaultValue": 0,
-        "skew": 1,
-        "increment": 0.001
+        "y": {
+          "min": 0,
+          "max": 1,
+          "defaultValue": 0,
+          "skew": 1,
+          "increment": 0.001
         }
       },
       "value": null,
@@ -214,7 +214,9 @@ export class HorizontalRangeSlider {
     console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
-    Cabbage.sendParameterUpdate(msg, this.vscode);
+    if (this.props.automatable === 1) {
+      Cabbage.sendParameterUpdate(msg, this.vscode);
+    }
   }
 
   handleInputChange(evt) {

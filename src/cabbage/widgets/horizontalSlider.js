@@ -153,7 +153,9 @@ export class HorizontalSlider {
       const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
       const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" };
       console.log(`pointerDown: sending valueToSend=${valueToSend}`);
-      Cabbage.sendParameterUpdate(msg, this.vscode);
+      if (this.props.automatable === 1) {
+        Cabbage.sendParameterUpdate(msg, this.vscode);
+      }
     }
   }
 
@@ -300,7 +302,9 @@ export class HorizontalSlider {
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
-    Cabbage.sendParameterUpdate(msg, this.vscode);
+    if (this.props.automatable === 1) {
+      Cabbage.sendParameterUpdate(msg, this.vscode);
+    }
   }
 
   handleInputChange(evt) {
@@ -332,7 +336,9 @@ export class HorizontalSlider {
           value: valueToSend,
           channelType: "number"
         };
-        Cabbage.sendParameterUpdate(msg, this.vscode);
+        if (this.props.automatable === 1) {
+          Cabbage.sendParameterUpdate(msg, this.vscode);
+        }
       }
     }
   }

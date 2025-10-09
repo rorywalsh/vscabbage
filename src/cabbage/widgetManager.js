@@ -10,6 +10,7 @@ import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 import { Cabbage } from "../cabbage/cabbage.js";
+import { handleRadioGroup } from "./radioGroup.js";
 
 /**
  * WidgetManager class handles the creation, insertion, and management of widgets.
@@ -460,45 +461,8 @@ export class WidgetManager {
                 parentDiv.style.zIndex = '9999';
             }
         }
-    }    /**
-     * Handles radioGroup functionality for button and checkbox widgets.
-     * When a widget is activated, deactivates all other widgets in the same radioGroup.
-     * @param {string} radioGroup - The radioGroup identifier
-     * @param {string} activeChannel - The channel of the widget that was just activated
-     */
-    static handleRadioGroup(radioGroup, activeChannel) {
-        if (!radioGroup || radioGroup === -1) return;
-
-        console.log(`Cabbage: Handling radioGroup ${radioGroup} for channel ${activeChannel}`);
-
-        // Find all widgets in the same radioGroup
-        const groupWidgets = widgets.filter(widget =>
-            widget.props.radioGroup === radioGroup && widget.props.channel !== activeChannel
-        );
-
-        // Deactivate all other widgets in the group
-        groupWidgets.forEach(groupWidget => {
-            if (groupWidget.props.value !== 0) {
-                groupWidget.props.value = 0;
-
-                // Update visual state
-                const groupChannelId = typeof groupWidget.props.channel === 'object' && groupWidget.props.channel !== null
-                    ? (groupWidget.props.channel.id || groupWidget.props.channel.x)
-                    : groupWidget.props.channel;
-                const widgetDiv = document.getElementById(groupChannelId);
-                if (widgetDiv) {
-                    widgetDiv.innerHTML = groupWidget.getInnerHTML();
-                }
-
-                // Send parameter update to Csound to keep it in sync
-                const msg = {
-                    paramIdx: groupWidget.parameterIndex,
-                    channel: groupWidget.props.channel,
-                    value: 0
-                };
-                Cabbage.sendParameterUpdate(msg, groupWidget.vscode || null);
-            }
-        });
+    } static handleRadioGroup(radioGroup, activeChannel) {
+        handleRadioGroup(radioGroup, activeChannel);
     }
     static updateWidgetStyles(widgetDiv, props) {
         widgetDiv.style.position = 'absolute';

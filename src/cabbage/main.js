@@ -102,13 +102,14 @@ window.addEventListener('message', async event => {
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
+            console.log(message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
             const channelId = typeof updateMsg.channel === 'object'
                 ? (updateMsg.channel.id || updateMsg.channel.x)
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
-            WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+            await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 
         // Called when the host triggers a parameter change in the UI
@@ -116,16 +117,16 @@ window.addEventListener('message', async event => {
             console.log(`main.js parameterChange: paramIdx=${parameterMessage.data.paramIdx}, value=${parameterMessage.data.value}`);
             const parameterMessage = message;
             // {command: "parameterChange", data: {paramIdx: 0, value: 0.32499998807907104}}
-            widgets.forEach(widget => {
+            for (const widget of widgets) {
                 if (widget.parameterIndex == parameterMessage.data.paramIdx) {
                     console.log(`main.js parameterChange: updating widget ${widget.props.channel} (${widget.props.type}) with value ${parameterMessage.data.value}`);
                     const updateMsg = {
                         channel: widget.props.channel,
                         value: parameterMessage.data.value
                     };
-                    WidgetManager.updateWidget(updateMsg);
+                    await WidgetManager.updateWidget(updateMsg);
                 }
-            });
+            }
             break;
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.

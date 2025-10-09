@@ -4,7 +4,7 @@
 
 import { CabbageUtils, CabbageColours } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
-import { WidgetManager } from "../widgetManager.js";
+import { handleRadioGroup } from "../radioGroup.js";
 import { getCabbageMode } from "../sharedState.js";
 
 export class Checkbox {
@@ -74,7 +74,7 @@ export class Checkbox {
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (this.props.value === 0) {
         this.props.value = 1;
-        WidgetManager.handleRadioGroup(this.props.radioGroup, this.props.channel);
+        handleRadioGroup(this.props.radioGroup, this.props.channel);
       }
       // If already 1, do nothing (stay selected)
     } else {
@@ -84,7 +84,9 @@ export class Checkbox {
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
-    Cabbage.sendParameterUpdate(msg, this.vscode);
+    if (this.props.automatable === 1) {
+      Cabbage.sendParameterUpdate(msg, this.vscode);
+    }
   }
 
   pointerDown(evt) {

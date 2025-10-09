@@ -381,7 +381,9 @@ export class XyPad {
             channelType: "number"
         };
         console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
-        Cabbage.sendParameterUpdate(msgX, this.vscode);
+        if (this.props.automatable === 1) {
+            Cabbage.sendParameterUpdate(msgX, this.vscode);
+        }
 
         // Send Y channel update
         const msgY = {
@@ -391,7 +393,9 @@ export class XyPad {
             channelType: "number"
         };
         console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
-        Cabbage.sendParameterUpdate(msgY, this.vscode);
+        if (this.props.automatable === 1) {
+            Cabbage.sendParameterUpdate(msgY, this.vscode);
+        }
     }
 
     getInnerHTML() {

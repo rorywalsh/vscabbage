@@ -369,7 +369,9 @@ export class RotarySlider {
       value: valueToSend,
       channelType: "number"
     };
-    Cabbage.sendParameterUpdate(msg, this.vscode);
+    if (this.props.automatable === 1) {
+      Cabbage.sendParameterUpdate(msg, this.vscode);
+    }
   }  // Add this helper method to convert between linear and skewed values
   getSkewedValue(linearValue) {
     const rangeSpan = this.props.range.max - this.props.range.min;
@@ -451,7 +453,9 @@ export class RotarySlider {
           value: valueToSend,
           channelType: "number"
         };
-        Cabbage.sendParameterUpdate(msg, this.vscode);
+        if (this.props.automatable === 1) {
+          Cabbage.sendParameterUpdate(msg, this.vscode);
+        }
       }
     } else if (evt.key === 'Escape') {
       const widgetDiv = document.getElementById(this.props.channel);

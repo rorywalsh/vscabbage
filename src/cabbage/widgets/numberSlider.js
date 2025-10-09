@@ -181,7 +181,9 @@ export class NumberSlider {
             targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
             const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
             const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend };
-            Cabbage.sendParameterUpdate(msg, this.vscode);
+            if (this.props.automatable === 1) {
+                Cabbage.sendParameterUpdate(msg, this.vscode);
+            }
             this.updateSliderValue();
         }
     }
@@ -221,7 +223,9 @@ export class NumberSlider {
                     const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
                     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
                     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend };
-                    Cabbage.sendParameterUpdate(msg, this.vscode);
+                    if (this.props.automatable === 1) {
+                        Cabbage.sendParameterUpdate(msg, this.vscode);
+                    }
                     this.updateSliderValue();
                 } else {
                     alert(`Please enter a value between ${this.props.range.min} and ${this.props.range.max}`);

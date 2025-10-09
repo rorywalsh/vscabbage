@@ -118,7 +118,9 @@ export class VerticalSlider {
       const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
       const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
       const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
-      Cabbage.sendParameterUpdate(msg, this.vscode);
+      if (this.props.automatable === 1) {
+        Cabbage.sendParameterUpdate(msg, this.vscode);
+      }
     }
   }
 
@@ -259,7 +261,9 @@ export class VerticalSlider {
     const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
-    Cabbage.sendParameterUpdate(msg, this.vscode);
+    if (this.props.automatable === 1) {
+      Cabbage.sendParameterUpdate(msg, this.vscode);
+    }
   }
 
   getInnerHTML() {
