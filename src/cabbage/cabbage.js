@@ -104,9 +104,12 @@ export class Cabbage {
     console.log("Cabbage: Got MIDI Message" + statusByte + ":" + dataByte1 + ":" + dataByte2);
   }
 
-  static triggerFileOpenDialog(vscode, channel) {
+  static triggerFileOpenDialog(vscode, channel, options = {}) {
     var message = {
-      "channel": channel
+      "channel": channel,
+      "directory": options.directory || "",
+      "filters": options.filters || "*",
+      "openAtLastKnownLocation": options.openAtLastKnownLocation !== undefined ? options.openAtLastKnownLocation : true
     };
 
     const msg = {

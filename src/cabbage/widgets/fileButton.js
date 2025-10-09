@@ -55,7 +55,9 @@ export class FileButton extends Button {
           }
         }
       },
-      "name": "",
+      "directory": "",
+      "filters": "*",
+      "openAtLastKnownLocation": true,
       "type": "fileButton",
       "visible": 1,
       "automatable": 0,
@@ -68,7 +70,6 @@ export class FileButton extends Button {
     this.isMouseDown = false;
     this.isMouseInside = false;
     this.parameterIndex = 0;
-    this.fileInput = null;
   }
 
   pointerDown(evt) {
@@ -81,45 +82,25 @@ export class FileButton extends Button {
 
     if (this.vscode !== null) {
       // VS Code mode - use VS Code's file dialog
-      Cabbage.triggerFileOpenDialog(this.vscode, this.props.channel);
+      Cabbage.triggerFileOpenDialog(this.vscode, this.props.channel, {
+        directory: this.props.directory,
+        filters: this.props.filters,
+        openAtLastKnownLocation: this.props.openAtLastKnownLocation
+      });
     } else {
-      // Plugin mode - use native HTML file input
-      this.openNativeFileDialog();
+      // Plugin mode - send command to backend to open native file dialog
+      Cabbage.triggerFileOpenDialog(null, this.props.channel, {
+        directory: this.props.directory,
+        filters: this.props.filters,
+        openAtLastKnownLocation: this.props.openAtLastKnownLocation
+      });
     }
 
     CabbageUtils.updateInnerHTML(this.props.channel, this);
   }
 
   openNativeFileDialog() {
-    // Create a hidden file input if it doesn't exist
-    if (!this.fileInput) {
-      this.fileInput = document.createElement('input');
-      this.fileInput.type = 'file';
-      this.fileInput.accept = 'audio/*,.wav,.mp3,.ogg,.flac,.aiff,.aif';
-      this.fileInput.style.display = 'none';
-      document.body.appendChild(this.fileInput);
-
-      this.fileInput.addEventListener('change', (evt) => {
-        if (evt.target.files && evt.target.files[0]) {
-          const file = evt.target.files[0];
-          // In plugin mode, we get a File object, not a file path
-          // We need to send the file name or create a URL
-          const fileName = file.name;
-          const fileUrl = URL.createObjectURL(file);
-
-          // Toggle button value for visual feedback
-          this.props.value = this.props.value === 1 ? 0 : 1;
-          CabbageUtils.updateInnerHTML(this.props.channel, this);
-
-          // Send the file path/URL to Csound
-          Cabbage.sendChannelData(this.props.channel, fileUrl, null);
-          console.log(`Cabbage: FileButton ${this.props.channel} selected file: ${fileName}, URL: ${fileUrl}`);
-        }
-      });
-    }
-
-    // Trigger the file input dialog
-    this.fileInput.click();
+    // Removed: Plugin now uses backend-triggered native file dialog
   }
 
 }

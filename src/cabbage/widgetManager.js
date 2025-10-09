@@ -471,13 +471,9 @@ export class WidgetManager {
 
         // Apply position and size based on widget properties
         if (typeof props?.bounds === 'object' && props.bounds !== null) {
-            if (vscode) {
-                widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-            }
+            widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
             widgetDiv.style.width = props.bounds.width + 'px';
             widgetDiv.style.height = props.bounds.height + 'px';
-            // widgetDiv.style.top = props.bounds.top;
-            // widgetDiv.style.left = props.bounds.left;
 
             widgetDiv.setAttribute('data-x', props.bounds.left);
             widgetDiv.setAttribute('data-y', props.bounds.top);
