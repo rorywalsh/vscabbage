@@ -18,7 +18,9 @@ export class HorizontalSlider {
         "width": 160,
         "height": 40
       },
-      "channel": "hslider",
+      "channels": [
+        { "id": "hslider", "event": "valueChanged" }
+      ],
       "corners": 4,
       "range": {
         "min": 0,
@@ -146,12 +148,12 @@ export class HorizontalSlider {
       window.addEventListener("pointerup", this.upListener);
 
       this.startValue = this.props.value;
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
       // Send value that will result in correct output after backend applies skew
       const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
       const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
-      const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" };
+      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
       console.log(`pointerDown: sending valueToSend=${valueToSend}`);
       if (this.props.automatable === 1) {
         Cabbage.sendParameterUpdate(msg, this.vscode);
@@ -265,7 +267,7 @@ export class HorizontalSlider {
     textWidth += padding;
 
     // Get the bounding rectangle of the slider
-    const sliderRect = document.getElementById(this.props.channel).getBoundingClientRect();
+    const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
 
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetX = clientX - sliderRect.left - textWidth;
@@ -292,7 +294,7 @@ export class HorizontalSlider {
     console.log(`pointerMove: offsetX=${offsetX}, linearNormalized=${linearNormalized}, skewedValue=${skewedValue}`);
 
     // Update the slider appearance
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
     // Send value that will result in correct output after backend applies skew
     // Backend does: min + (max - min) * pow(normalized, skew)
@@ -300,7 +302,7 @@ export class HorizontalSlider {
     // So we need to send: pow((skewedValue - min) / (max - min), 1/skew)
     const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
     const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
+    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
     if (this.props.automatable === 1) {
       Cabbage.sendParameterUpdate(msg, this.vscode);
@@ -401,7 +403,7 @@ export class HorizontalSlider {
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
         style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
-        onKeyDown="document.getElementById('${this.props.channel}').HorizontalSliderInstance.handleInputChange(event)"/>
+        onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';
 

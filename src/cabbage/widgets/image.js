@@ -18,7 +18,13 @@ export class Image {
                 "height": 30
             },
             "type": "image",
-            "channel": "",
+            "channels": [
+                { "id": "", "event": "mouseClickLeft" },
+                { "id": "", "event": "mouseDragX" },
+                { "id": "", "event": "mouseDragY" },
+                { "id": "", "event": "mousePressLeft" },
+                { "id": "", "event": "mouseReleaseLeft" }
+            ],
             "colour": {
                 "fill": "#0295cf",
                 "stroke": {
@@ -59,12 +65,49 @@ export class Image {
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     }
 
-    pointerDown() {
-        this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
-        const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
-        if (this.props.automatable === 1) {
+    pointerDown(evt) {
+        // Left press
+        const pressCh = CabbageUtils.getChannelByEvent(this.props, 'mousePressLeft', 'click');
+        if (pressCh && this.props.automatable === 1) {
+            const msg = { paramIdx: this.parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
             Cabbage.sendParameterUpdate(msg, this.vscode);
         }
+        // Click shorthand
+        const clickCh = CabbageUtils.getChannelByEvent(this.props, 'mouseClickLeft', 'click');
+        if (clickCh && this.props.automatable === 1) {
+            const msg = { paramIdx: this.parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
+            Cabbage.sendParameterUpdate(msg, this.vscode);
+            const msgOff = { paramIdx: this.parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
+            Cabbage.sendParameterUpdate(msgOff, this.vscode);
+        }
+        // Add move/up handlers for release
+        const onUp = () => {
+            const relCh = CabbageUtils.getChannelByEvent(this.props, 'mouseReleaseLeft', 'click');
+            if (relCh && this.props.automatable === 1) {
+                const msg = { paramIdx: this.parameterIndex, channel: relCh.id, value: 0, channelType: "number" };
+                Cabbage.sendParameterUpdate(msg, this.vscode);
+            }
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointermove', onMove);
+        };
+        const onMove = (e) => {
+            const dragX = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
+            const dragY = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
+            if (!dragX && !dragY) return;
+            const rect = evt.currentTarget.getBoundingClientRect();
+            const nx = (e.clientX - rect.left) / rect.width;
+            const ny = (e.clientY - rect.top) / rect.height;
+            if (dragX && this.props.automatable === 1) {
+                const msgX = { paramIdx: this.parameterIndex, channel: dragX.id, value: Math.max(0, Math.min(1, nx)), channelType: "number" };
+                Cabbage.sendParameterUpdate(msgX, this.vscode);
+            }
+            if (dragY && this.props.automatable === 1) {
+                const msgY = { paramIdx: this.parameterIndex, channel: dragY.id, value: Math.max(0, Math.min(1, ny)), channelType: "number" };
+                Cabbage.sendParameterUpdate(msgY, this.vscode);
+            }
+        };
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointermove', onMove);
     }
 
     getInnerHTML() {

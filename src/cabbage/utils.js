@@ -4,6 +4,84 @@
 import { vscode, currentCsdPath } from "./sharedState.js";
 
 export class CabbageUtils {
+  /**
+   * Return a default range object. For drag interactions use increment 0.001, for click interactions use 1.
+   * Includes both value and defaultValue for compatibility during refactors.
+   */
+  static getDefaultRange(interaction /* 'drag' | 'click' */ = 'drag') {
+    const increment = interaction === 'click' ? 1 : 0.001;
+    return {
+      min: 0,
+      max: 1,
+      value: 0,
+      defaultValue: 0,
+      skew: 1,
+      increment
+    };
+  }
+
+  /**
+   * Returns channels array from props. Assumes new schema but tolerates missing by returning an empty array.
+   */
+  static getChannels(props) {
+    return Array.isArray(props?.channels) ? props.channels : [];
+  }
+
+  /**
+   * Returns the nth channel (default 0). If missing, returns a synthesized default with id from legacy props.channel.
+   */
+  static getChannel(props, index = 0, interaction = 'drag') {
+    const channels = CabbageUtils.getChannels(props);
+    if (channels.length > index) {
+      const ch = channels[index];
+      // Ensure range defaulting if omitted
+      if (!ch.range) {
+        ch.range = CabbageUtils.getDefaultRange(interaction);
+      } else {
+        // Ensure both value and defaultValue exist
+        if (typeof ch.range.value === 'undefined') ch.range.value = (typeof ch.range.defaultValue !== 'undefined') ? ch.range.defaultValue : 0;
+        if (typeof ch.range.defaultValue === 'undefined') ch.range.defaultValue = (typeof ch.range.value !== 'undefined') ? ch.range.value : 0;
+        if (typeof ch.range.skew === 'undefined') ch.range.skew = 1;
+        if (typeof ch.range.min === 'undefined') ch.range.min = 0;
+        if (typeof ch.range.max === 'undefined') ch.range.max = 1;
+        if (typeof ch.range.increment === 'undefined') ch.range.increment = interaction === 'click' ? 1 : 0.001;
+      }
+      if (!ch.event) ch.event = 'valueChanged';
+      return ch;
+    }
+    // Fallback synthesized channel (internal only)
+    const id = typeof props?.channel === 'string' ? props.channel : 'channel0';
+    return { id, event: 'valueChanged', range: CabbageUtils.getDefaultRange(interaction) };
+  }
+
+  /**
+   * Returns the id string of the nth channel.
+   */
+  static getChannelId(props, index = 0) {
+    const ch = CabbageUtils.getChannel(props, index);
+    return ch?.id || '';
+  }
+
+  /**
+   * Returns the range of the nth channel, with defaults applied.
+   */
+  static getChannelRange(props, index = 0, interaction = 'drag') {
+    const ch = CabbageUtils.getChannel(props, index, interaction);
+    return ch.range;
+  }
+
+  /**
+   * Returns the first channel matching a given event name, applying defaults if needed.
+   */
+  static getChannelByEvent(props, event, interaction = 'drag') {
+    const channels = CabbageUtils.getChannels(props);
+    const found = channels.find(c => c && c.event === event);
+    if (found) {
+      if (!found.range) found.range = CabbageUtils.getDefaultRange(interaction);
+      return found;
+    }
+    return undefined;
+  }
   static updateInnerHTML(channel, instance, element = null) {
     // If an element is provided, use it directly
     // Otherwise fall back to finding by ID
@@ -80,8 +158,9 @@ export class CabbageUtils {
     for (const widget of widgets) {
       // Check if the widget's type is one of the specified types
       if (widget.props.automatable === 1) {
-        // Increment the counter if the type matches
-        count++;
+        // Increment by number of channels; default to 1 if channels not present
+        const channels = CabbageUtils.getChannels(widget.props);
+        count += Math.max(1, channels.length || 0);
       }
 
     }
@@ -329,10 +408,11 @@ export class CabbageUtils {
 
   static getNumberBoxWidth(props) {
     // Get the number of decimal places in props.range.increment
-    const decimalPlaces = CabbageUtils.getDecimalPlaces(props.range.increment);
+    const range = (props && props.range) ? props.range : CabbageUtils.getChannelRange(props, 0, 'drag');
+    const decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     // Format props.max with the correct number of decimal places
-    const maxNumber = props.range.max.toFixed(decimalPlaces);
+    const maxNumber = range.max.toFixed(decimalPlaces);
 
     // Calculate the width of the string representation of maxNumber
     const maxNumberWidth = CabbageUtils.getStringWidth(maxNumber, props);

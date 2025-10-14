@@ -16,7 +16,9 @@ export class Checkbox {
         "width": 100,
         "height": 30
       },
-      "channel": "checkbox",
+      "channels": [
+        { "id": "checkbox", "event": "valueChanged" }
+      ],
       "corners": 2,
       "min": 0,
       "max": 1,
@@ -74,7 +76,7 @@ export class Checkbox {
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (this.props.value === 0) {
         this.props.value = 1;
-        handleRadioGroup(this.props.radioGroup, this.props.channel);
+        handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
       }
       // If already 1, do nothing (stay selected)
     } else {
@@ -82,8 +84,8 @@ export class Checkbox {
       this.props.value = (this.props.value === 1) ? 0 : 1;
     }
 
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
     if (this.props.automatable === 1) {
       Cabbage.sendParameterUpdate(msg, this.vscode);
     }
@@ -124,7 +126,7 @@ export class Checkbox {
     const adjustedTextAnchor = this.props.font.align === 'right' ? 'end' : 'start';
 
     return `
-      <svg id="${this.props.channel}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
         <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentValue === 1 ? this.props.colour.on.fill : this.props.colour.off.fill}" stroke="${currentValue === 1 ? this.props.colour.on.stroke.colour : this.props.colour.off.stroke.colour}" stroke-width="${currentValue === 1 ? this.props.colour.on.stroke.width : this.props.colour.off.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
         <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.font.colour[currentValue === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
       </svg>

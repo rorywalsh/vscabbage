@@ -17,15 +17,8 @@ import stringify from 'json-stringify-pretty-compact';
 
 
 // Define an interface for the old-style widget structure
-interface Widget {
-    type: string;
-    bounds?: { top: number; left: number; width: number; height: number };
-    range?: { min: number; max: number; defaultValue: number; increment: number; skew: number };
-    size: { width: number; height: number };
-    text?: string | string[];
-    channel?: string;
-    tableNumber: number;
-}
+interface WidgetChannel { id: string; event: string; range?: { min: number; max: number; defaultValue?: number; value?: number; increment?: number; skew?: number } }
+interface Widget { type: string; bounds?: { top: number; left: number; width: number; height: number }; channels?: WidgetChannel[]; size?: { width: number; height: number }; text?: string | string[]; tableNumber?: number }
 
 export class ExtensionUtils {
 
@@ -832,14 +825,15 @@ ${JSON.stringify(props, null, 4)}
             }
 
             const rangeMatch = line.match(/range\(([^)]+)\)/);
+            let parsedRange: any | undefined = undefined;
             if (rangeMatch) {
                 const range = rangeMatch[1].split(',').map(Number);
-                widget.range = {
+                parsedRange = {
                     min: range[0],
                     max: range[1],
                     defaultValue: range[2],
-                    skew: range[3] !== undefined ? range[3] : 1, // Default to 0 if not provided
-                    increment: range[4] !== undefined ? range[4] : 0.001 // Default to 0 if not provided
+                    skew: range[3] !== undefined ? range[3] : 1,
+                    increment: range[4] !== undefined ? range[4] : 0.001
                 };
             }
 
@@ -850,8 +844,11 @@ ${JSON.stringify(props, null, 4)}
             }
 
             const channelMatch = line.match(/channel\("([^"]+)"\)/);
-            if (channelMatch) {
-                widget.channel = channelMatch[1];
+            const channelId = channelMatch ? channelMatch[1] : undefined;
+            if (channelId) {
+                const ch: WidgetChannel = { id: channelId, event: 'valueChanged' };
+                if (parsedRange) ch.range = parsedRange;
+                widget.channels = [ch];
             }
 
             return widget as Widget; // Cast back to Widget to ensure type safety

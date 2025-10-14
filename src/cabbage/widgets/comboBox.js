@@ -14,7 +14,9 @@ export class ComboBox {
                 "width": 100,
                 "height": 30
             },
-            "channel": "comboBox",
+            "channels": [
+                { "id": "comboBox", "event": "valueChanged" }
+            ],
             "corners": 2,
             "font": {
                 "family": "Verdana",
@@ -80,7 +82,7 @@ export class ComboBox {
             this.removeDropdown();
         }
 
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
+        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     }
 
     handleItemClick(item) {
@@ -100,7 +102,7 @@ export class ComboBox {
 
         const msg = {
             paramIdx: this.parameterIndex,
-            channel: this.props.channel,
+            channel: CabbageUtils.getChannelId(this.props),
             value: this.props.channelType === "string" ? this.selectedItem : normalValue,
             channelType: this.props.channelType
         };
@@ -111,7 +113,7 @@ export class ComboBox {
 
         this.isOpen = false;
         this.removeDropdown();
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
+        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -130,7 +132,7 @@ export class ComboBox {
         // Remove any existing dropdown
         this.removeDropdown();
 
-        const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
+        const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(this.props));
         if (!widgetDiv) return;
 
         const rect = widgetDiv.getBoundingClientRect();
@@ -157,7 +159,7 @@ export class ComboBox {
 
         // Create dropdown container
         const dropdown = document.createElement('div');
-        dropdown.id = `dropdown-${this.props.channel}`;
+        dropdown.id = `dropdown-${CabbageUtils.getChannelId(this.props)}`;
         dropdown.style.position = 'fixed';
         dropdown.style.left = `${rect.left}px`;
         dropdown.style.top = `${rect.bottom}px`;
@@ -174,9 +176,9 @@ export class ComboBox {
         items.forEach((item, index) => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'combobox-item';
-            itemDiv.setAttribute('data-channel', this.props.channel);
+            itemDiv.setAttribute('data-channel', CabbageUtils.getChannelId(this.props));
             itemDiv.setAttribute('data-item', item);
-            itemDiv.setAttribute('data-combobox-select', this.props.channel);
+            itemDiv.setAttribute('data-combobox-select', CabbageUtils.getChannelId(this.props));
             itemDiv.style.height = `${itemHeight}px`;
             itemDiv.style.display = 'flex';
             itemDiv.style.alignItems = 'center';
@@ -214,10 +216,10 @@ export class ComboBox {
     }
 
     handleClickOutside(event) {
-        const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
+        const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(this.props));
 
         if (!widgetDiv) {
-            console.warn("Cabbage: widgetDiv is null. Channel:", this.props.channel);
+            console.warn("Cabbage: widgetDiv is null. Channel:", CabbageUtils.getChannelId(this.props));
             return; // Exit early if widgetDiv is null
         }
 
@@ -229,7 +231,7 @@ export class ComboBox {
             this.isOpen = false;
             this.removeDropdown();
             widgetDiv.style.transform = 'translate(' + this.props.bounds.left + 'px,' + this.props.bounds.top + 'px)';
-            CabbageUtils.updateInnerHTML(this.props.channel, this);
+            CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
         }
     }
 
@@ -281,7 +283,7 @@ export class ComboBox {
                 <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour.fill}" stroke="${this.props.colour.stroke.colour}"
                     stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
                     style="cursor: pointer;" pointer-events="all" 
-                    onclick="document.getElementById('${this.props.channel}').ComboBoxInstance.pointerDown(event)"></rect>
+                    onclick="document.getElementById('${CabbageUtils.getChannelId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.colour.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"

@@ -18,7 +18,9 @@ export class RotarySlider {
         "width": 80,
         "height": 80
       },
-      "channel": "rotarySlider",
+      "channels": [
+        { "id": "rotarySlider", "event": "valueChanged" }
+      ],
       "range": {
         "min": 0,
         "max": 1,
@@ -146,7 +148,7 @@ export class RotarySlider {
         this.imageHeight = img.height;
         this.isImageLoaded = true;
         console.log("Cabbage: Loaded film strip image dimensions:", img.width, img.height);
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
+        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
       };
 
       img.onerror = (error) => {
@@ -184,7 +186,7 @@ export class RotarySlider {
 
   pointerDown(evt) {
     console.log(`RotarySlider pointerDown:`, {
-      channel: this.props.channel,
+      channel: CabbageUtils.getChannelId(this.props),
       value: this.props.value,
       visible: this.props.visible,
       active: this.props.active,
@@ -349,7 +351,7 @@ export class RotarySlider {
     this.props.linearValue = newLinearValue; // For positioning
 
     // Update the widget display
-    const widgetDiv = document.getElementById(this.props.channel);
+    const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send value that will result in correct output after backend applies skew
@@ -365,7 +367,7 @@ export class RotarySlider {
 
     const msg = {
       paramIdx: this.parameterIndex,
-      channel: this.props.channel,
+      channel: CabbageUtils.getChannelId(this.props),
       value: valueToSend,
       channelType: "number"
     };
@@ -440,7 +442,7 @@ export class RotarySlider {
         this.props.linearValue = linearValue;
 
         // Update the display
-        const widgetDiv = document.getElementById(this.props.channel);
+      const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
 
@@ -449,7 +451,7 @@ export class RotarySlider {
         const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
         const msg = {
           paramIdx: this.parameterIndex,
-          channel: this.props.channel,
+          channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
           channelType: "number"
         };
@@ -458,7 +460,7 @@ export class RotarySlider {
         }
       }
     } else if (evt.key === 'Escape') {
-      const widgetDiv = document.getElementById(this.props.channel);
+      const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
       widgetDiv.querySelector('input').blur();
     }
   }
@@ -600,7 +602,7 @@ export class RotarySlider {
         <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${this.props.bounds.width}" height="${fontSize * 2}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
             style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
-            onKeyDown="document.getElementById('${this.props.channel}').RotarySliderInstance.handleInputChange(event)"/>
+            onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
         </svg>

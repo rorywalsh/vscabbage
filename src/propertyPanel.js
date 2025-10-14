@@ -235,11 +235,12 @@ export class PropertyPanel {
 
             input.addEventListener('change', this.handleInputChange.bind(this));
 
-        } else if (fullPath === 'channel') {
+        } else if (fullPath === 'channels[0].id' || fullPath === 'channel') {
             input = document.createElement('input');
             input.type = 'text';
-            input.value = value;
-            input.dataset.originalChannel = value;
+            const currentId = (fullPath === 'channel') ? value : (Array.isArray(this.properties?.channels) && this.properties.channels[0] ? this.properties.channels[0].id : value);
+            input.value = currentId;
+            input.dataset.originalChannel = currentId;
             input.dataset.skipInputHandler = 'true';
 
             input.addEventListener('keydown', (evt) => {
@@ -247,7 +248,10 @@ export class PropertyPanel {
                     evt.preventDefault();
                     const newChannel = evt.target.value.trim();
                     const originalChannel = input.dataset.originalChannel;
-                    const widget = this.widgets.find(w => w.props.channel === originalChannel);
+                    const widget = this.widgets.find(w => {
+                        const id = (Array.isArray(w.props.channels) && w.props.channels[0]) ? w.props.channels[0].id : w.props.channel;
+                        return id === originalChannel;
+                    });
 
                     if (widget) {
                         // Check for uniqueness
@@ -258,11 +262,16 @@ export class PropertyPanel {
                         }
 
                         // Update the widget's channel property
-                        widget.props.channel = newChannel;
+                        if (Array.isArray(widget.props.channels) && widget.props.channels[0]) {
+                            widget.props.channels[0].id = newChannel;
+                        }
 
                         // Remove the old widget from the array
                         console.warn("Cabbage: Cabbage: widgets", this.widgets);
-                        const widgetIndex = this.widgets.findIndex(w => w.props.channel === originalChannel);
+                        const widgetIndex = this.widgets.findIndex(w => {
+                            const id = (Array.isArray(w.props.channels) && w.props.channels[0]) ? w.props.channels[0].id : w.props.channel;
+                            return id === originalChannel;
+                        });
                         if (widgetIndex !== -1) {
                             this.widgets.splice(widgetIndex, 1);
                         }

@@ -16,11 +16,13 @@ export class Button {
         "width": 80,
         "height": 30
       },
-      "channel": "button",
+      "channels": [
+        {
+          "id": "button",
+          "event": "valueChanged"
+        }
+      ],
       "corners": 6,
-      "min": 0,
-      "max": 1,
-      "defaultValue": 0,
       "value": null,
       "text": {
         "on": "On",
@@ -71,7 +73,7 @@ export class Button {
       return '';
     }
     this.isMouseDown = false;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
   }
 
   pointerDown() {
@@ -94,7 +96,7 @@ export class Button {
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (this.props.value === 0) {
         this.props.value = 1;
-        handleRadioGroup(this.props.radioGroup, this.props.channel);
+        handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
       }
       // If already 1, do nothing (stay selected)
     } else {
@@ -102,8 +104,8 @@ export class Button {
       this.props.value = (this.props.value === 0 ? 1 : 0);
     }
 
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value }
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
     console.log(msg);
     if (this.props.automatable === 1) {
       Cabbage.sendParameterUpdate(msg, this.vscode);
@@ -115,7 +117,7 @@ export class Button {
       return '';
     }
     this.isMouseOver = true;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
   }
 
   pointerLeave() {
@@ -123,7 +125,7 @@ export class Button {
       return '';
     }
     this.isMouseOver = false;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
   }
 
   handleMouseMove(evt) {
@@ -137,7 +139,7 @@ export class Button {
 
     if (this.isMouseInside !== isInside) {
       this.isMouseInside = isInside;
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     }
   }
 
@@ -153,13 +155,13 @@ export class Button {
     widgetDiv.addEventListener("mousemove", this.handleMouseMove.bind(this));
     widgetDiv.addEventListener("mouseleave", () => {
       this.isMouseInside = false;
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     });
   }
 
   getInnerHTML() {
     // Use defaultValue for visual state when value is null
-    const currentValue = this.props.value !== null ? this.props.value : this.props.defaultValue;
+    const currentValue = this.props.value !== null ? this.props.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
 
     const alignMap = {
       'left': 'start',

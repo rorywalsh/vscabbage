@@ -107,10 +107,11 @@ export class WidgetManager {
     static async insertWidget(type, props, currentCsdFile) {
         // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
-        // Handle both string and object channels (xyPad has object channel)
-        widgetDiv.id = (typeof props.channel === 'object')
-            ? (props.channel.id || props.channel.x)
-            : props.channel;
+        // Use new channels schema; assume array with at least one entry
+        const firstChannelId = (Array.isArray(props?.channels) && props.channels.length > 0)
+            ? props.channels[0].id
+            : (typeof props.channel === 'object' ? (props.channel.id || props.channel.x) : props.channel);
+        widgetDiv.id = firstChannelId;
 
         const widget = WidgetManager.createWidget(type);
         if (!widget) {
@@ -143,8 +144,9 @@ export class WidgetManager {
         this.deepMerge(widget.props, props);
 
         // Recalculate derived properties after merging props
-        if (widget.props.range && widget.props.range.increment !== undefined) {
-            widget.decimalPlaces = CabbageUtils.getDecimalPlaces(widget.props.range.increment);
+        if (Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            const rng = (widget.props.channels[0].range) ? widget.props.channels[0].range : CabbageUtils.getDefaultRange('drag');
+            widget.decimalPlaces = CabbageUtils.getDecimalPlaces(rng.increment);
         }
 
         // Store the minimal original props for grouping/ungrouping
@@ -164,13 +166,11 @@ export class WidgetManager {
             widget.originalProps = JSON.parse(JSON.stringify(props));
         }
 
-        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(type)) {
-            if (props?.range && props.range.hasOwnProperty("defaultValue")) {
-                widget.props.value = props.range.defaultValue;
-            }
-            else {
-                widget.props.value = widget.props.range.defaultValue;
-            }
+        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {
+            const interaction = (type === 'button' || type === 'checkBox' || type === 'optionButton') ? 'click' : 'drag';
+            const channels = Array.isArray(widget.props.channels) ? widget.props.channels : [];
+            const range = (channels[0] && channels[0].range) ? channels[0].range : CabbageUtils.getDefaultRange(interaction);
+            widget.props.value = (typeof range.defaultValue !== 'undefined') ? range.defaultValue : 0;
         }
 
         // Handle combobox default value for indexOffset compatibility
@@ -526,7 +526,9 @@ export class WidgetManager {
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
         const widget = widgets.find(w => {
-            return WidgetManager.channelsMatch(w.props.channel, obj.channel);
+            return WidgetManager.channelsMatch(w.props.channel, obj.channel) ||
+                (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, obj.channel))) ||
+                w.props.id === obj.channel;
         });
         let widgetFound = false;
 
@@ -537,6 +539,9 @@ export class WidgetManager {
         }
 
         if (widget) {
+            const channelId = (Array.isArray(widget.props?.channels) && widget.props.channels.length > 0)
+                ? widget.props.channels[0].id
+                : (typeof widget.props.channel === 'object' ? (widget.props.channel.id || widget.props.channel.x) : widget.props.channel);
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, data=${obj.data}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
@@ -578,7 +583,7 @@ export class WidgetManager {
                                 widget._updateScheduled = true;
                                 requestAnimationFrame(() => {
                                     widget._updateScheduled = false;
-                                    const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                                    const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                                     if (widgetDiv) {
                                         widgetDiv.innerHTML = widget.getInnerHTML();
                                     }
@@ -619,7 +624,7 @@ export class WidgetManager {
                             requestAnimationFrame(() => {
                                 widget._updateScheduled = false;
                                 // Call getInnerHTML to refresh the widget's display
-                                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                                const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                                 if (widgetDiv) {
                                     widgetDiv.innerHTML = widget.getInnerHTML();
                                 }
@@ -693,7 +698,7 @@ export class WidgetManager {
             }
             else {
                 // Existing code for other widget types
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                 if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
 

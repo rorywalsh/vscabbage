@@ -17,27 +17,10 @@ export class XyPad {
                 "width": 60,
                 "height": 60
             },
-            "channel": {
-                "id": "xyPad_1",
-                "x": "rangeX",
-                "y": "rangeY"
-            },
-            "range": {
-                "x": {
-                    "min": 0,
-                    "max": 1,
-                    "defaultValue": 0.5,
-                    "skew": 1,
-                    "increment": 0.001
-                },
-                "y": {
-                    "min": 0,
-                    "max": 1,
-                    "defaultValue": 0.5,
-                    "skew": 1,
-                    "increment": 0.001
-                }
-            },
+            "channels": [
+                { "id": "rangeX", "event": "mouseDragX" },
+                { "id": "rangeY", "event": "mouseDragY" }
+            ],
             "value": null,
             "text": {
                 "x": "X",
@@ -216,10 +199,7 @@ export class XyPad {
     pointerMove(evt) {
         if (!this.isMouseDown && !this.isRightDragging) return;
 
-        const channelId = typeof this.props.channel === 'object'
-            ? (this.props.channel.id || this.props.channel.x)
-            : this.props.channel;
-        const padDiv = document.getElementById(channelId);
+        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         if (!padDiv) return;
 
         const rect = padDiv.getBoundingClientRect();
@@ -262,10 +242,7 @@ export class XyPad {
     }
 
     updateBallPosition() {
-        const channelId = typeof this.props.channel === 'object'
-            ? (this.props.channel.id || this.props.channel.x)
-            : this.props.channel;
-        const padDiv = document.getElementById(channelId);
+        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         if (!padDiv) return;
 
         const ball = padDiv.querySelector('.xypad-ball');
@@ -374,27 +351,33 @@ export class XyPad {
         const yToSend = Math.pow(yNormalized, 1.0 / this.props.range.y.skew);
 
         // Send X channel update
-        const msgX = {
-            paramIdx: this.parameterIndex,
-            channel: this.props.channel.x,
-            value: xToSend,
-            channelType: "number"
-        };
-        console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
-        if (this.props.automatable === 1) {
-            Cabbage.sendParameterUpdate(msgX, this.vscode);
+        const xCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
+        if (xCh) {
+            const msgX = {
+                paramIdx: this.parameterIndex,
+                channel: xCh.id,
+                value: xToSend,
+                channelType: "number"
+            };
+            console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
+            if (this.props.automatable === 1) {
+                Cabbage.sendParameterUpdate(msgX, this.vscode);
+            }
         }
 
         // Send Y channel update
-        const msgY = {
-            paramIdx: this.parameterIndex + 1,
-            channel: this.props.channel.y,
-            value: yToSend,
-            channelType: "number"
-        };
-        console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
-        if (this.props.automatable === 1) {
-            Cabbage.sendParameterUpdate(msgY, this.vscode);
+        const yCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
+        if (yCh) {
+            const msgY = {
+                paramIdx: this.parameterIndex + 1,
+                channel: yCh.id,
+                value: yToSend,
+                channelType: "number"
+            };
+            console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
+            if (this.props.automatable === 1) {
+                Cabbage.sendParameterUpdate(msgY, this.vscode);
+            }
         }
     }
 
@@ -590,10 +573,7 @@ export class XyPad {
     }
 
     updateTrajectoryLine() {
-        const channelId = typeof this.props.channel === 'object'
-            ? (this.props.channel.id || this.props.channel.x)
-            : this.props.channel;
-        const padDiv = document.getElementById(channelId);
+        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         if (!padDiv) return;
 
         const padArea = padDiv.querySelector('div[style*="cursor: crosshair"]');

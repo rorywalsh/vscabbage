@@ -15,7 +15,9 @@ export class VerticalSlider {
         "width": 60,
         "height": 120
       },
-      "channel": "vslider",
+      "channels": [
+        { "id": "vslider", "event": "valueChanged" }
+      ],
       "range": {
         "min": 0,
         "max": 1,
@@ -112,12 +114,12 @@ export class VerticalSlider {
       this.startValue = this.props.value;
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
       // Send value that will result in correct output after backend applies skew
       const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
       const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
-      const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
+      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
       if (this.props.automatable === 1) {
         Cabbage.sendParameterUpdate(msg, this.vscode);
       }
@@ -229,7 +231,7 @@ export class VerticalSlider {
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
 
     // Get the bounding rectangle of the slider
-    const sliderRect = document.getElementById(this.props.channel).getBoundingClientRect();
+    const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
 
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetY = sliderRect.bottom - clientY - textHeight;
@@ -254,7 +256,7 @@ export class VerticalSlider {
     this.props.value = skewedValue;
 
     // Update the slider appearance
-    const widgetDiv = document.getElementById(this.props.channel);
+    const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send value that will result in correct output after backend applies skew
@@ -320,7 +322,7 @@ export class VerticalSlider {
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight * 1.2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight * 1.2}">
       <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
       style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
-      onKeyDown="document.getElementById('${this.props.channel}').VerticalSliderInstance.handleInputChange(event)"/>
+      onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
     ` : '';
 
