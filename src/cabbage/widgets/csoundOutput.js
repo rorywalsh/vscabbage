@@ -16,6 +16,7 @@ export class CsoundOutput {
                 "width": 200,
                 "height": 300
             },
+            "id": "",
             "type": "csoundOutput",
             "colour": {
                 "fill": "#0295cf",
@@ -24,7 +25,9 @@ export class CsoundOutput {
                     "width": 1
                 }
             },
-            "channel": "csoundoutput",
+            "channels": [
+                { "id": "checkbox", "event": "valueChanged" }
+            ],
             "font": {
                 "family": "Verdana",
                 "size": 14,

@@ -27,26 +27,23 @@ export class GenTable {
                     "width": 1
                 }
             },
-            "channel": {
-                "id": "gentable",
-                "start": "gentable_start",
-                "length": "gentable_length"
-            },
+            "channels": [
+                {
+                    "id": "gentableStart",
+                    "event": "valueChanged",
+                    "range": { "min": 0, "max": -1 }
+                },
+                {
+                    "id": "gentableLength",
+                    "event": "valueChanged",
+                    "range": { "min": 0, "max": -1 }
+                }
+            ],
             "font": {
                 "family": "Verdana",
                 "size": 0,
                 "align": "left",
                 "colour": "#dddddd"
-            },
-            "range": {
-                "x": {
-                    "start": 0,
-                    "end": -1
-                },
-                "y": {
-                    "min": -1,
-                    "max": 1
-                }
             },
             "file": "",
             "corners": 4,
@@ -182,12 +179,15 @@ export class GenTable {
         this.selectionEndSample = endSample;
 
         // Send the sample positions to Csound via channels
-        if (this.props.channel.start) {
-            Cabbage.sendChannelData(this.props.channel.start, startSample, this.vscode);
+        const startChannel = CabbageUtils.getChannelId(this.props, 0);
+        const lengthChannel = CabbageUtils.getChannelId(this.props, 1);
+        
+        if (startChannel) {
+            Cabbage.sendChannelData(startChannel, startSample, this.vscode);
         }
 
-        if (this.props.channel.length) {
-            Cabbage.sendChannelData(this.props.channel.length, lengthSamples, this.vscode);
+        if (lengthChannel) {
+            Cabbage.sendChannelData(lengthChannel, lengthSamples, this.vscode);
         }
 
 
@@ -279,7 +279,7 @@ export class GenTable {
     }
 
     getInnerHTML() {
-        const channelId = typeof this.props.channel === 'object' ? this.props.channel.id : this.props.channel;
+        const channelId = CabbageUtils.getChannelId(this.props, 0);
         return `<div id="${channelId}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
@@ -303,7 +303,7 @@ export class GenTable {
         }
 
         // Update DOM with the canvas
-        const channelId = typeof this.props.channel === 'object' ? this.props.channel.id : this.props.channel;
+        const channelId = CabbageUtils.getChannelId(this.props, 0);
         const widgetElement = document.getElementById(channelId);
         if (widgetElement) {
             widgetElement.style.left = '0px';

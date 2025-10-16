@@ -16,6 +16,7 @@ export class Checkbox {
         "width": 100,
         "height": 30
       },
+      "id": "",
       "channels": [
         { "id": "checkbox", "event": "valueChanged" }
       ],

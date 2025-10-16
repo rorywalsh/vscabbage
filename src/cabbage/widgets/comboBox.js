@@ -90,26 +90,20 @@ export class ComboBox {
         const items = this.getItemsArray();
         const index = items.indexOf(this.selectedItem);
         this.props.value = this.props.indexOffset ? index + 1 : index; // Update the value property
-        let normalValue = 0;
 
-        //to accommodate cabbage2 instruments
-        if (this.props.indexOffset) {
-            normalValue = CabbageUtils.map(index + 1, 1, items.length, 0, 1);
-        }
-        else {
-            normalValue = CabbageUtils.map(index, 0, items.length - 1, 0, 1);
-        }
+        // Send normalized value (0-1) to maintain consistency with parameter system
+        const normalizedValue = this.props.indexOffset
+            ? CabbageUtils.map(index + 1, 1, items.length, 0, 1)
+            : CabbageUtils.map(index, 0, items.length - 1, 0, 1);
 
         const msg = {
             paramIdx: this.parameterIndex,
             channel: CabbageUtils.getChannelId(this.props),
-            value: this.props.channelType === "string" ? this.selectedItem : normalValue,
+            value: this.props.channelType === "string" ? this.selectedItem : normalizedValue,
             channelType: this.props.channelType
         };
 
-
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-
 
         this.isOpen = false;
         this.removeDropdown();

@@ -16,6 +16,7 @@ export class Button {
         "width": 80,
         "height": 30
       },
+      "id": "",
       "channels": [
         {
           "id": "button",

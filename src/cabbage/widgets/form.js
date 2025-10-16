@@ -8,23 +8,26 @@
 export class Form {
   constructor() {
     this.props = {
-      "size":{
-      "width": 600,
-      "height": 300
+      "size": {
+        "width": 600,
+        "height": 300
       },
+      "id": "mainForm",
       "caption": "",
       "type": "form",
       "colour": {
-            "fill": "#004c6b"
-        },
-      "channelConfig":"2-2",
-      "channel": "MainForm",
-      "enableDevTools":true
+        "fill": "#004c6b"
+      },
+      "channelConfig": "2-2",
+      "channels": [
+        { "id": "form", "event": "valueChanged" }
+      ],
+      "enableDevTools": true
     };
 
   }
 
-  addEventListeners(evt){
+  addEventListeners(evt) {
     //dummy function
   }
 
@@ -40,7 +43,7 @@ export class Form {
     console.log("Cabbage: updating form svg", this.props);
     // Select the parent div using the channel property
     const parentDiv = document.getElementById(this.props.channel);
-    
+
     if (!parentDiv) {
       console.error(`Parent div with id ${this.props.channel} not found.`);
       return;
@@ -48,7 +51,7 @@ export class Form {
 
     // Check if an SVG element with the class 'widget-svg' already exists
     let svgElement = parentDiv.querySelector('.widget-svg');
-    
+
     if (svgElement) {
       // Update the existing SVG element's outerHTML
       svgElement.outerHTML = this.getInnerHTML();

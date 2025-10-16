@@ -19,7 +19,7 @@ export class Label {
             "colour": {
                 "fill": "#00000000"
             },
-            "channels": [{ "id": "label", "event": "valueChanged", "range": { "min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01 } }],
+            "channels": [{ "id": "label", "event": "valueChanged" }],
             "font": {
                 "family": "Verdana",
                 "size": 0,
