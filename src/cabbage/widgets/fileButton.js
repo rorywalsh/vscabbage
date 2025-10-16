@@ -19,7 +19,7 @@ export class FileButton extends Button {
         "width": 80,
         "height": 30
       },
-      "channel": "fileButton",
+      "channels": [{ "id": "fileButton", "event": "valueChanged" }],
       "corners": 6,
       "min": 0,
       "max": 1,
@@ -82,21 +82,21 @@ export class FileButton extends Button {
 
     if (this.vscode !== null) {
       // VS Code mode - use VS Code's file dialog
-      Cabbage.triggerFileOpenDialog(this.vscode, this.props.channel, {
+      Cabbage.triggerFileOpenDialog(this.vscode, CabbageUtils.getChannelId(this.props), {
         directory: this.props.directory,
         filters: this.props.filters,
         openAtLastKnownLocation: this.props.openAtLastKnownLocation
       });
     } else {
       // Plugin mode - send command to backend to open native file dialog
-      Cabbage.triggerFileOpenDialog(null, this.props.channel, {
+      Cabbage.triggerFileOpenDialog(null, CabbageUtils.getChannelId(this.props), {
         directory: this.props.directory,
         filters: this.props.filters,
         openAtLastKnownLocation: this.props.openAtLastKnownLocation
       });
     }
 
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
   }
 
   openNativeFileDialog() {

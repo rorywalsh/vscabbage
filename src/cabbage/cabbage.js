@@ -6,6 +6,30 @@ console.log("Cabbage: loading cabbage.js");
 
 export class Cabbage {
 
+  /**
+   * Main entry point for sending any data from UI widgets to the Cabbage backend.
+   * This function automatically routes messages to the appropriate backend function
+   * based on the automatable flag:
+   * 
+   * - automatable=1: Routes to sendParameterUpdate for real-time parameter control /
+   *                              this also sends the value as channel data to Csound
+   * 
+   * - automatable=0: Routes to sendChannelData for string/numeric data transmission
+   * 
+   * All widget interactions should use this function instead of calling the lower-level
+   * sendParameterUpdate or sendChannelData functions directly.
+   */
+  static sendChannelUpdate(message, vscode = null, automatable = 0) {
+    if (automatable === 1) {
+      // Use parameter update for automatable controls
+      Cabbage.sendParameterUpdate(message, vscode);
+    } else {
+      // Use channel data for non-automatable controls
+      const data = message.value !== undefined ? message.value : message.stringData || message.floatData;
+      Cabbage.sendChannelData(message.channel, data, vscode);
+    }
+  }
+
   static sendParameterUpdate(message, vscode = null) {
     const msg = {
       command: "parameterChange",

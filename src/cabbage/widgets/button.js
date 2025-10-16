@@ -88,28 +88,29 @@ export class Button {
 
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
+    const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
     if (this.props.value === null) {
-      this.props.value = 0;
+      this.props.value = range.defaultValue;
     }
 
     // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
-      if (this.props.value === 0) {
-        this.props.value = 1;
+      if (this.props.value === range.min) {
+        this.props.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
       }
-      // If already 1, do nothing (stay selected)
+      // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for buttons not in radioGroup
-      this.props.value = (this.props.value === 0 ? 1 : 0);
+      this.props.value = (this.props.value === range.min ? range.max : range.min);
     }
 
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
     console.log(msg);
-    if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
-    }
+
+    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
   }
 
   pointerEnter() {

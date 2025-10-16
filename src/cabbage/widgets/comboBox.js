@@ -107,9 +107,9 @@ export class ComboBox {
             channelType: this.props.channelType
         };
 
-        if (this.props.automatable === 1) {
-            Cabbage.sendParameterUpdate(msg, this.vscode);
-        }
+
+        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
 
         this.isOpen = false;
         this.removeDropdown();

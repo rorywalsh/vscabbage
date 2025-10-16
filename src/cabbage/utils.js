@@ -2,6 +2,7 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 import { vscode, currentCsdPath } from "./sharedState.js";
+import { Cabbage } from "./cabbage.js";
 
 export class CabbageUtils {
   /**
@@ -510,6 +511,110 @@ export class CabbageUtils {
       console.log('Cabbage: Element or bounds not found:', props.channel, props.bounds);
     }
   }
+
+  /**
+   * Handles mouse move events for widgets, supporting both mouseMoveX/Y and mouseDragX/Y channels.
+   * @param {Event} evt - The pointer event
+   * @param {Object} props - Widget properties
+   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {Object} vscode - VSCode API instance
+   * @param {boolean} automatable - Whether the widget is automatable
+   */
+  static handleMouseMove(evt, props, parameterIndex, vscode, automatable) {
+    const rect = evt.currentTarget.getBoundingClientRect();
+    const nx = (evt.clientX - rect.left) / rect.width;
+    const ny = (evt.clientY - rect.top) / rect.height;
+
+    // Check if mouse button is pressed (for drag events)
+    if (evt.buttons > 0) {
+      const dragX = CabbageUtils.getChannelByEvent(props, 'mouseDragX', 'drag');
+      const dragY = CabbageUtils.getChannelByEvent(props, 'mouseDragY', 'drag');
+      if (dragX) {
+        const scaledValue = nx * (dragX.range.max - dragX.range.min) + dragX.range.min;
+        const msgX = { paramIdx: parameterIndex, channel: dragX.id, value: scaledValue, channelType: "number" };
+        Cabbage.sendChannelUpdate(msgX, vscode, automatable);
+      }
+      if (dragY) {
+        const scaledValue = ny * (dragY.range.max - dragY.range.min) + dragY.range.min;
+        const msgY = { paramIdx: parameterIndex, channel: dragY.id, value: scaledValue, channelType: "number" };
+        Cabbage.sendChannelUpdate(msgY, vscode, automatable);
+      }
+    } else {
+      // Mouse movement without button pressed
+      const moveX = CabbageUtils.getChannelByEvent(props, 'mouseMoveX', 'mouse');
+      const moveY = CabbageUtils.getChannelByEvent(props, 'mouseMoveY', 'mouse');
+      if (moveX) {
+        const scaledValue = nx * (moveX.range.max - moveX.range.min) + moveX.range.min;
+        const msgX = { paramIdx: parameterIndex, channel: moveX.id, value: scaledValue, channelType: "number" };
+        Cabbage.sendChannelUpdate(msgX, vscode, automatable);
+      }
+      if (moveY) {
+        const scaledValue = ny * (moveY.range.max - moveY.range.min) + moveY.range.min;
+        const msgY = { paramIdx: parameterIndex, channel: moveY.id, value: scaledValue, channelType: "number" };
+        Cabbage.sendChannelUpdate(msgY, vscode, automatable);
+      }
+    }
+  }
+
+  /**
+   * Handles mouse down events for widgets, supporting mouse press and value changed events.
+   * @param {Event} evt - The pointer event
+   * @param {Object} props - Widget properties
+   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {Object} vscode - VSCode API instance
+   * @param {boolean} automatable - Whether the widget is automatable
+   * @param {Function} onDragStart - Optional callback for when drag starts
+   */
+  static handleMouseDown(evt, props, parameterIndex, vscode, automatable, onDragStart = null) {
+    // Left press
+    const pressCh = CabbageUtils.getChannelByEvent(props, 'mousePressLeft', 'click');
+    if (pressCh) {
+      const msg = { paramIdx: parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
+      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+    }
+    // Click shorthand
+    const clickCh = CabbageUtils.getChannelByEvent(props, 'mouseClickLeft', 'click');
+    if (clickCh) {
+      const msg = { paramIdx: parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
+      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+      const msgOff = { paramIdx: parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
+      Cabbage.sendChannelUpdate(msgOff, vscode, automatable);
+    }
+    // Value changed toggle
+    const valueCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'valueChanged');
+    if (valueCh) {
+      props.value = props.value === 0 ? 1 : 0;
+      const msg = { paramIdx: parameterIndex, channel: valueCh.id, value: props.value, channelType: "number" };
+      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+    }
+
+    // Call optional drag start callback
+    if (onDragStart) {
+      onDragStart(evt);
+    }
+  }
+
+  /**
+   * Handles mouse up events for widgets, supporting mouse release events.
+   * @param {Event} evt - The pointer event
+   * @param {Object} props - Widget properties
+   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {Object} vscode - VSCode API instance
+   * @param {boolean} automatable - Whether the widget is automatable
+   * @param {Function} onDragEnd - Optional callback for when drag ends
+   */
+  static handleMouseUp(evt, props, parameterIndex, vscode, automatable, onDragEnd = null) {
+    const relCh = CabbageUtils.getChannelByEvent(props, 'mouseReleaseLeft', 'click');
+    if (relCh) {
+      const msg = { paramIdx: parameterIndex, channel: relCh.id, value: 0, channelType: "number" };
+      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+    }
+
+    // Call optional drag end callback
+    if (onDragEnd) {
+      onDragEnd(evt);
+    }
+  }
 }
 
 export class CabbageColours {
@@ -988,7 +1093,5 @@ endin
       }
     }
   }
-
-
 
 }

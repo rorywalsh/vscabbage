@@ -21,13 +21,6 @@ export class RotarySlider {
       "channels": [
         { "id": "rotarySlider", "event": "valueChanged" }
       ],
-      "range": {
-        "min": 0,
-        "max": 1,
-        "defaultValue": 0,
-        "skew": 1,
-        "increment": 0.001
-      },
       "value": null,
       "index": 0,
       "text": "",
@@ -185,12 +178,13 @@ export class RotarySlider {
   }
 
   pointerDown(evt) {
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     console.log(`RotarySlider pointerDown:`, {
       channel: CabbageUtils.getChannelId(this.props),
       value: this.props.value,
       visible: this.props.visible,
       active: this.props.active,
-      range: this.props.range,
+      range: range,
       parameterIndex: this.parameterIndex
     });
     if (this.props.active === 0) {
@@ -205,11 +199,11 @@ export class RotarySlider {
     this.isMouseDown = true;
     this.isDragging = true;
     this.startY = evt.clientY;
-    this.startValue = this.props.value ?? this.props.range.defaultValue;
+    this.startValue = this.props.value ?? range.defaultValue;
     // Validate startValue to prevent NaN
     if (isNaN(this.startValue) || this.startValue === null || this.startValue === undefined) {
       console.warn('Invalid startValue in rotarySlider pointerDown, using default', this.startValue);
-      this.startValue = this.props.range.defaultValue ?? 0;
+      this.startValue = range.defaultValue ?? 0;
     }
     // Initialize linearStartValue here
     this.linearStartValue = this.getLinearValue(this.startValue);
@@ -232,13 +226,14 @@ export class RotarySlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
     const rect = form.getBoundingClientRect();
-    this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
+    this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup === 1) {
-      popup.textContent = parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces);
+      popup.textContent = parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
@@ -307,11 +302,7 @@ export class RotarySlider {
       return '';
     }
 
-    // Validate range to prevent NaN calculations
-    if (isNaN(this.props.range.min) || isNaN(this.props.range.max) || this.props.range.max <= this.props.range.min) {
-      console.warn('Invalid range in rotarySlider pointerMove, using default', this.props.range);
-      this.props.range = { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.001 };
-    }
+    const range = CabbageUtils.getChannelRange(this.props, 0);
 
     const steps = 200;
 
@@ -320,28 +311,28 @@ export class RotarySlider {
 
     // Work entirely in linear normalized space (0-1) internally
     // Get the starting linear position from the start value
-    const rangeSpan = this.props.range.max - this.props.range.min;
-    const startLinearNormalized = (this.getLinearValue(this.startValue) - this.props.range.min) / rangeSpan;
+    const rangeSpan = range.max - range.min;
+    const startLinearNormalized = (this.getLinearValue(this.startValue) - range.min) / rangeSpan;
 
     // Apply movement in linear space
     const newLinearNormalized = CabbageUtils.clamp(startLinearNormalized - movementDelta, 0, 1);
 
     // Convert to linear value in actual range
-    const newLinearValue = newLinearNormalized * rangeSpan + this.props.range.min;
+    const newLinearValue = newLinearNormalized * rangeSpan + range.min;
 
     // Convert to skewed value for display
     const newSkewedValue = this.getSkewedValue(newLinearValue);
 
     // Apply increment snapping to the skewed display value
-    let snappedSkewedValue = Math.round(newSkewedValue / this.props.range.increment) * this.props.range.increment;
+    let snappedSkewedValue = Math.round(newSkewedValue / range.increment) * range.increment;
 
     // Clamp to range
-    snappedSkewedValue = Math.min(this.props.range.max, Math.max(this.props.range.min, snappedSkewedValue));
+    snappedSkewedValue = Math.min(range.max, Math.max(range.min, snappedSkewedValue));
 
     // Prevent NaN in snappedSkewedValue
     if (isNaN(snappedSkewedValue)) {
       console.error('snappedSkewedValue is NaN, setting to min');
-      snappedSkewedValue = this.props.range.min;
+      snappedSkewedValue = range.min;
     }
 
     // console.log(`RotarySlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, snappedSkewedValue=${snappedSkewedValue}`);
@@ -360,10 +351,10 @@ export class RotarySlider {
     if (rangeSpan === 0) {
       targetNormalized = 0;
     } else {
-      targetNormalized = (snappedSkewedValue - this.props.range.min) / rangeSpan;
+      targetNormalized = (snappedSkewedValue - range.min) / rangeSpan;
     }
     targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
-    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
 
     const msg = {
       paramIdx: this.parameterIndex,
@@ -371,26 +362,28 @@ export class RotarySlider {
       value: valueToSend,
       channelType: "number"
     };
-    if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
-    }
+
+    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
   }  // Add this helper method to convert between linear and skewed values
   getSkewedValue(linearValue) {
-    const rangeSpan = this.props.range.max - this.props.range.min;
-    if (rangeSpan === 0) return this.props.range.min;
-    const normalizedValue = (linearValue - this.props.range.min) / rangeSpan;
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const rangeSpan = range.max - range.min;
+    if (rangeSpan === 0) return range.min;
+    const normalizedValue = (linearValue - range.min) / rangeSpan;
     // Invert the skew for JUCE-like behavior
-    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-    return skewedNormalizedValue * rangeSpan + this.props.range.min;
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / range.skew);
+    return skewedNormalizedValue * rangeSpan + range.min;
   }
 
   getLinearValue(skewedValue) {
-    const rangeSpan = this.props.range.max - this.props.range.min;
-    if (rangeSpan === 0) return this.props.range.min;
-    const normalizedValue = (skewedValue - this.props.range.min) / rangeSpan;
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const rangeSpan = range.max - range.min;
+    if (rangeSpan === 0) return range.min;
+    const normalizedValue = (skewedValue - range.min) / rangeSpan;
     // Invert the skew for JUCE-like behavior
-    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-    return linearNormalizedValue * rangeSpan + this.props.range.min;
+    const linearNormalizedValue = Math.pow(normalizedValue, range.skew);
+    return linearNormalizedValue * rangeSpan + range.min;
   }
 
   // https://stackoverflow.com/questions/20593575/making-circular-progress-bar-with-html5-svg
@@ -424,31 +417,33 @@ export class RotarySlider {
       return;
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
 
-      if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
+      if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         // Store the input value as the skewed value (what user sees)
         this.props.value = inputValue;
 
         // Convert to normalized space for the input value
-        const skewedNormalized = (inputValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        const skewedNormalized = (inputValue - range.min) / (range.max - range.min);
 
         // Convert to linear space
-        const linearNormalized = Math.pow(skewedNormalized, 1 / this.props.range.skew);
-        const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+        const linearNormalized = Math.pow(skewedNormalized, 1 / range.skew);
+        const linearValue = linearNormalized * (range.max - range.min) + range.min;
 
         // Store the linear value for knob positioning
         this.props.linearValue = linearValue;
 
         // Update the display
-      const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
 
         // Send value that will result in correct output after backend applies skew
-        const targetNormalized = (inputValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-        const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+        const targetNormalized = (inputValue - range.min) / (range.max - range.min);
+        const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
         const msg = {
           paramIdx: this.parameterIndex,
           channel: CabbageUtils.getChannelId(this.props),
@@ -456,7 +451,7 @@ export class RotarySlider {
           channelType: "number"
         };
         if (this.props.automatable === 1) {
-          Cabbage.sendParameterUpdate(msg, this.vscode);
+          Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
         }
       }
     } else if (evt.key === 'Escape') {
@@ -470,14 +465,15 @@ export class RotarySlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const totalFrames = this.props.filmStrip.frames.count;
     const originalFrameWidth = this.props.filmStrip.frames.width;
     const originalFrameHeight = this.props.filmStrip.frames.height;
 
     // Use linear value for frame calculation
-    const currentValue = this.props.value ?? this.props.range.defaultValue;
+    const currentValue = this.props.value ?? range.defaultValue;
     const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);
-    const linearNormalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const linearNormalizedValue = (linearValue - range.min) / (range.max - range.min);
     const frameIndex = Math.round(linearNormalizedValue * (totalFrames - 1));
 
     // Use the stored image dimensions
@@ -514,7 +510,8 @@ export class RotarySlider {
 
   getInnerHTML() {
     // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
-    const currentValue = this.props.value ?? this.props.range.defaultValue;
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const currentValue = this.props.value ?? range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
@@ -545,7 +542,7 @@ export class RotarySlider {
     const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
 
     // Calculate normalized value for positioning (currentValue is skewed)
-    const normalizedValue = (currentValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const normalizedValue = (currentValue - range.min) / (range.max - range.min);
     // Map to angle range using the normalized value
     const angle = CabbageUtils.map(normalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
 
@@ -569,11 +566,11 @@ export class RotarySlider {
       const centerY = this.props.bounds.height / 2;
 
       // Get the increment value and calculate decimal places
-      const incrementValue = this.props.range.increment !== undefined ? this.props.range.increment : 0.01;
+      const incrementValue = range.increment !== undefined ? range.increment : 0.01;
       const decimalPlaces = CabbageUtils.getDecimalPlaces(incrementValue);
 
       // Calculate the maximum width of the input box based on the number of decimal places
-      const maxValueLength = (this.props.range.max.toString().length + decimalPlaces + 1); // +1 for the decimal point
+      const maxValueLength = (range.max.toString().length + decimalPlaces + 1); // +1 for the decimal point
       let inputWidth = maxValueLength * fontSize * 0.5; // Adjust multiplier as needed for padding
 
       // Check if the input width exceeds the slider width

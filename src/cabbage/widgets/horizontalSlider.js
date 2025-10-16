@@ -22,13 +22,6 @@ export class HorizontalSlider {
         { "id": "hslider", "event": "valueChanged" }
       ],
       "corners": 4,
-      "range": {
-        "min": 0,
-        "max": 1,
-        "defaultValue": 0,
-        "skew": 1,
-        "increment": 0.001
-      },
       "value": null,
       "text": "",
       "font": {
@@ -102,6 +95,7 @@ export class HorizontalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -127,15 +121,15 @@ export class HorizontalSlider {
       console.log(`pointerDown: linearNormalized=${linearNormalized}`);
 
       // Apply skew transformation for display value
-      const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+      const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
       console.log(`pointerDown: skewedNormalized=${skewedNormalized}`);
 
       // Convert to actual range values
-      let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+      let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
       console.log(`pointerDown: skewedValue before rounding=${skewedValue}`);
 
       // Apply increment snapping to the skewed value
-      skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+      skewedValue = Math.round(skewedValue / range.increment) * range.increment;
       console.log(`pointerDown: skewedValue after rounding=${skewedValue}`);
 
       this.props.value = skewedValue;
@@ -151,14 +145,16 @@ export class HorizontalSlider {
       CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
       // Send value that will result in correct output after backend applies skew
-      const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-      const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+      const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
+      const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
       const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
       console.log(`pointerDown: sending valueToSend=${valueToSend}`);
-      if (this.props.automatable === 1) {
-        Cabbage.sendParameterUpdate(msg, this.vscode);
-      }
+
+      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
+
     }
+
   }
 
   mouseEnter(evt) {
@@ -171,13 +167,14 @@ export class HorizontalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
     const rect = form.getBoundingClientRect();
-    this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
+    this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
 
       // Calculate the position for the popup
       const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
@@ -251,6 +248,7 @@ export class HorizontalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const alignMap = {
       'left': 'start',
       'center': 'middle',
@@ -279,14 +277,14 @@ export class HorizontalSlider {
     const linearNormalized = offsetX / sliderWidth;
 
     // Apply skew transformation for display value
-    const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+    const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
 
     // Convert to actual range values
-    const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
-    let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const linearValue = linearNormalized * (range.max - range.min) + range.min;
+    let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
 
     // Apply increment snapping to the skewed value
-    skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+    skewedValue = Math.round(skewedValue / range.increment) * range.increment;
 
     // Store the skewed value for display
     this.props.value = skewedValue;
@@ -300,12 +298,12 @@ export class HorizontalSlider {
     // Backend does: min + (max - min) * pow(normalized, skew)
     // We want: backend to output skewedValue
     // So we need to send: pow((skewedValue - min) / (max - min), 1/skew)
-    const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
     if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
+      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
 
@@ -315,37 +313,39 @@ export class HorizontalSlider {
       return;
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
-      if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
+      if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         // Store the input value as the skewed value (what user sees)
         this.props.value = inputValue;
 
         // Convert to linear space for Cabbage
         const linearValue = this.getLinearValue(inputValue);
-        const linearNormalized = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+        const linearNormalized = (linearValue - range.min) / (range.max - range.min);
 
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
-        const widgetDiv = document.getElementById(this.props.channel);
+        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         widgetDiv.querySelector('input').focus();
 
         // Send value that will result in correct output after backend applies skew
-        const targetNormalized = (inputValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-        const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+        const targetNormalized = (inputValue - range.min) / (range.max - range.min);
+        const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
         const msg = {
           paramIdx: this.parameterIndex,
-          channel: this.props.channel,
+          channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
           channelType: "number"
         };
-        if (this.props.automatable === 1) {
-          Cabbage.sendParameterUpdate(msg, this.vscode);
-        }
+
+        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
       }
     }
   }
 
   getInnerHTML() {
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? 0).toFixed(this.decimalPlaces) + this.props.valuePostfix;
@@ -359,7 +359,7 @@ export class HorizontalSlider {
     };
 
     const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const currentValue = this.props.value ?? this.props.range.defaultValue;
+    const currentValue = this.props.value ?? range.defaultValue;
     // Add padding if alignment is 'end' or 'middle'
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0; // Adjust the padding value as needed
 
@@ -394,14 +394,14 @@ export class HorizontalSlider {
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
         <rect x="1" y="${trackerY}" width="${sliderWidth - 2}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${this.props.thumbWidth}" height="${this.props.bounds.height}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${this.props.thumbWidth}" height="${this.props.bounds.height}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
       </svg>
     `;
 
     const valueTextElement = this.props.valueTextBox ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
-        <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
+        <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
         style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
@@ -418,16 +418,18 @@ export class HorizontalSlider {
 
   // Helper methods for skew functionality
   getSkewedValue(linearValue) {
-    const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const normalizedValue = (linearValue - range.min) / (range.max - range.min);
     // Invert the skew for JUCE-like behavior
-    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-    return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / range.skew);
+    return skewedNormalizedValue * (range.max - range.min) + range.min;
   }
 
   getLinearValue(skewedValue) {
-    const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const normalizedValue = (skewedValue - range.min) / (range.max - range.min);
     // Invert the skew for JUCE-like behavior
-    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-    return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const linearNormalizedValue = Math.pow(normalizedValue, range.skew);
+    return linearNormalizedValue * (range.max - range.min) + range.min;
   }
 }

@@ -20,10 +20,6 @@ export class Checkbox {
         { "id": "checkbox", "event": "valueChanged" }
       ],
       "corners": 2,
-      "min": 0,
-      "max": 1,
-      "value": null,
-      "defaultValue": 0,
       "text": "On/Off",
       "font": {
         "family": "Verdana",
@@ -72,23 +68,24 @@ export class Checkbox {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
     // For radioGroup checkboxes: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
-      if (this.props.value === 0) {
-        this.props.value = 1;
+      if (this.props.value === range.min) {
+        this.props.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
       }
-      // If already 1, do nothing (stay selected)
+      // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for checkboxes not in radioGroup
-      this.props.value = (this.props.value === 1) ? 0 : 1;
+      this.props.value = (this.props.value === range.max) ? range.min : range.max;
     }
 
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
-    if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
-    }
+
+    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
   }
 
   pointerDown(evt) {
@@ -107,7 +104,7 @@ export class Checkbox {
 
   getInnerHTML() {
     // Use defaultValue for visual state when value is null
-    const currentValue = this.props.value !== null ? this.props.value : this.props.defaultValue;
+    const currentValue = this.props.value !== null ? this.props.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
 
     const alignMap = {
       'left': 'start',

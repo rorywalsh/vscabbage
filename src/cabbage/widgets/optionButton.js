@@ -17,7 +17,7 @@ export class OptionButton {
         "width": 80,
         "height": 30
       },
-      "channel": "optionButton",
+      "channels": [{ "id": "optionButton", "event": "valueChanged", "range": { "min": 0, "max": 3, "defaultValue": 0, "skew": 1, "increment": 1 } }],
       "corners": 2,
       "min": 0,
       "max": 1,
@@ -59,12 +59,12 @@ export class OptionButton {
       return '';
     }
     this.isMouseDown = false;
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
   }
 
   pointerDown(evt) {
     evt.stopPropagation();
-    console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', this.props.channel);
+    console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', CabbageUtils.getChannelId(this.props));
 
     if (this.props.visible === 0) {
       return '';
@@ -75,13 +75,13 @@ export class OptionButton {
     this.currentIndex = (this.currentIndex + 1) % itemsLength;
     this.props.value = this.currentIndex;
 
-    CabbageUtils.updateInnerHTML(this.props.channel, this, evt.currentTarget);
+    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this, evt.currentTarget);
 
     const newValue = CabbageUtils.map(this.props.value, 0, itemsLength, 0, 1);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: newValue, channelType: "number" };
+    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: newValue, channelType: "number" };
     console.log('Sending parameter update:', msg);
     if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
+      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
 
@@ -147,7 +147,7 @@ export class OptionButton {
     widgetDiv.addEventListener("mouseleave", () => {
       this.isMouseInside = false;
       widgetDiv.style.cursor = "default"; // Reset cursor to default
-      CabbageUtils.updateInnerHTML(this.props.channel, this);
+      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     });
   }
 

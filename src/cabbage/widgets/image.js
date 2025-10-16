@@ -19,11 +19,13 @@ export class Image {
             },
             "type": "image",
             "channels": [
-                { "id": "", "event": "mouseClickLeft" },
+                { "id": "", "event": "mousePressLeft" },
+                { "id": "", "event": "mouseMoveX" },
+                { "id": "", "event": "mouseMoveY" },
                 { "id": "", "event": "mouseDragX" },
                 { "id": "", "event": "mouseDragY" },
-                { "id": "", "event": "mousePressLeft" },
-                { "id": "", "event": "mouseReleaseLeft" }
+                { "id": "", "event": "mousePressRight" },
+                { "id": "", "event": "valueChanged" }
             ],
             "colour": {
                 "fill": "#0295cf",
@@ -63,51 +65,22 @@ export class Image {
 
     addEventListeners(widgetDiv) {
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
+        widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
+    }
+
+    pointerMove(evt) {
+        CabbageUtils.handleMouseMove(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
     }
 
     pointerDown(evt) {
-        // Left press
-        const pressCh = CabbageUtils.getChannelByEvent(this.props, 'mousePressLeft', 'click');
-        if (pressCh && this.props.automatable === 1) {
-            const msg = { paramIdx: this.parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
-            Cabbage.sendParameterUpdate(msg, this.vscode);
-        }
-        // Click shorthand
-        const clickCh = CabbageUtils.getChannelByEvent(this.props, 'mouseClickLeft', 'click');
-        if (clickCh && this.props.automatable === 1) {
-            const msg = { paramIdx: this.parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
-            Cabbage.sendParameterUpdate(msg, this.vscode);
-            const msgOff = { paramIdx: this.parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
-            Cabbage.sendParameterUpdate(msgOff, this.vscode);
-        }
-        // Add move/up handlers for release
-        const onUp = () => {
-            const relCh = CabbageUtils.getChannelByEvent(this.props, 'mouseReleaseLeft', 'click');
-            if (relCh && this.props.automatable === 1) {
-                const msg = { paramIdx: this.parameterIndex, channel: relCh.id, value: 0, channelType: "number" };
-                Cabbage.sendParameterUpdate(msg, this.vscode);
-            }
-            window.removeEventListener('pointerup', onUp);
-            window.removeEventListener('pointermove', onMove);
-        };
-        const onMove = (e) => {
-            const dragX = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
-            const dragY = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
-            if (!dragX && !dragY) return;
-            const rect = evt.currentTarget.getBoundingClientRect();
-            const nx = (e.clientX - rect.left) / rect.width;
-            const ny = (e.clientY - rect.top) / rect.height;
-            if (dragX && this.props.automatable === 1) {
-                const msgX = { paramIdx: this.parameterIndex, channel: dragX.id, value: Math.max(0, Math.min(1, nx)), channelType: "number" };
-                Cabbage.sendParameterUpdate(msgX, this.vscode);
-            }
-            if (dragY && this.props.automatable === 1) {
-                const msgY = { paramIdx: this.parameterIndex, channel: dragY.id, value: Math.max(0, Math.min(1, ny)), channelType: "number" };
-                Cabbage.sendParameterUpdate(msgY, this.vscode);
-            }
-        };
-        window.addEventListener('pointerup', onUp);
-        window.addEventListener('pointermove', onMove);
+        CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable, (evt) => {
+            // Add up handler for release
+            const onUp = () => {
+                CabbageUtils.handleMouseUp(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
+                window.removeEventListener('pointerup', onUp);
+            };
+            window.addEventListener('pointerup', onUp);
+        });
     }
 
     getInnerHTML() {

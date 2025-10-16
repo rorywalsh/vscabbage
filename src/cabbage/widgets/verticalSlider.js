@@ -18,13 +18,6 @@ export class VerticalSlider {
       "channels": [
         { "id": "vslider", "event": "valueChanged" }
       ],
-      "range": {
-        "min": 0,
-        "max": 1,
-        "defaultValue": 0,
-        "skew": 1,
-        "increment": 0.001
-      },
       "value": null,
       "text": "",
       "font": {
@@ -100,6 +93,8 @@ export class VerticalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+
     let textHeight = this.props.text ? this.props.bounds.height * 0.1 : 0;
     const valueTextBoxHeight = this.props.valueTextBox ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
@@ -109,20 +104,20 @@ export class VerticalSlider {
     if (evt.offsetY >= sliderTop && evt.offsetY <= sliderTop + sliderHeight) {
       this.isMouseDown = true;
       this.startY = evt.offsetY - sliderTop;
-      this.props.value = CabbageUtils.map(this.startY, 5, sliderHeight, this.props.range.max, this.props.range.min);
-      this.props.value = Math.round(this.props.value / this.props.range.increment) * this.props.range.increment;
+      this.props.value = CabbageUtils.map(this.startY, 5, sliderHeight, range.max, range.min);
+      this.props.value = Math.round(this.props.value / range.increment) * range.increment;
       this.startValue = this.props.value;
       window.addEventListener("pointermove", this.moveListener);
       window.addEventListener("pointerup", this.upListener);
       CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
       // Send value that will result in correct output after backend applies skew
-      const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
-      const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+      const targetNormalized = (this.props.value - range.min) / (range.max - range.min);
+      const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
       const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
-      if (this.props.automatable === 1) {
-        Cabbage.sendParameterUpdate(msg, this.vscode);
-      }
+
+      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
     }
   }
 
@@ -136,13 +131,14 @@ export class VerticalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
     const rect = form.getBoundingClientRect();
-    this.decimalPlaces = CabbageUtils.getDecimalPlaces(this.props.range.increment);
+    this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup > 0) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? this.props.range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
@@ -205,9 +201,10 @@ export class VerticalSlider {
       return;
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
-      if (!isNaN(inputValue) && inputValue >= this.props.range.min && inputValue <= this.props.range.max) {
+      if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         this.props.value = inputValue;
         const widgetDiv = document.getElementById(this.props.channel);
         widgetDiv.innerHTML = this.getInnerHTML();
@@ -226,6 +223,7 @@ export class VerticalSlider {
       return '';
     }
 
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     let textHeight = this.props.text ? this.props.bounds.height * 0.1 : 0;
     const valueTextBoxHeight = this.props.valueTextBox ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
@@ -243,14 +241,14 @@ export class VerticalSlider {
     const linearNormalized = offsetY / sliderHeight;
 
     // Apply skew transformation for display value
-    const skewedNormalized = Math.pow(linearNormalized, 1 / this.props.range.skew);
+    const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
 
     // Convert to actual range values
-    const linearValue = linearNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
-    let skewedValue = skewedNormalized * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const linearValue = linearNormalized * (range.max - range.min) + range.min;
+    let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
 
     // Apply increment snapping to the skewed value
-    skewedValue = Math.round(skewedValue / this.props.range.increment) * this.props.range.increment;
+    skewedValue = Math.round(skewedValue / range.increment) * range.increment;
 
     // Store the skewed value for display
     this.props.value = skewedValue;
@@ -260,15 +258,16 @@ export class VerticalSlider {
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send value that will result in correct output after backend applies skew
-    const targetNormalized = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
+    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
     const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
     if (this.props.automatable === 1) {
-      Cabbage.sendParameterUpdate(msg, this.vscode);
+      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
 
   getInnerHTML() {
+    const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valuePrefix + parseFloat(this.props.value).toFixed(this.decimalPlaces) + this.props.valuePostfix;
@@ -282,7 +281,7 @@ export class VerticalSlider {
     };
 
     const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const currentValue = this.props.value ?? this.props.range.defaultValue;
+    const currentValue = this.props.value ?? range.defaultValue;
 
     // Calculate text height
     let textHeight = this.props.text ? this.props.bounds.height * 0.1 : 0;
@@ -313,14 +312,14 @@ export class VerticalSlider {
     const sliderElement = `
     <svg x="0" y="${this.props.valueTextBox ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
       <rect x="${this.props.bounds.width * 0.4}" y="${trackY}" width="${this.props.bounds.width * 0.2}" height="${thumbHeight}" rx="2" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-      <rect x="${this.props.bounds.width * 0.4}" y="${trackY + (sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, sliderHeight * 0.95)) - 1}" height="${CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, 0, 1) * thumbHeight}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), this.props.range.min, this.props.range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+      <rect x="${this.props.bounds.width * 0.4}" y="${trackY + (sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight * 0.95)) - 1}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, 1) * thumbHeight}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
+      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
     </svg>
     `;
 
     const valueTextElement = this.props.valueTextBox ? `
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight * 1.2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight * 1.2}">
-      <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(this.props.range.increment))}"
+      <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
       style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
       onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
@@ -337,16 +336,18 @@ export class VerticalSlider {
 
   // Helper methods for skew functionality
   getSkewedValue(linearValue) {
-    const normalizedValue = (linearValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const normalizedValue = (linearValue - range.min) / (range.max - range.min);
     // Invert the skew for JUCE-like behavior
-    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-    return skewedNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const skewedNormalizedValue = Math.pow(normalizedValue, 1 / range.skew);
+    return skewedNormalizedValue * (range.max - range.min) + range.min;
   }
 
   getLinearValue(skewedValue) {
-    const normalizedValue = (skewedValue - this.props.range.min) / (this.props.range.max - this.props.range.min);
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const normalizedValue = (skewedValue - range.min) / (range.max - range.min);
     // Invert the skew for JUCE-like behavior
-    const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-    return linearNormalizedValue * (this.props.range.max - this.props.range.min) + this.props.range.min;
+    const linearNormalizedValue = Math.pow(normalizedValue, range.skew);
+    return linearNormalizedValue * (range.max - range.min) + range.min;
   }
 }

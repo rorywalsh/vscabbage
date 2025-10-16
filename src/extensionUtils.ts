@@ -46,6 +46,7 @@ editor. -->\n`;
     static removeWarningComment(text: string): string {
         return text.replace(/<!--[\s\S]*?Warning:[\s\S]*?-->[\s\n]*/g, '');
     }
+
     static sendTextToWebView(editor: vscode.TextDocument | undefined, command: string, panel: vscode.WebviewPanel | undefined) {
         if (editor) {
             if (editor.fileName.split('.').pop() === 'csd') {
@@ -1174,7 +1175,7 @@ ${JSON.stringify(props, null, 4)}
 <CsoundSynthesizer>
 <CsOptions>
 -n -d
-</CsOptions>e
+</CsOptions>
 <CsInstruments>
 ; Initialize the global variables. 
 ksmps = 32
@@ -1250,7 +1251,33 @@ f0 z
             /* For Firefox */
             -ms-user-select: none;
             /* For Internet Explorer/Edge */
-            /* Prevent scrollbars */
+            cursor: default;
+            /* Set default cursor instead of text cursor */
+            -webkit-touch-callout: none;
+            /* Disable callouts on iOS */
+            -webkit-tap-highlight-color: transparent;
+            /* Remove tap highlight on iOS */
+        }
+
+        /* Ensure all elements inherit the no-select behavior */
+        *,
+        *::before,
+        *::after {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            cursor: inherit;
+        }
+
+        /* Allow text selection only on input elements */
+        input,
+        textarea {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            cursor: text;
         }
     </style>
 </head>

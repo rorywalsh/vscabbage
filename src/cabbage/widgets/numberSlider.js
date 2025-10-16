@@ -176,9 +176,9 @@ export class NumberSlider {
             targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
             const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
             const msg = { paramIdx: this.parameterIndex, channel: channelId, value: valueToSend };
-            if (this.props.automatable === 1) {
-                Cabbage.sendParameterUpdate(msg, this.vscode);
-            }
+
+            Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+
             this.updateSliderValue();
         }
     }
@@ -221,7 +221,7 @@ export class NumberSlider {
                     const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
                     const msg = { paramIdx: this.parameterIndex, channel: channelId, value: valueToSend };
                     if (this.props.automatable === 1) {
-                        Cabbage.sendParameterUpdate(msg, this.vscode);
+                        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
                     }
                     this.updateSliderValue();
                 } else {
@@ -285,20 +285,22 @@ export class NumberSlider {
 
     // Helper methods for skew functionality
     getSkewedValue(linearValue) {
-        const rangeSpan = this.props.range.max - this.props.range.min;
-        if (rangeSpan === 0) return this.props.range.min;
-        const normalizedValue = (linearValue - this.props.range.min) / rangeSpan;
+        const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
+        const rangeSpan = range.max - range.min;
+        if (rangeSpan === 0) return range.min;
+        const normalizedValue = (linearValue - range.min) / rangeSpan;
         // Invert the skew for JUCE-like behavior
-        const skewedNormalizedValue = Math.pow(normalizedValue, 1 / this.props.range.skew);
-        return skewedNormalizedValue * rangeSpan + this.props.range.min;
+        const skewedNormalizedValue = Math.pow(normalizedValue, 1 / range.skew);
+        return skewedNormalizedValue * rangeSpan + range.min;
     }
 
     getLinearValue(skewedValue) {
-        const rangeSpan = this.props.range.max - this.props.range.min;
-        if (rangeSpan === 0) return this.props.range.min;
-        const normalizedValue = (skewedValue - this.props.range.min) / rangeSpan;
+        const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
+        const rangeSpan = range.max - range.min;
+        if (rangeSpan === 0) return range.min;
+        const normalizedValue = (skewedValue - range.min) / rangeSpan;
         // Invert the skew for JUCE-like behavior
-        const linearNormalizedValue = Math.pow(normalizedValue, this.props.range.skew);
-        return linearNormalizedValue * rangeSpan + this.props.range.min;
+        const linearNormalizedValue = Math.pow(normalizedValue, range.skew);
+        return linearNormalizedValue * rangeSpan + range.min;
     }
 }

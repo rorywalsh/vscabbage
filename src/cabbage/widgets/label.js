@@ -2,6 +2,7 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 import { Cabbage } from "../cabbage.js";
+import { CabbageUtils } from "../utils.js";
 /**
  * Label class
  */
@@ -18,7 +19,7 @@ export class Label {
             "colour": {
                 "fill": "#00000000"
             },
-            "channel": "label",
+            "channels": [{ "id": "label", "event": "valueChanged", "range": { "min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01 } }],
             "font": {
                 "family": "Verdana",
                 "size": 0,
@@ -49,9 +50,9 @@ export class Label {
 
     pointerDown() {
         this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
-        const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: this.props.value, channelType: "number" };
+        const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value, channelType: "number" };
         if (this.props.automatable === 1) {
-            Cabbage.sendParameterUpdate(msg, this.vscode);
+            Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
         }
     }
 

@@ -4,6 +4,7 @@
 
 import { widgets } from "./sharedState.js";
 import { Cabbage } from "../cabbage/cabbage.js";
+import { CabbageUtils } from "../cabbage/utils.js";
 
 /**
  * Handle radio group logic: when a widget is activated, deactivate all others in the same group.
@@ -35,10 +36,10 @@ export function handleRadioGroup(radioGroup, activeChannel) {
                 // Send update to host
                 const msg = {
                     paramIdx: groupWidget.parameterIndex,
-                    channel: groupWidget.props.channel,
+                    channel: CabbageUtils.getChannelId(groupWidget.props),
                     value: 0
                 };
-                Cabbage.sendParameterUpdate(msg, groupWidget.vscode || null);
+                Cabbage.sendChannelUpdate(msg, groupWidget.vscode || null, groupWidget.props.automatable);
             }
         }
     });

@@ -360,9 +360,9 @@ export class XyPad {
                 channelType: "number"
             };
             console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
-            if (this.props.automatable === 1) {
-                Cabbage.sendParameterUpdate(msgX, this.vscode);
-            }
+
+            Cabbage.sendChannelUpdate(msgX, this.vscode, this.props.automatable);
+
         }
 
         // Send Y channel update
@@ -376,7 +376,7 @@ export class XyPad {
             };
             console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
             if (this.props.automatable === 1) {
-                Cabbage.sendParameterUpdate(msgY, this.vscode);
+                Cabbage.sendChannelUpdate(msgY, this.vscode, this.props.automatable);
             }
         }
     }
