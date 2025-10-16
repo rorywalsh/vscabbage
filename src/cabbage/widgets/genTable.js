@@ -181,7 +181,7 @@ export class GenTable {
         // Send the sample positions to Csound via channels
         const startChannel = CabbageUtils.getChannelId(this.props, 0);
         const lengthChannel = CabbageUtils.getChannelId(this.props, 1);
-        
+
         if (startChannel) {
             Cabbage.sendChannelData(startChannel, startSample, this.vscode);
         }
