@@ -2,8 +2,9 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
-import { Checkbox } from '../checkbox.js';
+import { Checkbox } from '../checkBox.js';
 import { CabbageBase } from './cabbageBase.js';
+import { CabbageUtils } from '../../utils.js';
 
 export class CabbageCheckbox extends HTMLElement {
     constructor() {
@@ -13,7 +14,7 @@ export class CabbageCheckbox extends HTMLElement {
     }
 
     connectedCallback() {
-        this.id = this.widget.props.channel;
+        this.id = CabbageUtils.getChannelId(this.widget.props, 0);
         this.render();
         
         requestAnimationFrame(() => {

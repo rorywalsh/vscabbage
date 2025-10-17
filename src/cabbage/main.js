@@ -114,14 +114,14 @@ window.addEventListener('message', async event => {
 
         // Called when the host triggers a parameter change in the UI
         case 'parameterChange':
-            console.log(`main.js parameterChange: paramIdx=${parameterMessage.data.paramIdx}, value=${parameterMessage.data.value}`);
             const parameterMessage = message;
+            console.log(`main.js parameterChange: paramIdx=${parameterMessage.data.paramIdx}, value=${parameterMessage.data.value}`);
             // {command: "parameterChange", data: {paramIdx: 0, value: 0.32499998807907104}}
             for (const widget of widgets) {
                 if (widget.parameterIndex == parameterMessage.data.paramIdx) {
-                    console.log(`main.js parameterChange: updating widget ${widget.props.channel} (${widget.props.type}) with value ${parameterMessage.data.value}`);
+                    console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, 0)} (${widget.props.type}) with value ${parameterMessage.data.value}`);
                     const updateMsg = {
-                        channel: widget.props.channel,
+                        channel: CabbageUtils.getChannelId(widget.props, 0),
                         value: parameterMessage.data.value
                     };
                     await WidgetManager.updateWidget(updateMsg);
@@ -147,7 +147,7 @@ window.addEventListener('message', async event => {
         // Called when a file is selected from the file dialog
         case 'fileOpenFromVSCode':
             const fileData = JSON.parse(message.text);
-            const fileButtonWidget = widgets.find(w => w.props.channel === fileData.channel);
+            const fileButtonWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === fileData.channel);
             if (fileButtonWidget) {
                 // Toggle the button value for visual feedback
                 fileButtonWidget.props.value = fileButtonWidget.props.value === 1 ? 0 : 1;
@@ -169,7 +169,7 @@ window.addEventListener('message', async event => {
                 // Save current state of widgets (sanitized)
                 widgetUpdatesMessages.push({
                     command: "widgetUpdate",
-                    channel: widget.props.channel,
+                    channel: CabbageUtils.getChannelId(widget.props, 0),
                     data: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
                 });
             });
@@ -203,10 +203,10 @@ window.addEventListener('message', async event => {
         // Called when there are new Csound console messages to display
         case 'csoundOutputUpdate':
             // Find the csoundOutput widget by its channel
-            let csoundOutput = widgets.find(widget => widget.props.channel === 'csoundoutput');
+            let csoundOutput = widgets.find(widget => CabbageUtils.getChannelId(widget.props, 0) === 'csoundoutput');
             if (csoundOutput) {
                 // Update the HTML content of the widget's div
-                const csoundOutputDiv = CabbageUtils.getWidgetDiv(csoundOutput.props.channel);
+                const csoundOutputDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(csoundOutput.props, 0));
                 if (csoundOutputDiv) {
                     csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
                     csoundOutput.appendText(message.text); // Append new console message

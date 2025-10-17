@@ -30,11 +30,7 @@ export class Label {
             "visible": 1,
             "text": "Default Label",
             "automatable": 0,
-            "opacity": 1,
-            "defaultValue": 0,
-            "value": null,
-            "min": 0,
-            "max": 1
+            "opacity": 1
         };
         this.vscode = null;
     }
@@ -45,15 +41,9 @@ export class Label {
     }
 
     addEventListeners(widgetDiv) {
-        widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    }
-
-    pointerDown() {
-        this.props.value = this.props.value === this.props.max ? this.props.min : this.props.max;
-        const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value, channelType: "number" };
-        if (this.props.automatable === 1) {
-            Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-        }
+        widgetDiv.addEventListener("pointerdown", (evt) => {
+            CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
+        });
     }
 
     getInnerHTML() {

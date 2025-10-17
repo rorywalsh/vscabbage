@@ -4,6 +4,7 @@
 
 import { OptionButton } from '../optionButton.js';
 import { CabbageBase } from './cabbageBase.js';
+import { CabbageUtils } from '../../utils.js';
 
 export class CabbageOptionButton extends HTMLElement {
     constructor() {
@@ -13,7 +14,7 @@ export class CabbageOptionButton extends HTMLElement {
     }
 
     connectedCallback() {
-        this.id = this.widget.props.channel;
+        this.id = CabbageUtils.getChannelId(this.widget.props, 0);
         this.render();
         
         requestAnimationFrame(() => {

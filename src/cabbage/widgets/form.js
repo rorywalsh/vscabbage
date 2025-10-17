@@ -12,7 +12,7 @@ export class Form {
         "width": 600,
         "height": 300
       },
-      "id": "mainForm",
+      "id": "MainForm",
       "caption": "",
       "type": "form",
       "colour": {
@@ -20,10 +20,11 @@ export class Form {
       },
       "channelConfig": "2-2",
       "channels": [
-        { "id": "form", "event": "valueChanged" }
+        { "id": "", "event": "valueChanged" }
       ],
       "enableDevTools": true
     };
+    this.props.channels[0].id = this.props.id;
 
   }
 
@@ -41,11 +42,12 @@ export class Form {
 
   updateSVG() {
     console.log("Cabbage: updating form svg", this.props);
-    // Select the parent div using the channel property
-    const parentDiv = document.getElementById(this.props.channel);
+    // Select the parent div using the ui property if not empty, otherwise use id
+    const channel = this.props.ui && this.props.ui !== '' ? this.props.ui : this.props.id;
+    const parentDiv = document.getElementById(channel);
 
     if (!parentDiv) {
-      console.error(`Parent div with id ${this.props.channel} not found.`);
+      console.error(`Parent div with id ${channel} not found.`);
       return;
     }
 

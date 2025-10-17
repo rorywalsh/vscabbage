@@ -34,13 +34,13 @@ export class PropertyPanel {
      */
     checkChannelUniqueness() {
         this.widgets.forEach(widget => {
-            const widgetDiv = document.getElementById(widget.props.channel);
+            const widgetDiv = document.getElementById(CabbageUtils.getChannelId(widget.props, 0));
 
             if (widgetDiv) {
-                const idConflict = this.widgets.some(w => w.props.channel !== widget.props.channel && w.props.channel === widgetDiv.id);
+                const idConflict = this.widgets.some(w => CabbageUtils.getChannelId(w.props, 0) !== CabbageUtils.getChannelId(widget.props, 0) && CabbageUtils.getChannelId(w.props, 0) === widgetDiv.id);
 
                 if (idConflict) {
-                    console.error(`Conflict detected: Widget channel '${widget.props.channel}' must be unique!`);
+                    console.error(`Conflict detected: Widget channel '${CabbageUtils.getChannelId(widget.props, 0)}' must be unique!`);
                     return;
                 }
             }
@@ -93,7 +93,7 @@ export class PropertyPanel {
      */
     createSections(properties, panel) {
         // Get the widget instance to access hiddenProps
-        const widget = this.widgets.find(w => w.props.channel === properties.channel);
+        const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
         const hiddenProps = widget?.hiddenProps || [];
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
@@ -144,7 +144,7 @@ export class PropertyPanel {
         const miscSection = this.createSection('Misc');
 
         // Get the widget instance to access hiddenProps
-        const widget = this.widgets.find(w => w.props.channel === properties.channel);
+        const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
         const hiddenProps = widget?.hiddenProps || [];
 
         Object.entries(properties).forEach(([key, value]) => {
@@ -376,7 +376,7 @@ export class PropertyPanel {
 
         // Set input attributes
         input.id = key; // Use the key as ID directly (case-sensitive)
-        input.dataset.parent = this.properties.channel; // Set data attribute for parent channel
+        input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
         input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
 
         return input; // Return the created input element
@@ -441,7 +441,7 @@ export class PropertyPanel {
         }
 
         this.widgets.forEach((widget) => {
-            if (widget.props.channel === input.dataset.parent) {
+            if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
@@ -472,7 +472,7 @@ export class PropertyPanel {
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(widget.props, 0));
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
                 } else {
@@ -532,7 +532,7 @@ export class PropertyPanel {
             const { eventType, name, bounds } = eventObj; // Destructure event properties
 
             widgets.forEach((widget, index) => {
-                if (widget.props.channel === name) {
+                if (CabbageUtils.getChannelId(widget.props, 0) === name) {
                     // Update widget size based on bounds if available
                     if (typeof widget.props?.size === 'object' && widget.props.size !== null) {
                         if (bounds.w > 0 && bounds.h > 0) {
@@ -560,7 +560,7 @@ export class PropertyPanel {
                         } else if (widget.props.type === "form") {
                             widget.updateSVG(); // Update SVG for form type
                         } else {
-                            const widgetDiv = CabbageUtils.getWidgetDiv(widget.props.channel);
+                            const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(widget.props, 0));
                             widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
                         }
                     }

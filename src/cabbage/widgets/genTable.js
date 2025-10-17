@@ -18,6 +18,7 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
+            "id":"",
             "type": "genTable",
             "colour": {
                 "fill": "#93d200",
@@ -39,6 +40,10 @@ export class GenTable {
                     "range": { "min": 0, "max": -1 }
                 }
             ],
+            "range": {
+                "x": { "start": 0, "end": -1 },
+                "y": { "min": -1.0, "max": 1.0 }
+            },
             "font": {
                 "family": "Verdana",
                 "size": 0,

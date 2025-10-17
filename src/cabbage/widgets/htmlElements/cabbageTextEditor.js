@@ -4,6 +4,7 @@
 
 import { TextEditor } from '../textEditor.js';
 import { CabbageBase } from './cabbageBase.js';
+import { CabbageUtils } from '../../utils.js';
 
 export class CabbageTextEditor extends HTMLElement {
     constructor() {
@@ -13,7 +14,7 @@ export class CabbageTextEditor extends HTMLElement {
     }
 
     connectedCallback() {
-        this.id = this.widget.props.channel;
+        this.id = CabbageUtils.getChannelId(this.widget.props, 0);
         this.render();
         
         requestAnimationFrame(() => {

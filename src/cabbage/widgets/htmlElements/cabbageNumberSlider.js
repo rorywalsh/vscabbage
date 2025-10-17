@@ -4,6 +4,7 @@
 
 import { NumberSlider } from '../numberSlider.js';
 import { CabbageBase } from './cabbageBase.js';
+import { CabbageUtils } from '../../utils.js';
 
 export class CabbageNumberSlider extends HTMLElement {
     constructor() {
@@ -24,7 +25,7 @@ export class CabbageNumberSlider extends HTMLElement {
     }
 
     connectedCallback() {
-        this.id = this.widget.props.channel;
+        this.id = CabbageUtils.getChannelId(this.widget.props, 0);
         this.render();
         
         requestAnimationFrame(() => {

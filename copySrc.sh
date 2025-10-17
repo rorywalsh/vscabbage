@@ -6,6 +6,8 @@ if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* || "$OSTYPE" == "win32" || 
     TARGET_CSS_DIR_FX="/c/ProgramData/CabbageAudio/CabbagePluginEffect/"
     TARGET_DIR="/c/ProgramData/CabbageAudio/CabbagePluginSynth/cabbage/"
     TARGET_CSS_DIR="/c/ProgramData/CabbageAudio/CabbagePluginSynth/"
+    TARGET_DIR_FXd="/c/ProgramData/CabbageAudio/CabbagePluginEffectd/cabbage/"
+    TARGET_CSS_DIR_FXd="/c/ProgramData/CabbageAudio/CabbagePluginEffectd/"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     TARGET_DIR_FX="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/cabbage/"
     TARGET_CSS_DIR_FX="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/"
@@ -34,8 +36,16 @@ else
     echo "Target directory $TARGET_DIR_FX already exists."
 fi
 
+if [ ! -d "$TARGET_DIR_FXd" ]; then
+    echo "Target directory $TARGET_DIR_FXd does not exist. Creating it."
+    mkdir -p "$TARGET_DIR_FXd"
+else
+    echo "Target directory $TARGET_DIR_FXd already exists."
+fi
 # Copy the source files
 cp -rfv ./src/cabbage/* "$TARGET_DIR"
 cp -rfv ./src/cabbage/* "$TARGET_DIR_FX"
+cp -rfv ./src/cabbage/* "$TARGET_DIR_FXd"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FX"
+cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FXd"

@@ -357,7 +357,7 @@ export class CabbageUtils {
 
   static getWidgetFromChannel(channel, widgets) {
     for (const widget of widgets) {
-      if (widget.props.channel === channel) {
+      if (CabbageUtils.getChannelId(widget.props, 0) === channel) {
         return widget;
       }
     }
@@ -476,9 +476,7 @@ export class CabbageUtils {
 
   static updateBounds(props, identifier) {
     // Handle both string channels and object channels (for xyPad)
-    const channelId = typeof props.channel === 'object' && props.channel !== null
-      ? (props.channel.id || props.channel.x)
-      : props.channel;
+    const channelId = CabbageUtils.getChannelId(props, 0);
     const element = document.getElementById(channelId);
     if (element && props.bounds) {
       switch (identifier) {
@@ -508,7 +506,7 @@ export class CabbageUtils {
           break;
       }
     } else {
-      console.log('Cabbage: Element or bounds not found:', props.channel, props.bounds);
+      console.log('Cabbage: Element or bounds not found:', channelId, props.bounds);
     }
   }
 
@@ -968,18 +966,18 @@ endin
           if (key !== 'value' && key !== 'defaultValue') {
             const newValue = CabbageTestUtilities.getSimilarValue(value);
             if (typeof value === 'number') {
-              csoundCode += `i"CabbageSetFloat" ${setStartTime.toFixed(1)} 0.2 "${widget.props.channel}" "${key}" ${newValue}\n`;
-              csoundCode += `i"CabbageCheckFloat" ${checkStartTime.toFixed(1)} 0.2 "${widget.props.channel}" "${key}" ${newValue}\n`;
+              csoundCode += `i"CabbageSetFloat" ${setStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" "${key}" ${newValue}\n`;
+              csoundCode += `i"CabbageCheckFloat" ${checkStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" "${key}" ${newValue}\n`;
             } else {
-              csoundCode += `i"CabbageSetString" ${setStartTime.toFixed(1)} 0.2 "${widget.props.channel}" "${key}" "${newValue}"\n`;
-              csoundCode += `i"CabbageCheckString" ${checkStartTime.toFixed(1)} 0.2 "${widget.props.channel}" "${key}" "${newValue}"\n`;
+              csoundCode += `i"CabbageSetString" ${setStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" "${key}" "${newValue}"\n`;
+              csoundCode += `i"CabbageCheckString" ${checkStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" "${key}" "${newValue}"\n`;
             }
             setStartTime += delay;
             checkStartTime += delay;
           } else if (key === 'value') {
             const newValue = CabbageTestUtilities.getSimilarValue(value);
-            csoundCode += `i"CabbageSetValue" ${setStartTime.toFixed(1)} 0.2 "${widget.props.channel}" ${newValue}\n`;
-            csoundCode += `i"CabbageCheckValue" ${checkStartTime.toFixed(1)} 0.2 "${widget.props.channel}" ${newValue}\n`;
+            csoundCode += `i"CabbageSetValue" ${setStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" ${newValue}\n`;
+            csoundCode += `i"CabbageCheckValue" ${checkStartTime.toFixed(1)} 0.2 "${CabbageUtils.getChannelId(widget.props, 0)}" ${newValue}\n`;
             setStartTime += delay;
             checkStartTime += delay;
           }

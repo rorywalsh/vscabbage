@@ -1,34 +1,91 @@
-<Cabbage>[
-{"type": "form", "caption": "Slider Example", "size": {"width": 360.0, "height": 460.0}, "guiMode": "queue", "pluginId": "def2"},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 20.0, "width":  280.0, "height": 20.0}, "channel": "harmonic1", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 50.0, "width":  280.0, "height": 20.0}, "channel": "harmonic2", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 80.0, "width":  280.0, "height": 20.0}, "channel": "harmonic3", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 110.0, "width": 280.0, "height": 20.0}, "channel": "harmonic4", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 140.0, "width": 280.0, "height": 20.0}, "channel": "harmonic5", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 170.0, "width": 280.0, "height": 20.0}, "channel": "harmonic6", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 200.0, "width": 280.0, "height": 20.0}, "channel": "harmonic7", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}},
-{"type": "horizontalSlider", "bounds": {"left": 20.0, "top": 230.0, "width": 280.0, "height": 20.0}, "channel": "harmonic8", "range": {"min": 0.0, "max": 1.0, "defaultValue": 0.0, "skew": 1.0, "increment": 0.001}}
-]</Cabbage>
+<Cabbage>
+[
+    {
+        "type": "form",
+        "caption": "Slider Example",
+        "size": {"width": 360, "height": 460},
+        "guiMode": "queue",
+        "pluginId": "def2",
+        "channels": [{"id": "MainForm", "event": "valueChanged"}]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 20, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic1", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 50, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic2", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 80, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic3", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 110, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic4", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 140, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic5", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 170, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic6", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 200, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic7", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    },
+    {
+        "type": "horizontalSlider",
+        "bounds": {"left": 20, "top": 230, "width": 280, "height": 20},
+        "channels": [
+            {"id": "harmonic8", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}}
+        ]
+    }
+]
+</Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
 -n -d
 </CsOptions>e
 <CsInstruments>
-; Initialize the global variables. 
+; Initialize the global variables.
 ksmps = 16
 nchnls = 2
 0dbfs = 1
 
-; Rory Walsh 2021 
+; Rory Walsh 2021
 ;
 ; License: CC0 1.0 Universal
-; You can copy, modify, and distribute this file, 
-; even for commercial purposes, all without asking permission. 
+; You can copy, modify, and distribute this file,
+; even for commercial purposes, all without asking permission.
 
 giWave ftgen 1, 0, 4096, 10, 1, .2, .1, .2, .1
 
 instr 1
-
+    
     
     a1 oscili tonek(cabbageGetValue:k("harmonic1"), 10), 50, giWave
     a2 oscili tonek(cabbageGetValue:k("harmonic2"), 10), 100, giWave
@@ -42,7 +99,7 @@ instr 1
     
     aMix = a1+a2+a3+a4+a5+a6+a7+a8
     out aMix*.1, aMix*.1
-endin       
+endin
 
 </CsInstruments>
 <CsScore>
