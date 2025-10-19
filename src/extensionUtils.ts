@@ -883,6 +883,18 @@ ${JSON.stringify(props, null, 4)}
         // Define properties to exclude from JSON output (internal-only fields)
         const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps']; // Add any properties you want to exclude
 
+        // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
+        const getChannelId = (obj: WidgetProps): string => {
+            if (obj.channels) {
+                if (Array.isArray(obj.channels) && obj.channels[0]) {
+                    return obj.channels[0].id;
+                } else if (typeof obj.channels === 'object' && obj.channels[0]) {
+                    return obj.channels[0].id;
+                }
+            }
+            return obj.channel || '';
+        };
+
         // Recursively clone and remove excluded properties from an object
         function cleanForEditor(obj: any): any {
             if (obj === null || obj === undefined) return obj;
@@ -899,6 +911,40 @@ ${JSON.stringify(props, null, 4)}
             return obj;
         }
 
+        // Helper function to deep merge objects
+        const deepMerge = (target: any, source: any): any => {
+            if (Array.isArray(source)) {
+                // If source is an array, merge each element
+                if (Array.isArray(target)) {
+                    return source.map((item, index) => {
+                        if (index < target.length) {
+                            return deepMerge(target[index], item);
+                        } else {
+                            return item;
+                        }
+                    });
+                } else {
+                    return source;
+                }
+            } else if (typeof source === 'object' && source !== null) {
+                const output = Array.isArray(target) ? [] : { ...target };
+                Object.keys(source).forEach(key => {
+                    if (typeof source[key] === 'object' && source[key] !== null) {
+                        if (!(key in output)) {
+                            output[key] = source[key];
+                        } else {
+                            output[key] = deepMerge(output[key], source[key]);
+                        }
+                    } else {
+                        output[key] = source[key];
+                    }
+                });
+                return output;
+            } else {
+                return source;
+            }
+        };
+
         // Helper function to remove excluded properties from an object
         const removeExcludedProps = (obj: any) => {
             const newObj = { ...obj };
@@ -914,7 +960,7 @@ ${JSON.stringify(props, null, 4)}
             const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
 
             if (formIndex !== -1) {
-                let newFormObject = { ...jsonArray[formIndex], ...cleanedProps };
+                let newFormObject = deepMerge(jsonArray[formIndex], cleanedProps);
                 // Remove properties that match default values
                 for (let key in defaultProps) {
                     if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
@@ -935,28 +981,18 @@ ${JSON.stringify(props, null, 4)}
             return jsonArray;
         }
 
-        let existingObject = jsonArray.find(obj => {
-            const propsChannelId = props.channels && props.channels[0] ? props.channels[0].id : props.channel;
-            return obj.id === props.id ||
-                   (obj.channels && obj.channels[0] && obj.channels[0].id === propsChannelId) ||
-                   obj.channel === propsChannelId;
-        });
+        let existingObject = jsonArray.find(obj => getChannelId(obj) === getChannelId(props));
 
         if (existingObject) {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
-            let newObject = { ...existingObject, ...cleanedProps };
+            let newObject = deepMerge(existingObject, cleanedProps);
             // Remove properties that match default values
             for (let key in defaultProps) {
                 if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
                     delete newObject[key];
                 }
             }
-            const propsChannelId = props.channels && props.channels[0] ? props.channels[0].id : props.channel;
-            const index = jsonArray.findIndex(obj => {
-                return obj.id === props.id ||
-                       (obj.channels && obj.channels[0] && obj.channels[0].id === propsChannelId) ||
-                       obj.channel === propsChannelId;
-            });
+            const index = jsonArray.findIndex(obj => getChannelId(obj) === getChannelId(props));
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;

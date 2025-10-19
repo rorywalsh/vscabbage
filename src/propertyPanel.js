@@ -511,6 +511,7 @@ export class PropertyPanel {
      * @param value - The value to set.
      */
     setNestedProperty(obj, path, value) {
+        console.log('PropertyPanel: setNestedProperty called with path:', path, 'value:', value);
         const keys = [];
         let current = '';
         for (let i = 0; i < path.length; i++) {
@@ -535,6 +536,8 @@ export class PropertyPanel {
         }
         if (current) keys.push(current);
 
+        console.log('PropertyPanel: parsed keys:', keys);
+
         let currentObj = obj;
         for (let i = 0; i < keys.length - 1; i++) {
             const key = keys[i];
@@ -554,6 +557,7 @@ export class PropertyPanel {
         } else {
             currentObj[lastKey] = value;
         }
+        console.log('PropertyPanel: set', path, 'to', value);
     }
 
     /** 
@@ -574,18 +578,19 @@ export class PropertyPanel {
             return;
         }
 
+        console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'value:', input.value);
+
         this.widgets.forEach((widget) => {
             if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
                 const inputValue = input.value;
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
+                console.log('PropertyPanel: updating widget with channel id:', input.dataset.parent, 'setting', input.id, 'to', parsedValue);
+
                 // Handle nested properties
                 this.setNestedProperty(widget.props, input.id, parsedValue);
 
-                // Remove the old property only if it was incorrectly placed at the root
-                if (propertyPath.length > 1 && widget.props[finalProperty] && !propertyPath.includes('colour')) {
-                    delete widget.props[finalProperty];
-                }
+                console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
@@ -597,9 +602,10 @@ export class PropertyPanel {
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
 
+                console.log('PropertyPanel: sending widgetUpdate to VSCode');
                 this.vscode.postMessage({
                     command: 'widgetUpdate',
-                    text: JSON.stringify(widget.props),
+                    text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
                 });
             }
         });
