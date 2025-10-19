@@ -517,17 +517,28 @@ export class WidgetManager {
     * @param {object} obj - JSON object pertaining to the widget that needs updating.
     */
     static async updateWidget(obj) {
-        // Extract channel ID for logging (handle both string and object channels)
-        const channelStr = typeof obj.channel === 'object'
-            ? (obj.channel.id || obj.channel.x)
-            : obj.channel;
+        if (!obj.id) {
+            console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
+            return;
+        }
+        console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        // Extract channel ID for logging
+        const channelStr = obj.id;
+        console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
         // Check if 'data' exists, otherwise use 'value'
         const data = obj.data ? JSON.parse(obj.data) : obj.value;
+        console.log(`WidgetManager.updateWidget: Parsed data:`, data);
+
+        // Determine the channel to use for finding the widget
+        const channelToFind = data.id || (data.channels && data.channels.length > 0 && data.channels[0].id) || obj.id;
+        console.log(`WidgetManager.updateWidget: Channel to find: ${channelToFind}`);
+
         const widget = widgets.find(w => {
-            return WidgetManager.channelsMatch(w.props.channel, obj.channel) ||
-                (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, obj.channel))) ||
-                w.props.id === obj.channel;
+            return WidgetManager.channelsMatch(w.props.channel, channelToFind) ||
+                (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
+                w.props.id === channelToFind;
         });
+        console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
         let widgetFound = false;
 
         // Check if this is a child widget
@@ -543,20 +554,24 @@ export class WidgetManager {
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+                console.log(`WidgetManager.updateWidget: Value-only update for ${widget.props.type}, value=${obj.value}`);
                 // Special handling for xyPad - determine which axis to update
                 if (widget.props.type === "xyPad") {
+                    console.log(`WidgetManager.updateWidget: Handling xyPad update`);
                     if (obj.value != null && !isNaN(obj.value)) {
-                        // Determine which axis by checking if obj.channel matches x or y
-                        const channelStr = typeof obj.channel === 'string' ? obj.channel : obj.channel.id;
+                        // Determine which axis by checking if obj.id matches x or y
+                        const channelStr = obj.id;
                         const xChannelId = CabbageUtils.getChannelId(widget.props, 0);
                         const yChannelId = CabbageUtils.getChannelId(widget.props, 1);
                         const isXChannel = channelStr === xChannelId;
                         const isYChannel = channelStr === yChannelId;
+                        console.log(`WidgetManager.updateWidget: xyPad - channelStr=${channelStr}, xChannelId=${xChannelId}, yChannelId=${yChannelId}, isX=${isXChannel}, isY=${isYChannel}`);
 
                         if (isXChannel || isYChannel) {
                             widget.isUpdatingFromBackend = true;
                             const axis = isXChannel ? 'x' : 'y';
-                            const range = widget.props.range[axis];
+                            const range = CabbageUtils.getChannelRange(widget.props, isXChannel ? 0 : 1);
+                            console.log(`WidgetManager.updateWidget: xyPad - axis=${axis}, range=`, range);
 
                             // Normalize the value to [0,1] based on the range
                             let normalizedValue;
@@ -577,10 +592,10 @@ export class WidgetManager {
                             }
 
                             // Redraw the widget
-                            if (!widget._updateScheduled) {
-                                widget._updateScheduled = true;
+                            if (!widget.updateScheduled) {
+                                widget.updateScheduled = true;
                                 requestAnimationFrame(() => {
-                                    widget._updateScheduled = false;
+                                    widget.updateScheduled = false;
                                     const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                                     if (widgetDiv) {
                                         widgetDiv.innerHTML = widget.getInnerHTML();
@@ -595,6 +610,7 @@ export class WidgetManager {
 
                 // Don't update value for sliders that are currently being dragged
                 if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
+                    console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
                     if (obj.value != null) {
                         // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
                         // Set flag to indicate this is a programmatic update from backend
@@ -602,14 +618,19 @@ export class WidgetManager {
                         let newValue = obj.value;
                         // For sliders, handle value conversion
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                            console.log(`WidgetManager.updateWidget: Converting slider value ${obj.value}`);
+                            const range = CabbageUtils.getChannelRange(widget.props, 0);
                             if (!isNaN(obj.value) && obj.value >= 0 && obj.value <= 1) {
                                 // Assume received value is linear normalized [0,1], convert to skewed
-                                const skewedNormalized = Math.pow(obj.value, widget.props.range.skew);
-                                newValue = widget.props.range.min + skewedNormalized * (widget.props.range.max - widget.props.range.min);
+                                const skewedNormalized = Math.pow(obj.value, range.skew);
+                                newValue = range.min + skewedNormalized * (range.max - range.min);
+                                console.log(`WidgetManager.updateWidget: Converted linear ${obj.value} to skewed ${newValue}`);
                             } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
                                 // Assume received value is already skewed
                                 newValue = obj.value;
+                                console.log(`WidgetManager.updateWidget: Value ${obj.value} assumed skewed`);
                             } else {
+                                console.log(`WidgetManager.updateWidget: Invalid value ${obj.value}, skipping`);
                                 return; // Skip update for invalid values
                             }
                         }
@@ -617,10 +638,10 @@ export class WidgetManager {
                         widget.props.value = newValue; // Update the value property
 
                         // Throttle DOM updates using requestAnimationFrame to prevent jitter during rapid updates
-                        if (!widget._updateScheduled) {
-                            widget._updateScheduled = true;
+                        if (!widget.updateScheduled) {
+                            widget.updateScheduled = true;
                             requestAnimationFrame(() => {
-                                widget._updateScheduled = false;
+                                widget.updateScheduled = false;
                                 // Call getInnerHTML to refresh the widget's display
                                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                                 if (widgetDiv) {
@@ -639,12 +660,14 @@ export class WidgetManager {
                 return; // Early return
             }
 
+            console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
             // Save current value for sliders to prevent accidental null resets during visibility changes
             let savedSliderValue;
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 savedSliderValue = widget.props.value;
             }
             // Update widget properties
+            console.log(`WidgetManager.updateWidget: Merging data into widget props`);
             WidgetManager.deepMerge(widget.props, data);
             // Restore value if accidentally set to null
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
@@ -756,11 +779,15 @@ export class WidgetManager {
                 }
             }
         } else {
+            console.log(`WidgetManager.updateWidget: Widget not found in top-level array, checking for child widgets`);
             // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
-            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({channel: obj.channel}, 0)));
+            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0)));
+            console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
             if (parentWithChild) {
-                // console.log(`Cabbage: Found child widget ${obj.channel} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
-                const childProps = parentWithChild.props.children.find(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({channel: obj.channel}, 0));
+                console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
+                // console.log(`Cabbage: Found child widget ${obj.id} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
+                const childProps = parentWithChild.props.children.find(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0));
+                console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
 
                 // If data is an object (and not null/array) merge it, otherwise treat as a value update
                 if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -785,7 +812,7 @@ export class WidgetManager {
                 }
 
                 // Update child DOM / instance if present
-                const objChannelId = CabbageUtils.getChannelId({channel: obj.channel}, 0);
+                const objChannelId = CabbageUtils.getChannelId({ channel: obj.id }, 0);
                 const childDiv = document.getElementById(objChannelId);
                 if (childDiv) {
                     // Prefer canonical attached instance
@@ -799,7 +826,7 @@ export class WidgetManager {
                             }
                         }
                         childDiv.innerHTML = instance.getInnerHTML();
-                        console.warn("Cabbage: Updated child widget instance", CabbageUtils.getChannelId({channel: obj.channel}, 0), instance.props.value);
+                        console.warn("Cabbage: Updated child widget instance", CabbageUtils.getChannelId({ channel: obj.id }, 0), instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
                         const tempWidget = WidgetManager.createWidget(childProps.type);
@@ -807,34 +834,38 @@ export class WidgetManager {
                         // Ensure slider values are not null
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
                             if (tempWidget.props.value === null) {
-                                tempWidget.props.value = tempWidget.props.range.defaultValue;
+                                const range = CabbageUtils.getChannelRange(tempWidget.props, 0);
+                                tempWidget.props.value = range.defaultValue;
                             }
                         }
                         childDiv.innerHTML = tempWidget.getInnerHTML();
-                        console.warn("Cabbage: Updated temporary child widget", CabbageUtils.getChannelId({channel: obj.channel}, 0));
+                        console.warn("Cabbage: Updated temporary child widget", CabbageUtils.getChannelId({ channel: obj.id }, 0));
                     }
                 } else {
-                    console.warn(`Cabbage: child div for ${CabbageUtils.getChannelId({channel: obj.channel}, 0)} not found in DOM`);
+                    console.warn(`Cabbage: child div for ${CabbageUtils.getChannelId({ channel: obj.id }, 0)} not found in DOM`);
                 }
                 widgetFound = true;
             } else {
-                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({channel: obj.channel}, 0)} not found - going to create it now`);
+                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({ channel: obj.channel }, 0)} not found - going to create it now`);
             }
         }
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound) {
+            console.log(`WidgetManager.updateWidget: Widget not found, attempting to create new widget`);
             // If this is a value-only update (no data field), we can't create a widget
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
-                const channelStr = CabbageUtils.getChannelId({channel: obj.channel}, 0);
+                const channelStr = CabbageUtils.getChannelId({ channel: obj.id }, 0);
                 console.warn(`Cabbage: Cannot update value for non-existent widget "${channelStr}". Widget must be defined in the CSD file first.`);
                 return;
             }
 
             try {
                 let p = typeof data === 'string' ? JSON.parse(data) : data;
+                console.log(`WidgetManager.updateWidget: Parsed props for new widget:`, p);
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
+                    console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
                     await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                 }
                 else {
@@ -843,6 +874,8 @@ export class WidgetManager {
             } catch (error) {
                 console.error("Error parsing JSON data:", error, obj.data);
             }
+        } else {
+            console.log(`WidgetManager.updateWidget: Widget was found and updated`);
         }
     }
 

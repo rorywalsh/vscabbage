@@ -63,7 +63,7 @@ export class MidiKeyboard {
     if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
       this.isMouseDown = true;
       console.log("Cabbage: Key down:", e.target.dataset.note);
-      this.noteOn(e.target);
+      this.noteOn(e.target, e);
     }
   }
 
@@ -78,7 +78,7 @@ export class MidiKeyboard {
     if (this.isMouseDown) {
       if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
         if (!this.activeNotes.has(e.target.dataset.note)) {
-          this.noteOn(e.target);
+          this.noteOn(e.target, e);
         }
       } else {
         this.noteOffLastKey();
@@ -88,7 +88,7 @@ export class MidiKeyboard {
 
   pointerEnter(e) {
     if (this.isMouseDown && (e.target.classList.contains('white-key') || e.target.classList.contains('black-key'))) {
-      this.noteOn(e.target);
+      this.noteOn(e.target, e);
     }
   }
 
@@ -98,13 +98,15 @@ export class MidiKeyboard {
     }
   }
 
-  noteOn(keyElement) {
+  noteOn(keyElement, e) {
     const note = keyElement.dataset.note;
     if (!this.activeNotes.has(note)) {
       this.activeNotes.add(note);
       keyElement.setAttribute('fill', this.props.colour.keydown);
-      console.log(`Key down: ${this.noteMap[note]}`);
-      Cabbage.sendMidiMessageFromUI(0x90, this.noteMap[note], 127, this.vscode);
+      const rect = keyElement.getBoundingClientRect();
+      const velocity = Math.max(1, Math.floor((e.offsetY / rect.height) * 127));
+      console.log(`Key down: ${this.noteMap[note]} velocity: ${velocity}`);
+      Cabbage.sendMidiMessageFromUI(0x90, this.noteMap[note], velocity, this.vscode);
     }
   }
 

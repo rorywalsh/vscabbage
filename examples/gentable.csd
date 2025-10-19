@@ -10,7 +10,7 @@
     {
         "type": "genTable",
         "bounds": {"left": 10, "top": 7, "width": 380, "height": 200},
-        "id":"gentable",
+        "id": "gentable1",
         "tableNumber": 1
     },
     {
