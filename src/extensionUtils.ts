@@ -497,9 +497,16 @@ editor. -->\n`;
                     const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-                    const formattedArray = isSingleLine
-                        ? ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ')
-                        : JSON.stringify(updatedJsonArray, null, 4);
+
+                    let formattedArray: string;
+                    if (isSingleLine) {
+                        formattedArray = ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ');
+                    } else {
+                        // Use the same stringify function and config as the format command
+                        const indentSpaces = config.get("jsonIndentSpaces", 4);
+                        const maxLength = config.get("jsonMaxLength", 120);
+                        formattedArray = stringify(updatedJsonArray, { maxLength: maxLength, indent: indentSpaces });
+                    }
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
