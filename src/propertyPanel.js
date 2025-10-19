@@ -29,22 +29,21 @@ export class PropertyPanel {
     }
 
     /**
-     * Checks if the channel property is unique for each widget.
+     * Checks if the channel ids are unique across all widgets.
      * If not, logs an error to the console.
      */
     checkChannelUniqueness() {
+        const allIds = new Set();
         this.widgets.forEach(widget => {
-            const widgetDiv = document.getElementById(CabbageUtils.getChannelId(widget.props, 0));
-
-            if (widgetDiv) {
-                const idConflict = this.widgets.some(w => CabbageUtils.getChannelId(w.props, 0) !== CabbageUtils.getChannelId(widget.props, 0) && CabbageUtils.getChannelId(w.props, 0) === widgetDiv.id);
-
-                if (idConflict) {
-                    console.error(`Conflict detected: Widget channel '${CabbageUtils.getChannelId(widget.props, 0)}' must be unique!`);
-                    return;
-                }
+            if (widget.props.channels) {
+                widget.props.channels.forEach(channel => {
+                    if (allIds.has(channel.id)) {
+                        console.error(`Conflict detected: Widget channel '${channel.id}' must be unique!`);
+                    } else {
+                        allIds.add(channel.id);
+                    }
+                });
             }
-            return false;
         });
     }
     /** 
@@ -77,10 +76,10 @@ export class PropertyPanel {
         this.addPropertyToSection('type', this.type, specialSection);
         this.handledProperties.add('type'); // Mark as handled
 
-        // Add Channel Property if it exists
-        if (this.properties.channel) {
-            this.addPropertyToSection('channel', this.properties.channel, specialSection);
-            this.handledProperties.add('channel'); // Mark as handled
+        // Add Channels if it exists
+        if (this.properties.channels) {
+            this.createChannelsSection(specialSection);
+            this.handledProperties.add('channels'); // Mark as handled
         }
 
         panel.appendChild(specialSection); // Append special section to panel
@@ -136,6 +135,59 @@ export class PropertyPanel {
     }
 
     /** 
+     * Creates a channels section to display and manage channel objects.
+     * @param panel - The panel to which the channels section is appended.
+     */
+    createChannelsSection(panel) {
+        const channelsSection = this.createSection('Channels');
+
+        this.properties.channels.forEach((channel, index) => {
+            const channelSubSection = this.createSection(`Channel ${index + 1}`);
+
+            // Add id
+            this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
+
+            // Add event
+            this.addPropertyToSection('event', channel.event || '', channelSubSection, `channels[${index}]`);
+
+            // Add range.min
+            this.addPropertyToSection('range.min', channel.range ? channel.range.min : 0, channelSubSection, `channels[${index}]`);
+
+            // Add range.max
+            this.addPropertyToSection('range.max', channel.range ? channel.range.max : 1, channelSubSection, `channels[${index}]`);
+
+            // Add range.defaultValue
+            this.addPropertyToSection('range.defaultValue', channel.range ? channel.range.defaultValue : 0, channelSubSection, `channels[${index}]`);
+
+            // Add range.skew
+            this.addPropertyToSection('range.skew', channel.range ? channel.range.skew : 1, channelSubSection, `channels[${index}]`);
+
+            // Add range.increment
+            this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelSubSection, `channels[${index}]`);
+
+            // Add remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove Channel';
+            removeBtn.addEventListener('click', () => {
+                this.removeChannel(index);
+            });
+            channelSubSection.appendChild(removeBtn);
+
+            channelsSection.appendChild(channelSubSection);
+        });
+
+        // Add + button
+        const addBtn = document.createElement('button');
+        addBtn.textContent = 'Add Channel';
+        addBtn.addEventListener('click', () => {
+            this.addChannel();
+        });
+        channelsSection.appendChild(addBtn);
+
+        panel.appendChild(channelsSection);
+    }
+
+    /** 
  * Creates a miscellaneous section for properties not in a specific section.
  * @param properties - The properties object containing miscellaneous data.
  * @param panel - The panel to which the miscellaneous section is appended.
@@ -163,6 +215,36 @@ export class PropertyPanel {
         panel.appendChild(miscSection); // Append miscellaneous section to panel
     }
 
+    /**
+     * Adds a new channel to the channels array with default values.
+     */
+    addChannel() {
+        const newChannel = {
+            id: `channel${this.properties.channels.length + 1}`,
+            event: '',
+            range: { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.01 }
+        };
+        this.properties.channels.push(newChannel);
+        this.rebuildPropertiesPanel();
+        // Send update to vscode
+        this.vscode.postMessage({
+            command: 'widgetUpdate',
+            text: JSON.stringify(CabbageUtils.sanitizeForEditor(this.properties)),
+        });
+    }
+
+    /**
+     * Removes a channel from the channels array at the specified index.
+     * @param index - The index of the channel to remove.
+     */
+    removeChannel(index) {
+        this.properties.channels.splice(index, 1);
+        this.rebuildPropertiesPanel();
+        this.vscode.postMessage({
+            command: 'widgetUpdate',
+            text: JSON.stringify(CabbageUtils.sanitizeForEditor(this.properties)),
+        });
+    }
 
     /** 
      * Creates a new section with a header.
@@ -422,6 +504,58 @@ export class PropertyPanel {
         section.appendChild(propertyDiv);
     }
 
+    /**
+     * Sets a nested property in an object using a dot-separated path that may include array indices.
+     * @param obj - The object to set the property on.
+     * @param path - The path like 'channels[0].id'.
+     * @param value - The value to set.
+     */
+    setNestedProperty(obj, path, value) {
+        const keys = [];
+        let current = '';
+        for (let i = 0; i < path.length; i++) {
+            if (path[i] === '.' || path[i] === '[' || path[i] === ']') {
+                if (current) {
+                    keys.push(current);
+                    current = '';
+                }
+                if (path[i] === '[') {
+                    // Start of index
+                    i++; // skip [
+                    let index = '';
+                    while (i < path.length && path[i] !== ']') {
+                        index += path[i];
+                        i++;
+                    }
+                    keys.push(parseInt(index));
+                }
+            } else {
+                current += path[i];
+            }
+        }
+        if (current) keys.push(current);
+
+        let currentObj = obj;
+        for (let i = 0; i < keys.length - 1; i++) {
+            const key = keys[i];
+            if (typeof key === 'number') {
+                if (!Array.isArray(currentObj)) currentObj = [];
+                if (!currentObj[key]) currentObj[key] = {};
+                currentObj = currentObj[key];
+            } else {
+                if (!currentObj[key]) currentObj[key] = {};
+                currentObj = currentObj[key];
+            }
+        }
+        const lastKey = keys[keys.length - 1];
+        if (typeof lastKey === 'number') {
+            if (!Array.isArray(currentObj)) currentObj = [];
+            currentObj[lastKey] = value;
+        } else {
+            currentObj[lastKey] = value;
+        }
+    }
+
     /** 
      * Handles changes to input fields.
      * @param evt - The input event or the parent element of the input.
@@ -446,24 +580,7 @@ export class PropertyPanel {
                 let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
 
                 // Handle nested properties
-                const propertyPath = input.id.split('.');
-                let currentObj = widget.props;
-
-                // For nested properties like colour.fill or colour.stroke.colour
-                if (propertyPath.length > 1) {
-                    // Navigate to the parent object, preserving existing properties
-                    for (let i = 0; i < propertyPath.length - 1; i++) {
-                        const prop = propertyPath[i];
-                        if (!currentObj[prop]) {
-                            currentObj[prop] = {};
-                        }
-                        // Create a copy of the existing object if it doesn't exist
-                        currentObj = currentObj[prop];
-                    }
-                }
-
-                const finalProperty = propertyPath[propertyPath.length - 1];
-                currentObj[finalProperty] = parsedValue;
+                this.setNestedProperty(widget.props, input.id, parsedValue);
 
                 // Remove the old property only if it was incorrectly placed at the root
                 if (propertyPath.length > 1 && widget.props[finalProperty] && !propertyPath.includes('colour')) {

@@ -935,7 +935,12 @@ ${JSON.stringify(props, null, 4)}
             return jsonArray;
         }
 
-        let existingObject = jsonArray.find(obj => obj.channel === props.channel);
+        let existingObject = jsonArray.find(obj => {
+            const propsChannelId = props.channels && props.channels[0] ? props.channels[0].id : props.channel;
+            return obj.id === props.id ||
+                   (obj.channels && obj.channels[0] && obj.channels[0].id === propsChannelId) ||
+                   obj.channel === propsChannelId;
+        });
 
         if (existingObject) {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
@@ -946,7 +951,12 @@ ${JSON.stringify(props, null, 4)}
                     delete newObject[key];
                 }
             }
-            const index = jsonArray.findIndex(obj => obj.channel === props.channel);
+            const propsChannelId = props.channels && props.channels[0] ? props.channels[0].id : props.channel;
+            const index = jsonArray.findIndex(obj => {
+                return obj.id === props.id ||
+                       (obj.channels && obj.channels[0] && obj.channels[0].id === propsChannelId) ||
+                       obj.channel === propsChannelId;
+            });
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;

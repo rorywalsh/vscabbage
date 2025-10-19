@@ -152,6 +152,7 @@ export class Commands {
      * @param websocket The WebSocket connection to the Cabbage backend (deprecated, kept for compatibility).
      */
     static enterEditMode(ws: WebSocket | undefined) {
+        console.log('Cabbage: Commands.enterEditMode: Setting mode to draggable');
         setCabbageMode("draggable");
 
         this.websocket = ws;

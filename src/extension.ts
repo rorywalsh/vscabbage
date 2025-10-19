@@ -12,7 +12,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
 // @ts-ignore
-import { setCabbageMode } from './cabbage/sharedState.js';
+import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
@@ -463,6 +463,12 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             return;
         }
 
+        if (getCabbageMode() === 'draggable') {
+            console.log('Cabbage: onCompileInstrument: Already in draggable mode, skipping performance mode');
+            return;
+        }
+
+        console.log('Cabbage: onCompileInstrument: Entering performance mode');
         setCabbageMode('play');
         const config = vscode.workspace.getConfiguration('cabbage');
 
