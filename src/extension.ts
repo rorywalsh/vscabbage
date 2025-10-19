@@ -553,7 +553,7 @@ function isCsoundInPath(): boolean {
     try {
         const pathEnv = process.env.PATH || '';
         const pathDirs = pathEnv.split(path.delimiter);
-        
+
         for (const dir of pathDirs) {
             const dllPath = path.join(dir, 'csound64.dll');
             if (fs.existsSync(dllPath)) {
@@ -692,9 +692,18 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
             firstMessages.forEach((msg) => {
                 const panel = Commands.getPanel();
                 if (panel) {
+                    let channel = msg['channel'];
+                    if (channel === null && msg['data']) {
+                        try {
+                            const parsed = JSON.parse(msg['data']);
+                            channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                        } catch (e) {
+                            console.error('Failed to parse data for channel:', e);
+                        }
+                    }
                     panel.webview.postMessage({
                         command: 'widgetUpdate',
-                        channel: msg['channel'],
+                        channel: channel,
                         data: msg['data'],
                         currentCsdPath: Commands.getCurrentFileName(),
                     });
@@ -718,9 +727,18 @@ export async function setupWebSocketServer(freePort?: number): Promise<void> {
                         const panel = Commands.getPanel();
                         if (panel) {
                             if (msg.hasOwnProperty('data')) {
+                                let channel = msg['channel'];
+                                if (channel === null && msg['data']) {
+                                    try {
+                                        const parsed = JSON.parse(msg['data']);
+                                        channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                    } catch (e) {
+                                        console.error('Failed to parse data for channel:', e);
+                                    }
+                                }
                                 panel.webview.postMessage({
                                     command: 'widgetUpdate',
-                                    channel: msg['channel'],
+                                    channel: channel,
                                     data: msg['data'],
                                     currentCsdPath: Commands.getCurrentFileName(),
                                 });

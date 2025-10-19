@@ -110,7 +110,7 @@ export class WidgetManager {
         // Use new channels schema; assume array with at least one entry
         const firstChannelId = (Array.isArray(props?.channels) && props.channels.length > 0)
             ? props.channels[0].id
-            : (typeof props.channel === 'object' ? (props.channel.id || props.channel.x) : props.channel);
+            : (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel);
         widgetDiv.id = firstChannelId;
 
         const widget = WidgetManager.createWidget(type);

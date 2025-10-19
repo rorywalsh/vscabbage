@@ -789,9 +789,18 @@ export class Commands {
                                     const panel = Commands.getPanel();
                                     if (panel) {
                                         if (msg.hasOwnProperty('data')) {
+                                            let channel = msg['channel'];
+                                            if (channel === null && msg['data']) {
+                                                try {
+                                                    const parsed = JSON.parse(msg['data']);
+                                                    channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                                } catch (e) {
+                                                    console.error('Failed to parse data for channel:', e);
+                                                }
+                                            }
                                             panel.webview.postMessage({
                                                 command: 'widgetUpdate',
-                                                channel: msg['channel'],
+                                                channel: channel,
                                                 data: msg['data'],
                                                 currentCsdPath: Commands.getCurrentFileName(),
                                             });

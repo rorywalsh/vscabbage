@@ -85,7 +85,16 @@ window.addEventListener('message', async event => {
             console.log(message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
-            const channelId = typeof updateMsg.channel === 'object'
+            // Parse data to extract id if not present
+            if (!updateMsg.id && updateMsg.data) {
+                try {
+                    const parsedData = JSON.parse(updateMsg.data);
+                    updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
+                } catch (e) {
+                    console.error("Failed to parse data for id:", e);
+                }
+            }
+            const channelId = typeof updateMsg.channel === 'object' && updateMsg.channel !== null
                 ? (updateMsg.channel.id || updateMsg.channel.x)
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
@@ -101,6 +110,7 @@ window.addEventListener('message', async event => {
                 if (widget.parameterIndex == parameterMessage.data.paramIdx) {
                     console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, 0)} (${widget.props.type}) with value ${parameterMessage.data.value}`);
                     const updateMsg = {
+                        id: CabbageUtils.getChannelId(widget.props, 0),
                         channel: CabbageUtils.getChannelId(widget.props, 0),
                         value: parameterMessage.data.value
                     };
@@ -147,10 +157,12 @@ window.addEventListener('message', async event => {
             const widgetUpdatesMessages = [];
             widgets.forEach(widget => {
                 // Save current state of widgets (sanitized)
+                const sanitized = CabbageUtils.sanitizeForEditor(widget);
                 widgetUpdatesMessages.push({
                     command: "widgetUpdate",
+                    id: sanitized.id || CabbageUtils.getChannelId(widget.props, 0),
                     channel: CabbageUtils.getChannelId(widget.props, 0),
-                    data: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
+                    data: JSON.stringify(sanitized)
                 });
             });
 
