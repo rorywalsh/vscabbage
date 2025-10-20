@@ -78,6 +78,12 @@ export class PropertyPanel {
         this.addPropertyToSection('type', this.type, specialSection);
         this.handledProperties.add('type'); // Mark as handled
 
+        // Add Channel ID if channels exist
+        if (this.properties.channels && this.properties.channels[0]) {
+            this.addPropertyToSection('id', this.properties.channels[0].id, specialSection, 'channels[0]');
+            this.handledProperties.add('id'); // Mark as handled
+        }
+
         // Add Channels if it exists
         if (this.properties.channels) {
             this.createChannelsSection(specialSection);
@@ -141,13 +147,35 @@ export class PropertyPanel {
      * @param panel - The panel to which the channels section is appended.
      */
     createChannelsSection(panel) {
-        const channelsSection = this.createSection('Channels');
+        // Create add button for the main Channels header
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '+';
+        addBtn.title = 'Add Channel';
+        addBtn.style.padding = '2px 6px';
+        addBtn.style.fontSize = '12px';
+        addBtn.addEventListener('click', () => {
+            this.addChannel();
+        });
+
+        const channelsSection = this.createSection('Channels', { buttons: [addBtn] });
 
         this.properties.channels.forEach((channel, index) => {
-            const channelSubSection = this.createSection(`Channel ${index + 1}`);
+            // Create remove button for each channel header
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '-';
+            removeBtn.title = 'Remove Channel';
+            removeBtn.style.padding = '2px 6px';
+            removeBtn.style.fontSize = '12px';
+            removeBtn.addEventListener('click', () => {
+                this.removeChannel(index);
+            });
 
-            // Add id
-            this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
+            const channelSubSection = this.createSection(`Channel ${index + 1}`, { buttons: [removeBtn] });
+
+            // Skip id for first channel as it's in special section
+            if (index !== 0) {
+                this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
+            }
 
             // Add event
             this.addPropertyToSection('event', channel.event || '', channelSubSection, `channels[${index}]`);
@@ -167,24 +195,8 @@ export class PropertyPanel {
             // Add range.increment
             this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelSubSection, `channels[${index}]`);
 
-            // Add remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.textContent = 'Remove Channel';
-            removeBtn.addEventListener('click', () => {
-                this.removeChannel(index);
-            });
-            channelSubSection.appendChild(removeBtn);
-
             channelsSection.appendChild(channelSubSection);
         });
-
-        // Add + button
-        const addBtn = document.createElement('button');
-        addBtn.textContent = 'Add Channel';
-        addBtn.addEventListener('click', () => {
-            this.addChannel();
-        });
-        channelsSection.appendChild(addBtn);
 
         panel.appendChild(channelsSection);
     }
@@ -251,17 +263,38 @@ export class PropertyPanel {
     /** 
      * Creates a new section with a header.
      * @param name - The name of the section to create.
+     * @param options - Optional object with buttons to add to the header.
      * @returns The created section div.
      */
-    createSection(name) {
+    createSection(name, options = {}) {
         const sectionDiv = document.createElement('div');
         sectionDiv.classList.add('property-section');
 
-        const header = document.createElement('h3');
-        header.textContent = name; // Set the section header
+        const header = document.createElement('div');
+        header.classList.add('section-header');
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+
+        const title = document.createElement('h3');
+        title.textContent = name;
+        title.style.margin = '0';
+        title.style.flex = '1';
+        header.appendChild(title);
+
+        if (options.buttons && options.buttons.length > 0) {
+            header.style.justifyContent = 'space-between';
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '5px';
+            options.buttons.forEach(btn => buttonContainer.appendChild(btn));
+            header.appendChild(buttonContainer);
+        } else {
+            header.style.justifyContent = 'center';
+        }
+
         sectionDiv.appendChild(header);
 
-        return sectionDiv; // Return the created section
+        return sectionDiv;
     }
 
     /** 
@@ -766,7 +799,7 @@ export class PropertyPanel {
                     setTimeout(() => {
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
-                            text: JSON.stringify(widget.props),
+                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
                         });
                     }, (index + 1) * 150); // Delay increases with index
                 }

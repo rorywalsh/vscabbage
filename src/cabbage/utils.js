@@ -439,7 +439,7 @@ export class CabbageUtils {
    * @returns {Object} sanitized clone
    */
   static sanitizeForEditor(obj) {
-    const internalKeys = new Set(['groupBaseBounds', 'origBounds', 'originalProps']);
+    const internalKeys = new Set(['groupBaseBounds', 'origBounds', 'originalProps', 'channel']);
 
     function cloneAndClean(value) {
       if (value === null || value === undefined) return value;

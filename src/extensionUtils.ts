@@ -888,7 +888,7 @@ ${JSON.stringify(props, null, 4)}
      */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
         // Define properties to exclude from JSON output (internal-only fields)
-        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps']; // Add any properties you want to exclude
+        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps', 'channel']; // Add any properties you want to exclude
 
         // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
         const getChannelId = (obj: WidgetProps): string => {
@@ -1137,7 +1137,7 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static sortOrderOfProperties(obj: WidgetProps): WidgetProps {
-        const { type, channel, bounds, range, ...rest } = obj; // Destructure type, channel, bounds, range, and the rest of the properties
+        const { type, bounds, range, ...rest } = obj; // Destructure type, bounds, range, and the rest of the properties, excluding deprecated 'channel'
 
         // Create an ordered bounds object only if bounds is present in the original object
         const orderedBounds = bounds ? {
@@ -1159,7 +1159,6 @@ ${JSON.stringify(props, null, 4)}
         // Return a new object with the original order and only include bounds/range if they exist
         const result: WidgetProps = {
             type,
-            channel,
             ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
             ...rest,                                         // Include the rest of the properties
         };
