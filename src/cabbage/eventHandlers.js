@@ -105,6 +105,231 @@ export function updateSelectedElements(widgetDiv) {
 }
 
 /**
+ * Groups the currently selected widgets into a container widget
+ */
+async function groupSelectedWidgets() {
+    if (selectedElements.size < 2) {
+        console.warn("Cabbage: Need at least 2 widgets to group");
+        return;
+    }
+
+    console.log("Cabbage: Grouping", selectedElements.size, "widgets");
+
+    // Find existing container widgets (groupBox or image) in the selection
+    let containerWidget = null;
+    const childWidgets = [];
+
+    selectedElements.forEach(element => {
+        const widget = widgets.find(w => w.props.id === element.id || CabbageUtils.getChannelId(w.props, 0) === element.id);
+        if (widget && !widget.props.parentChannel) { // Only consider top-level widgets
+            if ((widget.props.type === "groupBox" || widget.props.type === "image") && !containerWidget) {
+                // Use the first groupBox or image as the container
+                containerWidget = widget;
+            } else {
+                // All other widgets become children
+                childWidgets.push({ widget, element });
+            }
+        }
+    });
+
+    if (childWidgets.length === 0) {
+        console.warn("Cabbage: No widgets to group as children");
+        return;
+    }
+
+    // If no existing container found, create a new groupBox
+    let containerId;
+    let containerBounds;
+
+    if (!containerWidget) {
+        // Calculate bounds that encompass all selected widgets
+        let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+
+        selectedElements.forEach(element => {
+            const widget = widgets.find(w => w.props.id === element.id || CabbageUtils.getChannelId(w.props, 0) === element.id);
+            if (widget && !widget.props.parentChannel) {
+                const bounds = widget.props.bounds;
+                minLeft = Math.min(minLeft, bounds.left);
+                minTop = Math.min(minTop, bounds.top);
+                maxRight = Math.max(maxRight, bounds.left + bounds.width);
+                maxBottom = Math.max(maxBottom, bounds.top + bounds.height);
+            }
+        });
+
+        // Create container bounds with some padding
+        containerBounds = {
+            left: minLeft - 10,
+            top: minTop - 10,
+            width: (maxRight - minLeft) + 20,
+            height: (maxBottom - minTop) + 20
+        };
+
+        // Create a new groupbox container widget
+        containerId = CabbageUtils.getUniqueId("groupBox", widgets);
+        const containerProps = {
+            id: containerId,
+            type: "groupBox",
+            bounds: containerBounds,
+            channel: containerId,
+            text: "Group",
+            colour: { fill: "#cccccc", stroke: "#000000" },
+            fontColour: { fill: "#000000" },
+            children: [],
+            currentCsdFile: WidgetManager.getCurrentCsdPath(),
+            index: 0
+        };
+
+        // Insert the new container widget
+        containerWidget = await WidgetManager.insertWidget("groupBox", containerProps, WidgetManager.getCurrentCsdPath());
+
+        // Update the CSD file with the new container
+        if (vscode) {
+            vscode.postMessage({
+                command: 'widgetUpdate',
+                text: JSON.stringify(containerWidget)
+            });
+        }
+
+        console.log("Cabbage: Created new container:", containerId);
+    } else {
+        // Use existing container
+        containerId = containerWidget.props.id;
+        containerBounds = containerWidget.props.bounds;
+        console.log("Cabbage: Using existing container:", containerId);
+    }
+
+    // Initialize children array if it doesn't exist
+    if (!containerWidget.props.children) {
+        containerWidget.props.children = [];
+    }
+
+    // Convert selected widgets to children with relative positions
+    childWidgets.forEach(({ widget }) => {
+        const relativeBounds = {
+            left: widget.props.bounds.left - containerBounds.left,
+            top: widget.props.bounds.top - containerBounds.top,
+            width: widget.props.bounds.width,
+            height: widget.props.bounds.height
+        };
+
+        const childProps = {
+            ...widget.props,
+            bounds: relativeBounds,
+            parentChannel: containerId
+        };
+
+        // Remove parentChannel if it exists (shouldn't for top-level widgets)
+        delete childProps.parentChannel;
+
+        containerWidget.props.children.push(childProps);
+
+        // Remove from top-level widgets array
+        const widgetIndex = widgets.findIndex(w => w.props.id === widget.props.id);
+        if (widgetIndex !== -1) {
+            widgets.splice(widgetIndex, 1);
+        }
+
+        // Remove from DOM
+        const widgetDiv = document.getElementById(widget.props.id || CabbageUtils.getChannelId(widget.props, 0));
+        if (widgetDiv) {
+            widgetDiv.remove();
+        }
+    });
+
+    // Update the CSD file with the modified container (now with children)
+    if (vscode) {
+        vscode.postMessage({
+            command: 'widgetUpdate',
+            text: JSON.stringify(containerWidget)
+        });
+    }
+
+    // Clear selection
+    selectedElements.forEach(element => element.classList.remove('selected'));
+    selectedElements.clear();
+
+    console.log("Cabbage: Successfully grouped widgets into container:", containerId, "with", childWidgets.length, "children");
+}
+
+/**
+ * Ungroups the currently selected container widget, extracting its children back to top level
+ */
+async function ungroupSelectedWidgets() {
+    if (selectedElements.size !== 1) {
+        console.warn("Cabbage: Can only ungroup one container at a time");
+        return;
+    }
+
+    const selectedElement = Array.from(selectedElements)[0];
+    const containerWidget = widgets.find(w => w.props.id === selectedElement.id || CabbageUtils.getChannelId(w.props, 0) === selectedElement.id);
+
+    if (!containerWidget || !containerWidget.props.children || containerWidget.props.children.length === 0) {
+        console.warn("Cabbage: Selected widget is not a container with children");
+        return;
+    }
+
+    // Only allow ungrouping of groupBox or image widgets that have children
+    if (containerWidget.props.type !== "groupBox" && containerWidget.props.type !== "image") {
+        console.warn("Cabbage: Can only ungroup groupBox or image containers");
+        return;
+    }
+
+    console.log("Cabbage: Ungrouping container", containerWidget.props.id, "with", containerWidget.props.children.length, "children");
+
+    // Convert child relative positions back to absolute positions
+    const childrenPromises = containerWidget.props.children.map(async (childProps) => {
+        const absoluteBounds = {
+            ...childProps.bounds,
+            left: containerWidget.props.bounds.left + childProps.bounds.left,
+            top: containerWidget.props.bounds.top + childProps.bounds.top
+        };
+
+        const topLevelProps = {
+            ...childProps,
+            bounds: absoluteBounds,
+            parentChannel: undefined // Remove parent channel reference
+        };
+
+        // Remove parentChannel property
+        delete topLevelProps.parentChannel;
+
+        // Insert the child as a top-level widget
+        const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
+
+        // Update the CSD file with the new top-level widget
+        if (vscode) {
+            vscode.postMessage({
+                command: 'widgetUpdate',
+                text: JSON.stringify(childWidget)
+            });
+        }
+
+        return childWidget;
+    });
+
+    // Wait for all children to be inserted
+    await Promise.all(childrenPromises);
+
+    // Remove the container from the widgets array
+    const containerIndex = widgets.findIndex(w => w.props.id === containerWidget.props.id);
+    if (containerIndex !== -1) {
+        widgets.splice(containerIndex, 1);
+    }
+
+    // Remove the container from DOM
+    const containerDiv = document.getElementById(containerWidget.props.id || CabbageUtils.getChannelId(containerWidget.props, 0));
+    if (containerDiv) {
+        containerDiv.remove();
+    }
+
+    // Clear selection
+    selectedElements.forEach(element => element.classList.remove('selected'));
+    selectedElements.clear();
+
+    console.log("Cabbage: Successfully ungrouped container:", containerWidget.props.id);
+}
+
+/**
  * Sets up the form's context menu and various event handlers to handle widget grouping, 
  * dragging, and selection of multiple widgets.
  */
@@ -119,19 +344,45 @@ export function setupFormHandlers() {
     groupContextMenu.style.visibility = "hidden";
     groupContextMenu.style.backgroundColor = "#fff";
     groupContextMenu.style.border = "1px solid #ccc";
-    groupContextMenu.style.boxShadow = "0 2px 10px rgba(0,0,0,0.2)";
-    groupContextMenu.style.zIndex = 10000; // Ensure it's on top
+    groupContextMenu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+    groupContextMenu.style.zIndex = 10001; // Higher than other elements
+    groupContextMenu.style.borderRadius = "4px";
+    groupContextMenu.style.minWidth = "120px";
 
     // Create and style context menu options (Group/Ungroup)
     const groupOption = document.createElement("div");
     groupOption.innerText = "Group";
-    groupOption.style.padding = "8px";
+    groupOption.style.padding = "8px 12px";
     groupOption.style.cursor = "pointer";
+    groupOption.style.color = "#000";
+    groupOption.style.backgroundColor = "#fff";
+    groupOption.style.border = "none";
+    groupOption.style.textAlign = "left";
+    groupOption.style.fontSize = "14px";
+    groupOption.style.fontFamily = "Arial, sans-serif";
+    groupOption.addEventListener("mouseenter", () => {
+        groupOption.style.backgroundColor = "#f0f0f0";
+    });
+    groupOption.addEventListener("mouseleave", () => {
+        groupOption.style.backgroundColor = "#fff";
+    });
 
     const unGroupOption = document.createElement("div");
     unGroupOption.innerText = "Ungroup";
-    unGroupOption.style.padding = "8px";
+    unGroupOption.style.padding = "8px 12px";
     unGroupOption.style.cursor = "pointer";
+    unGroupOption.style.color = "#000";
+    unGroupOption.style.backgroundColor = "#fff";
+    unGroupOption.style.border = "none";
+    unGroupOption.style.textAlign = "left";
+    unGroupOption.style.fontSize = "14px";
+    unGroupOption.style.fontFamily = "Arial, sans-serif";
+    unGroupOption.addEventListener("mouseenter", () => {
+        unGroupOption.style.backgroundColor = "#f0f0f0";
+    });
+    unGroupOption.addEventListener("mouseleave", () => {
+        unGroupOption.style.backgroundColor = "#fff";
+    });
 
     // Append menu options to the context menu
     groupContextMenu.appendChild(groupOption);
@@ -141,16 +392,32 @@ export function setupFormHandlers() {
     document.body.appendChild(groupContextMenu);
 
     // Add event listeners for group and ungroup functionality (Currently just logs actions)
-    groupOption.addEventListener("click", () => {
+    groupOption.addEventListener("click", async () => {
+        const canGroup = selectedElements.size > 1;
+        const hasGroupableWidgets = Array.from(selectedElements).some(el => {
+            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+            return widget && !widget.props.parentChannel; // Only top-level widgets can be grouped
+        });
+        if (!(canGroup && hasGroupableWidgets)) return;
+
         console.log("Cabbage: Group option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Group" functionality here
+        await groupSelectedWidgets();
     });
 
-    unGroupOption.addEventListener("click", () => {
+    unGroupOption.addEventListener("click", async () => {
+        const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
+            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+            return widget && widget.props.children && widget.props.children.length > 0 &&
+                   (widget.props.type === "groupBox" || widget.props.type === "image");
+        });
+        if (!canUngroup) return;
+
         console.log("Cabbage: Ungroup option clicked");
         groupContextMenu.style.visibility = "hidden";
         // Implement "Ungroup" functionality here
+        await ungroupSelectedWidgets();
     });
 
     // Reference to the main context menu and the form element
@@ -196,6 +463,27 @@ export function setupFormHandlers() {
                 // Show appropriate menu based on mode and selection
                 if (cabbageMode === 'draggable') {
                     if (selectedElements.size > 0) {
+                        // Update menu options based on selection
+                        const canGroup = selectedElements.size > 1;
+                        const hasGroupableWidgets = Array.from(selectedElements).some(el => {
+                            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+                            return widget && !widget.props.parentChannel; // Only top-level widgets can be grouped
+                        });
+
+                        const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
+                            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+                            return widget && widget.props.children && widget.props.children.length > 0 &&
+                                   (widget.props.type === "groupBox" || widget.props.type === "image");
+                        });
+
+                        groupOption.style.color = (canGroup && hasGroupableWidgets) ? "#000" : "#999";
+                        groupOption.style.cursor = (canGroup && hasGroupableWidgets) ? "pointer" : "not-allowed";
+                        groupOption.style.pointerEvents = (canGroup && hasGroupableWidgets) ? "auto" : "none";
+
+                        unGroupOption.style.color = canUngroup ? "#000" : "#999";
+                        unGroupOption.style.cursor = canUngroup ? "pointer" : "not-allowed";
+                        unGroupOption.style.pointerEvents = canUngroup ? "auto" : "none";
+
                         groupContextMenu.style.visibility = "visible";
                     } else {
                         contextMenu.style.visibility = "visible";
