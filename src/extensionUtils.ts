@@ -253,7 +253,7 @@ editor. -->\n`;
         const text = document.getText(); // Get the entire document text
 
         // Create a regex pattern to find the channel in the JSON objects
-        const pattern = new RegExp(`"channel":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the channel
+        const pattern = new RegExp(`"id":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the id
 
         // Search for the pattern in the document text
         const match = pattern.exec(text);

@@ -223,7 +223,7 @@ export class PropertyPanel {
     addChannel() {
         const newChannel = {
             id: `channel${this.properties.channels.length + 1}`,
-            event: '',
+            event: 'valueChanged',
             range: { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.01 }
         };
         this.properties.channels.push(newChannel);
@@ -390,6 +390,36 @@ export class PropertyPanel {
                         console.warn("Cabbage: Cabbage: widget doesn't exist in this context");
                     }
                 }
+            });
+        } else if (key === 'event' && fullPath.includes('channels[')) {
+            input = document.createElement('select');
+            const events = [
+                'valueChanged',
+                'mousePressLeft',
+                'mousePressRight',
+                'mousePressMiddle',
+                'mouseMoveX',
+                'mouseMoveY',
+                'mouseDragX',
+                'mouseDragY',
+                'mouseInside'
+            ];
+
+            // Add a default empty option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select an event...';
+            input.appendChild(defaultOption);
+
+            // Add event options
+            events.forEach(event => {
+                const option = document.createElement('option');
+                option.value = event;
+                option.textContent = event;
+                if (event === value) {
+                    option.selected = true;
+                }
+                input.appendChild(option);
             });
         } else {
             // Handle color input for properties that are specifically color values
