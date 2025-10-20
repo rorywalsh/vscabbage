@@ -46,7 +46,8 @@ export class ComboBox {
                 "fileType": ""
             },
             "opacity": 1,
-            "indexOffset": false
+            "indexOffset": false,
+            "index": 0
         };
 
         this.isMouseInside = false;

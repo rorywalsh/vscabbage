@@ -7,6 +7,7 @@
  * This makes use of https://taufik-nurrohman.js.org/CP/ for colour pickers.
  */
 import { CabbageUtils } from "./cabbage/utils.js";
+import { WidgetManager } from "./cabbage/widgetManager.js";
 
 export class PropertyPanel {
     constructor(vscode, type, properties, widgets) {
@@ -211,6 +212,8 @@ export class PropertyPanel {
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
         const hiddenProps = widget?.hiddenProps || ['parameterIndex'];
 
+        // Collect misc properties and sort them alphabetically
+        const miscProperties = [];
         Object.entries(properties).forEach(([key, value]) => {
             // Skip if this property is in hiddenProps or already handled
             if (hiddenProps.includes(key) || (this.handledProperties && this.handledProperties.has(key))) {
@@ -221,7 +224,15 @@ export class PropertyPanel {
                 // Skip adding properties that belong to objects already covered
                 return;
             }
-            this.addPropertyToSection(key, value, miscSection); // Add miscellaneous property
+            miscProperties.push([key, value]);
+        });
+
+        // Sort alphabetically by key
+        miscProperties.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+
+        // Add sorted properties to the misc section
+        miscProperties.forEach(([key, value]) => {
+            this.addPropertyToSection(key, value, miscSection);
         });
 
         panel.appendChild(miscSection); // Append miscellaneous section to panel
@@ -686,6 +697,11 @@ export class PropertyPanel {
                 } else {
                     console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
+                }
+
+                // Update widget styles if the index property changed (for z-index updates)
+                if (input.id === 'index') {
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 
                 console.log('PropertyPanel: sending widgetUpdate to VSCode');

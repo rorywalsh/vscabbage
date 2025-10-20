@@ -52,7 +52,8 @@ export class Checkbox {
       "automatable": 1,
       "presetIgnore": 0,
       "opacity": 1,
-      "radioGroup": -1
+      "radioGroup": -1,
+      "index": 0
     };
 
     this.vscode = null;
