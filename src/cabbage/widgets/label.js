@@ -30,7 +30,8 @@ export class Label {
             "visible": 1,
             "text": "Default Label",
             "automatable": 0,
-            "opacity": 1
+            "opacity": 1,
+            "index": 0
         };
         this.vscode = null;
     }

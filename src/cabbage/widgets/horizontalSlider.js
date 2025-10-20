@@ -52,7 +52,8 @@ export class HorizontalSlider {
       "automatable": 1,
       "valuePrefix": "",
       "valuePostfix": "",
-      "presetIgnore": 0
+      "presetIgnore": 0,
+      "index": 0
     };
 
     this.parameterIndex = 0;

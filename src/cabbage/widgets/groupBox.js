@@ -34,7 +34,8 @@ export class GroupBox {
             "corners": 4,
             "visible": 1,
             "automatable": 0,
-            "opacity": 1
+            "opacity": 1,
+            "index": 0
         };
     }
 

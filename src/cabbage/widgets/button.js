@@ -60,7 +60,8 @@ export class Button {
       "visible": 1,
       "automatable": 1,
       "presetIgnore": 0,
-      "radioGroup": -1
+      "radioGroup": -1,
+      "index": 0
     };
 
     this.vscode = null;

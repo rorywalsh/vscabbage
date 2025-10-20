@@ -134,11 +134,11 @@ export function setupFormHandlers() {
     unGroupOption.style.cursor = "pointer";
 
     // Append menu options to the context menu
-    // groupContextMenu.appendChild(groupOption);
-    // groupContextMenu.appendChild(unGroupOption);
+    groupContextMenu.appendChild(groupOption);
+    groupContextMenu.appendChild(unGroupOption);
 
     // Append context menu to the document body
-    // document.body.appendChild(groupContextMenu);
+    document.body.appendChild(groupContextMenu);
 
     // Add event listeners for group and ungroup functionality (Currently just logs actions)
     groupOption.addEventListener("click", () => {
@@ -168,7 +168,7 @@ export function setupFormHandlers() {
                 e.stopPropagation();
 
                 // Calculate correct context menu position
-                let x = e.offsetX, y = e.offsetY,
+                let x = e.clientX, y = e.clientY,
                     winWidth = window.innerWidth,
                     winHeight = window.innerHeight,
                     cmWidth = contextMenu.offsetWidth,
@@ -193,9 +193,13 @@ export function setupFormHandlers() {
 
                 mouseDownPosition = { x: x, y: y };
 
-                // Show appropriate menu based on mode and target element
-                if (cabbageMode === 'draggable' && e.target.id === "MainForm") {
-                    contextMenu.style.visibility = "visible";
+                // Show appropriate menu based on mode and selection
+                if (cabbageMode === 'draggable') {
+                    if (selectedElements.size > 0) {
+                        groupContextMenu.style.visibility = "visible";
+                    } else {
+                        contextMenu.style.visibility = "visible";
+                    }
                 } else {
                     groupContextMenu.style.visibility = "visible";
                 }

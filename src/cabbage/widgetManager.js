@@ -442,7 +442,14 @@ export class WidgetManager {
                 childDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
                 childDiv.style.width = childProps.bounds.width + 'px';
                 childDiv.style.height = childProps.bounds.height + 'px';
-                childDiv.style.zIndex = '10000'; // Higher than container (parent is 9999)
+
+                // Set z-index for child widgets - ensure they appear above their parent
+                const baseZIndex = 1000; // Base z-index higher than main form
+                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
+                const childIndex = typeof childProps?.index === 'number' ? childProps.index : 0;
+                // Children get higher z-index than parent (parent index + child index + 1)
+                childDiv.style.zIndex = (baseZIndex + parentIndex + childIndex + 1).toString();
+
                 childDiv.setAttribute('data-parent-channel', CabbageUtils.getChannelId(parentWidget.props, 0)); // Mark as child widget
 
                 // Set pointer events based on mode
@@ -459,9 +466,11 @@ export class WidgetManager {
                 console.error(`Cabbage: Child div for ${CabbageUtils.getChannelId(childProps, 0)} NOT FOUND!`);
             }
 
-            // Ensure container has lower z-index than children
+            // Ensure container has lower z-index than children (but still above main form)
             if (parentDiv) {
-                parentDiv.style.zIndex = '9999';
+                const baseZIndex = 1000;
+                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
+                parentDiv.style.zIndex = (baseZIndex + parentIndex).toString();
             }
         }
     } static handleRadioGroup(radioGroup, activeChannel) {
@@ -484,6 +493,11 @@ export class WidgetManager {
             widgetDiv.style.width = props.size.width + 'px';
             widgetDiv.style.height = props.size.height + 'px';
         }
+
+        // Set z-index based on widget index property, ensuring widgets appear above the main form (z-index: 0)
+        const baseZIndex = 1000; // Base z-index higher than main form
+        const widgetIndex = typeof props?.index === 'number' ? props.index : 0;
+        widgetDiv.style.zIndex = (baseZIndex + widgetIndex).toString();
     }
 
     /**

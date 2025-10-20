@@ -19,13 +19,7 @@ export class Image {
             },
             "type": "image",
             "channels": [
-                { "id": "", "event": "mousePressLeft" },
-                { "id": "", "event": "mouseMoveX" },
-                { "id": "", "event": "mouseMoveY" },
-                { "id": "", "event": "mouseDragX" },
-                { "id": "", "event": "mouseDragY" },
-                { "id": "", "event": "mousePressRight" },
-                { "id": "", "event": "valueChanged" }
+                { "id": "image", "event": "valueChanged" }
             ],
             "colour": {
                 "fill": "#0295cf",
@@ -50,7 +44,8 @@ export class Image {
             "value": 0,
             "min": 0,
             "svgText": "",
-            "max": 1
+            "max": 1,
+            "index": 0
         };
 
         this.vscode = null;
