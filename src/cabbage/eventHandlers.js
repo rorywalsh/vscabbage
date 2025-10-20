@@ -231,8 +231,8 @@ export function setupFormHandlers() {
                         contextMenu.style.visibility = "hidden";
 
                         // Insert new widget and update the editor
-                        const channel = CabbageUtils.getUniqueChannelName(type, widgets);
-                        const widget = await WidgetManager.insertWidget(type, { channel, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
+                        const uniqueId = CabbageUtils.getUniqueId(type, widgets);
+                        const widget = await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
                         console.warn(widget);
                         if (widgets) {
                             vscode.postMessage({

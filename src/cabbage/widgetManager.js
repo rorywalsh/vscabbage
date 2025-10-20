@@ -143,6 +143,11 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
+        // If id is provided, set the first channel's id to match the widget id
+        if (props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            widget.props.channels[0].id = props.id;
+        }
+
         // Recalculate derived properties after merging props
         if (Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
             const rng = (widget.props.channels[0].range) ? widget.props.channels[0].range : CabbageUtils.getDefaultRange('drag');

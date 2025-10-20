@@ -241,8 +241,17 @@ export class CabbageUtils {
    * @returns {String} unique channel name
    */
   static getUniqueChannelName(type, widgets) {
-    // Extract all existing channel names
-    const existingChannels = widgets.map(widget => widget.channel);
+    // Extract all existing channel names from channels arrays
+    const existingChannels = [];
+    widgets.forEach(widget => {
+      if (widget.props && Array.isArray(widget.props.channels)) {
+        widget.props.channels.forEach(channel => {
+          if (channel.id) existingChannels.push(channel.id);
+        });
+      }
+      // Also check legacy channel property
+      if (widget.channel) existingChannels.push(widget.channel);
+    });
 
     // Define a function to generate a channel name based on type and a number
     function generateChannelName(type, number) {
@@ -260,6 +269,34 @@ export class CabbageUtils {
     }
 
     return newChannelName;
+  }
+
+  /**
+   * Generates a unique ID for a new widget based on its type.
+   * @param {string} type - The type of the widget.
+   * @param {Array} widgets - Array of widget objects with 'id' properties.
+   * @returns {string} A unique ID for the widget.
+   */
+  static getUniqueId(type, widgets) {
+    // Extract all existing widget IDs
+    const existingIds = widgets.map(widget => widget.props.id).filter(id => id);
+
+    // Define a function to generate an ID based on type and a number
+    function generateId(type, number) {
+      return `${type}${number}`;
+    }
+
+    // Start with a number based on the size of the array + 1
+    let number = widgets.length + 1;
+    let newId = generateId(type, number);
+
+    // Increment the number until a unique ID is found
+    while (existingIds.includes(newId)) {
+      number += 1;
+      newId = generateId(type, number);
+    }
+
+    return newId;
   }
 
   static findValidId(event) {
