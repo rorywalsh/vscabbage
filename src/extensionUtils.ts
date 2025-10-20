@@ -888,10 +888,13 @@ ${JSON.stringify(props, null, 4)}
      */
     static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
         // Define properties to exclude from JSON output (internal-only fields)
-        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps', 'channel']; // Add any properties you want to exclude
+        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps', 'channel', 'value', 'parameterIndex']; // Add any properties you want to exclude
 
         // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
         const getChannelId = (obj: WidgetProps): string => {
+            if (obj.id) {
+                return obj.id;
+            }
             if (obj.channels) {
                 if (Array.isArray(obj.channels) && obj.channels[0]) {
                     return obj.channels[0].id;
@@ -1016,29 +1019,6 @@ ${JSON.stringify(props, null, 4)}
         return jsonArray;
     }
 
-    // Function to find a free port
-    static async findFreePort(startPort: number, endPort: number): Promise<number> {
-        return new Promise((resolve, reject) => {
-            const server = require('net').createServer();
-            server.unref();
-            server.on('error', (err: any) => {
-                Commands.getOutputChannel().appendLine(`Failed to find free port: ${err.message}`);
-                console.error('Cabbage: Failed to find free port:', err);
-                if (err.code === 'EADDRINUSE' && startPort < endPort) {
-                    resolve(ExtensionUtils.findFreePort(startPort + 1, endPort));
-                } else {
-                    reject(err);
-                }
-            });
-            server.listen(startPort, () => {
-                Commands.getOutputChannel().appendLine(`Found a find free port: ${startPort}`);
-                console.log('Cabbage: Found a find free port:', startPort);
-                const port = server.address().port;
-                server.close(() => resolve(port));
-            });
-        });
-    }
-
     /**
     * Returns html text to use in webview - various scripts get passed as vscode.Uri's
     */
@@ -1137,7 +1117,7 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static sortOrderOfProperties(obj: WidgetProps): WidgetProps {
-        const { type, bounds, range, ...rest } = obj; // Destructure type, bounds, range, and the rest of the properties, excluding deprecated 'channel'
+        const { type, id, bounds, range, ...rest } = obj; // Destructure type, id, bounds, range, and the rest of the properties, excluding deprecated 'channel'
 
         // Create an ordered bounds object only if bounds is present in the original object
         const orderedBounds = bounds ? {
@@ -1159,6 +1139,7 @@ ${JSON.stringify(props, null, 4)}
         // Return a new object with the original order and only include bounds/range if they exist
         const result: WidgetProps = {
             type,
+            ...(id !== undefined && { id }), // Conditionally include id
             ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
             ...rest,                                         // Include the rest of the properties
         };

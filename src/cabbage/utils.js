@@ -59,6 +59,7 @@ export class CabbageUtils {
    * Returns the id string of the nth channel.
    */
   static getChannelId(props, index = 0) {
+    if (props.id) return props.id;
     const ch = CabbageUtils.getChannel(props, index);
     return ch?.id || '';
   }

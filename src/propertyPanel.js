@@ -78,9 +78,9 @@ export class PropertyPanel {
         this.addPropertyToSection('type', this.type, specialSection);
         this.handledProperties.add('type'); // Mark as handled
 
-        // Add Channel ID if channels exist
-        if (this.properties.channels && this.properties.channels[0]) {
-            this.addPropertyToSection('id', this.properties.channels[0].id, specialSection, 'channels[0]');
+        // Add widget ID if it exists (top-level id)
+        if (this.properties.id) {
+            this.addPropertyToSection('id', this.properties.id, specialSection, '');
             this.handledProperties.add('id'); // Mark as handled
         }
 
@@ -172,10 +172,8 @@ export class PropertyPanel {
 
             const channelSubSection = this.createSection(`Channel ${index + 1}`, { buttons: [removeBtn] });
 
-            // Skip id for first channel as it's in special section
-            if (index !== 0) {
-                this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
-            }
+            // Add id for each channel
+            this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
 
             // Add event
             this.addPropertyToSection('event', channel.event || '', channelSubSection, `channels[${index}]`);
@@ -211,7 +209,7 @@ export class PropertyPanel {
 
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || [];
+        const hiddenProps = widget?.hiddenProps || ['parameterIndex'];
 
         Object.entries(properties).forEach(([key, value]) => {
             // Skip if this property is in hiddenProps or already handled
@@ -234,11 +232,14 @@ export class PropertyPanel {
      */
     addChannel() {
         const newChannel = {
-            id: `channel${this.properties.channels.length + 1}`,
+            id: this.properties.id || `channel${this.properties.channels.length + 1}`,
             event: 'valueChanged',
             range: { min: 0, max: 1, defaultValue: 0, skew: 1, increment: 0.01 }
         };
         this.properties.channels.push(newChannel);
+        if (this.properties.id) {
+            delete this.properties.id;
+        }
         this.rebuildPropertiesPanel();
         // Send update to vscode
         this.vscode.postMessage({
@@ -252,6 +253,10 @@ export class PropertyPanel {
      * @param index - The index of the channel to remove.
      */
     removeChannel(index) {
+        if (this.properties.channels.length === 1) {
+            // Moving last channel's id to top level
+            this.properties.id = this.properties.channels[0].id;
+        }
         this.properties.channels.splice(index, 1);
         this.rebuildPropertiesPanel();
         this.vscode.postMessage({
@@ -352,10 +357,12 @@ export class PropertyPanel {
 
             input.addEventListener('change', this.handleInputChange.bind(this));
 
-        } else if (fullPath === 'channels[0].id' || fullPath === 'channel') {
+        } else if (fullPath.match(/^channels\[\d+\]\.id$/) || fullPath === 'channel' || fullPath === 'id') {
             input = document.createElement('input');
             input.type = 'text';
-            const currentId = (fullPath === 'channel') ? value : (Array.isArray(this.properties?.channels) && this.properties.channels[0] ? this.properties.channels[0].id : value);
+            const channelMatch = fullPath.match(/^channels\[(\d+)\]\.id$/);
+            const channelIndex = channelMatch ? parseInt(channelMatch[1]) : null;
+            const currentId = (fullPath === 'channel') ? value : (channelIndex !== null ? (Array.isArray(this.properties?.channels) && this.properties.channels[channelIndex] ? this.properties.channels[channelIndex].id : value) : (this.properties.id || value));
             input.value = currentId;
             input.dataset.originalChannel = currentId;
             input.dataset.skipInputHandler = 'true';
@@ -366,8 +373,14 @@ export class PropertyPanel {
                     const newChannel = evt.target.value.trim();
                     const originalChannel = input.dataset.originalChannel;
                     const widget = this.widgets.find(w => {
-                        const id = (Array.isArray(w.props.channels) && w.props.channels[0]) ? w.props.channels[0].id : w.props.channel;
-                        return id === originalChannel;
+                        if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
+                            return w.props.channels[channelIndex].id === originalChannel;
+                        } else if (fullPath === 'id') {
+                            return w.props.id === originalChannel;
+                        } else if (fullPath === 'channel') {
+                            return w.props.channel === originalChannel;
+                        }
+                        return false;
                     });
 
                     if (widget) {
@@ -378,16 +391,24 @@ export class PropertyPanel {
                             return;
                         }
 
-                        // Update the widget's channel property
-                        if (Array.isArray(widget.props.channels) && widget.props.channels[0]) {
-                            widget.props.channels[0].id = newChannel;
+                        // Update the widget's id property
+                        if (fullPath === 'id') {
+                            widget.props.id = newChannel;
+                        } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
+                            widget.props.channels[channelIndex].id = newChannel;
                         }
 
                         // Remove the old widget from the array
                         console.warn("Cabbage: Cabbage: widgets", this.widgets);
                         const widgetIndex = this.widgets.findIndex(w => {
-                            const id = (Array.isArray(w.props.channels) && w.props.channels[0]) ? w.props.channels[0].id : w.props.channel;
-                            return id === originalChannel;
+                            if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
+                                return w.props.channels[channelIndex].id === originalChannel;
+                            } else if (fullPath === 'id') {
+                                return w.props.id === originalChannel;
+                            } else if (fullPath === 'channel') {
+                                return w.props.channel === originalChannel;
+                            }
+                            return false;
                         });
                         if (widgetIndex !== -1) {
                             this.widgets.splice(widgetIndex, 1);

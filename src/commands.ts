@@ -670,9 +670,6 @@ export class Commands {
         const config = vscode.workspace.getConfiguration("cabbage");
         const runInDebugMode = config.get("runInDebugMode");
 
-        // Port number no longer needed for pipe communication
-        // Removed findFreePort call as we now use stdin/stdout pipes
-
         if (!runInDebugMode) {
             const command = Settings.getCabbageBinaryPath('CabbageApp');
 
