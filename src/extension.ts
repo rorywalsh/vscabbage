@@ -463,11 +463,6 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             return;
         }
 
-        if (getCabbageMode() === 'draggable') {
-            console.log('Cabbage: onCompileInstrument: Already in draggable mode, skipping performance mode');
-            return;
-        }
-
         console.log('Cabbage: onCompileInstrument: Entering performance mode');
         setCabbageMode('play');
         const config = vscode.workspace.getConfiguration('cabbage');

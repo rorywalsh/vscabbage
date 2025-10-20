@@ -190,6 +190,12 @@ window.addEventListener('message', async event => {
             // Update child widget pointer events for performance mode
             updateChildWidgetPointerEvents('nonDraggable');
             console.log('Cabbage: Mode set to nonDraggable, mouse tracking should be active');
+
+            // Hide the property panel when entering performance mode
+            const propertyPanel = document.querySelector('.property-panel');
+            if (propertyPanel) {
+                propertyPanel.style.visibility = 'hidden';
+            }
             break;
 
         // Called when there are new Csound console messages to display
