@@ -69,6 +69,7 @@ Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
  */
 window.addEventListener('message', async event => {
     const message = event.data; // Extract the message data from the event
+    console.log('main.js: received message:', message.command, message);
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Handle different commands based on the message received
@@ -194,6 +195,7 @@ window.addEventListener('message', async event => {
             // Hide the property panel when entering performance mode
             const propertyPanel = document.querySelector('.property-panel');
             if (propertyPanel) {
+                console.log('PropertyPanel: hiding panel due to performance mode');
                 propertyPanel.style.visibility = 'hidden';
             }
             break;

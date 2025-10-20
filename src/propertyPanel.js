@@ -14,6 +14,7 @@ export class PropertyPanel {
         this.type = type;               // Type of the widget
         this.properties = properties;   // Properties of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
+        console.log('PropertyPanel: Constructor called for type:', type, 'channel:', CabbageUtils.getChannelId(properties, 0));
         // Create the panel and sections on initialization
         this.createPanel();
     }
@@ -50,6 +51,7 @@ export class PropertyPanel {
      * Creates the main property panel and its sections.
      */
     createPanel() {
+        console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', CabbageUtils.getChannelId(this.properties, 0));
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
@@ -640,22 +642,58 @@ export class PropertyPanel {
      * @param widgets - The list of widgets to update.
      */
     static async updatePanel(vscode, input, widgets) {
+        console.log('PropertyPanel: updatePanel called with input:', JSON.stringify(input, null, 2));
         // Ensure input is an array of objects
         this.vscode = vscode;
         let events = Array.isArray(input) ? input : [input]; // Normalize input to an array
+        console.log('PropertyPanel: normalized events:', events.length, 'events');
+
+        // Check if any event has name: null, if so, hide the panel
+        const hasNullName = events.some(event => event.name === null);
+        if (hasNullName) {
+            const element = document.querySelector('.property-panel');
+            if (element && element.style.visibility === 'visible') {
+                console.log('PropertyPanel: ignoring null name since panel is already visible');
+                return;
+            }
+            console.log('PropertyPanel: has null name, hiding panel');
+            if (element) {
+                element.style.visibility = "hidden";
+            }
+            return;
+        }
 
         const element = document.querySelector('.property-panel');
         if (element) {
+            console.log('PropertyPanel: current visibility:', element.style.visibility);
+            console.log('PropertyPanel: setting panel visibility to visible');
             element.style.visibility = "visible"; // Make the panel visible
             element.innerHTML = ''; // Clear previous content
+
+            // Add mutation observer to log visibility changes
+            if (!this.observer) {
+                this.observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                            const visibility = element.style.visibility;
+                            console.log('PropertyPanel: visibility changed to:', visibility);
+                        }
+                    });
+                });
+                this.observer.observe(element, { attributes: true, attributeFilter: ['style'] });
+            }
+        } else {
+            console.log('PropertyPanel: panel element not found');
         }
 
         // Iterate over the array of event objects
         events.forEach(eventObj => {
             const { eventType, name, bounds } = eventObj; // Destructure event properties
+            console.log('PropertyPanel: processing event:', eventType, 'for widget:', name);
 
             widgets.forEach((widget, index) => {
                 if (CabbageUtils.getChannelId(widget.props, 0) === name) {
+                    console.log('PropertyPanel: found matching widget, updating...');
                     // Update widget size based on bounds if available
                     if (typeof widget.props?.size === 'object' && widget.props.size !== null) {
                         if (bounds.w > 0 && bounds.h > 0) {
@@ -687,6 +725,7 @@ export class PropertyPanel {
                             widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
                         }
                     }
+                    console.log('PropertyPanel: creating new PropertyPanel instance for widget:', name);
                     // Create a new PropertyPanel instance for the widget
                     new PropertyPanel(vscode, widget.props.type, widget.props, widgets);
                     if (!this.vscode) {
@@ -709,6 +748,7 @@ export class PropertyPanel {
      * Rebuild properties panel when a channel name is updated
      */
     rebuildPropertiesPanel() {
+        console.log('PropertyPanel: rebuildPropertiesPanel called');
         // Clear the existing panel content
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content
