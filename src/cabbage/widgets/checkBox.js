@@ -53,7 +53,8 @@ export class Checkbox {
       "presetIgnore": 0,
       "opacity": 1,
       "radioGroup": -1,
-      "index": 0
+      "index": 0,
+      "value": null
     };
 
     this.vscode = null;
@@ -71,16 +72,19 @@ export class Checkbox {
     }
 
     const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
+    // Get current value, using default if null
+    const currentValue = this.props.value !== null ? this.props.value : range.defaultValue;
+
     // For radioGroup checkboxes: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
-      if (this.props.value === range.min) {
+      if (currentValue === range.min) {
         this.props.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for checkboxes not in radioGroup
-      this.props.value = (this.props.value === range.max) ? range.min : range.max;
+      this.props.value = (currentValue === range.max) ? range.min : range.max;
     }
 
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);

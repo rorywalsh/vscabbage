@@ -18,7 +18,7 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
-            "id":"",
+            "id": "",
             "type": "genTable",
             "colour": {
                 "fill": "#93d200",
@@ -81,14 +81,14 @@ export class GenTable {
     createCanvas() {
         // Create main canvas element
         this.canvas = document.createElement('canvas');
-        this.canvas.width = this.props.bounds.width;
-        this.canvas.height = this.props.bounds.height;
+        this.canvas.width = Number(this.props.bounds.width);
+        this.canvas.height = Number(this.props.bounds.height);
         this.ctx = this.canvas.getContext('2d');
 
         // Create offscreen canvas for waveform caching
         this.waveformCanvas = document.createElement('canvas');
-        this.waveformCanvas.width = this.props.bounds.width;
-        this.waveformCanvas.height = this.props.bounds.height;
+        this.waveformCanvas.width = Number(this.props.bounds.width);
+        this.waveformCanvas.height = Number(this.props.bounds.height);
         this.waveformCtx = this.waveformCanvas.getContext('2d');
     }
 
@@ -139,7 +139,7 @@ export class GenTable {
         const x = event.clientX - rect.left;
 
         // Clamp x to canvas bounds
-        this.selectionEnd = Math.max(0, Math.min(x, this.props.bounds.width));
+        this.selectionEnd = Math.max(0, Math.min(x, Number(this.props.bounds.width)));
 
         // Calculate the sample index
         this.selectionEndSample = this.pixelToSample(this.selectionEnd);
@@ -218,7 +218,7 @@ export class GenTable {
         const rangeLength = rangeEnd - rangeStart;
 
         // Calculate the sample position
-        const normalizedX = pixelX / this.props.bounds.width;
+        const normalizedX = pixelX / Number(this.props.bounds.width);
         const sampleIndex = Math.floor(rangeStart + (normalizedX * rangeLength));
 
         // Clamp to valid range
@@ -241,7 +241,7 @@ export class GenTable {
         const rangeLength = rangeEnd - rangeStart;
 
         const normalized = (sampleIndex - rangeStart) / rangeLength;
-        return normalized * this.props.bounds.width;
+        return normalized * Number(this.props.bounds.width);
     }
 
     /**
@@ -252,7 +252,7 @@ export class GenTable {
         if (!this.waveformCanvas) return;
 
         // Clear the main canvas and redraw the cached waveform
-        this.ctx.clearRect(0, 0, this.props.bounds.width, this.props.bounds.height);
+        this.ctx.clearRect(0, 0, Number(this.props.bounds.width), Number(this.props.bounds.height));
         this.ctx.drawImage(this.waveformCanvas, 0, 0);
 
         // Draw selection overlay if active
@@ -266,16 +266,16 @@ export class GenTable {
 
             // Draw semi-transparent selection overlay
             this.ctx.fillStyle = 'rgba(147, 210, 0, 0.3)'; // Light green with transparency
-            this.ctx.fillRect(startX, 0, width, this.props.bounds.height);
+            this.ctx.fillRect(startX, 0, width, Number(this.props.bounds.height));
 
             // Draw selection borders
             this.ctx.strokeStyle = '#93d200'; // Green
             this.ctx.lineWidth = 2;
             this.ctx.beginPath();
             this.ctx.moveTo(startX, 0);
-            this.ctx.lineTo(startX, this.props.bounds.height);
+            this.ctx.lineTo(startX, Number(this.props.bounds.height));
             this.ctx.moveTo(endX, 0);
-            this.ctx.lineTo(endX, this.props.bounds.height);
+            this.ctx.lineTo(endX, Number(this.props.bounds.height));
             this.ctx.stroke();
 
             // Restore context state
@@ -290,16 +290,16 @@ export class GenTable {
 
     updateTable() {
         // Resize both canvases
-        this.canvas.width = this.props.bounds.width;
-        this.canvas.height = this.props.bounds.height;
-        this.waveformCanvas.width = this.props.bounds.width;
-        this.waveformCanvas.height = this.props.bounds.height;
+        this.canvas.width = Number(this.props.bounds.width);
+        this.canvas.height = Number(this.props.bounds.height);
+        this.waveformCanvas.width = Number(this.props.bounds.width);
+        this.waveformCanvas.height = Number(this.props.bounds.height);
 
         // Render the waveform to the offscreen canvas (this is the expensive operation)
         this.renderWaveformToCache();
 
         // Draw the cached waveform to the main canvas
-        this.ctx.clearRect(0, 0, this.props.bounds.width, this.props.bounds.height);
+        this.ctx.clearRect(0, 0, Number(this.props.bounds.width), Number(this.props.bounds.height));
         this.ctx.drawImage(this.waveformCanvas, 0, 0);
 
         // Draw selection overlay if there's an active selection
@@ -316,7 +316,7 @@ export class GenTable {
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content
-            this.canvas.style.display = this.props.visible === 0 ? 'none' : 'block';
+            this.canvas.style.display = Number(this.props.visible) === 0 ? 'none' : 'block';
             widgetElement.appendChild(this.canvas); // Append canvas
 
             // Add event listeners
@@ -340,10 +340,10 @@ export class GenTable {
         const ctx = this.waveformCtx;
 
         // Clear canvas
-        ctx.clearRect(0, 0, this.props.bounds.width, this.props.bounds.height);
+        ctx.clearRect(0, 0, Number(this.props.bounds.width), Number(this.props.bounds.height));
 
         // Set the global alpha for the canvas context
-        ctx.globalAlpha = this.props.opacity; // Apply opacity
+        ctx.globalAlpha = Number(this.props.opacity); // Apply opacity
 
         // Determine the Y-axis range for waveform display
         const yMin = this.props.range.y.min;
@@ -352,11 +352,11 @@ export class GenTable {
         // Draw background with rounded corners
         ctx.fillStyle = this.props.colour.background;
         ctx.beginPath();
-        ctx.moveTo(this.props.corners, 0);
-        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, this.props.corners);
-        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, this.props.corners);
-        ctx.arcTo(0, this.props.bounds.height, 0, 0, this.props.corners);
-        ctx.arcTo(0, 0, this.props.bounds.width, 0, this.props.corners);
+        ctx.moveTo(Number(this.props.corners), 0);
+        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.corners));
+        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.corners));
+        ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.corners));
+        ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.corners));
         ctx.closePath();
         ctx.fill();
 
@@ -374,7 +374,7 @@ export class GenTable {
         const centerY = this.props.bounds.height / 2;
 
         // Draw waveform with min/max peaks for better visualization
-        if (this.props.fill === 1) {
+        if (Number(this.props.fill) === 1) {
             // Draw filled waveform
             ctx.fillStyle = this.props.colour.fill;
             ctx.beginPath();
@@ -383,7 +383,7 @@ export class GenTable {
             ctx.moveTo(0, centerY);
 
             // Draw top half of waveform
-            for (let x = 0; x < this.props.bounds.width; x++) {
+            for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 const startIdx = Math.floor(x * samplesPerPixel);
                 const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
 
@@ -423,12 +423,12 @@ export class GenTable {
         }
 
         // Draw outline stroke on top
-        if (this.props.colour.stroke.width > 0) {
+        if (Number(this.props.colour.stroke.width) > 0) {
             ctx.strokeStyle = this.props.colour.stroke.colour;
-            ctx.lineWidth = this.props.colour.stroke.width;
+            ctx.lineWidth = Number(this.props.colour.stroke.width);
             ctx.beginPath();
 
-            for (let x = 0; x < this.props.bounds.width; x++) {
+            for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 const startIdx = Math.floor(x * samplesPerPixel);
                 const endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
 

@@ -23,40 +23,82 @@ const originalContentCache: { [key: string]: string } = {};
 /**
  * Validates the JSON in the Cabbage section of a CSD file
  * @param documentText The full text content of the CSD file
- * @returns An object with valid flag and error message if invalid
+ * @returns An object with valid flag, error message, and position info if invalid
  */
-function validateCabbageJSON(documentText: string): { valid: boolean; error?: string } {
+function validateCabbageJSON(documentText: string): { valid: boolean; error?: string; position?: { line: number; column: number } } {
     // Extract Cabbage section
     const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
     const match = documentText.match(cabbageRegex);
-    
+
     if (!match) {
         // No Cabbage section found - this is okay, might be a plain Csound file
         return { valid: true };
     }
-    
+
     const cabbageContent = match[1].trim();
-    
+    const cabbageStartIndex = match.index! + match[0].indexOf(match[1]);
+
     // Check if it's an external file reference
     if (cabbageContent.includes('#include')) {
         // External JSON file - we'll validate it when loaded
         return { valid: true };
     }
-    
+
     // Try to parse the JSON
     try {
         JSON.parse(cabbageContent);
         return { valid: true };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return { 
-            valid: false, 
-            error: errorMessage
+
+        // Try to extract position from error message
+        const positionMatch = errorMessage.match(/at position (\d+)/);
+        let position: { line: number; column: number } | undefined;
+
+        if (positionMatch) {
+            const jsonPosition = parseInt(positionMatch[1]);
+            // Convert JSON position to document position
+            const documentPosition = cabbageStartIndex + jsonPosition;
+
+            // Calculate line and column
+            const beforeError = documentText.substring(0, documentPosition);
+            const lines = beforeError.split('\n');
+            let line = lines.length - 1;
+            let column = lines[lines.length - 1].length;
+
+            // For errors about missing commas or braces, the position is at the unexpected token.
+            // If this looks like a missing comma, highlight the end of the previous line instead.
+            if (errorMessage.includes('Expected \',\'') || errorMessage.includes('Unexpected token') || errorMessage.includes('Unexpected string')) {
+                const allLines = documentText.split('\n');
+                const currentLine = allLines[line];
+                const trimmedStart = currentLine.trimStart();
+                const leadingWhitespace = currentLine.length - trimmedStart.length;
+
+                // If we're at the beginning of a line (after whitespace), it's likely a missing comma
+                if (column <= leadingWhitespace + 1) {
+                    // Highlight the end of the previous line where comma should be
+                    if (line > 0) {
+                        const prevLine = allLines[line - 1];
+                        const prevLineEnd = prevLine.length;
+                        line = line - 1;
+                        column = Math.max(0, prevLineEnd - 1);
+                    }
+                }
+            }
+
+            position = { line, column };
+        }
+
+        // Clean up the error message to remove position info since we provide visual indicators
+        const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
+
+        return {
+            valid: false,
+            error: cleanErrorMessage,
+            position
         };
     }
-}
-
-// Setup websocket server
+}// Setup websocket server
 let wss: WebSocketServer;
 let websocket: WebSocket | undefined;
 let firstMessages: any[] = [];
@@ -501,11 +543,40 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         // Validate JSON in Cabbage section before compilation
         const jsonValidation = validateCabbageJSON(editor.getText());
         if (!jsonValidation.valid) {
-            vscode.window.showErrorMessage(
-                `Cabbage: Cannot compile - Invalid JSON in Cabbage section: ${jsonValidation.error}`
-            );
+            const errorMsg = `Cabbage: Cannot compile - Invalid JSON in Cabbage section: ${jsonValidation.error}`;
+            Commands.getOutputChannel().appendLine(errorMsg);
+            Commands.getOutputChannel().show();
             console.error('Cabbage: JSON validation failed:', jsonValidation.error);
+
+            // Set diagnostic for the error
+            if (jsonValidation.position) {
+                // Create a range that highlights the entire line for emphasis
+                const errorLineContent = editor.getText(new vscode.Range(
+                    jsonValidation.position.line, 0,
+                    jsonValidation.position.line, Number.MAX_SAFE_INTEGER
+                )).split('\n')[0];
+                const range = new vscode.Range(
+                    jsonValidation.position.line, 0,
+                    jsonValidation.position.line, errorLineContent.length
+                );
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Cabbage JSON Error: ${jsonValidation.error}`,
+                    vscode.DiagnosticSeverity.Error
+                );
+                Commands.setJSONDiagnostics(editor.uri, [diagnostic]);
+
+                // Scroll to the error location
+                const activeEditor = vscode.window.activeTextEditor;
+                if (activeEditor && activeEditor.document === editor) {
+                    activeEditor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                }
+            }
+
             return;
+        } else {
+            // Clear any previous diagnostics
+            Commands.clearJSONDiagnostics(editor.uri);
         }
 
         console.log('Cabbage: onCompileInstrument: Entering performance mode');
