@@ -32,6 +32,8 @@ export class Commands {
     private static websocket: WebSocket | undefined;
     private static cabbageServerStarted: boolean | false;
     private static diagnosticCollection: vscode.DiagnosticCollection;
+    private static diagnosticCollectionCsound: vscode.DiagnosticCollection;
+    private static lastCsoundErrorMessage: string | undefined;
     appendOutput: Boolean = true;
 
     /**
@@ -48,6 +50,9 @@ export class Commands {
         });
         if (!this.diagnosticCollection) {
             this.diagnosticCollection = vscode.languages.createDiagnosticCollection('cabbage-json');
+        }
+        if (!this.diagnosticCollectionCsound) {
+            this.diagnosticCollectionCsound = vscode.languages.createDiagnosticCollection('csound');
         }
     }
 
@@ -733,6 +738,10 @@ export class Commands {
                 }
             }
 
+            // Clear previous Csound diagnostics before compilation
+            this.diagnosticCollectionCsound.clear();
+            this.lastCsoundErrorMessage = undefined;
+
             this.panel.webview.postMessage({
                 command: "onFileChanged",
                 text: fileContent,
@@ -932,6 +941,23 @@ export class Commands {
                                     if (this.panel) {
                                         this.panel.dispose();
                                         this.panel = undefined;
+                                    }
+                                }
+                                // Parse Csound errors for diagnostics
+                                if (line.startsWith('error:')) {
+                                    this.lastCsoundErrorMessage = line;
+                                } else if (line.match(/^Line (\d+)$/)) {
+                                    const lineMatch = line.match(/^Line (\d+)$/);
+                                    if (lineMatch && this.lastCsoundErrorMessage && this.lastSavedFileName) {
+                                        const errorLine = parseInt(lineMatch[1]); // 0-based, Csound reports 1-based
+                                        const fileUri = vscode.Uri.file(this.lastSavedFileName);
+                                        const diagnostic = new vscode.Diagnostic(
+                                            new vscode.Range(errorLine, 0, errorLine, 1000), // whole line
+                                            this.lastCsoundErrorMessage.replace('error: ', ''),
+                                            vscode.DiagnosticSeverity.Error
+                                        );
+                                        this.diagnosticCollectionCsound.set(fileUri, [diagnostic]);
+                                        this.lastCsoundErrorMessage = undefined;
                                     }
                                 }
                                 this.vscodeOutputChannel.appendLine(line);

@@ -105,7 +105,7 @@ instr	1
 endin
 
 instr UpdateTable
-    prints "Updating table"
+    print chnget:i("normal")
     iNormal = (chnget:i("normal")==0 ? -1 : 1)
     giTable	ftgen	1, 0,   1024, 10*iNormal, p4, p5, p6, p7, p8
     cabbageSet	"gentable1", "tableNumber", 1	; update table display
