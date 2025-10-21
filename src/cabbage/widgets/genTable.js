@@ -375,51 +375,36 @@ export class GenTable {
 
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
-            // Draw filled waveform
+            // Draw filled waveform from center line to amplitudes
             ctx.fillStyle = this.props.colour.fill;
-            ctx.beginPath();
-
-            // Start from center line at left edge
-            ctx.moveTo(0, centerY);
-
-            // Draw top half of waveform
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 const startIdx = Math.floor(x * samplesPerPixel);
                 const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
 
-                // Find max value in this pixel's sample range
+                // Find max and min values in this pixel's sample range
                 let maxVal = 0; // Default to center (0) if no samples
-                if (startIdx < this.props.samples.length) {
-                    maxVal = -1;
-                    for (let i = startIdx; i < endIdx; i++) {
-                        maxVal = Math.max(maxVal, this.props.samples[i]);
-                    }
-                }
-
-                const y = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
-                ctx.lineTo(x, y);
-            }
-
-            // Draw bottom half of waveform (right to left)
-            for (let x = this.props.bounds.width - 1; x >= 0; x--) {
-                const startIdx = Math.floor(x * samplesPerPixel);
-                const endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
-
-                // Find min value in this pixel's sample range
                 let minVal = 0; // Default to center (0) if no samples
                 if (startIdx < this.props.samples.length) {
-                    minVal = 1;
+                    maxVal = -1;
+                    minVal = Number.MAX_VALUE;
                     for (let i = startIdx; i < endIdx; i++) {
+                        maxVal = Math.max(maxVal, this.props.samples[i]);
                         minVal = Math.min(minVal, this.props.samples[i]);
+                    }
+                    if (minVal === Number.MAX_VALUE) {
+                        minVal = 0; // If no valid samples, default to center
                     }
                 }
 
-                const y = CabbageUtils.map(minVal, yMin, yMax, this.props.bounds.height, 0);
-                ctx.lineTo(x, y);
+                // For filled waveform, fill from center to the amplitude extremes
+                const centerY = this.props.bounds.height / 2;
+                const maxY = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
+                const minY = CabbageUtils.map(minVal, yMin, yMax, this.props.bounds.height, 0);
+                const topFill = Math.min(centerY, maxY, minY);
+                const bottomFill = Math.max(centerY, maxY, minY);
+                const fillHeight = Math.max(1, bottomFill - topFill);
+                ctx.fillRect(x, topFill, 1, fillHeight);
             }
-
-            ctx.closePath();
-            ctx.fill();
         }
 
         // Draw outline stroke on top
