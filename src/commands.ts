@@ -269,6 +269,7 @@ export class Commands {
                 break;
 
             case 'cabbageSetupComplete':
+                console.log("Extension: Received cabbageSetupComplete from webview");
                 const msg = {
                     command: "cabbageSetupComplete",
                     text: JSON.stringify({})
@@ -281,6 +282,7 @@ export class Commands {
                 break;
 
             case 'cabbageIsReadyToLoad':
+                console.log("Extension: Received cabbageIsReadyToLoad from webview");
                 this.sendMessageToCabbageApp({
                     command: "initialiseWidgets",
                     text: ""
@@ -380,6 +382,7 @@ export class Commands {
                     vscode.window.showErrorMessage('No .csd file found to save. Please ensure a .csd file is open.');
                 }
                 break;
+
 
             default:
                 console.log('Cabbage: handleWebviewMessage default case, command:', message.command);
@@ -735,12 +738,12 @@ export class Commands {
                 text: fileContent,
                 lastSavedFileName: finalFileName
             });            // Also send the file change notification to CabbageApp
+            console.log("Extension: Sending onFileChanged to backend for file:", finalFileName);
             this.sendMessageToCabbageApp({
                 command: "onFileChanged",
                 lastSavedFileName: finalFileName
             });
         }
-
 
         this.setCabbageSrcDirectoryIfEmpty();
     }
@@ -896,6 +899,7 @@ export class Commands {
                                     }
                                 }
                                 else if (msg['command'] === 'failedToCompile') {
+                                    console.log("Extension: Received failedToCompile from backend");
                                     // Handle panel disposal
                                     let panel = Commands.getPanel();
                                     if (panel) {
@@ -923,6 +927,13 @@ export class Commands {
                                 this.vscodeOutputChannel.appendLine(msg);
                             } else {
                                 // Show other messages as-is (Csound output, etc.)
+                                // Check for parsing failure and close panel if needed
+                                if (line.includes('Parsing failed due to syntax errors')) {
+                                    if (this.panel) {
+                                        this.panel.dispose();
+                                        this.panel = undefined;
+                                    }
+                                }
                                 this.vscodeOutputChannel.appendLine(line);
                             }
                         }
