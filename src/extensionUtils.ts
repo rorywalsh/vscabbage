@@ -428,7 +428,7 @@ editor. -->\n`;
      * Updates JSON text in the document based on the current mode, highlight, and properties.
      * Handles both external file references and in-line JSON updates within `<Cabbage>` tags.
      */
-    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3): Promise<void> {
+    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3, oldId?: string): Promise<void> {
         if (cabbageMode === "play") {
             return;
         }
@@ -494,7 +494,7 @@ editor. -->\n`;
                 }
 
                 if (!externalFile) {
-                    const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps);
+                    const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps, oldId);
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
 
@@ -886,7 +886,7 @@ ${JSON.stringify(props, null, 4)}
      * @param defaultProps - The default properties to compare against.
      * @returns The updated JSON array with merged properties.
      */
-    static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps): WidgetProps[] {
+    static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps, oldId?: string): WidgetProps[] {
         // Define properties to exclude from JSON output (internal-only fields)
         const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps', 'channel', 'value', 'parameterIndex']; // Add any properties you want to exclude
 
@@ -991,7 +991,9 @@ ${JSON.stringify(props, null, 4)}
             return jsonArray;
         }
 
-        let existingObject = jsonArray.find(obj => getChannelId(obj) === getChannelId(props));
+        // Use oldId if provided (for ID changes), otherwise use the current ID
+        const searchId = oldId || getChannelId(props);
+        let existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
 
         if (existingObject) {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
@@ -1002,7 +1004,7 @@ ${JSON.stringify(props, null, 4)}
                     delete newObject[key];
                 }
             }
-            const index = jsonArray.findIndex(obj => getChannelId(obj) === getChannelId(props));
+            const index = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;

@@ -236,11 +236,29 @@ async function groupSelectedWidgets() {
         }
     });
 
+    // Update the container's HTML to reflect it now has children (this will update styling)
+    const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
+    const containerDiv = document.getElementById(containerChannelId);
+    if (containerDiv) {
+        // Get the container widget instance and update its HTML
+        const containerInstance = containerDiv.cabbageInstance || widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === containerChannelId);
+        if (containerInstance && typeof containerInstance.getInnerHTML === 'function') {
+            containerDiv.innerHTML = containerInstance.getInnerHTML();
+            console.log("Cabbage: Updated container HTML to reflect children");
+        }
+        
+        // Use insertChildWidgets to properly render the children
+        await WidgetManager.insertChildWidgets(containerWidget, containerDiv);
+        console.log("Cabbage: Re-inserted", childWidgets.length, "children into container DOM");
+    } else {
+        console.error("Cabbage: Container div not found:", containerChannelId);
+    }
+
     // Update the CSD file with the modified container (now with children)
     if (vscode) {
         vscode.postMessage({
             command: 'widgetUpdate',
-            text: JSON.stringify(containerWidget)
+            text: JSON.stringify(containerWidget.props)
         });
     }
 
@@ -274,59 +292,108 @@ async function ungroupSelectedWidgets() {
         return;
     }
 
-    console.log("Cabbage: Ungrouping container", containerWidget.props.id, "with", containerWidget.props.children.length, "children");
+    console.log("Cabbage: Ungrouping container", CabbageUtils.getChannelId(containerWidget.props, 0), "with", containerWidget.props.children.length, "children");
 
-    // Convert child relative positions back to absolute positions
+    // First, remove existing child DOM elements from the container and re-parent them to MainForm
+    const mainForm = document.getElementById('MainForm');
+    if (!mainForm) {
+        console.error("Cabbage: MainForm not found during ungroup");
+        return;
+    }
+
+    // Process each child widget
     const childrenPromises = containerWidget.props.children.map(async (childProps) => {
+        const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+        const existingChildDiv = document.getElementById(childChannelId);
+        
+        // Calculate absolute position
         const absoluteBounds = {
             ...childProps.bounds,
             left: containerWidget.props.bounds.left + childProps.bounds.left,
             top: containerWidget.props.bounds.top + childProps.bounds.top
         };
 
+        if (existingChildDiv) {
+            // Reuse existing DOM element - just update its properties
+            console.log(`Cabbage: Reusing existing child element ${childChannelId}`);
+            
+            // Remove the grouped-child class and add draggable class
+            existingChildDiv.classList.remove('grouped-child');
+            existingChildDiv.classList.add('draggable');
+            
+            // Remove the parent channel attribute
+            existingChildDiv.removeAttribute('data-parent-channel');
+            
+            // Update position to absolute coordinates
+            existingChildDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
+            existingChildDiv.setAttribute('data-x', absoluteBounds.left);
+            existingChildDiv.setAttribute('data-y', absoluteBounds.top);
+            
+            // Re-enable pointer events
+            existingChildDiv.style.pointerEvents = 'auto';
+            
+            // Re-parent to MainForm (remove from container, add to form)
+            mainForm.appendChild(existingChildDiv);
+            
+            // Add pointer down event listener for draggable mode
+            existingChildDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, existingChildDiv));
+        }
+
+        // Update the widget in the widgets array
         const topLevelProps = {
             ...childProps,
-            bounds: absoluteBounds,
-            parentChannel: undefined // Remove parent channel reference
+            bounds: absoluteBounds
         };
-
-        // Remove parentChannel property
         delete topLevelProps.parentChannel;
 
-        // Insert the child as a top-level widget
-        const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
+        // Find and update the existing child widget in the widgets array
+        const existingChildWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === childChannelId);
+        if (existingChildWidget) {
+            // Update existing widget props - merge the absolute bounds and remove parentChannel
+            existingChildWidget.props.bounds = absoluteBounds;
+            delete existingChildWidget.props.parentChannel;
+            console.log(`Cabbage: Updated existing child widget ${childChannelId} in widgets array - removed parentChannel and updated bounds`);
+        } else {
+            // Insert as new widget (shouldn't normally happen, but handle it)
+            console.log(`Cabbage: Child widget ${childChannelId} not found in widgets array, inserting new`);
+            const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
+        }
 
         // Update the CSD file with the new top-level widget
         if (vscode) {
             vscode.postMessage({
                 command: 'widgetUpdate',
-                text: JSON.stringify(childWidget)
+                text: JSON.stringify(topLevelProps)
             });
         }
 
-        return childWidget;
+        return topLevelProps;
     });
 
-    // Wait for all children to be inserted
+    // Wait for all children to be processed
     await Promise.all(childrenPromises);
 
-    // Remove the container from the widgets array
-    const containerIndex = widgets.findIndex(w => w.props.id === containerWidget.props.id);
-    if (containerIndex !== -1) {
-        widgets.splice(containerIndex, 1);
+    // Remove the container's children array since they're now top-level
+    containerWidget.props.children = [];
+
+    // Keep the container widget but update it to have no children
+    const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
+    
+    // Update the CSD file with the container (now without children)
+    if (vscode) {
+        vscode.postMessage({
+            command: 'widgetUpdate',
+            text: JSON.stringify(containerWidget.props)
+        });
     }
 
-    // Remove the container from DOM
-    const containerDiv = document.getElementById(containerWidget.props.id || CabbageUtils.getChannelId(containerWidget.props, 0));
-    if (containerDiv) {
-        containerDiv.remove();
-    }
+    console.log("Cabbage: Container", containerChannelId, "now has no children and remains as a top-level widget");
 
     // Clear selection
     selectedElements.forEach(element => element.classList.remove('selected'));
     selectedElements.clear();
 
-    console.log("Cabbage: Successfully ungrouped container:", containerWidget.props.id);
+    console.log("Cabbage: Successfully ungrouped container:", containerChannelId);
 }
 
 /**

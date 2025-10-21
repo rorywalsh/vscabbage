@@ -236,7 +236,7 @@ export class Commands {
 
             case 'widgetUpdate':
                 if (getCabbageMode() !== "play") {
-                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel);
+                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, 3, message.oldId);
                 }
                 break;
 

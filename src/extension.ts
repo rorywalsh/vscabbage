@@ -20,6 +20,41 @@ import { Settings } from './settings';
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
 
+/**
+ * Validates the JSON in the Cabbage section of a CSD file
+ * @param documentText The full text content of the CSD file
+ * @returns An object with valid flag and error message if invalid
+ */
+function validateCabbageJSON(documentText: string): { valid: boolean; error?: string } {
+    // Extract Cabbage section
+    const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+    const match = documentText.match(cabbageRegex);
+    
+    if (!match) {
+        // No Cabbage section found - this is okay, might be a plain Csound file
+        return { valid: true };
+    }
+    
+    const cabbageContent = match[1].trim();
+    
+    // Check if it's an external file reference
+    if (cabbageContent.includes('#include')) {
+        // External JSON file - we'll validate it when loaded
+        return { valid: true };
+    }
+    
+    // Try to parse the JSON
+    try {
+        JSON.parse(cabbageContent);
+        return { valid: true };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { 
+            valid: false, 
+            error: errorMessage
+        };
+    }
+}
 
 // Setup websocket server
 let wss: WebSocketServer;
@@ -460,6 +495,16 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             !await Commands.hasCabbageTags(editor)) {
             console.warn(
                 'Cabage: No cabbage tags found in document, returning early.');
+            return;
+        }
+
+        // Validate JSON in Cabbage section before compilation
+        const jsonValidation = validateCabbageJSON(editor.getText());
+        if (!jsonValidation.valid) {
+            vscode.window.showErrorMessage(
+                `Cabbage: Cannot compile - Invalid JSON in Cabbage section: ${jsonValidation.error}`
+            );
+            console.error('Cabbage: JSON validation failed:', jsonValidation.error);
             return;
         }
 

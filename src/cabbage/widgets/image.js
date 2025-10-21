@@ -112,9 +112,8 @@ export class Image {
             }
         }
 
-        // For containers with children, make background transparent
-        const hasChildren = this.props.children && this.props.children.length > 0;
-        const fillColor = hasChildren ? 'transparent' : this.props.colour.fill;
+        // Preserve the fill color regardless of whether there are children
+        const fillColor = this.props.colour.fill;
         const pointerEvents = 'none'; // Images should not capture pointer events to allow child widgets or underlying widgets to be interactive
 
         return `

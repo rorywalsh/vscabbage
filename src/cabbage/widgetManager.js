@@ -107,11 +107,11 @@ export class WidgetManager {
     static async insertWidget(type, props, currentCsdFile) {
         // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
-        // Use new channels schema; assume array with at least one entry
-        const firstChannelId = (Array.isArray(props?.channels) && props.channels.length > 0)
-            ? props.channels[0].id
-            : (props.id || (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel));
-        widgetDiv.id = firstChannelId;
+        // Widget ID takes precedence over channel ID
+        const widgetId = props.id 
+            || (Array.isArray(props?.channels) && props.channels.length > 0 ? props.channels[0].id : null)
+            || (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel);
+        widgetDiv.id = widgetId;
 
         const widget = WidgetManager.createWidget(type);
         if (!widget) {
@@ -143,9 +143,13 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
-        // If id is provided, set the first channel's id to match the widget id
+        // Only set the first channel's id to match the widget id if the channel doesn't already have an id
+        // This preserves custom channel IDs while ensuring new widgets have matching IDs
         if (props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
-            widget.props.channels[0].id = props.id;
+            // Only update if the channel ID is not explicitly provided in props
+            if (!props.channels || !props.channels[0] || !props.channels[0].id) {
+                widget.props.channels[0].id = props.id;
+            }
         }
 
         // Recalculate derived properties after merging props

@@ -57,6 +57,24 @@ export class PropertyPanel {
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
 
+        // Prevent scroll events from bubbling to the main webview
+        if (!panel.hasAttribute('data-scroll-handler-attached')) {
+            panel.addEventListener('wheel', (e) => {
+                // Check if the panel is scrollable
+                const isScrollable = panel.scrollHeight > panel.clientHeight;
+                
+                if (isScrollable) {
+                    // Allow scrolling within the panel but prevent bubbling
+                    e.stopPropagation();
+                } else {
+                    // If not scrollable, still prevent bubbling to avoid main page scroll
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, { passive: false }); // passive: false to allow preventDefault
+            panel.setAttribute('data-scroll-handler-attached', 'true');
+        }
+
         // Create a special section for type and channel
         this.createSpecialSection(panel);
 
@@ -85,13 +103,23 @@ export class PropertyPanel {
             this.handledProperties.add('id'); // Mark as handled
         }
 
-        // Add Channels if it exists
-        if (this.properties.channels) {
-            this.createChannelsSection(specialSection);
-            this.handledProperties.add('channels'); // Mark as handled
+        panel.appendChild(specialSection); // Append special section to panel
+        
+        // Add Bounds section before Channels (handled separately to control order)
+        if (this.properties.bounds) {
+            const boundsSection = this.createSection('Bounds');
+            Object.entries(this.properties.bounds).forEach(([key, value]) => {
+                this.addPropertyToSection(key, value, boundsSection, 'bounds');
+            });
+            panel.appendChild(boundsSection);
+            this.handledProperties.add('bounds'); // Mark as handled so it's not added again
         }
 
-        panel.appendChild(specialSection); // Append special section to panel
+        // Add Channels if it exists
+        if (this.properties.channels) {
+            this.createChannelsSection(panel);
+            this.handledProperties.add('channels'); // Mark as handled
+        }
     }
 
     /** 
@@ -102,13 +130,17 @@ export class PropertyPanel {
     createSections(properties, panel) {
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || [];
+        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
-            // Skip if this property is in hiddenProps
-
+            // Skip if this property is in hiddenProps or already handled
             if (hiddenProps.includes(sectionName)) {
                 console.log("Cabbage: Cabbage: hidden props", hiddenProps, " section name", sectionName);
+                return;
+            }
+
+            if (this.handledProperties && this.handledProperties.has(sectionName)) {
+                console.log("Cabbage: Skipping already handled property:", sectionName);
                 return;
             }
 
@@ -153,7 +185,11 @@ export class PropertyPanel {
         addBtn.textContent = '+';
         addBtn.title = 'Add Channel';
         addBtn.style.padding = '2px 6px';
-        addBtn.style.fontSize = '12px';
+        addBtn.style.fontSize = '11px';
+        addBtn.style.width = 'auto';
+        addBtn.style.minWidth = '18px';
+        addBtn.style.borderRadius = '2px';
+        addBtn.style.fontWeight = 'normal';
         addBtn.addEventListener('click', () => {
             this.addChannel();
         });
@@ -161,40 +197,94 @@ export class PropertyPanel {
         const channelsSection = this.createSection('Channels', { buttons: [addBtn] });
 
         this.properties.channels.forEach((channel, index) => {
-            // Create remove button for each channel header
+            // Create a collapsible channel card
+            const channelCard = document.createElement('div');
+            channelCard.classList.add('channel-card');
+            channelCard.style.border = '1px solid var(--vscode-panel-border)';
+            channelCard.style.borderRadius = '4px';
+            channelCard.style.marginBottom = '8px';
+            channelCard.style.backgroundColor = 'var(--vscode-editor-background)';
+
+            // Create channel header (collapsible)
+            const channelHeader = document.createElement('div');
+            channelHeader.classList.add('channel-header');
+            channelHeader.style.display = 'flex';
+            channelHeader.style.alignItems = 'center';
+            channelHeader.style.padding = '4px 8px';
+            channelHeader.style.cursor = 'pointer';
+            channelHeader.style.userSelect = 'none';
+            channelHeader.style.backgroundColor = 'var(--vscode-sideBar-background)';
+            channelHeader.style.borderRadius = '4px 4px 0 0';
+
+            // Collapse/expand arrow
+            const arrow = document.createElement('span');
+            arrow.textContent = '▼';
+            arrow.style.marginRight = '8px';
+            arrow.style.fontSize = '10px';
+            arrow.style.transition = 'transform 0.2s';
+            arrow.style.display = 'inline-block';
+
+            // Channel title
+            const channelTitle = document.createElement('span');
+            channelTitle.textContent = `${channel.id || `Channel ${index + 1}`}`;
+            channelTitle.style.flex = '1';
+            channelTitle.style.fontWeight = '500';
+            channelTitle.style.fontSize = '13px';
+            channelTitle.style.color = 'var(--vscode-foreground)';
+
+            // Remove button
             const removeBtn = document.createElement('button');
-            removeBtn.textContent = '-';
+            removeBtn.textContent = '×';
             removeBtn.title = 'Remove Channel';
-            removeBtn.style.padding = '2px 6px';
-            removeBtn.style.fontSize = '12px';
-            removeBtn.addEventListener('click', () => {
+            removeBtn.style.padding = '1px 4px';
+            removeBtn.style.fontSize = '14px';
+            removeBtn.style.width = 'auto';
+            removeBtn.style.minWidth = '18px';
+            removeBtn.style.borderRadius = '2px';
+            removeBtn.style.fontWeight = 'normal';
+            removeBtn.style.marginLeft = 'auto';
+            removeBtn.style.color = 'var(--vscode-button-foreground)';
+            removeBtn.style.background = 'var(--vscode-button-background)';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent collapse toggle
                 this.removeChannel(index);
             });
+            removeBtn.addEventListener('mouseenter', () => {
+                removeBtn.style.background = 'var(--vscode-button-hoverBackground)';
+            });
+            removeBtn.addEventListener('mouseleave', () => {
+                removeBtn.style.background = 'var(--vscode-button-background)';
+            });
 
-            const channelSubSection = this.createSection(`Channel ${index + 1}`, { buttons: [removeBtn] });
+            channelHeader.appendChild(arrow);
+            channelHeader.appendChild(channelTitle);
+            channelHeader.appendChild(removeBtn);
 
-            // Add id for each channel
-            this.addPropertyToSection('id', channel.id, channelSubSection, `channels[${index}]`);
+            // Create channel content (collapsible)
+            const channelContent = document.createElement('div');
+            channelContent.classList.add('channel-content');
+            channelContent.style.padding = '10px';
+            channelContent.style.display = 'block'; // Start expanded
 
-            // Add event
-            this.addPropertyToSection('event', channel.event || '', channelSubSection, `channels[${index}]`);
+            // Add properties to content
+            this.addPropertyToSection('id', channel.id, channelContent, `channels[${index}]`);
+            this.addPropertyToSection('event', channel.event || '', channelContent, `channels[${index}]`);
+            this.addPropertyToSection('range.min', channel.range ? channel.range.min : 0, channelContent, `channels[${index}]`);
+            this.addPropertyToSection('range.max', channel.range ? channel.range.max : 1, channelContent, `channels[${index}]`);
+            this.addPropertyToSection('range.defaultValue', channel.range ? channel.range.defaultValue : 0, channelContent, `channels[${index}]`);
+            this.addPropertyToSection('range.skew', channel.range ? channel.range.skew : 1, channelContent, `channels[${index}]`);
+            this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelContent, `channels[${index}]`);
 
-            // Add range.min
-            this.addPropertyToSection('range.min', channel.range ? channel.range.min : 0, channelSubSection, `channels[${index}]`);
+            // Toggle collapse/expand on header click
+            channelHeader.addEventListener('click', () => {
+                const isCollapsed = channelContent.style.display === 'none';
+                channelContent.style.display = isCollapsed ? 'block' : 'none';
+                arrow.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+            });
 
-            // Add range.max
-            this.addPropertyToSection('range.max', channel.range ? channel.range.max : 1, channelSubSection, `channels[${index}]`);
-
-            // Add range.defaultValue
-            this.addPropertyToSection('range.defaultValue', channel.range ? channel.range.defaultValue : 0, channelSubSection, `channels[${index}]`);
-
-            // Add range.skew
-            this.addPropertyToSection('range.skew', channel.range ? channel.range.skew : 1, channelSubSection, `channels[${index}]`);
-
-            // Add range.increment
-            this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelSubSection, `channels[${index}]`);
-
-            channelsSection.appendChild(channelSubSection);
+            channelCard.appendChild(channelHeader);
+            channelCard.appendChild(channelContent);
+            channelsSection.appendChild(channelCard);
         });
 
         panel.appendChild(channelsSection);
@@ -210,7 +300,7 @@ export class PropertyPanel {
 
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || ['parameterIndex'];
+        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         // Collect misc properties and sort them alphabetically
         const miscProperties = [];
@@ -402,52 +492,28 @@ export class PropertyPanel {
                             return;
                         }
 
-                        // Update the widget's id property
+                        // Update the widget's id property in place
                         if (fullPath === 'id') {
                             widget.props.id = newChannel;
                         } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
                             widget.props.channels[channelIndex].id = newChannel;
                         }
 
-                        // Remove the old widget from the array
-                        console.warn("Cabbage: Cabbage: widgets", this.widgets);
-                        const widgetIndex = this.widgets.findIndex(w => {
-                            if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
-                                return w.props.channels[channelIndex].id === originalChannel;
-                            } else if (fullPath === 'id') {
-                                return w.props.id === originalChannel;
-                            } else if (fullPath === 'channel') {
-                                return w.props.channel === originalChannel;
-                            }
-                            return false;
-                        });
-                        if (widgetIndex !== -1) {
-                            this.widgets.splice(widgetIndex, 1);
-                        }
-                        console.warn("Cabbage: Cabbage: after removing widgets", this.widgets);
-
-                        // First, tell the extension to remove the old widget
-                        this.vscode.postMessage({
-                            command: 'removeWidget',
-                            channel: originalChannel
-                        });
-
-                        // Rebuild the properties panel to reflect the changes
-                        this.rebuildPropertiesPanel(); // Call the method to rebuild the properties panel
-
-                        // Update the widget `div` id and `channel` property
+                        // Update the widget div id
                         const widgetDiv = document.getElementById(originalChannel);
                         if (widgetDiv) {
                             widgetDiv.id = newChannel;
                         }
 
-                        // Add the updated widget back to the array
-                        this.widgets.push(widget);
-                        // Then send the updated widget
+                        // Send update with old ID so extension can find and update the correct widget
                         this.vscode.postMessage({
                             command: 'widgetUpdate',
-                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget)),
+                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
+                            oldId: originalChannel
                         });
+
+                        // Rebuild the properties panel to reflect the ID change
+                        this.rebuildPropertiesPanel();
 
                         input.blur();
                     }
@@ -791,8 +857,17 @@ export class PropertyPanel {
             const { eventType, name, bounds } = eventObj; // Destructure event properties
             console.log('PropertyPanel: processing event:', eventType, 'for widget:', name);
 
+            console.log('PropertyPanel: searching for widget with name:', name);
+            console.log('PropertyPanel: available widgets:', widgets.map(w => ({
+                type: w.props.type,
+                id: w.props.id,
+                channelId: CabbageUtils.getChannelId(w.props, 0)
+            })));
+            
             widgets.forEach((widget, index) => {
-                if (CabbageUtils.getChannelId(widget.props, 0) === name) {
+                const widgetChannelId = CabbageUtils.getChannelId(widget.props, 0);
+                console.log(`PropertyPanel: checking widget ${index}: channelId=${widgetChannelId}, name=${name}, match=${widgetChannelId === name}`);
+                if (widgetChannelId === name) {
                     console.log('PropertyPanel: found matching widget, updating...');
                     // Update widget size based on bounds if available
                     if (typeof widget.props?.size === 'object' && widget.props.size !== null) {

@@ -2,6 +2,8 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
+import { CabbageUtils } from './cabbage/utils.js';
+
 // At the beginning of the file
 let interactPromise;
 
@@ -32,7 +34,8 @@ export class WidgetWrapper {
         this.selectedElements = selectedSet; // Selected elements for dragging
         this.updatePanelCallback = updatePanelCallback; // Callback to update the panel
         this.dragMoveListener = this.dragMoveListener.bind(this); // Bind the drag move listener
-        this.dragEndListener = this.dragEndListener.bind(this); // Bind the drag end listener
+        this.dragEndListener = this.dragEndListener.bind(this); // 
+        // Bind the drag end listener
         this.widgets = widgets; // All widgets in the UI
         this.vscode = vscode; // VSCode API for messaging
 
@@ -416,15 +419,19 @@ export class WidgetWrapper {
      * @param {number} deltaY - The change in Y position
      */
     moveChildWidgets(parentElement, deltaX, deltaY) {
-        // Find the parent widget in the widgets array
-        const parentWidget = this.widgets.find(w => w.props.channel === parentElement.id);
+        // Find the parent widget in the widgets array using the new channel schema
+        const parentWidget = this.widgets.find(w => {
+            const channelId = CabbageUtils.getChannelId(w.props, 0);
+            return channelId === parentElement.id;
+        });
         if (!parentWidget || !parentWidget.props.children) {
             return;
         }
 
         // Move each child widget
         parentWidget.props.children.forEach(childProps => {
-            const childElement = document.getElementById(childProps.channel);
+            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
                 const childY = (parseFloat(childElement.getAttribute('data-y')) || 0) + deltaY;
@@ -433,7 +440,7 @@ export class WidgetWrapper {
                 childElement.setAttribute('data-x', childX);
                 childElement.setAttribute('data-y', childY);
 
-                console.log(`Cabbage: Moved child ${childProps.channel} with parent ${parentElement.id}`);
+                console.log(`Cabbage: Moved child ${childChannelId} with parent ${parentElement.id}`);
             }
         });
     }
@@ -573,8 +580,11 @@ export class WidgetWrapper {
      * @param {number} newHeight - The new height of the parent
      */
     resizeChildWidgets(parentElement, newWidth, newHeight) {
-        // Find the parent widget in the widgets array
-        const parentWidget = this.widgets.find(w => w.props.channel === parentElement.id);
+        // Find the parent widget in the widgets array using the new channel schema
+        const parentWidget = this.widgets.find(w => {
+            const channelId = CabbageUtils.getChannelId(w.props, 0);
+            return channelId === parentElement.id;
+        });
         if (!parentWidget || !parentWidget.props.children) {
             return;
         }
@@ -593,7 +603,8 @@ export class WidgetWrapper {
 
         // Update each child widget using original relative bounds when available
         parentWidget.props.children.forEach(childProps => {
-            const childElement = document.getElementById(childProps.channel);
+            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 // Prefer stored original bounds (created at grouping time) to avoid compounded scaling
                 const base = childProps.origBounds || childProps.bounds;
@@ -624,7 +635,7 @@ export class WidgetWrapper {
                 childProps.bounds.left = newChildX;
                 childProps.bounds.top = newChildY;
 
-                console.log(`Cabbage: Resized child ${childProps.channel} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
+                console.log(`Cabbage: Resized child ${childChannelId} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
             }
         });
 
