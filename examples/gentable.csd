@@ -83,32 +83,30 @@ schedule("UpdateTable", 0, 0, 1, 0, 0, 0, 0, 0)
 instr	1
     
     ;toggle fill
-    kFill, kTrig cabbageGetValue "fill"
-    cabbageSet kTrig, "gentable1", "fill", kFill
-    
-    k1 chnget "harm1"
-    k2 chnget "harm2"
-    k3 chnget "harm3"
-    k4 chnget "harm4"
-    k5 chnget "harm5"
-    
-    aEnv linen 1, 1, p3, 1
-    a1 oscili .2, 200, 1
-    outs a1, a1
-    
-    kChanged changed k1, k2, k3, k4, k5
+    kFill, kTrig = cabbageGetValue("fill")
+    cabbageSet(kTrig, "gentable1", "fill", kFill)
+
+    k1 = cabbageGetValue("harm1")
+    k2 = cabbageGetValue("harm2")
+    k3 = cabbageGetValue("harm3")
+    k4 = cabbageGetValue("harm4")
+    k5 = cabbageGetValue("harm5")
+    aEnv = linen(1, 1, p3, 1)
+    a1 = oscili(.2, 200, 1)
+    outs(a1, a1)
+
+    kChanged = changed(k1, k2, k3, k4, k5)
     if kChanged==1 then
         ;if a slider changes trigger instrument 2 to update table
-        event "i", "UpdateTable", 0, .01, k1, k2, k3, k4, k5
+        event("i", "UpdateTable", 0, .01, k1, k2, k3, k4, k5)
     endif
     
 endin
 
 instr UpdateTable
-    print chnget:i("normal")
-    iNormal = (chnget:i("normal")==0 ? -1 : 1)
-    giTable	ftgen	1, 0,   1024, 10*iNormal, p4, p5, p6, p7, p8
-    cabbageSet	"gentable1", "tableNumber", 1	; update table display
+    iNormal = (cabbageGetValue("normal")==0 ? -1 : 1)
+    giTable	= ftgen(1, 0,   1024, 10*iNormal, p4, p5, p6, p7, p8)
+    cabbageSet("gentable1", "tableNumber", 1)	; update table display
 endin
 
 </CsInstruments>

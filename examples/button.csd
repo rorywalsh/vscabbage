@@ -41,25 +41,25 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-    
-    kVal, kTrig cabbageGetValue "trigger"
-    
+
+    kVal, kTrig = cabbageGetValue("trigger")
+
     if kTrig == 1 then
         if kVal == 1 then
-            event "i", "Synth", 0, 3600
+            event("i", "Synth", 0, 3600)
         else
-            iInstrNum nstrnum "Synth"
-            turnoff2 iInstrNum, 0, 0
+            iInstrNum = nstrnum("Synth")
+            turnoff2(iInstrNum, 0, 0)
         endif
     endif
     
 endin
 
 instr Synth
-    prints "Starting Synth"
-    kMute cabbageGetValue "mute"
-    a1 oscili .5*kMute, 300*(cabbageGetValue:k("toggleFreq")+1)
-    outs a1, a1
+    prints("Starting Synth")   
+    kMute = cabbageGetValue("mute")
+    a1 = oscili(.5*kMute, 300*(cabbageGetValue("toggleFreq")+1))
+    outs(a1, a1)
 endin
 
 

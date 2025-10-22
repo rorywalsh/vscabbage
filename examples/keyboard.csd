@@ -58,15 +58,15 @@ nchnls = 2
 
 instr 1
     
-    iVcoModes[] fillarray 0, 10, 12
+    iVcoModes[] fillarray 0, 10, 12    
+    iAtt = cabbageGetValue("att")
+    iDec = cabbageGetValue("dec")
+    iSus = cabbageGetValue("sus")
+    iRel = cabbageGetValue("rel")
+    kEnv = madsr(iAtt, iDec, iSus, iRel)
+    aVco = vco2(kEnv*p5*.5, cpsmidinn(p4), iVcoModes[cabbageGetValue:i("waveform")])
+    outs(aVco, aVco)
     
-    iAtt cabbageGetValue "att"
-    iDec cabbageGetValue "dec"
-    iSus cabbageGetValue "sus"
-    iRel cabbageGetValue "rel"
-    kEnv madsr iAtt, iDec, iSus, iRel
-    aVco vco2 kEnv*p5*.5, cpsmidinn(p4), iVcoModes[cabbageGetValue:i("waveform")]
-    outs aVco, aVco
 endin
 
 

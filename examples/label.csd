@@ -35,8 +35,8 @@ nchnls = 2
 ; even for co mmercial purposes, all without asking permission.
 
 instr 1
-    kLabel cabbageGetValue "label2"
-    printk2 kLabel
+    kLabel  = cabbageGetValue:k("label2")
+    printk2(kLabel)
 endin
 
 

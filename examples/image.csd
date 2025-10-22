@@ -1,18 +1,16 @@
 <Cabbage>
 [
-    {"type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1"},
+    {"type": "form", "caption": "Label Example", "size": {"width": 500, "height": 500}, "pluginId": "def1"},
     {
         "type": "label",
         "channels": [
             {
-                "id": "image1",
-                "event": "mousePressLeft",
+                "id": "image1X",
+                "event": "mouseMoveX",
                 "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01}
             }
         ],
-        "bounds": {"left": 158, "top": 37, "width": 228, "height": 21},
-        "text": "Don't label me!!",
-        "channelType": "number",
+        "bounds": {"left": 10, "top": 10, "width": 480, "height": 480},
         "automatable": 1
     }
 ]
@@ -35,8 +33,8 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-    kLabel cabbageGetValue "image1"
-    printk2 kLabel
+    kLabel  = cabbageGetValue:k("image1X")
+    printk2(kLabel)
 endin
 
 
