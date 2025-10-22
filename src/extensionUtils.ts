@@ -1348,4 +1348,182 @@ f0 z
     }
 
 
+    /**
+     * Validates the Cabbage JSON content in the given document.
+     * If validation fails, sets diagnostics and returns false.
+     * If validation succeeds, clears diagnostics and returns true.
+     * @param editor The document to validate
+     * @param textEditor Optional text editor instance
+     * @returns true if JSON is valid, false otherwise
+     */
+    static validateCabbageJSON(editor: vscode.TextDocument, textEditor?: vscode.TextEditor): boolean {
+        console.log("validateCabbageJSON called for file:", editor.fileName);
+        // Find the text editor if not provided
+        const activeTextEditor = textEditor || vscode.window.visibleTextEditors.find(ed => ed.document === editor);
+        if (!activeTextEditor) {
+            return true; // No editor found, assume valid
+        }
+
+        const { content: cabbageContent } = Commands.getCabbageContent(activeTextEditor);
+        if (cabbageContent) {
+            console.log("Found Cabbage content, parsing...");
+            // Extract Cabbage section for position calculation
+            const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+            const match = editor.getText().match(cabbageRegex);
+            let cabbageStartIndex = 0;
+            if (match) {
+                cabbageStartIndex = match.index! + match[0].indexOf(match[1]);
+            }
+
+            try {
+                const jsonArray = JSON.parse(cabbageContent);
+
+                // Check for duplicate channels
+                const channelMap = new Map<string, number[]>(); // channelId -> array of line numbers
+                const diagnostics: vscode.Diagnostic[] = [];
+
+                // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
+                const getChannelId = (obj: any): string => {
+                    if (obj.id) {
+                        return obj.id;
+                    }
+                    if (obj.channels) {
+                        if (Array.isArray(obj.channels) && obj.channels[0]) {
+                            return obj.channels[0].id;
+                        } else if (typeof obj.channels === 'object' && obj.channels[0]) {
+                            return obj.channels[0].id;
+                        }
+                    }
+                    return obj.channel || '';
+                };
+
+                // Find all channel occurrences and their positions
+                jsonArray.forEach((widget: any, widgetIndex: number) => {
+                    const channelId = getChannelId(widget);
+                    if (channelId) {
+                        // Find all occurrences of this channel in the document (both old and new formats)
+                        const oldFormatRegex = new RegExp(`"channel"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                        const newFormatRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                        
+                        [oldFormatRegex, newFormatRegex].forEach(regex => {
+                            let match;
+                            while ((match = regex.exec(editor.getText())) !== null) {
+                                const matchIndex = match.index;
+                                const beforeMatch = editor.getText().substring(0, matchIndex);
+                                const lineNumber = beforeMatch.split('\n').length - 1;
+                                
+                                if (!channelMap.has(channelId)) {
+                                    channelMap.set(channelId, []);
+                                }
+                                if (!channelMap.get(channelId)!.includes(lineNumber)) {
+                                    channelMap.get(channelId)!.push(lineNumber);
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // Create diagnostics for duplicate channels
+                for (const [channelId, lineNumbers] of channelMap) {
+                    if (lineNumbers.length > 1) {
+                        console.log(`Found duplicate channel: ${channelId} on lines: ${lineNumbers.join(', ')}`);
+                        // This channel is duplicated
+                        for (const lineNumber of lineNumbers) {
+                            const lineContent = editor.getText().split('\n')[lineNumber];
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, lineContent.length);
+                            const diagnostic = new vscode.Diagnostic(
+                                range,
+                                `Duplicate channel "${channelId}": Channel IDs must be unique`,
+                                vscode.DiagnosticSeverity.Error
+                            );
+                            diagnostics.push(diagnostic);
+                        }
+                    }
+                }
+
+                console.log("Diagnostics created:", diagnostics.length);
+
+                if (diagnostics.length > 0) {
+                    console.log("Setting diagnostics and returning false");
+                    Commands.setJSONDiagnostics(editor.uri, diagnostics);
+                    // Scroll to the first error
+                    if (diagnostics.length > 0) {
+                        activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                    }
+                    const duplicateChannels = Array.from(channelMap.keys()).filter(channelId => channelMap.get(channelId)!.length > 1);
+                    const errorMsg = `Duplicate channels found: ${duplicateChannels.join(', ')}`;
+                    Commands.getOutputChannel().appendLine(errorMsg);
+                    Commands.getOutputChannel().show();
+                    return false; // Don't proceed if there are duplicate channels
+                }
+
+                console.log("No duplicates found, returning true");
+                // Clear any previous diagnostics
+                Commands.clearJSONDiagnostics(editor.uri);
+                return true;
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                // Clean up the error message to remove position info since we have visual indicators
+                const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
+                const errorMsg = `JSON Error in Cabbage section: ${cleanErrorMessage}`;
+                Commands.getOutputChannel().appendLine(errorMsg);
+                Commands.getOutputChannel().show();
+
+                // Set diagnostic for the error
+                const positionMatch = errorMessage.match(/at position (\d+)/);
+                if (positionMatch && match) {
+                    const jsonPosition = parseInt(positionMatch[1]);
+                    const documentPosition = cabbageStartIndex + jsonPosition;
+
+                    const beforeError = editor.getText().substring(0, documentPosition);
+                    const lines = beforeError.split('\n');
+                    let line = lines.length - 1;
+                    let column = lines[lines.length - 1].length;
+
+                    // For errors about missing commas or braces, the position is at the unexpected token.
+                    // If this looks like a missing comma, highlight the end of the previous line instead.
+                    if (errorMessage.includes('Expected \',\'') || errorMessage.includes('Unexpected token') || errorMessage.includes('Unexpected string')) {
+                        const currentLine = editor.getText().split('\n')[line];
+                        const trimmedStart = currentLine.trimStart();
+                        const leadingWhitespace = currentLine.length - trimmedStart.length;
+
+                        // If we're at the beginning of a line (after whitespace), it's likely a missing comma
+                        if (column <= leadingWhitespace + 1) {
+                            // Highlight the end of the previous line where comma should be
+                            if (line > 0) {
+                                const prevLine = editor.getText().split('\n')[line - 1];
+                                const prevLineEnd = prevLine.length;
+                                line = line - 1;
+                                column = Math.max(0, prevLineEnd - 1);
+                            }
+                        }
+                    }
+
+                    // Create a range that highlights the entire line for emphasis
+                    const allLines = editor.getText().split('\n');
+                    const errorLineContent = allLines[line];
+                    const range = new vscode.Range(line, 0, line, errorLineContent.length);
+                    // Clean up the error message to remove position info since we have visual indicators
+                    const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
+
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        `Cabbage JSON Error: ${cleanErrorMessage}`,
+                        vscode.DiagnosticSeverity.Error
+                    );
+                    Commands.setJSONDiagnostics(editor.uri, [diagnostic]);
+
+                    // Scroll to the error location
+                    activeTextEditor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                }
+
+                return false; // Don't send to webview if JSON is invalid
+            }
+        } else {
+            console.log("No Cabbage content found");
+            // Clear diagnostics if no Cabbage content
+            Commands.clearJSONDiagnostics(editor.uri);
+            return true;
+        }
+    }
 }

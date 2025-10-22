@@ -574,10 +574,18 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             }
 
             return;
-        } else {
-            // Clear any previous diagnostics
-            Commands.clearJSONDiagnostics(editor.uri);
         }
+
+        // Additional validation for duplicate channels before creating panel
+        const textEditor = vscode.window.visibleTextEditors.find(ed => ed.document === editor);
+        const duplicateValidation = ExtensionUtils.validateCabbageJSON(editor, textEditor);
+        if (!duplicateValidation) {
+            // Validation failed - diagnostics and output already handled by validateCabbageJSON
+            return;
+        }
+
+        // Clear any previous diagnostics if both validations pass
+        Commands.clearJSONDiagnostics(editor.uri);
 
         console.log('Cabbage: onCompileInstrument: Entering performance mode');
         setCabbageMode('play');

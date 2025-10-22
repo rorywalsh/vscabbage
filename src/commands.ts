@@ -542,6 +542,7 @@ export class Commands {
             this.getOutputChannel().appendLine('   Palette (Ctrl+Shift+P / Cmd+Shift+P).');
             this.getOutputChannel().appendLine('────────────────────────────────────────────────────────────');
             this.getOutputChannel().appendLine('');
+            
 
 
         } else {
@@ -643,100 +644,22 @@ export class Commands {
         this.lastSavedFileName = finalFileName;
         this.getOutputChannel().appendLine(`Saving file: ${finalFileName}`);
 
-        if (!this.panel) {
-            await this.setupWebViewPanel(context);
-        }
-
         const config = vscode.workspace.getConfiguration("cabbage");
 
         if (this.panel) {
-            const launchInNewColumn = config.get("launchInNewColumn");
-            const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
-
-            this.panel.reveal(viewColumn, true);
-
             const fileContent = editor.getText();
 
             // Validate Cabbage JSON before sending to webview
             const textEditor = vscode.window.visibleTextEditors.find(ed => ed.document === editor);
-            if (textEditor) {
-                const { content: cabbageContent } = this.getCabbageContent(textEditor);
-                if (cabbageContent) {
-                    // Extract Cabbage section for position calculation
-                    const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
-                    const match = fileContent.match(cabbageRegex);
-                    let cabbageStartIndex = 0;
-                    if (match) {
-                        cabbageStartIndex = match.index! + match[0].indexOf(match[1]);
-                    }
-
-                    try {
-                        JSON.parse(cabbageContent);
-                        // Clear any previous diagnostics
-                        this.clearJSONDiagnostics(editor.uri);
-                    } catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : String(error);
-                        // Clean up the error message to remove position info since we have visual indicators
-                        const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
-                        const errorMsg = `JSON Error in Cabbage section: ${cleanErrorMessage}`;
-                        this.getOutputChannel().appendLine(errorMsg);
-                        this.getOutputChannel().show();
-
-                        // Set diagnostic for the error
-                        const positionMatch = errorMessage.match(/at position (\d+)/);
-                        if (positionMatch && match) {
-                            const jsonPosition = parseInt(positionMatch[1]);
-                            const documentPosition = cabbageStartIndex + jsonPosition;
-
-                            const beforeError = fileContent.substring(0, documentPosition);
-                            const lines = beforeError.split('\n');
-                            let line = lines.length - 1;
-                            let column = lines[lines.length - 1].length;
-
-                            // For errors about missing commas or braces, the position is at the unexpected token.
-                            // If this looks like a missing comma, highlight the end of the previous line instead.
-                            if (errorMessage.includes('Expected \',\'') || errorMessage.includes('Unexpected token') || errorMessage.includes('Unexpected string')) {
-                                const currentLine = fileContent.split('\n')[line];
-                                const trimmedStart = currentLine.trimStart();
-                                const leadingWhitespace = currentLine.length - trimmedStart.length;
-
-                                // If we're at the beginning of a line (after whitespace), it's likely a missing comma
-                                if (column <= leadingWhitespace + 1) {
-                                    // Highlight the end of the previous line where comma should be
-                                    if (line > 0) {
-                                        const prevLine = fileContent.split('\n')[line - 1];
-                                        const prevLineEnd = prevLine.length;
-                                        line = line - 1;
-                                        column = Math.max(0, prevLineEnd - 1);
-                                    }
-                                }
-                            }
-
-                            // Create a range that highlights the entire line for emphasis
-                            const allLines = fileContent.split('\n');
-                            const errorLineContent = allLines[line];
-                            const range = new vscode.Range(line, 0, line, errorLineContent.length);
-                            // Clean up the error message to remove position info since we have visual indicators
-                            const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
-
-                            const diagnostic = new vscode.Diagnostic(
-                                range,
-                                `Cabbage JSON Error: ${cleanErrorMessage}`,
-                                vscode.DiagnosticSeverity.Error
-                            );
-                            this.setJSONDiagnostics(editor.uri, [diagnostic]);
-
-                            // Scroll to the error location
-                            textEditor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-                        }
-
-                        return; // Don't send to webview if JSON is invalid
-                    }
-                } else {
-                    // Clear diagnostics if no Cabbage content
-                    this.clearJSONDiagnostics(editor.uri);
-                }
+            const isValid = ExtensionUtils.validateCabbageJSON(editor, textEditor);
+            if (!isValid) {
+                return; // Don't send to webview if JSON is invalid
             }
+
+            const launchInNewColumn = config.get("launchInNewColumn");
+            const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+
+            this.panel.reveal(viewColumn, true);
 
             // Clear previous Csound diagnostics before compilation
             this.diagnosticCollectionCsound.clear();
@@ -752,6 +675,43 @@ export class Commands {
                 command: "onFileChanged",
                 lastSavedFileName: finalFileName
             });
+        } else {
+            // No existing panel, validate first before creating one
+            const fileContent = editor.getText();
+
+            // Validate Cabbage JSON before creating webview
+            const textEditor = vscode.window.visibleTextEditors.find(ed => ed.document === editor);
+            const isValid = ExtensionUtils.validateCabbageJSON(editor, textEditor);
+            if (!isValid) {
+                return; // Don't create webview if JSON is invalid
+            }
+
+            // Validation passed, now create the panel
+            await this.setupWebViewPanel(context);
+
+            // Get the panel reference after setup (TypeScript doesn't know setupWebViewPanel sets this.panel)
+            const panel = this.panel as unknown as vscode.WebviewPanel;
+            if (panel) {
+                const launchInNewColumn = config.get("launchInNewColumn");
+                const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+
+                panel.reveal(viewColumn, true);
+
+                // Clear previous Csound diagnostics before compilation
+                this.diagnosticCollectionCsound.clear();
+                this.lastCsoundErrorMessage = undefined;
+
+                panel.webview.postMessage({
+                    command: "onFileChanged",
+                    text: fileContent,
+                    lastSavedFileName: finalFileName
+                });            // Also send the file change notification to CabbageApp
+                console.log("Extension: Sending onFileChanged to backend for file:", finalFileName);
+                this.sendMessageToCabbageApp({
+                    command: "onFileChanged",
+                    lastSavedFileName: finalFileName
+                });
+            }
         }
 
         this.setCabbageSrcDirectoryIfEmpty();
