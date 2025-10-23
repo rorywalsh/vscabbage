@@ -64,7 +64,7 @@ Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
 
 /**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
- * This function is also called whenever a widget is updated through Csound
+ * This function is also called whenever a widget is updated through Csound, or the host DAW.
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {

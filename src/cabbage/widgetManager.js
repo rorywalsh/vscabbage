@@ -108,7 +108,7 @@ export class WidgetManager {
         // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
         const widgetDiv = document.createElement('div');
         // Widget ID takes precedence over channel ID
-        const widgetId = props.id 
+        const widgetId = props.id
             || (Array.isArray(props?.channels) && props.channels.length > 0 ? props.channels[0].id : null)
             || (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel);
         widgetDiv.id = widgetId;
@@ -548,8 +548,8 @@ export class WidgetManager {
         // Extract channel ID for logging
         const channelStr = obj.id;
         console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
-        // Check if 'data' exists, otherwise use 'value'
-        const data = obj.data ? JSON.parse(obj.data) : obj.value;
+        // Check if 'widgetJson' exists, otherwise use 'value'
+        const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
         console.log(`WidgetManager.updateWidget: Parsed data:`, data);
 
         // Determine the channel to use for finding the widget
@@ -572,7 +572,7 @@ export class WidgetManager {
 
         if (widget) {
             const channelId = CabbageUtils.getChannelId(widget.props, 0);
-            // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, data=${obj.data}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
+            // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
@@ -895,7 +895,7 @@ export class WidgetManager {
                     console.error("No type property found in data", p);
                 }
             } catch (error) {
-                console.error("Error parsing JSON data:", error, obj.data);
+                console.error("Error parsing JSON widgetJson:", error, obj.widgetJson);
             }
         } else {
             console.log(`WidgetManager.updateWidget: Widget was found and updated`);
