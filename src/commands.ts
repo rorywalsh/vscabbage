@@ -542,7 +542,7 @@ export class Commands {
             this.getOutputChannel().appendLine('   Palette (Ctrl+Shift+P / Cmd+Shift+P).');
             this.getOutputChannel().appendLine('────────────────────────────────────────────────────────────');
             this.getOutputChannel().appendLine('');
-            
+
 
 
         } else {
@@ -854,7 +854,7 @@ export class Commands {
                                             panel.webview.postMessage({
                                                 command: 'widgetUpdate',
                                                 channel: channel,
-                                                data: msg['data'],
+                                                widgetJson: msg['data'],
                                                 currentCsdPath: Commands.getCurrentFileName(),
                                             });
                                         } else if (msg.hasOwnProperty('value')) {

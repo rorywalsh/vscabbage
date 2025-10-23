@@ -272,10 +272,12 @@ export class WidgetManager {
      */
     static appendToMainForm(widgetDiv) {
         const form = document.getElementById('MainForm');
-        if (form) {
+        if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
+            // MainForm is an HTML element - append to it
             form.appendChild(widgetDiv);
         } else {
-            console.error("MainForm not found");
+            // MainForm not found or is an SVG rect - append to document body
+            document.body.appendChild(widgetDiv);
         }
     }
 
@@ -875,8 +877,8 @@ export class WidgetManager {
         // If the widget is not found, attempt to create a new widget from the provided data
         if (!widgetFound) {
             console.log(`WidgetManager.updateWidget: Widget not found, attempting to create new widget`);
-            // If this is a value-only update (no data field), we can't create a widget
-            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+            // If this is a value-only update (no widgetJson field), we can't create a widget
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
                 const channelStr = CabbageUtils.getChannelId({ channel: obj.id }, 0);
                 console.warn(`Cabbage: Cannot update value for non-existent widget "${channelStr}". Widget must be defined in the CSD file first.`);
                 return;

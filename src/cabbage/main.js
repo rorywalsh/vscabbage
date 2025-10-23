@@ -68,8 +68,19 @@ Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
  * @param {Event} event - The event containing message data from the webview panel.
  */
 window.addEventListener('message', async event => {
-    const message = event.data; // Extract the message data from the event
-    console.log('main.js: received message:', message.command, message);
+    let message = event.data; // Extract the message data from the event
+
+    // Handle both object messages (VSCode extension) and string messages (plugin)
+    if (typeof message === 'string') {
+        try {
+            message = JSON.parse(message);
+        } catch (e) {
+            console.error('Cabbage: Failed to parse message string:', message);
+            return;
+        }
+    }
+
+    console.log('Cabbage: main.js: received message:', message.command, message);
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Handle different commands based on the message received
@@ -83,37 +94,37 @@ window.addEventListener('message', async event => {
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
-            console.log(message);
+            console.log("Cabbage - case 'widgetUpdate':", message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
-            // Parse data to extract id if not present
-            if (!updateMsg.id && updateMsg.data) {
+            // Parse widgetJson to extract id if not present
+            if (!updateMsg.id && updateMsg.widgetJson) {
                 try {
-                    const parsedData = JSON.parse(updateMsg.data);
+                    const parsedData = JSON.parse(updateMsg.widgetJson);
                     updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
                 } catch (e) {
-                    console.error("Failed to parse data for id:", e);
+                    console.error("Failed to parse widgetJson for id:", e);
                 }
             }
             const channelId = typeof updateMsg.channel === 'object' && updateMsg.channel !== null
                 ? (updateMsg.channel.id || updateMsg.channel.x)
                 : updateMsg.channel;
-            // console.log(`main.js widgetUpdate: channel=${channelId}, hasData=${updateMsg.hasOwnProperty('data')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
+            // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
             break;
 
         // Called when the host triggers a parameter change in the UI
         case 'parameterChange':
             const parameterMessage = message;
-            console.log(`main.js parameterChange: paramIdx=${parameterMessage.data.paramIdx}, value=${parameterMessage.data.value}`);
-            // {command: "parameterChange", data: {paramIdx: 0, value: 0.32499998807907104}}
+            console.log(`main.js parameterChange: paramIdx=${parameterMessage.paramIdx}, value=${parameterMessage.value}`);
+            // {command: "parameterChange", paramIdx: 0, value: 35}
             for (const widget of widgets) {
-                if (widget.parameterIndex == parameterMessage.data.paramIdx) {
-                    console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, 0)} (${widget.props.type}) with value ${parameterMessage.data.value}`);
+                if (widget.parameterIndex == parameterMessage.paramIdx) {
+                    console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, 0)} (${widget.props.type}) with value ${parameterMessage.value}`);
                     const updateMsg = {
                         id: CabbageUtils.getChannelId(widget.props, 0),
                         channel: CabbageUtils.getChannelId(widget.props, 0),
-                        value: parameterMessage.data.value
+                        value: parameterMessage.value
                     };
                     await WidgetManager.updateWidget(updateMsg);
                 }
@@ -163,7 +174,7 @@ window.addEventListener('message', async event => {
                     command: "widgetUpdate",
                     id: sanitized.id || CabbageUtils.getChannelId(widget.props, 0),
                     channel: CabbageUtils.getChannelId(widget.props, 0),
-                    data: JSON.stringify(sanitized)
+                    widgetJson: JSON.stringify(sanitized)
                 });
             });
 
