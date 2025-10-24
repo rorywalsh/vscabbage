@@ -198,7 +198,10 @@ export class WidgetManager {
         // Append widget to the form
         if (widget.props.type !== "form") {
             const html = widget.getInnerHTML();
-            if (!html) return;
+            if (!html) {
+                console.error("Cabbage: insertWidget - widget.getInnerHTML() returned empty for type:", type, "id:", props.id, "props:", props);
+                return;
+            }
             widgetDiv.innerHTML = html;
             WidgetManager.appendToMainForm(widgetDiv);
             if (widget.props.type === "genTable") {
@@ -272,6 +275,11 @@ export class WidgetManager {
      */
     static appendToMainForm(widgetDiv) {
         const form = document.getElementById('MainForm');
+        if (form) {
+            console.log(`Cabbage: appendToMainForm - Found MainForm tagName=${form.tagName}, appending widget id=${widgetDiv.id}`);
+        } else {
+            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id} to body`);
+        }
         if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
             // MainForm is an HTML element - append to it
             form.appendChild(widgetDiv);
@@ -279,6 +287,28 @@ export class WidgetManager {
             // MainForm not found or is an SVG rect - append to document body
             document.body.appendChild(widgetDiv);
         }
+
+        // Diagnostic: log current MainForm child count and visible child IDs
+        try {
+            const currentForm = document.getElementById('MainForm');
+            if (currentForm) {
+                const ids = Array.from(currentForm.children).map(c => c.id || c.tagName);
+                console.log(`Cabbage: appendToMainForm - MainForm now has ${currentForm.childElementCount} children:`, ids);
+            } else {
+                console.log('Cabbage: appendToMainForm - MainForm not present after append');
+            }
+            const found = document.getElementById(widgetDiv.id);
+            console.log(`Cabbage: appendToMainForm - element with id ${widgetDiv.id} in DOM?`, !!found);
+        } catch (e) {
+            console.error('Cabbage: appendToMainForm diagnostic failed', e);
+        }
+
+        // Log MainForm structure for debugging
+        console.log(`Cabbage: MainForm outerHTML:`, form.outerHTML.substring(0, 1000));
+        console.log(`Cabbage: MainForm in document.body?`, document.body.contains(form));
+        console.log(`Cabbage: MainForm.parentElement`, form.parentElement);
+        console.log(`Cabbage: widgetDiv.ownerDocument === document`, widgetDiv.ownerDocument === document);
+        console.log(`Cabbage: document.body.children.length`, document.body.children.length);
     }
 
     /**
@@ -291,6 +321,7 @@ export class WidgetManager {
         if (!formDiv) {
             formDiv = document.createElement('div');
             formDiv.id = 'MainForm';
+            formDiv.style.position = 'relative';
 
             // Setup for VSCode mode
             if (vscode) {
@@ -578,7 +609,7 @@ export class WidgetManager {
             // widget.props.currentCsdFile = obj.currentCsdPath;
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
-            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('data')) {
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
                 console.log(`WidgetManager.updateWidget: Value-only update for ${widget.props.type}, value=${obj.value}`);
                 // Special handling for xyPad - determine which axis to update
                 if (widget.props.type === "xyPad") {
@@ -727,15 +758,7 @@ export class WidgetManager {
                     form.style.width = widget.props.size.width + "px";
                     form.style.height = widget.props.size.height + "px";
 
-                    // Update the SVG viewBox if it exists
-                    const svg = form.querySelector('svg');
-                    if (svg) {
-                        svg.setAttribute('viewBox', `0 0 ${widget.props.size.width} ${widget.props.size.height}`);
-                        svg.setAttribute('width', widget.props.size.width);
-                        svg.setAttribute('height', widget.props.size.height);
-                    }
-
-                    // Call updateSVG method if it exists
+                    // Ensure SVG is present and updated
                     if (typeof widget.updateSVG === 'function') {
                         widget.updateSVG();
                     }
@@ -871,7 +894,11 @@ export class WidgetManager {
                 }
                 widgetFound = true;
             } else {
-                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({ channel: obj.channel }, 0)} not found - going to create it now`);
+                // obj.channel is often undefined in incoming messages; prefer using obj.id so the
+                // log shows the actual identifier sent from the backend. Use getChannelId with
+                // an object that contains `id` so the utility returns the canonical id when
+                // available (falls back to channels if needed).
+                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({ id: obj.id }, 0)} not found - going to create it now`);
             }
         }
         // If the widget is not found, attempt to create a new widget from the provided data

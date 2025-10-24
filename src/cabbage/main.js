@@ -83,6 +83,37 @@ window.addEventListener('message', async event => {
     console.log('Cabbage: main.js: received message:', message.command, message);
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
+    // Set up MutationObserver to watch for changes to MainForm
+    if (mainForm && !mainForm._mutationObserver) {
+        console.log('Cabbage: Setting up MutationObserver on MainForm');
+        // Add a unique identifier to track if MainForm gets replaced
+        mainForm.setAttribute('data-instance-id', Date.now().toString());
+        console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
+        mainForm._mutationObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    console.log('Cabbage: MainForm childList mutation detected!');
+                    console.trace('Mutation trace:');
+                    console.log('Added nodes:', mutation.addedNodes.length);
+                    mutation.addedNodes.forEach((node, index) => {
+                        console.log(`Added node ${index}: ${node.tagName} id=${node.id}`);
+                    });
+                    console.log('Removed nodes:', mutation.removedNodes.length);
+                    mutation.removedNodes.forEach((node, index) => {
+                        console.log(`Removed node ${index}: ${node.tagName} id=${node.id}`);
+                    });
+                } else if (mutation.type === 'attributes') {
+                    console.log('Cabbage: MainForm attribute mutation:', mutation.attributeName);
+                }
+            });
+        });
+        mainForm._mutationObserver.observe(mainForm, {
+            childList: true,
+            attributes: true,
+            subtree: false
+        });
+    }
+
     // Handle different commands based on the message received
     switch (message.command) {
 
@@ -111,6 +142,29 @@ window.addEventListener('message', async event => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+
+            // Add a 5-second delay to check DOM structure after widget creation
+            setTimeout(() => {
+                console.log('Cabbage: DOM structure after 5 seconds:');
+                const mainForm = document.getElementById('MainForm');
+                if (mainForm) {
+                    console.log('MainForm children:', mainForm.children.length);
+                    console.log('MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
+                    Array.from(mainForm.children).forEach((child, index) => {
+                        console.log(`Child ${index}: ${child.tagName} id=${child.id} class=${child.className}`);
+                    });
+                    console.log('MainForm outerHTML length:', mainForm.outerHTML.length);
+                    console.log('MainForm is still in document.body?', document.body.contains(mainForm));
+                } else {
+                    console.log('MainForm not found - it was removed!');
+                    console.log('document.body.children.length:', document.body.children.length);
+                    Array.from(document.body.children).forEach((child, index) => {
+                        console.log(`Body child ${index}: ${child.tagName} id=${child.id}`);
+                    });
+                }
+                console.log('Widgets array length:', widgets.length);
+            }, 5000);
+
             break;
 
         // Called when the host triggers a parameter change in the UI
@@ -133,6 +187,7 @@ window.addEventListener('message', async event => {
 
         // Called when a user saves a file. Clears the widget array and the MainForm element.
         case 'onFileChanged':
+            console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
             if (mainForm) {
                 mainForm.remove(); // Remove the MainForm element from the DOM
@@ -163,6 +218,7 @@ window.addEventListener('message', async event => {
 
         // Called when entering edit mode. Converts existing widgets to draggable mode.
         case 'onEnterEditMode':
+            console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
             CabbageUtils.hideOverlay(); // Hide the overlay
             setCabbageMode('draggable'); // Set the mode to draggable
 
