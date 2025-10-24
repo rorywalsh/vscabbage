@@ -35,15 +35,10 @@
     },
     {
         "type": "button",
+        "channels": [{"id": "toggleFreq", "event": "valueChanged"}],
         "bounds": {"left": 240, "top": 12, "width": 121, "height": 30},
-        "channels": [
-            {
-                "id": "toggleFreq",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
-            }
-        ],
-        "text": "Toggle Freq"
+        "text": {"off": "Toggle Freq", "on": "Toggle Freq"},
+        "colour": {"off": {"fill": "#ff0000", "stroke": "#000000"}, "on": {"fill": "#0295cf", "stroke": "#000000"}}
     }
 ]
 </Cabbage>

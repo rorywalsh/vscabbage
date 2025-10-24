@@ -74,7 +74,7 @@ nchnls 		= 	2
 ; License: CC0 1.0 Universal
 ; You can copy, modify, and distribute this file,
 ; even for commercial purposes, all without asking permission.
-giTable	ftgen	1, 0,   1024, 10, 1
+sumTable@global:i = ftgen(1, 0, 1024, 10, 1)
 
 
 //fill table with default values
@@ -83,29 +83,29 @@ schedule("UpdateTable", 0, 0, 1, 0, 0, 0, 0, 0)
 instr	1
     
     ;toggle fill
-    kFill, kTrig = cabbageGetValue("fill")
-    cabbageSet(kTrig, "gentable1", "fill", kFill)
+    fill:k, trig:k = cabbageGetValue("fill")
+    cabbageSet(trig, "gentable1", "fill", fill)
 
-    k1 = cabbageGetValue("harm1")
-    k2 = cabbageGetValue("harm2")
-    k3 = cabbageGetValue("harm3")
-    k4 = cabbageGetValue("harm4")
-    k5 = cabbageGetValue("harm5")
-    aEnv = linen(1, 1, p3, 1)
-    a1 = oscili(.2, 200, 1)
-    outs(a1, a1)
+    harm1:k = cabbageGetValue("harm1")
+    harm2:k = cabbageGetValue("harm2")
+    harm3:k = cabbageGetValue("harm3")
+    harm4:k = cabbageGetValue("harm4")
+    harm5:k = cabbageGetValue("harm5")
 
-    kChanged = changed(k1, k2, k3, k4, k5)
-    if kChanged==1 then
+    outSig:a = oscili(.2, 200, 1)
+    outs(outSig, outSig)
+
+    trigger:k = changed(harm1, harm2, harm3, harm4, harm5)
+    if trigger==1 then
         ;if a slider changes trigger instrument 2 to update table
-        event("i", "UpdateTable", 0, .01, k1, k2, k3, k4, k5)
+        event("i", "UpdateTable", 0, .01, harm1, harm2, harm3, harm4, harm5)
     endif
     
 endin
 
 instr UpdateTable
-    iNormal = (cabbageGetValue("normal")==0 ? -1 : 1)
-    giTable	= ftgen(1, 0,   1024, 10*iNormal, p4, p5, p6, p7, p8)
+    normal:i = (cabbageGetValue:i("normal")==0 ? -1 : 1)
+    sumTable =  ftgen(1, 0, 1024, 10*normal, p4, p5, p6, p7, p8)
     cabbageSet("gentable1", "tableNumber", 1)	; update table display
 endin
 

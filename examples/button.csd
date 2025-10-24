@@ -42,14 +42,14 @@ nchnls = 2
 
 instr 1
 
-    kVal, kTrig = cabbageGetValue("trigger")
+    val:k, trig:k = cabbageGetValue("trigger")
 
-    if kTrig == 1 then
-        if kVal == 1 then
+    if trig == 1 then
+        if val == 1 then
             event("i", "Synth", 0, 3600)
         else
-            iInstrNum = nstrnum("Synth")
-            turnoff2(iInstrNum, 0, 0)
+            instrNum:i = nstrnum("Synth")
+            turnoff2(instrNum, 0, 0)
         endif
     endif
     
@@ -57,9 +57,9 @@ endin
 
 instr Synth
     prints("Starting Synth")   
-    kMute = cabbageGetValue("mute")
-    a1 = oscili(.5*kMute, 300*(cabbageGetValue("toggleFreq")+1))
-    outs(a1, a1)
+    mute:k = cabbageGetValue("mute")
+    outSig:a = oscili(.5*mute, 300*(cabbageGetValue("toggleFreq")+1))
+    outs(outSig, outSig)
 endin
 
 

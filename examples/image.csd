@@ -33,8 +33,8 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-    kLabel  = cabbageGetValue:k("image1X")
-    printk2(kLabel)
+    imageX:k = cabbageGetValue:k("image1X")
+    printk2(imageX)
 endin
 
 

@@ -113,22 +113,21 @@ nchnls = 2
 ; You can copy, modify, and distribute this file,
 ; even for commercial purposes, all without asking permission.
 
-giWave  = ftgen(1, 0, 4096, 10, 1, .2, .1, .2, .1)
+wave@global:i = ftgen(1, 0, 4096, 10, 1, .2, .1, .2, .1)
 
 instr 1
 
-    a1 = oscili(tonek(cabbageGetValue:k("harmonic1"), 10), 50, giWave)
-    a2 = oscili(tonek(cabbageGetValue:k("harmonic2"), 10), 100, giWave)
-    a3 = oscili(tonek(cabbageGetValue:k("harmonic3"), 10), 150, giWave)
-    a4 = oscili(tonek(cabbageGetValue:k("harmonic4"), 10), 200, giWave)
-    a5 = oscili(tonek(cabbageGetValue:k("harmonic5"), 10), 250, giWave)
-    a6 = oscili(tonek(cabbageGetValue:k("harmonic6"), 10), 300, giWave)
-    a7 = oscili(tonek(cabbageGetValue:k("harmonic7"), 10), 350, giWave)
-    a8 = oscili(tonek(cabbageGetValue:k("harmonic8"), 10), 400, giWave)
+    harm1:a = oscili(tonek(cabbageGetValue:k("harmonic1"), 10), 50,  wave)
+    harm2:a = oscili(tonek(cabbageGetValue:k("harmonic2"), 10), 100, wave)
+    harm3:a = oscili(tonek(cabbageGetValue:k("harmonic3"), 10), 150, wave)
+    harm4:a = oscili(tonek(cabbageGetValue:k("harmonic4"), 10), 200, wave)
+    harm5:a = oscili(tonek(cabbageGetValue:k("harmonic5"), 10), 250, wave)
+    harm6:a = oscili(tonek(cabbageGetValue:k("harmonic6"), 10), 300, wave)
+    harm7:a = oscili(tonek(cabbageGetValue:k("harmonic7"), 10), 350, wave)
+    harm8:a = oscili(tonek(cabbageGetValue:k("harmonic8"), 10), 400, wave)
 
-
-    aMix = a1+a2+a3+a4+a5+a6+a7+a8
-    outs(aMix*.1, aMix*.1)
+    mix:a = harm1+harm2+harm3+harm4+harm5+harm6+harm7+harm8
+    outs(mix*.1, mix*.1)
 endin
 
 </CsInstruments>
