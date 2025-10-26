@@ -33,7 +33,7 @@ export class Cabbage {
   static sendParameterUpdate(message, vscode = null) {
     const msg = {
       command: "parameterChange",
-      obj: JSON.stringify(message)
+      ...message
     };
     console.log("Cabbage.sendParameterUpdate:", message, "vscode:", vscode, "msg:", msg);
     if (vscode !== null) {
