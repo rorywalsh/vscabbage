@@ -345,16 +345,8 @@ export class RotarySlider {
     const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
     widgetDiv.innerHTML = this.getInnerHTML();
 
-    // Send value that will result in correct output after backend applies skew
-    // Backend does: min + (max - min) * pow(normalized, skew)
-    let targetNormalized;
-    if (rangeSpan === 0) {
-      targetNormalized = 0;
-    } else {
-      targetNormalized = (snappedSkewedValue - range.min) / rangeSpan;
-    }
-    targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
-    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
+    // Send denormalized value directly to backend
+    const valueToSend = snappedSkewedValue;
 
     const msg = {
       paramIdx: this.parameterIndex,
@@ -441,9 +433,8 @@ export class RotarySlider {
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
 
-        // Send value that will result in correct output after backend applies skew
-        const targetNormalized = (inputValue - range.min) / (range.max - range.min);
-        const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
+        // Send denormalized value directly to backend
+        const valueToSend = inputValue;
         const msg = {
           paramIdx: this.parameterIndex,
           channel: CabbageUtils.getChannelId(this.props),

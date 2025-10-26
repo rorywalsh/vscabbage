@@ -145,9 +145,8 @@ export class HorizontalSlider {
       this.startValue = this.props.value;
       CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
-      // Send value that will result in correct output after backend applies skew
-      const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
-      const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
+      // Send denormalized value directly to backend
+      const valueToSend = skewedValue;
       const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
       console.log(`pointerDown: sending valueToSend=${valueToSend}`);
 
@@ -295,12 +294,8 @@ export class HorizontalSlider {
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
-    // Send value that will result in correct output after backend applies skew
-    // Backend does: min + (max - min) * pow(normalized, skew)
-    // We want: backend to output skewedValue
-    // So we need to send: pow((skewedValue - min) / (max - min), 1/skew)
-    const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
-    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
+    // Send denormalized value directly to backend
+    const valueToSend = skewedValue;
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
     if (this.props.automatable === 1) {
@@ -329,9 +324,8 @@ export class HorizontalSlider {
         const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
         widgetDiv.querySelector('input').focus();
 
-        // Send value that will result in correct output after backend applies skew
-        const targetNormalized = (inputValue - range.min) / (range.max - range.min);
-        const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
+        // Send denormalized value directly to backend
+        const valueToSend = inputValue;
         const msg = {
           paramIdx: this.parameterIndex,
           channel: CabbageUtils.getChannelId(this.props),

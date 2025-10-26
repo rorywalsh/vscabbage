@@ -99,6 +99,12 @@ export class VerticalSlider {
     const valueTextBoxHeight = this.props.valueTextBox ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
 
+    // Guard against invalid ranges or slider dimensions
+    if (sliderHeight <= 0 || range.max - range.min === 0) {
+      console.warn('VerticalSlider pointerDown: Invalid slider dimensions or range', { sliderHeight, range });
+      return '';
+    }
+
     const sliderTop = this.props.valueTextBox ? textHeight : 0; // Adjust slider top position if valueTextBox is present
 
     if (evt.offsetY >= sliderTop && evt.offsetY <= sliderTop + sliderHeight) {
@@ -111,11 +117,16 @@ export class VerticalSlider {
       window.addEventListener("pointerup", this.upListener);
       CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
 
-      // Send value that will result in correct output after backend applies skew
-      const targetNormalized = (this.props.value - range.min) / (range.max - range.min);
-      const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
-      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
-
+      console.log('VerticalSlider pointerDown: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
+      console.log('VerticalSlider pointerMove: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
+      // Send denormalized value directly to backend
+      const valueToSend = this.props.value;
+      if (isNaN(valueToSend) || !isFinite(valueToSend)) {
+        console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
+        return;
+      }
+      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+      console.log('VerticalSlider pointerMove sending:', msg);
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
     }
@@ -228,6 +239,12 @@ export class VerticalSlider {
     const valueTextBoxHeight = this.props.valueTextBox ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight;
 
+    // Guard against invalid ranges or slider dimensions
+    if (sliderHeight <= 0 || range.max - range.min === 0) {
+      console.warn('VerticalSlider pointerMove: Invalid slider dimensions or range', { sliderHeight, range });
+      return '';
+    }
+
     // Get the bounding rectangle of the slider
     const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
 
@@ -257,10 +274,14 @@ export class VerticalSlider {
     const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
     widgetDiv.innerHTML = this.getInnerHTML();
 
-    // Send value that will result in correct output after backend applies skew
-    const targetNormalized = (skewedValue - range.min) / (range.max - range.min);
-    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
-    const msg = { paramIdx: this.parameterIndex, channel: this.props.channel, value: valueToSend, channelType: "number" }
+    // Send denormalized value directly to backend
+    const valueToSend = skewedValue;
+    if (isNaN(valueToSend) || !isFinite(valueToSend)) {
+      console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
+      return;
+    }
+    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+    console.log('VerticalSlider pointerMove sending:', msg);
     if (this.props.automatable === 1) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }

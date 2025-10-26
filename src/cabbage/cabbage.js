@@ -111,7 +111,7 @@ export class Cabbage {
     }
 
     const msg = {
-      command: "channelStringData",
+      command: "channelData",
       obj: JSON.stringify(message)
     };
 

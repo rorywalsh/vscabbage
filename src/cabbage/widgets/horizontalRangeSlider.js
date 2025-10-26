@@ -208,9 +208,8 @@ export class HorizontalRangeSlider {
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props.channel, this);
 
-    // Send value that will result in correct output after backend applies skew
-    const targetNormalized = (this.props.value - this.props.range.min) / (this.props.range.max - this.props.range.min);
-    const valueToSend = Math.pow(targetNormalized, 1.0 / this.props.range.skew);
+    // Send denormalized value directly to backend
+    const valueToSend = this.props.value;
     console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }

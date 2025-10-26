@@ -89,9 +89,6 @@ export class NumberSlider {
     addEventListeners(widgetDiv) {
         this.widgetDiv = widgetDiv;
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
-        widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
-        widgetDiv.addEventListener("pointerleave", this.pointerUp.bind(this));
         widgetDiv.addEventListener("dblclick", this.doubleClick.bind(this)); // Add double-click event listener
     }
 
@@ -112,7 +109,8 @@ export class NumberSlider {
             console.warn('Invalid startValue in numberSlider pointerDown, using default', this.startValue);
             this.startValue = range.defaultValue ?? 0;
         }
-        event.target.setPointerCapture(event.pointerId);
+        window.addEventListener("pointermove", this.pointerMove.bind(this));
+        window.addEventListener("pointerup", this.pointerUp.bind(this));
     }
 
     pointerMove(event) {
@@ -166,16 +164,9 @@ export class NumberSlider {
 
             // console.log(`NumberSlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, newSkewedValue=${newSkewedValue}, final value=${this.props.value} (was ${oldValue})`);
 
-            // Send value that will result in correct output after backend applies skew
-            let targetNormalized;
-            if (rangeSpan === 0) {
-                targetNormalized = 0;
-            } else {
-                targetNormalized = (this.props.value - range.min) / rangeSpan;
-            }
-            targetNormalized = Math.max(0, Math.min(1, targetNormalized)); // Ensure within [0,1]
-            const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
-            const msg = { paramIdx: this.parameterIndex, channel: channelId, value: valueToSend };
+            // Send denormalized value to backend
+            console.log(`NumberSlider sending value: ${this.props.value} (range: ${range.min}-${range.max})`);
+            const msg = { paramIdx: this.parameterIndex, channel: channelId, value: this.props.value };
 
             Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -185,7 +176,8 @@ export class NumberSlider {
 
     pointerUp(event) {
         this.isDragging = false;
-        event.target.releasePointerCapture(event.pointerId);
+        window.removeEventListener("pointermove", this.pointerMove.bind(this));
+        window.removeEventListener("pointerup", this.pointerUp.bind(this));
     }
 
     doubleClick(event) {
@@ -216,10 +208,8 @@ export class NumberSlider {
                 const newValue = parseFloat(input.value);
                 if (!isNaN(newValue) && newValue >= range.min && newValue <= range.max) {
                     this.props.value = newValue;
-                    // Send value that will result in correct output after backend applies skew
-                    const targetNormalized = (this.props.value - range.min) / (range.max - range.min);
-                    const valueToSend = Math.pow(targetNormalized, 1.0 / range.skew);
-                    const msg = { paramIdx: this.parameterIndex, channel: channelId, value: valueToSend };
+                    // Send denormalized value to backend
+                    const msg = { paramIdx: this.parameterIndex, channel: channelId, value: this.props.value };
                     if (this.props.automatable === 1) {
                         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
                     }
@@ -232,6 +222,11 @@ export class NumberSlider {
             }
         });
 
+        input.addEventListener('blur', () => {
+            sliderDiv.removeChild(input);
+            sliderDiv.innerHTML = this.getInnerHTML();
+        });
+
         sliderDiv.innerHTML = '';
         sliderDiv.appendChild(input);
         input.focus();
@@ -239,10 +234,9 @@ export class NumberSlider {
     }
 
     updateSliderValue() {
-        const valueText = `${this.props.valuePrefix}${this.props.value.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
-        const sliderText = document.getElementById(`slider-text-${CabbageUtils.getChannelId(this.props)}`);
-        if (sliderText) {
-            sliderText.textContent = valueText;
+        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        if (widgetDiv) {
+            widgetDiv.innerHTML = this.getInnerHTML();
         }
     }
 
@@ -273,7 +267,7 @@ export class NumberSlider {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0; pointer-events: none;">
                     <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}">
-                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; padding: 0 ${this.props.bounds.width * 0.1}px;">
+                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
                             ${valueText}
                         </div>
                     </foreignObject>

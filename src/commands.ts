@@ -68,12 +68,6 @@ export class Commands {
             try {
                 const jsonString = typeof message === 'string' ? message : JSON.stringify(message);
                 process.stdin.write(jsonString + '\n');
-
-                // Only log if verbose logging is enabled
-                const config = vscode.workspace.getConfiguration("cabbage");
-                if (config.get("logVerbose")) {
-                    this.vscodeOutputChannel.appendLine(`Debug: Command sent to CabbageApp: ${message.command || 'unknown command'}`);
-                }
             } catch (err) {
                 this.vscodeOutputChannel.appendLine(`Error sending message to CabbageApp: ${err}`);
             }
@@ -322,7 +316,7 @@ export class Commands {
                 });
                 break;
 
-            case 'channelStringData':
+            case 'channelData':
                 // Forward channel string data (e.g., from fileButton) to backend
                 this.sendMessageToCabbageApp(message);
                 break;
