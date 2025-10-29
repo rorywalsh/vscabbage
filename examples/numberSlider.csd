@@ -3,7 +3,7 @@
     {
         "type": "form",
         "caption": "Slider Example",
-        "size": {"width": 360, "height": 460},
+        "size": {"width": 440, "height": 100},
         "guiMode": "queue",
         "pluginId": "def2"
     },
@@ -14,7 +14,40 @@
             {
                 "id": "harmonic1",
                 "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
+            }
+        ]
+    },
+    {
+        "type": "numberSlider",
+        "bounds": {"left": 120, "top": 20, "width": 80, "height": 20},
+        "channels": [
+            {
+                "id": "harmonic2",
+                "event": "valueChanged",
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
+            }
+        ]
+    },
+    {
+        "type": "numberSlider",
+        "bounds": {"left": 220, "top": 20, "width": 80, "height": 20},
+        "channels": [
+            {
+                "id": "harmonic3",
+                "event": "valueChanged",
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
+            }
+        ]
+    },
+    {
+        "type": "numberSlider",
+        "bounds": {"left": 320, "top": 20, "width": 80, "height": 20},
+        "channels": [
+            {
+                "id": "harmonic4",
+                "event": "valueChanged",
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
             }
         ]
     },
@@ -23,75 +56,42 @@
         "bounds": {"left": 20, "top": 50, "width": 80, "height": 20},
         "channels": [
             {
-                "id": "harmonic2",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
-            }
-        ]
-    },
-    {
-        "type": "numberSlider",
-        "bounds": {"left": 20, "top": 80, "width": 80, "height": 20},
-        "channels": [
-            {
-                "id": "harmonic3",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
-            }
-        ]
-    },
-    {
-        "type": "numberSlider",
-        "bounds": {"left": 20, "top": 110, "width": 80, "height": 20},
-        "channels": [
-            {
-                "id": "harmonic4",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
-            }
-        ]
-    },
-    {
-        "type": "numberSlider",
-        "bounds": {"left": 20, "top": 140, "width": 80, "height": 20},
-        "channels": [
-            {
                 "id": "harmonic5",
                 "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
             }
         ]
     },
     {
         "type": "numberSlider",
-        "bounds": {"left": 20, "top": 170, "width": 80, "height": 20},
+        "bounds": {"left": 120, "top": 50, "width": 80, "height": 20},
         "channels": [
             {
                 "id": "harmonic6",
                 "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
             }
         ]
     },
     {
         "type": "numberSlider",
-        "bounds": {"left": 20, "top": 200, "width": 80, "height": 20},
+        "bounds": {"left": 220, "top": 50, "width": 80, "height": 20},
         "channels": [
             {
                 "id": "harmonic7",
                 "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
             }
         ]
     },
     {
         "type": "numberSlider",
-        "bounds": {"left": 20, "top": 230, "width": 80, "height": 20},
+        "bounds": {"left": 320, "top": 50, "width": 80, "height": 20},
         "channels": [
             {
                 "id": "harmonic8",
                 "event": "valueChanged",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 10}
             }
         ]
     }
@@ -116,16 +116,16 @@ nchnls = 2
 wave@global:i = ftgen(1, 0, 4096, 10, 1, .2, .1, .2, .1)
 
 instr 1
-
-    harm1:a = oscili(tonek(cabbageGetValue:k("harmonic1"), 10), 50,  wave)
-    harm2:a = oscili(tonek(cabbageGetValue:k("harmonic2"), 10), 100, wave)
-    harm3:a = oscili(tonek(cabbageGetValue:k("harmonic3"), 10), 150, wave)
-    harm4:a = oscili(tonek(cabbageGetValue:k("harmonic4"), 10), 200, wave)
-    harm5:a = oscili(tonek(cabbageGetValue:k("harmonic5"), 10), 250, wave)
-    harm6:a = oscili(tonek(cabbageGetValue:k("harmonic6"), 10), 300, wave)
-    harm7:a = oscili(tonek(cabbageGetValue:k("harmonic7"), 10), 350, wave)
-    harm8:a = oscili(tonek(cabbageGetValue:k("harmonic8"), 10), 400, wave)
-
+    
+    harm1:a = oscili(1, tonek(cabbageGetValue:k("harmonic1"), 10), wave)
+    harm2:a = oscili(1, tonek(cabbageGetValue:k("harmonic2"), 10), wave)
+    harm3:a = oscili(1, tonek(cabbageGetValue:k("harmonic3"), 10), wave)
+    harm4:a = oscili(1, tonek(cabbageGetValue:k("harmonic4"), 10), wave)
+    harm5:a = oscili(1, tonek(cabbageGetValue:k("harmonic5"), 10), wave)
+    harm6:a = oscili(1, tonek(cabbageGetValue:k("harmonic6"), 10), wave)
+    harm7:a = oscili(1, tonek(cabbageGetValue:k("harmonic7"), 10), wave)
+    harm8:a = oscili(1, tonek(cabbageGetValue:k("harmonic8"), 10), wave)
+    
     mix:a = harm1+harm2+harm3+harm4+harm5+harm6+harm7+harm8
     outs(mix*.1, mix*.1)
 endin

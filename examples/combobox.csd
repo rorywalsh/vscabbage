@@ -3,7 +3,8 @@
     {"type": "form", "caption": "Combobox Example", "size": {"width": 580, "height": 500}, "pluginId": "def1"},
     {
         "type": "rotarySlider",
-        "bounds": {"left": 12, "top": 9, "width": 86, "height": 90},
+        "id": "att",
+        "bounds": {"left": 125, "top": 7, "width": 86, "height": 90},
         "channels": [
             {
                 "id": "att",
@@ -15,7 +16,8 @@
     },
     {
         "type": "rotarySlider",
-        "bounds": {"left": 99, "top": 9, "width": 86, "height": 90},
+        "id": "dec",
+        "bounds": {"left": 300, "top": 7, "width": 85, "height": 90},
         "channels": [
             {
                 "id": "dec",
@@ -27,7 +29,8 @@
     },
     {
         "type": "rotarySlider",
-        "bounds": {"left": 187, "top": 9, "width": 86, "height": 90},
+        "id": "sus",
+        "bounds": {"left": 213, "top": 7, "width": 86, "height": 90},
         "channels": [
             {
                 "id": "sus",
@@ -39,7 +42,8 @@
     },
     {
         "type": "rotarySlider",
-        "bounds": {"left": 274, "top": 9, "width": 86, "height": 90},
+        "id": "rel",
+        "bounds": {"left": 387, "top": 7, "width": 86, "height": 90},
         "channels": [
             {
                 "id": "rel",
@@ -51,15 +55,30 @@
     },
     {
         "type": "keyboard",
-        "bounds": {"left": 12, "top": 104, "width": 348, "height": 80},
-        "channels": [{"id": "keyboard", "event": "valueChanged"}]
+        "id": "keyboard",
+        "bounds": {"left": 12, "top": 104, "width": 557, "height": 80},
+        "channels": [
+            {
+                "id": "keyboard",
+                "event": "valueChanged",
+                "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1}
+            }
+        ]
     },
     {
         "type": "comboBox",
-        "bounds": {"left": 260, "top": 188, "width": 100, "height": 30},
-        "channels": [{"id": "waveform", "event": "valueChanged"}],
+        "id": "waveform",
+        "bounds": {"left": 249, "top": 186, "width": 100, "height": 30},
+        "channels": [
+            {
+                "id": "waveform",
+                "event": "valueChanged",
+                "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1}
+            }
+        ],
         "corners": 5,
-        "items": ["Saw", "Square", "Triangle"]
+        "items": ["Saw", "Square", "Triangle"],
+        "max": 2
     }
 ]
 </Cabbage>
@@ -81,7 +100,7 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-    
+    print cabbageGetValue:i("waveform")
     vcoModes:i[] fillarray 0, 10, 12
     att:i = cabbageGetValue("att")
     dec:i = cabbageGetValue("dec")
