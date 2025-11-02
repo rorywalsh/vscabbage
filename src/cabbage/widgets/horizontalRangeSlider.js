@@ -47,7 +47,6 @@ export class HorizontalRangeSlider {
       "markerStart": 0.1,
       "markerEnd": 0.9,
       "type": "horizontalRangeSlider",
-      "decimalPlaces": 1,
       "velocity": 0,
       "visible": 1,
       "popup": 1,

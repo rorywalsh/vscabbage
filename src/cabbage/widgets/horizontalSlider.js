@@ -45,7 +45,6 @@ export class HorizontalSlider {
       },
       "thumbWidth": 8,
       "type": "horizontalSlider",
-      "decimalPlaces": 1,
       "visible": 1,
       "opacity": 1,
       "popup": 0,

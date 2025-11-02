@@ -40,7 +40,6 @@ export class VerticalSlider {
         }
       },
       "type": "verticalSlider",
-      "decimalPlaces": 1,
       "velocity": 0,
       "visible": 1,
       "opacity": 1,

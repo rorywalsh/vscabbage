@@ -37,7 +37,6 @@ export class NumberSlider {
                 "fill": "#0295cf"
             },
             "type": "numberSlider",
-            "decimalPlaces": 1,
             "velocity": 0,
             "popup": 1,
             "visible": 1,

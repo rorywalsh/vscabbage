@@ -27,8 +27,10 @@ export class RotarySlider {
       "font": {
         "family": "Verdana",
         "size": 0,
+        "valueFontSize": 0,
         "align": "centre",
-        "colour": "#dddddd"
+        "colour": "#dddddd",
+        "valueFontColour": "#aaaaaa"
       },
       "textOffsetY": 0,
       "valueTextBox": 1,
@@ -40,8 +42,8 @@ export class RotarySlider {
         },
         "tracker": {
           "fill": "#93d200",
-          "background": "#ffffff",
-          "width": 20
+          "background": "#393939ff",
+          "width": 8
         }
       },
       "filmStrip": {
@@ -53,14 +55,14 @@ export class RotarySlider {
         }
       },
       "type": "rotarySlider",
-      "decimalPlaces": 1,
       "velocity": 0,
       "popup": 0,
       "visible": 1,
       "automatable": 1,
       "valuePrefix": "",
       "valuePostfix": "",
-      "opacity": 1
+      "opacity": 1,
+      "knobRadius": -1
     };
 
     this.imageWidth = 0;
@@ -544,8 +546,9 @@ export class RotarySlider {
       -(130 - innerTrackerEndPoints),
       angle
     );
-    // Calculate proportional font size if font.size is 0
+    // Calculate proportional font sizes
     let fontSize = this.props.font.size > 0 ? this.props.font.size : w * 0.24;
+    let valueTextSize = this.props.font.valueFontSize > 0 ? this.props.font.valueFontSize : w * 0.24;
     const textY = this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0);
     let scale = 100;
 
@@ -562,12 +565,12 @@ export class RotarySlider {
 
       // Calculate the maximum width of the input box based on the number of decimal places
       const maxValueLength = (range.max.toString().length + decimalPlaces + 1); // +1 for the decimal point
-      let inputWidth = maxValueLength * fontSize * 0.5; // Adjust multiplier as needed for padding
+      let inputWidth = maxValueLength * valueTextSize * 0.5; // Adjust multiplier as needed for padding
 
       // Check if the input width exceeds the slider width
       if (inputWidth > this.props.bounds.width) {
-        // Resize the font size proportionally
-        fontSize = (this.props.bounds.width / (maxValueLength * 0.5)); // Adjust multiplier as needed
+        // Resize the value text size proportionally
+        valueTextSize = (this.props.bounds.width / (maxValueLength * 0.5)); // Adjust multiplier as needed
         inputWidth = this.props.bounds.width; // Set input width to slider width
       }
 
@@ -585,11 +588,11 @@ export class RotarySlider {
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
         <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
-  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${this.props.knobRadius === -1 ? w * 0.367 : this.props.knobRadius} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
         </g>
-        <foreignObject x="${inputX}" y="${textY - fontSize * 1.5}" width="${this.props.bounds.width}" height="${fontSize * 2}">
+        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(valueTextSize * (this.props.font.valueFontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(valueTextSize * (this.props.font.valueFontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
-            style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
+            style="width:100%; outline: none; height:100%; text-align:center; font-size:${valueTextSize}px; font-family:${this.props.font.family}; color:${this.props.font.valueFontColour}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
             onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
@@ -602,7 +605,7 @@ export class RotarySlider {
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
-  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${(w / 2) - trackerWidth * 0.65} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${this.props.knobRadius === -1 ? w * 0.367 : this.props.knobRadius} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
       <foreignObject x="0" y="${textY - fontSize}" width="${this.props.bounds.width}" height="${fontSize * 1.2}">
         <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
           ${this.props.text}
