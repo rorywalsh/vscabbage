@@ -18,32 +18,30 @@ export class OptionButton {
         "height": 30
       },
       "channels": [{ "id": "optionButton", "event": "valueChanged", "range": { "min": 0, "max": 3, "defaultValue": 0, "skew": 1, "increment": 1 } }],
-      "corners": 2,
-      "min": 0,
-      "max": 1,
       "value": null,
-      "items": "Item1, Item2, Item3",
+      "index": 0,
+      "visible": true,
+      "active": true,
+      "automatable": true,
+      "presetIgnore": false,
       "opacity": 1,
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "centre",
-        "colour": "#dddddd"
-      },
-      "colour": {
-        "fill": "#0295cf",
-        "stroke": {
-          "colour": "#dddddd",
-          "width": 1
-        }
-      },
-      "name": "",
-      "value": null,
-      "defaultValue": 0,
       "type": "optionButton",
-      "visible": 1,
-      "automatable": 1,
-      "presetIgnore": 0
+
+      "shape": {
+        "borderRadius": 2,
+        "borderWidth": 1,
+        "borderColor": "#dddddd",
+        "fill": "#0295cf"
+      },
+
+      "label": {
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "color": "#dddddd",
+        "textAlign": "center"
+      },
+
+      "items": "Item1, Item2, Item3"
     };
 
     this.vscode = null;
@@ -55,7 +53,7 @@ export class OptionButton {
 
 
   pointerUp() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseDown = false;
@@ -66,7 +64,7 @@ export class OptionButton {
     evt.stopPropagation();
     console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', CabbageUtils.getChannelId(this.props));
 
-    if (this.props.visible === 0) {
+    if (this.props.visible === false || this.props.visible === 0) {
       return '';
     }
 
@@ -81,7 +79,7 @@ export class OptionButton {
     const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
     const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
     console.log('Sending parameter update:', msg);
-    if (this.props.automatable === 1) {
+    if (this.props.automatable === true || this.props.automatable === 1) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -100,7 +98,7 @@ export class OptionButton {
 
   pointerEnter(evt) {
     evt.stopPropagation();
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseOver = true;
@@ -109,7 +107,7 @@ export class OptionButton {
 
   pointerLeave(evt) {
     evt.stopPropagation();
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseOver = false;
@@ -160,28 +158,28 @@ export class OptionButton {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.5 : this.props.label.fontSize;
     const padding = 5;
     const items = this.getItems();
     const currentText = items[this.currentIndex];
 
     let textX;
-    if (this.props.font.align === 'left') {
-      textX = this.props.corners;
-    } else if (this.props.font.align === 'right') {
-      textX = this.props.bounds.width - this.props.corners - padding;
+    if (this.props.label.textAlign === 'left') {
+      textX = this.props.shape.borderRadius + padding;
+    } else if (this.props.label.textAlign === 'right') {
+      textX = this.props.bounds.width - this.props.shape.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
     }
 
-    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.colour.fill, 0.2) : this.props.colour.fill;
+    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.shape.fill, 0.2) : this.props.shape.fill;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
-                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners}" fill="${currentColour}" stroke="${this.props.colour.stroke.colour}"
-                  stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-                <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                  fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                <rect x="${this.props.shape.borderRadius / 2}" y="${this.props.shape.borderRadius / 2}" width="${this.props.bounds.width - this.props.shape.borderRadius}" height="${this.props.bounds.height - this.props.shape.borderRadius}" fill="${currentColour}" stroke="${this.props.shape.borderColor}"
+                  stroke-width="${this.props.shape.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
+                <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
+                  fill="${this.props.label.color}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
             </svg>
         `;
   }

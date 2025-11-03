@@ -19,48 +19,50 @@ export class InfoButton extends Button {
                 "width": 80,
                 "height": 30
             },
-            "channel": "infoButton",
-            "corners": 6,
-            "min": 0,
-            "max": 1,
-            "defaultValue": 0,
+            "channels": [{ "id": "infoButton", "event": "valueChanged" }],
             "value": null,
-            "text": {
-                "on": "Info Button",
-                "off": "Info Button"
-            },
+            "index": 0,
+            "visible": true,
+            "active": true,
+            "automatable": false,
+            "presetIgnore": false,
+            "radioGroup": -1,
+            "type": "infoButton",
             "opacity": 1,
-            "font": {
-                "family": "Verdana",
-                "size": 0,
-                "align": "centre",
-                "colour": {
-                    "on": "#dddddd",
-                    "off": "#dddddd"
-                }
+
+            "shape": {
+                "borderRadius": 6,
+                "borderWidth": 0,
+                "borderColor": "#dddddd"
             },
-            "colour": {
+
+            "state": {
                 "on": {
-                    "fill": "#3d800a",
-                    "stroke": {
-                        "colour": "#dddddd",
-                        "width": 0
-                    }
+                    "backgroundColor": "#3d800a",
+                    "textColor": "#dddddd"
                 },
                 "off": {
-                    "fill": "#3d800a",
-                    "stroke": {
-                        "colour": "#dddddd",
-                        "width": 0
-                    }
+                    "backgroundColor": "#3d800a",
+                    "textColor": "#dddddd"
+                },
+                "hover": {
+                    "backgroundColor": "#4ca10c"
+                },
+                "active": {
+                    "backgroundColor": "#2d6008"
                 }
             },
-            "name": "",
-            "type": "infoButton",
-            "visible": 1,
-            "automatable": 0,
-            "presetIgnore": 0,
-            "radioGroup": -1,
+
+            "label": {
+                "text": {
+                    "on": "Info Button",
+                    "off": "Info Button"
+                },
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "textAlign": "center"
+            },
+
             "mode": "info",
             "file": "",
             "url": ""
@@ -73,7 +75,7 @@ export class InfoButton extends Button {
     }
 
     pointerDown(evt) {
-        if (this.props.active === 0) {
+        if (this.props.active === false || this.props.active === 0) {
             return '';
         }
         console.log("Cabbage: InfoButton pointerDown");
@@ -89,7 +91,7 @@ export class InfoButton extends Button {
             console.warn("Cabbage: InfoButton has no url or file property set");
         }
 
-        CabbageUtils.updateInnerHTML(this.props.channel, this);
+        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
     }
 
 }

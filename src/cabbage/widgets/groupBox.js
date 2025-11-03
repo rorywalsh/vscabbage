@@ -14,28 +14,29 @@ export class GroupBox {
                 "width": 100,
                 "height": 30
             },
-            "type": "groupBox",
-            "text": "Hello",
-            "corners": 4,
-            "font": {
-                "family": "Verdana",
-                "size": 0,
-                "align": "centre",
-                "colour": "#dddddd"
-            },
-            "colour": {
-                "fill": "#888888",
-                "stroke": {
-                    "colour": "#dddddd",
-                    "width": 1
-                }
-            },
-            "channel": "groupbox",
-            "corners": 4,
-            "visible": 1,
-            "automatable": 0,
+            "channels": [
+                { "id": "groupbox", "event": "valueChanged" }
+            ],
+            "index": 0,
+            "visible": true,
+            "automatable": false,
             "opacity": 1,
-            "index": 0
+            "type": "groupBox",
+
+            "shape": {
+                "borderRadius": 4,
+                "borderWidth": 1,
+                "borderColor": "#dddddd",
+                "fill": "#888888"
+            },
+
+            "label": {
+                "text": "Hello",
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "color": "#dddddd",
+                "textAlign": "center"
+            }
         };
     }
 
@@ -56,19 +57,14 @@ export class GroupBox {
         const width = Number(this.props.bounds.width) || 200;
         const height = Number(this.props.bounds.height) || 150;
 
-        // Handle stroke format - could be string or object
-        const strokeColour = typeof this.props.colour.stroke === 'string'
-            ? this.props.colour.stroke
-            : this.props.colour.stroke.colour;
-        const strokeWidth = typeof this.props.colour.stroke === 'string'
-            ? 1
-            : this.props.colour.stroke.width;
+        const strokeColour = this.props.shape.borderColor;
+        const strokeWidth = this.props.shape.borderWidth;
 
         const outlineOffset = strokeWidth / 2;
-        const textSize = this.props.font.size > 0 ? this.props.font.size : 16;
+        const textSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? 16 : this.props.label.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
-        const textWidth = (this.props.text.length * textSize) / 2; // approximate width of text
+        const textWidth = (this.props.label.text.length * textSize) / 2; // approximate width of text
 
         const alignMap = {
             'left': 'start',
@@ -77,60 +73,60 @@ export class GroupBox {
             'right': 'end',
         };
 
-        const svgAlign = alignMap[this.props.font.align] || 'middle'; // Default to 'middle' if font.alignment is not set or invalid
+        const svgAlign = alignMap[this.props.label.textAlign] || 'middle'; // Default to 'middle' if textAlign is not set or invalid
 
-        // Calculate text position based on font.alignment
+        // Calculate text position based on textAlign
         let textXPosition;
         let gapStart;
         let gapEnd;
 
         if (svgAlign === 'start') {
-            textXPosition = outlineOffset + padding; // Left-font.aligned, with padding
+            textXPosition = outlineOffset + padding; // Left-aligned, with padding
             gapStart = textXPosition - padding;
             gapEnd = textXPosition + textWidth + padding;
         } else if (svgAlign === 'end') {
-            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-font.aligned, with padding
+            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-aligned, with padding
             gapStart = textXPosition - textWidth - padding;
             gapEnd = textXPosition + padding;
         } else {
-            textXPosition = this.props.bounds.width / 2; // Center-font.aligned
+            textXPosition = this.props.bounds.width / 2; // Center-aligned
             gapStart = (this.props.bounds.width / 2) - textWidth / 2 - padding;
             gapEnd = (this.props.bounds.width / 2) + textWidth / 2 + padding;
         }
 
         // For containers with children, make background transparent so children are visible
         const hasChildren = this.props.children && Array.isArray(this.props.children) && this.props.children.length > 0;
-        const fillColor = hasChildren ? 'transparent' : this.props.colour.fill;
+        const fillColor = hasChildren ? 'transparent' : this.props.shape.fill;
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
-                 width="${width}" height="${height}"  preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+                 width="${width}" height="${height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
                 <defs>
                     <!-- Mask to create transparent area behind text -->
-                    <mask id="textMask_${this.props.channel}">
+                    <mask id="textMask_${this.props.channels[0].id}">
                         <!-- White rectangle covers everything (visible) -->
                         <rect x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}" fill="white"/>
                         <!-- Black rectangle behind text creates transparent area with rounded corners and extra padding -->
                         <rect x="${gapStart}" y="${yOffset - textSize / 2}" width="${gapEnd - gapStart}" height="${textSize + padding}" 
-                              rx="${this.props.corners}" ry="${this.props.corners}" fill="black"/>
+                              rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" fill="black"/>
                     </mask>
                 </defs>
                 
                 <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
                 <rect width="${this.props.bounds.width - (strokeWidth * 2)}" height="${this.props.bounds.height - (yOffset + strokeWidth)}" 
-                      x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.corners}" ry="${this.props.corners}" 
-                      fill="${fillColor}" mask="url(#textMask_${this.props.channel})"></rect>
+                      x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" 
+                      fill="${fillColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
                 
                 <!-- Rounded rectangle border outline with gap for text -->
                 <rect width="${this.props.bounds.width - strokeWidth}" height="${this.props.bounds.height - (yOffset + strokeWidth / 2)}" 
-                      x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.corners}" ry="${this.props.corners}" 
+                      x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" 
                       fill="none" stroke="${strokeColour}" stroke-width="${strokeWidth}" 
-                      mask="url(#textMask_${this.props.channel})"/>
+                      mask="url(#textMask_${this.props.channels[0].id})"/>
                 
                 <!-- Text at the top with alignment support -->
                 <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
-                      font-family="${this.props.font.family}" font-size="${textSize}" fill="${this.props.font.colour}">
-                    ${this.props.text}
+                      font-family="${this.props.label.fontFamily}" font-size="${textSize}" fill="${this.props.label.color}">
+                    ${this.props.label.text}
                 </text>
             </svg>
         `;

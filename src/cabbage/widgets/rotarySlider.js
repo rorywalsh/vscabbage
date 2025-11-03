@@ -23,29 +23,47 @@ export class RotarySlider {
       ],
       "value": null,
       "index": 0,
-      "text": "",
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "valueFontSize": 0,
-        "align": "centre",
-        "colour": "#dddddd",
-        "valueFontColour": "#aaaaaa"
-      },
-      "textOffsetY": 0,
-      "valueTextBox": 1,
-      "colour": {
+      "type": "rotarySlider",
+      "velocity": 0,
+      "popup": false,
+      "visible": true,
+      "automatable": true,
+      "opacity": 1,
+
+      "thumb": {
+        "radius": "auto",
         "fill": "#0295cf",
-        "stroke": {
-          "colour": "#525252",
-          "width": 2
-        },
-        "tracker": {
-          "fill": "#93d200",
-          "background": "#393939ff",
-          "width": 8
-        }
+        "borderColor": "#525252",
+        "borderWidth": 2
       },
+
+      "track": {
+        "thickness": "auto",
+        "fill": "#93d200",
+        "background": "#393939ff"
+      },
+
+      "label": {
+        "text": "",
+        "width": "auto",
+        "height": "auto",
+        "offsetY": 0,
+        "fontFamily": "Verdana",
+        "fontSize": 12,
+        "color": "#dddddd",
+        "textAlign": "center"
+      },
+
+      "valueText": {
+        "visible": true,
+        "width": "auto",
+        "prefix": "",
+        "postfix": "",
+        "fontFamily": "Verdana",
+        "fontSize": 11,
+        "color": "#aaaaaa"
+      },
+
       "filmStrip": {
         "file": "",
         "frames": {
@@ -53,16 +71,7 @@ export class RotarySlider {
           "width": 64,
           "height": 64
         }
-      },
-      "type": "rotarySlider",
-      "velocity": 0,
-      "popup": 0,
-      "visible": 1,
-      "automatable": 1,
-      "valuePrefix": "",
-      "valuePostfix": "",
-      "opacity": 1,
-      "knobRadius": -1
+      }
     };
 
     this.imageWidth = 0;
@@ -93,7 +102,7 @@ export class RotarySlider {
         if (key === 'visible') {
           console.log(`RotarySlider: visible changed from ${oldValue} to ${value}`);
           if (this.widgetDiv) {
-            this.widgetDiv.style.pointerEvents = value === 0 ? 'none' : 'auto';
+            this.widgetDiv.style.pointerEvents = value === false || value === 0 ? 'none' : 'auto';
           }
         }
 
@@ -234,7 +243,7 @@ export class RotarySlider {
     const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup === 1) {
+    if (popup && this.props.popup === true) {
       popup.textContent = parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup
@@ -356,7 +365,7 @@ export class RotarySlider {
       value: valueToSend,
       channelType: "number"
     };
-
+    console.log("Cabbage: Sending value update", msg);
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
   }  // Add this helper method to convert between linear and skewed values
@@ -502,60 +511,92 @@ export class RotarySlider {
   }
 
   getInnerHTML() {
-    // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
+    // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.thumb.opacity}`);
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const currentValue = this.props.value ?? range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
     }
 
+    // Handle filmstrip display
     if (this.isImageLoaded) {
-
       const filmStripElement = this.drawFilmStrip();
 
       if (filmStripElement) {
+        const labelFontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 
+          ? (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.18 
+          : this.props.label.fontSize;
+        
+        const labelY = this.props.bounds.height + (this.props.label.fontSize !== "auto" && this.props.label.fontSize > 0 ? this.props.label.offsetY : 0);
+        
         return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
           ${filmStripElement}
-          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0)} font-size="${this.props.font.size}px" font-family="${this.props.font.family}" stroke="none" fill="${this.props.font.colour}">${this.props.text}</text>
+          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${labelY} font-size="${labelFontSize}px" font-family="${this.props.label.fontFamily}" stroke="none" fill="${this.props.label.color}">${this.props.label.text}</text>
         </svg>
       `;
       }
     }
 
-    let w = (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.75;
-    // tracker width is stored under colour.tracker.width
-    const trackerWidth = this.props.colour.tracker.width;
-    const innerTrackerWidth = trackerWidth - this.props.colour.stroke.width; // Updated reference
-    const innerTrackerEndPoints = this.props.colour.stroke.width * 0.5;
-    const trackerOutlineColour = this.props.colour.stroke.width === 0 ? this.props.colour.tracker.background : this.props.colour.stroke.colour;
+    // Calculate sizes and positions
+    const minDimension = Math.min(this.props.bounds.width, this.props.bounds.height);
+    let w = minDimension * 0.75;
+    
+    // Calculate track thickness
+    const trackThickness = this.props.track.thickness === "auto" ? minDimension * 0.1 : this.props.track.thickness;
+    const innerTrackerWidth = trackThickness - this.props.thumb.borderWidth;
+    const innerTrackerEndPoints = this.props.thumb.borderWidth * 0.5;
+    const trackerOutlineColour = this.props.thumb.borderWidth === 0 ? this.props.track.background : this.props.thumb.borderColor;
 
-    const outerTrackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -130, 132); // Updated reference
-    const trackerPath = this.describeArc(this.props.bounds.width / 2, this.props.bounds.height / 2, (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)), -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints); // Updated reference
+    // Calculate paths
+    const outerTrackerPath = this.describeArc(
+      this.props.bounds.width / 2, 
+      this.props.bounds.height / 2, 
+      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)), 
+      -130, 
+      132
+    );
+    
+    const trackerPath = this.describeArc(
+      this.props.bounds.width / 2, 
+      this.props.bounds.height / 2, 
+      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)), 
+      -(130 - innerTrackerEndPoints), 
+      132 - innerTrackerEndPoints
+    );
 
     // Calculate normalized value for positioning (currentValue is skewed)
     const normalizedValue = (currentValue - range.min) / (range.max - range.min);
-    // Map to angle range using the normalized value
     const angle = CabbageUtils.map(normalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
 
     const trackerArcPath = this.describeArc(
       this.props.bounds.width / 2,
       this.props.bounds.height / 2,
-      (w / 2) * (1 - (trackerWidth / this.props.bounds.width / 2)),
+      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)),
       -(130 - innerTrackerEndPoints),
       angle
     );
-    // Calculate proportional font sizes
-    let fontSize = this.props.font.size > 0 ? this.props.font.size : w * 0.24;
-    let valueTextSize = this.props.font.valueFontSize > 0 ? this.props.font.valueFontSize : w * 0.24;
-    const textY = this.props.bounds.height + (this.props.font.size > 0 ? this.props.textOffsetY : 0);
+
+    // Calculate font sizes
+    const labelFontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 
+      ? w * 0.24 
+      : this.props.label.fontSize;
+    
+    const valueTextSize = this.props.valueText.fontSize === "auto" || this.props.valueText.fontSize === 0 
+      ? w * 0.24 
+      : this.props.valueText.fontSize;
+
+    // Calculate thumb radius
+    const thumbRadius = this.props.thumb.radius === "auto" ? w * 0.367 : this.props.thumb.radius;
+    
+    const labelY = this.props.bounds.height + (this.props.label.fontSize !== "auto" && this.props.label.fontSize > 0 ? this.props.label.offsetY : 0);
     let scale = 100;
 
-    if (this.props.valueTextBox === 1) {
+    // Render with value text visible
+    if (this.props.valueText.visible) {
       scale = 0.7;
       const moveY = 5;
-
       const centerX = this.props.bounds.width / 2;
       const centerY = this.props.bounds.height / 2;
 
@@ -564,35 +605,38 @@ export class RotarySlider {
       const decimalPlaces = CabbageUtils.getDecimalPlaces(incrementValue);
 
       // Calculate the maximum width of the input box based on the number of decimal places
-      const maxValueLength = (range.max.toString().length + decimalPlaces + 1); // +1 for the decimal point
-      let inputWidth = maxValueLength * valueTextSize * 0.5; // Adjust multiplier as needed for padding
+      const maxValueLength = (range.max.toString().length + decimalPlaces + 1);
+      let inputWidth = maxValueLength * valueTextSize * 0.5;
 
       // Check if the input width exceeds the slider width
+      let actualValueTextSize = valueTextSize;
       if (inputWidth > this.props.bounds.width) {
-        // Resize the value text size proportionally
-        valueTextSize = (this.props.bounds.width / (maxValueLength * 0.5)); // Adjust multiplier as needed
-        inputWidth = this.props.bounds.width; // Set input width to slider width
+        actualValueTextSize = (this.props.bounds.width / (maxValueLength * 0.5));
+        inputWidth = this.props.bounds.width;
       }
 
-      // Set inputX to 0 to take full width
       const inputX = 0;
 
+      // Create label text with ellipsis if needed
+      const labelWidth = this.props.label.width === "auto" ? this.props.bounds.width : this.props.label.width;
+      const labelText = this.props.label.text;
+
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
-        <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${fontSize * 1.2}">
-          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
-            ${this.props.text}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+        <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
+          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+            ${labelText}
           </div>
         </foreignObject>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
-        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
-        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
-        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${this.props.knobRadius === -1 ? w * 0.367 : this.props.knobRadius} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
+        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.thumb.borderWidth} />
+        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.track.background} stroke-width=${innerTrackerWidth} />
+        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.track.fill} stroke-width=${innerTrackerWidth} />
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.thumb.borderColor} fill="${this.props.thumb.fill}" stroke-width=${this.props.thumb.borderWidth} />
         </g>
-        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(valueTextSize * (this.props.font.valueFontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(valueTextSize * (this.props.font.valueFontSize > 0 ? 1.8 : 1.5), 18)}">
+        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.valueText.fontSize !== "auto" && this.props.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.valueText.fontSize !== "auto" && this.props.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
-            style="width:100%; outline: none; height:100%; text-align:center; font-size:${valueTextSize}px; font-family:${this.props.font.family}; color:${this.props.font.valueFontColour}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
+            style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
             onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
@@ -600,15 +644,16 @@ export class RotarySlider {
       `;
     }
 
+    // Render without value text (label only)
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === 0 ? 'none' : 'auto'};">
-      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.colour.stroke.width} />
-      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.background} stroke-width=${innerTrackerWidth} />
-      <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.colour.tracker.fill} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${this.props.knobRadius === -1 ? w * 0.367 : this.props.knobRadius} stroke=${this.props.colour.stroke.colour} fill="${this.props.colour.fill}" stroke-width=${this.props.colour.stroke.width} /> <!-- Updated fill color -->
-      <foreignObject x="0" y="${textY - fontSize}" width="${this.props.bounds.width}" height="${fontSize * 1.2}">
-        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour};">
-          ${this.props.text}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.thumb.borderWidth} />
+      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.track.background} stroke-width=${innerTrackerWidth} />
+      <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.track.fill} stroke-width=${innerTrackerWidth} />
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.thumb.borderColor} fill="${this.props.thumb.fill}" stroke-width=${this.props.thumb.borderWidth} />
+      <foreignObject x="0" y="${labelY - labelFontSize}" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+          ${this.props.label.text}
         </div>
       </foreignObject>
       </svg>

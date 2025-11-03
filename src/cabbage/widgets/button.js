@@ -23,45 +23,48 @@ export class Button {
           "event": "valueChanged"
         }
       ],
-      "corners": 6,
       "value": null,
-      "text": {
-        "on": "On",
-        "off": "Off"
-      },
+      "index": 0,
+      "visible": true,
+      "active": true,
+      "automatable": true,
+      "presetIgnore": false,
+      "radioGroup": -1,
+      "type": "button",
       "opacity": 1,
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "centre",
-        "colour": {
-          "on": "#dddddd",
-          "off": "#dddddd"
-        }
+
+      "shape": {
+        "borderRadius": 6,
+        "borderWidth": 0,
+        "borderColor": "#dddddd"
       },
-      "colour": {
+
+      "state": {
         "on": {
-          "fill": "#3d800a",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 0
-          }
+          "backgroundColor": "#3d800a",
+          "textColor": "#dddddd"
         },
         "off": {
-          "fill": "#3d800a",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 0
-          }
+          "backgroundColor": "#3d800a",
+          "textColor": "#dddddd"
+        },
+        "hover": {
+          "backgroundColor": "#4ca10c"
+        },
+        "active": {
+          "backgroundColor": "#2d6008"
         }
       },
-      "name": "",
-      "type": "button",
-      "visible": 1,
-      "automatable": 1,
-      "presetIgnore": 0,
-      "radioGroup": -1,
-      "index": 0
+
+      "label": {
+        "text": {
+          "on": "On",
+          "off": "Off"
+        },
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "textAlign": "center"
+      }
     };
 
     this.vscode = null;
@@ -71,7 +74,7 @@ export class Button {
   }
 
   pointerUp() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseDown = false;
@@ -79,7 +82,7 @@ export class Button {
   }
 
   pointerDown() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
 
@@ -116,7 +119,7 @@ export class Button {
   }
 
   pointerEnter() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseOver = true;
@@ -124,7 +127,7 @@ export class Button {
   }
 
   pointerLeave() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     this.isMouseOver = false;
@@ -173,32 +176,45 @@ export class Button {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.4;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.label.fontSize;
     const padding = 5;
 
     let textX;
-    if (this.props.font.align === 'left') {
-      textX = this.props.corners;
-    } else if (this.props.font.align === 'right') {
-      textX = this.props.bounds.width - this.props.corners - padding;
+    if (this.props.label.textAlign === 'left') {
+      textX = this.props.shape.borderRadius + padding;
+    } else if (this.props.label.textAlign === 'right') {
+      textX = this.props.bounds.width - this.props.shape.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
     }
+
     const buttonText = (this.props.type === "fileButton" || this.props.type === "infoButton") ?
-      (currentValue === 1 ? this.props.text.on : this.props.text.off) :
-      (currentValue === 1 ? this.props.text.on : this.props.text.off);
-    const baseColour = this.props.colour.on.fill !== this.props.colour.off.fill ? (currentValue === 1 ? this.props.colour.on.fill : this.props.colour.off.fill) : this.props.colour.on.fill;
-    const stateColour = CabbageColours.darker(baseColour, this.isMouseInside ? 0.2 : 0);
-    const currentColour = this.isMouseDown ? CabbageColours.lighter(baseColour, 0.2) : stateColour;
+      (currentValue === 1 ? this.props.label.text.on : this.props.label.text.off) :
+      (currentValue === 1 ? this.props.label.text.on : this.props.label.text.off);
+
+    // Determine background color based on state
+    const isOn = currentValue === 1;
+    const baseColour = isOn ? this.props.state.on.backgroundColor : this.props.state.off.backgroundColor;
+    
+    // Apply hover or active state if applicable
+    let currentColour = baseColour;
+    if (this.isMouseDown && this.props.state.active.backgroundColor) {
+      currentColour = this.props.state.active.backgroundColor;
+    } else if (this.isMouseInside && this.props.state.hover.backgroundColor) {
+      currentColour = this.props.state.hover.backgroundColor;
+    }
+
+    // Determine text color
+    const textColour = isOn ? this.props.state.on.textColor : this.props.state.off.textColor;
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
-        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.colour.on.stroke.colour}"
-          stroke-width="${this.props.colour.on.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-        <text x="${textX}" y="50%" font-family="${this.props.font.family}" font-size="${fontSize}"
-          fill="${currentValue === 1 ? this.props.font.colour.on : this.props.font.colour.off}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
+           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.shape.borderColor}"
+          stroke-width="${this.props.shape.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
+        <text x="${textX}" y="50%" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
+          fill="${textColour}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
   }

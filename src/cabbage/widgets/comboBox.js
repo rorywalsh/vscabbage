@@ -17,37 +17,35 @@ export class ComboBox {
             "channels": [
                 { "id": "comboBox", "event": "valueChanged" }
             ],
-            "corners": 2,
-            "font": {
-                "family": "Verdana",
-                "size": 0,
-                "align": "centre",
-                "colour": "#dddddd"
-            },
-            "colour": {
-                "fill": "#0295cf",
-                "stroke": {
-                    "colour": "#222222",
-                    "width": 1
-                }
-            },
-            "items": "One, Two, Three",
-            "min": 0,
-            "max": 3,
-            "visible": 1,
-            "type": "comboBox",
             "value": null,
-            "defaultValue": 0,
-            "automatable": 1,
-            "active": 1,
+            "index": 0,
+            "visible": true,
+            "active": true,
+            "automatable": true,
+            "opacity": 1,
+            "type": "comboBox",
             "channelType": "number",
+
+            "shape": {
+                "borderRadius": 2,
+                "borderWidth": 1,
+                "borderColor": "#222222",
+                "fill": "#0295cf"
+            },
+
+            "label": {
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "color": "#dddddd",
+                "textAlign": "center"
+            },
+
+            "items": "One, Two, Three",
+            "indexOffset": false,
             "populate": {
                 "directory": "",
                 "fileType": ""
-            },
-            "opacity": 1,
-            "indexOffset": false,
-            "index": 0
+            }
         };
 
         this.isMouseInside = false;
@@ -65,7 +63,7 @@ export class ComboBox {
         evt.stopPropagation();
         evt.preventDefault();
 
-        if (this.props.active === 0) {
+        if (this.props.active === false || this.props.active === 0) {
             return '';
         }
 
@@ -136,12 +134,12 @@ export class ComboBox {
         const dropdownHeight = items.length * itemHeight;
 
         // Calculate the maximum width needed for all items
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
+        const fontSize = this.props.label.fontSize === "auto" ? this.props.bounds.height * 0.5 : this.props.label.fontSize;
         let maxWidth = rect.width;
         items.forEach(item => {
             const textWidth = CabbageUtils.getStringWidth(item, {
                 font: {
-                    family: this.props.font.family,
+                    family: this.props.label.fontFamily,
                     size: fontSize
                 }
             });
@@ -161,9 +159,9 @@ export class ComboBox {
         dropdown.style.width = `${maxWidth}px`;
         dropdown.style.height = `${dropdownHeight}px`;
         dropdown.style.zIndex = '9999';
-        dropdown.style.backgroundColor = this.props.colour.fill;
-        dropdown.style.border = `1px solid ${this.props.colour.stroke.colour}`;
-        dropdown.style.borderRadius = `${this.props.corners}px`;
+        dropdown.style.backgroundColor = this.props.shape.fill;
+        dropdown.style.border = `${this.props.shape.borderWidth}px solid ${this.props.shape.borderColor}`;
+        dropdown.style.borderRadius = `${this.props.shape.borderRadius}px`;
         dropdown.style.overflowY = 'auto';
         dropdown.style.maxHeight = `${Math.min(dropdownHeight, 300)}px`;
 
@@ -179,16 +177,16 @@ export class ComboBox {
             itemDiv.style.alignItems = 'center';
             itemDiv.style.justifyContent = 'center';
             itemDiv.style.cursor = 'pointer';
-            itemDiv.style.backgroundColor = CabbageColours.darker(this.props.colour.fill, 0.2);
-            itemDiv.style.fontFamily = this.props.font.family;
-            itemDiv.style.fontSize = `${this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5}px`;
-            itemDiv.style.color = this.props.font.colour;
+            itemDiv.style.backgroundColor = CabbageColours.darker(this.props.shape.fill, 0.2);
+            itemDiv.style.fontFamily = this.props.label.fontFamily;
+            itemDiv.style.fontSize = `${fontSize}px`;
+            itemDiv.style.color = this.props.label.color;
 
             itemDiv.onmouseover = () => {
-                itemDiv.style.backgroundColor = CabbageColours.lighter(this.props.colour.fill, 0.2);
+                itemDiv.style.backgroundColor = CabbageColours.lighter(this.props.shape.fill, 0.2);
             };
             itemDiv.onmouseout = () => {
-                itemDiv.style.backgroundColor = CabbageColours.darker(this.props.colour.fill, 0.2);
+                itemDiv.style.backgroundColor = CabbageColours.darker(this.props.shape.fill, 0.2);
             };
 
             itemDiv.onclick = () => {
@@ -255,34 +253,34 @@ export class ComboBox {
             'right': 'end',
         };
 
-        const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.5;
+        const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+        const fontSize = this.props.label.fontSize === "auto" ? this.props.bounds.height * 0.5 : this.props.label.fontSize;
 
         const arrowWidth = 10; // Width of the arrow
         const arrowHeight = 6; // Height of the arrow
-        const arrowX = this.props.bounds.width - arrowWidth - this.props.corners / 2 - 10; // Decreasing arrowX value to move the arrow more to the left
+        const arrowX = this.props.bounds.width - arrowWidth - this.props.shape.borderRadius / 2 - 10; // Decreasing arrowX value to move the arrow more to the left
         const arrowY = (this.props.bounds.height - arrowHeight) / 2; // Y-coordinate of the arrow
 
         let selectedItemTextX;
         if (svgAlign === 'middle') {
-            selectedItemTextX = (this.props.bounds.width - arrowWidth - this.props.corners / 2) / 2;
+            selectedItemTextX = (this.props.bounds.width - arrowWidth - this.props.shape.borderRadius / 2) / 2;
         } else {
             const selectedItemWidth = CabbageUtils.getStringWidth(this.selectedItem, this.props);
             const textPadding = svgAlign === 'start' ? - this.props.bounds.width * .1 : - this.props.bounds.width * .05;
-            selectedItemTextX = svgAlign === 'start' ? (this.props.bounds.width - this.props.corners / 2) / 2 - selectedItemWidth / 2 + textPadding : (this.props.bounds.width - this.props.corners / 2) / 2 + selectedItemWidth / 2 + textPadding;
+            selectedItemTextX = svgAlign === 'start' ? (this.props.bounds.width - this.props.shape.borderRadius / 2) / 2 - selectedItemWidth / 2 + textPadding : (this.props.bounds.width - this.props.shape.borderRadius / 2) / 2 + selectedItemWidth / 2 + textPadding;
         }
         const selectedItemTextY = this.props.bounds.height / 2;
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
-                <rect x="${this.props.corners / 2}" y="${this.props.corners / 2}" width="${this.props.bounds.width - this.props.corners}" height="${this.props.bounds.height - this.props.corners * 2}" fill="${this.props.colour.fill}" stroke="${this.props.colour.stroke.colour}"
-                    stroke-width="${this.props.colour.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}" 
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                <rect x="${this.props.shape.borderRadius / 2}" y="${this.props.shape.borderRadius / 2}" width="${this.props.bounds.width - this.props.shape.borderRadius}" height="${this.props.bounds.height - this.props.shape.borderRadius * 2}" fill="${this.props.shape.fill}" stroke="${this.props.shape.borderColor}"
+                    stroke-width="${this.props.shape.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" 
                     style="cursor: pointer;" pointer-events="all" 
                     onclick="document.getElementById('${CabbageUtils.getChannelId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
-                    fill="${this.props.colour.stroke.colour}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
-                <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.font.family}" font-size="${fontSize}"
-                    fill="${this.props.font.colour}" text-anchor="${svgAlign}" alignment-baseline="middle"
+                    fill="${this.props.shape.borderColor}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
+                <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
+                    fill="${this.props.label.color}" text-anchor="${svgAlign}" alignment-baseline="middle"
                     style="pointer-events: none;">${this.selectedItem}</text>
             </svg>
         `;

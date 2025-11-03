@@ -21,38 +21,49 @@ export class HorizontalSlider {
       "channels": [
         { "id": "hslider", "event": "valueChanged" }
       ],
-      "corners": 4,
       "value": null,
-      "text": "",
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "centre",
-        "colour": "#dddddd"
-      },
-      "valueTextBox": 1,
-      "colour": {
+      "index": 0,
+
+      "thumb": {
+        "width": 8,
         "fill": "#0295cf",
-        "stroke": {
-          "colour": "#525252",
-          "width": 1
-        },
-        "tracker": {
-          "fill": "#93d200",
-          "background": "#ffffff",
-          "width": 2
-        }
+        "borderColor": "#525252",
+        "borderWidth": 1,
+        "corners": 4
       },
-      "thumbWidth": 8,
+
+      "track": {
+        "thickness": 2,
+        "fill": "#93d200",
+        "background": "#ffffff"
+      },
+
+      "label": {
+        "text": "",
+        "width": "auto",
+        "offsetX": 0,
+        "fontFamily": "Verdana",
+        "fontSize": 0,
+        "color": "#dddddd",
+        "textAlign": "center"
+      },
+
+      "valueText": {
+        "visible": true,
+        "width": "auto",
+        "prefix": "",
+        "postfix": "",
+        "fontFamily": "Verdana",
+        "fontSize": 0,
+        "color": "#dddddd"
+      },
+
       "type": "horizontalSlider",
-      "visible": 1,
+      "visible": true,
       "opacity": 1,
-      "popup": 0,
-      "automatable": 1,
-      "valuePrefix": "",
-      "valuePostfix": "",
-      "presetIgnore": 0,
-      "index": 0
+      "popup": false,
+      "automatable": true,
+      "presetIgnore": false
     };
 
     this.parameterIndex = 0;
@@ -102,12 +113,12 @@ export class HorizontalSlider {
       'centre': 'middle',
       'right': 'end',
     };
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
-    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props, 20) : 0;
-    textWidth = (this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth) - padding;
-    const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
+    let textWidth = this.props.label.text ? CabbageUtils.getStringWidth(this.props.label.text, this.props, 20) : 0;
+    textWidth = (this.props.label.offsetX > 0 ? this.props.label.offsetX : textWidth) - padding;
+    const valueTextBoxWidth = this.props.valueText.visible ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
     textWidth += padding;
 
@@ -173,7 +184,7 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
       const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
@@ -254,12 +265,12 @@ export class HorizontalSlider {
       'centre': 'middle',
       'right': 'end',
     };
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
-    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props, 20) : 0;
-    textWidth = (this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth) - padding;
-    const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
+    let textWidth = this.props.label.text ? CabbageUtils.getStringWidth(this.props.label.text, this.props, 20) : 0;
+    textWidth = (this.props.label.offsetX > 0 ? this.props.label.offsetX : textWidth) - padding;
+    const valueTextBoxWidth = this.props.valueText.visible ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
     textWidth += padding;
 
@@ -340,9 +351,10 @@ export class HorizontalSlider {
 
   getInnerHTML() {
     const range = CabbageUtils.getChannelRange(this.props, 0);
+    const currentValue = this.props.value ?? range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
-      popup.textContent = this.props.valuePrefix + parseFloat(this.props.value ?? 0).toFixed(this.decimalPlaces) + this.props.valuePostfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
     }
 
     const alignMap = {
@@ -352,57 +364,52 @@ export class HorizontalSlider {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const currentValue = this.props.value ?? range.defaultValue;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    
     // Add padding if alignment is 'end' or 'middle'
-    const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0; // Adjust the padding value as needed
+    const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
     // Calculate text width and update SVG width
-    let textWidth = this.props.text ? CabbageUtils.getStringWidth(this.props.text, this.props, 20) : 0;
-    textWidth = (this.props.sliderOffsetX > 0 ? this.props.sliderOffsetX : textWidth) - padding;
-    const valueTextBoxWidth = this.props.valueTextBox ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
-    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding; // Subtract padding from sliderWidth
+    let textWidth = this.props.label.text ? CabbageUtils.getStringWidth(this.props.label.text, this.props, 20) : 0;
+    textWidth = (this.props.label.offsetX > 0 ? this.props.label.offsetX : textWidth) - padding;
+    const valueTextBoxWidth = this.props.valueText.visible ? CabbageUtils.getNumberBoxWidth(this.props) : 0;
+    const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
 
-    const w = (sliderWidth > this.props.bounds.height ? this.props.bounds.height : sliderWidth) * 0.75;
-
-    // Calculate fontSize - use explicit font.size if provided, otherwise calculate from widget height
-    // This ensures consistent font rendering for both text label and value box
-    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.6;
-    const textY = this.props.bounds.height / 2 + (this.props.font.size > 0 ? this.props.textOffsetY : 0) + (this.props.bounds.height * 0.25); // Adjusted for vertical centering
+    // Calculate fontSize - use explicit fontSize if provided, otherwise calculate from widget height
+    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.height * 0.6;
 
     textWidth += padding;
 
-    const textElement = this.props.text ? `
+    const textElement = this.props.label.text ? `
       <foreignObject x="0" y="0" width="${textWidth}" height="${this.props.bounds.height}">
-        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${svgAlign === 'end' ? 'flex-end' : (svgAlign === 'middle' ? 'center' : 'flex-start')}; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; padding-right:${svgAlign === 'end' ? padding : 0}px;">
-          ${this.props.text}
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${svgAlign === 'end' ? 'flex-end' : (svgAlign === 'middle' ? 'center' : 'flex-start')}; font-size:${fontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; padding-right:${svgAlign === 'end' ? padding : 0}px;">
+          ${this.props.label.text}
         </div>
       </foreignObject>
     ` : '';
 
-    // Use explicit tracker width from props and clamp to available slider height
-    const trackerWidth = this.props.colour?.tracker?.width ?? 12;
-    const trackerHeight = Math.min(trackerWidth, this.props.bounds.height * 0.9);
+    // Use track thickness and clamp to available slider height
+    const trackerHeight = Math.min(this.props.track.thickness, this.props.bounds.height * 0.9);
     const trackerY = (this.props.bounds.height - trackerHeight) / 2;
 
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-        <rect x="1" y="${trackerY}" width="${sliderWidth - 2}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.background}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
-        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.colour.tracker.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/> 
-        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - sliderWidth * .05 - 1) + 1}" y="0" width="${this.props.thumbWidth}" height="${this.props.bounds.height}" rx="${this.props.corners}" ry="${this.props.corners}" fill="${this.props.colour.fill}" stroke-width="${this.props.colour.stroke.width}" stroke="${this.props.colour.stroke.colour}"/>
+        <rect x="1" y="${trackerY}" width="${sliderWidth - 2}" height="${trackerHeight}" rx="4" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
+        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - this.props.thumb.width - 1) + 1}" y="0" width="${this.props.thumb.width}" height="${this.props.bounds.height}" rx="${this.props.thumb.corners}" ry="${this.props.thumb.corners}" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
       </svg>
     `;
 
-    const valueTextElement = this.props.valueTextBox ? `
+    const valueTextElement = this.props.valueText.visible ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
-        style="width:100%; outline: none; height:100%; text-align:center; font-size:${fontSize}px; font-family:${this.props.font.family}; color:${this.props.font.colour}; background:none; border:none; padding:0; margin:0;"
+        style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize > 0 ? this.props.valueText.fontSize : fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === false ? 'none' : 'block'};">
         ${textElement}
         ${sliderElement}
         ${valueTextElement}

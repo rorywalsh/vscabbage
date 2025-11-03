@@ -20,49 +20,52 @@ export class FileButton extends Button {
         "height": 30
       },
       "channels": [{ "id": "fileButton", "event": "valueChanged" }],
-      "corners": 6,
-      "min": 0,
-      "max": 1,
-      "defaultValue": 0,
       "value": null,
-      "text": {
-        "on": "Choose File",
-        "off": "Choose File"
-      },
+      "index": 0,
+      "visible": true,
+      "active": true,
+      "automatable": false,
+      "presetIgnore": false,
+      "radioGroup": -1,
+      "type": "fileButton",
       "opacity": 1,
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "centre",
-        "colour": {
-          "on": "#dddddd",
-          "off": "#dddddd"
-        }
+
+      "shape": {
+        "borderRadius": 6,
+        "borderWidth": 0,
+        "borderColor": "#dddddd"
       },
-      "colour": {
+
+      "state": {
         "on": {
-          "fill": "#3d800a",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 0
-          }
+          "backgroundColor": "#3d800a",
+          "textColor": "#dddddd"
         },
         "off": {
-          "fill": "#3d800a",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 0
-          }
+          "backgroundColor": "#3d800a",
+          "textColor": "#dddddd"
+        },
+        "hover": {
+          "backgroundColor": "#4ca10c"
+        },
+        "active": {
+          "backgroundColor": "#2d6008"
         }
       },
+
+      "label": {
+        "text": {
+          "on": "Choose File",
+          "off": "Choose File"
+        },
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "textAlign": "center"
+      },
+
       "directory": "",
       "filters": "*",
       "openAtLastKnownLocation": true,
-      "type": "fileButton",
-      "visible": 1,
-      "automatable": 0,
-      "presetIgnore": 0,
-      "radioGroup": -1,
       "mode": "file"
     };
 
@@ -73,7 +76,7 @@ export class FileButton extends Button {
   }
 
   pointerDown(evt) {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
     console.log("Cabbage: fileButton pointerDown");

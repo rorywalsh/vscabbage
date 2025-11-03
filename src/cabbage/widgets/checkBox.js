@@ -20,41 +20,41 @@ export class Checkbox {
       "channels": [
         { "id": "checkbox", "event": "valueChanged" }
       ],
-      "corners": 2,
-      "text": "On/Off",
-      "font": {
-        "family": "Verdana",
-        "size": 0,
-        "align": "left",
-        "colour": {
-          "on": "#dddddd",
-          "off": "#000000"
-        }
+      "value": null,
+      "index": 0,
+      "visible": true,
+      "active": true,
+      "automatable": true,
+      "presetIgnore": false,
+      "opacity": 1,
+      "radioGroup": -1,
+      "type": "checkBox",
+
+      "shape": {
+        "borderRadius": 2
       },
-      "colour": {
+
+      "state": {
         "on": {
           "fill": "#93d200",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 2
-          }
+          "borderColor": "#dddddd",
+          "borderWidth": 2,
+          "textColor": "#dddddd"
         },
         "off": {
           "fill": "#00000000",
-          "stroke": {
-            "colour": "#dddddd",
-            "width": 2
-          }
+          "borderColor": "#dddddd",
+          "borderWidth": 2,
+          "textColor": "#000000"
         }
       },
-      "type": "checkBox",
-      "visible": 1,
-      "automatable": 1,
-      "presetIgnore": 0,
-      "opacity": 1,
-      "radioGroup": -1,
-      "index": 0,
-      "value": null
+
+      "label": {
+        "text": "On/Off",
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "textAlign": "left"
+      }
     };
 
     this.vscode = null;
@@ -62,7 +62,7 @@ export class Checkbox {
   }
 
   toggle() {
-    if (this.props.active === 0) {
+    if (this.props.active === false || this.props.active === 0) {
       return '';
     }
 
@@ -119,19 +119,22 @@ export class Checkbox {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.font.align] || this.props.font.align;
-    const fontSize = this.props.font.size > 0 ? this.props.font.size : this.props.bounds.height * 0.8;
+    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.8 : this.props.label.fontSize;
 
     const checkboxSize = this.props.bounds.height * 0.8;
-    const checkboxX = this.props.font.align === 'right' ? this.props.bounds.width - checkboxSize - this.props.corners : this.props.corners;
-    const textX = this.props.font.align === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4;
+    const checkboxX = this.props.label.textAlign === 'right' ? this.props.bounds.width - checkboxSize - this.props.shape.borderRadius : this.props.shape.borderRadius;
+    const textX = this.props.label.textAlign === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4;
 
-    const adjustedTextAnchor = this.props.font.align === 'right' ? 'end' : 'start';
+    const adjustedTextAnchor = this.props.label.textAlign === 'right' ? 'end' : 'start';
+
+    const isOn = currentValue === 1;
+    const currentState = isOn ? this.props.state.on : this.props.state.off;
 
     return `
-      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === 0 ? 'none' : 'block'};">
-        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentValue === 1 ? this.props.colour.on.fill : this.props.colour.off.fill}" stroke="${currentValue === 1 ? this.props.colour.on.stroke.colour : this.props.colour.off.stroke.colour}" stroke-width="${currentValue === 1 ? this.props.colour.on.stroke.width : this.props.colour.off.stroke.width}" rx="${this.props.corners}" ry="${this.props.corners}"></rect>
-        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.font.family}" font-size="${fontSize}" fill="${this.props.font.colour[currentValue === 1 ? 'on' : 'off']}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.text}</text>
+      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentState.fill}" stroke="${currentState.borderColor}" stroke-width="${currentState.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
+        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}" fill="${currentState.textColor}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.label.text}</text>
       </svg>
     `;
   }
