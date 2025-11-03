@@ -12,16 +12,18 @@ export class Form {
         "width": 600,
         "height": 300
       },
-      "id": "MainForm",
-      "caption": "",
-      "type": "form",
-      "colour": {
-        "fill": "#004c6b"
-      },
-      "channelConfig": "2-2",
       "channels": [
         { "id": "", "event": "valueChanged" }
       ],
+      "type": "form",
+
+      "shape": {
+        "fill": "#004c6b"
+      },
+
+      "id": "MainForm",
+      "caption": "",
+      "channelConfig": "2-2",
       "enableDevTools": true
     };
     this.props.channels[0].id = this.props.id;
@@ -35,7 +37,7 @@ export class Form {
   getInnerHTML() {
     return `
       <svg class="widget-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.size.width} ${this.props.size.height}" width="100%" height="100%" preserveAspectRatio="none" style="position: relative; z-index: 0;">
-        <rect width="${this.props.size.width}" height="${this.props.size.height}" x="0" y="0" rx="2" ry="2" fill="${this.props.colour.fill}" />
+        <rect width="${this.props.size.width}" height="${this.props.size.height}" x="0" y="0" rx="2" ry="2" fill="${this.props.shape.fill}" />
       </svg>
     `;
   }
@@ -65,7 +67,7 @@ export class Form {
       if (rect) {
         rect.setAttribute('width', this.props.size.width);
         rect.setAttribute('height', this.props.size.height);
-        rect.setAttribute('fill', this.props.colour.fill);
+        rect.setAttribute('fill', this.props.shape.fill);
       }
       console.log("Cabbage: updateSVG updated existing SVG");
     } else {

@@ -14,22 +14,25 @@ export class TextEditor {
                 "width": 200,
                 "height": 300
             },
+            "channel": "texteditor",
+            "visible": true,
+            "automatable": false,
+            "opacity": 1,
             "type": "textEditor",
-            "colour": {
+
+            "shape": {
+                "borderRadius": 4,
                 "fill": "#0295cf"
             },
-            "channel": "texteditor",
-            "font": {
-                "family": "Verdana",
-                "size": 14,
-                "align": "left",
-                "colour": "#222222"
+
+            "label": {
+                "fontFamily": "Verdana",
+                "fontSize": 14,
+                "color": "#222222",
+                "textAlign": "left"
             },
-            "corners": 4,
-            "visible": 1,
-            "text": "",
-            "automatable": 0,
-            "opacity": 1
+
+            "text": ""
         };
         this.vscode = null;
     }
@@ -43,19 +46,19 @@ export class TextEditor {
     }
 
     getInnerHTML() {
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.8, 12); // Ensuring font size doesn't get too small
+        const fontSize = this.props.label.fontSize === "auto" ? Math.max(this.props.bounds.height * 0.8, 12) : this.props.label.fontSize;
         const alignMap = {
             'left': 'start',
             'center': 'center',
             'centre': 'center',
             'right': 'end',
         };
-        const textAlign = alignMap[this.props.font.align] || 'start';
+        const textAlign = alignMap[this.props.label.textAlign] || 'start';
 
         return `
-                <textarea style="width: 100%; height: 100%; background-color: ${this.props.colour.fill}; 
-                color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity}; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+                <textarea style="width: 100%; height: 100%; background-color: ${this.props.shape.fill}; 
+                color: ${this.props.label.color}; font-family: ${this.props.label.fontFamily}; font-size: ${fontSize}px; 
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
 ${this.props.text}
                 </textarea>
         `;

@@ -18,16 +18,6 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
-            "id": "",
-            "type": "genTable",
-            "colour": {
-                "fill": "#93d200",
-                "background": "#00000022",
-                "stroke": {
-                    "colour": "#dddddd",
-                    "width": 1
-                }
-            },
             "channels": [
                 {
                     "id": "gentableStart",
@@ -40,24 +30,35 @@ export class GenTable {
                     "range": { "min": 0, "max": -1 }
                 }
             ],
+            "visible": true,
+            "automatable": false,
+            "opacity": 1,
+            "type": "genTable",
+
+            "shape": {
+                "borderRadius": 4,
+                "borderWidth": 1,
+                "borderColor": "#dddddd",
+                "fill": "#93d200",
+                "background": "#00000022"
+            },
+
+            "label": {
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "color": "#dddddd",
+                "textAlign": "left"
+            },
+
             "range": {
                 "x": { "start": 0, "end": -1 },
                 "y": { "min": -1.0, "max": 1.0 }
             },
-            "font": {
-                "family": "Verdana",
-                "size": 0,
-                "align": "left",
-                "colour": "#dddddd"
-            },
+            "id": "",
             "file": "",
-            "corners": 4,
-            "visible": 1,
             "text": "",
             "tableNumber": -9999,
             "samples": [],
-            "automatable": 0,
-            "opacity": 1,
             "fill": 1,
             "selectableRegions": false
         };
@@ -331,10 +332,10 @@ export class GenTable {
      * This is the expensive operation that we cache
      * 
      * Color scheme:
-     * - colour.background: Widget background (behind waveform)
-     * - colour.fill: Waveform shape fill color
-     * - colour.stroke.colour: Outline color around waveform
-     * - colour.stroke.width: Outline thickness
+     * - shape.background: Widget background (behind waveform)
+     * - shape.fill: Waveform shape fill color
+     * - shape.borderColor: Outline color around waveform
+     * - shape.borderWidth: Outline thickness
      */
     renderWaveformToCache() {
         const ctx = this.waveformCtx;
@@ -350,13 +351,13 @@ export class GenTable {
         const yMax = this.props.range.y.max;
 
         // Draw background with rounded corners
-        ctx.fillStyle = this.props.colour.background;
+        ctx.fillStyle = this.props.shape.background;
         ctx.beginPath();
-        ctx.moveTo(Number(this.props.corners), 0);
-        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.corners));
-        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.corners));
-        ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.corners));
-        ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.corners));
+        ctx.moveTo(Number(this.props.shape.borderRadius), 0);
+        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.shape.borderRadius));
+        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.shape.borderRadius));
+        ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.shape.borderRadius));
+        ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.shape.borderRadius));
         ctx.closePath();
         ctx.fill();
 
@@ -376,7 +377,7 @@ export class GenTable {
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
             // Draw filled waveform from center line to amplitudes
-            ctx.fillStyle = this.props.colour.fill;
+            ctx.fillStyle = this.props.shape.fill;
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 const startIdx = Math.floor(x * samplesPerPixel);
                 const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
@@ -408,9 +409,9 @@ export class GenTable {
         }
 
         // Draw outline stroke on top
-        if (Number(this.props.colour.stroke.width) > 0) {
-            ctx.strokeStyle = this.props.colour.stroke.colour;
-            ctx.lineWidth = Number(this.props.colour.stroke.width);
+        if (Number(this.props.shape.borderWidth) > 0) {
+            ctx.strokeStyle = this.props.shape.borderColor;
+            ctx.lineWidth = Number(this.props.shape.borderWidth);
             ctx.beginPath();
 
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
@@ -449,7 +450,7 @@ export class GenTable {
     drawText(ctx) {
         if (!this.props.text) return;
 
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.bounds.height * 0.1, 12);
+        const fontSize = this.props.label.fontSize === "auto" ? Math.max(this.props.bounds.height * 0.1, 12) : this.props.label.fontSize;
         const canvasAlignMap = {
             'left': 'left',
             'center': 'center',
@@ -457,13 +458,13 @@ export class GenTable {
             'right': 'right',
         };
 
-        const textAlign = canvasAlignMap[this.props.font.align] || 'left';
-        ctx.font = `${fontSize}px ${this.props.font.family}`;
-        ctx.fillStyle = this.props.font.colour;
+        const textAlign = canvasAlignMap[this.props.label.textAlign] || 'left';
+        ctx.font = `${fontSize}px ${this.props.label.fontFamily}`;
+        ctx.fillStyle = this.props.label.color;
         ctx.textAlign = textAlign;
         ctx.textBaseline = 'bottom';
 
-        const textX = this.props.font.align === 'right' ? this.props.bounds.width - 10 : this.props.font.align === 'center' || this.props.font.align === 'centre' ? this.props.bounds.width / 2 : 10;
+        const textX = this.props.label.textAlign === 'right' ? this.props.bounds.width - 10 : this.props.label.textAlign === 'center' || this.props.label.textAlign === 'centre' ? this.props.bounds.width / 2 : 10;
         const textY = this.props.bounds.height - 10;
         ctx.fillText(this.props.text, textX, textY);
     }

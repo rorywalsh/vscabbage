@@ -14,14 +14,18 @@ export class ListBox {
                 "width": 200,
                 "height": 300
             },
+            "visible": true,
+            "automatable": true,
             "type": "listBox",
-            "backgroundColour": "#ffffff",
-            "fontColour": "#000000",
-            "highlightedItemColour": "#dddddd",
+
+            "color": {
+                "background": "#ffffff",
+                "text": "#000000",
+                "highlighted": "#dddddd"
+            },
+
             "items": "item1, item2, item3",
-            "visible": 1,
             "selectedIndex": -1,
-            "automatable": 1,
             "channelType": "number",
             "min": 0,
             "max": 3
@@ -52,9 +56,9 @@ export class ListBox {
     updateListItems(itemElements) {
         itemElements.forEach((itemElement, index) => {
             if (index === this.props.selectedIndex) {
-                itemElement.style.backgroundColor = this.props.highlightedItemColour;
+                itemElement.style.backgroundColor = this.props.color.highlighted;
             } else {
-                itemElement.style.backgroundColor = this.props.backgroundColour;
+                itemElement.style.backgroundColor = this.props.color.background;
             }
         });
     }
@@ -72,8 +76,8 @@ export class ListBox {
                 width: 100%;
                 padding: 5px;
                 box-sizing: border-box;
-                color: ${this.props.fontColour};
-                background-color: ${index === this.props.selectedIndex ? this.props.highlightedItemColour : this.props.backgroundColour};
+                color: ${this.props.color.text};
+                background-color: ${index === this.props.selectedIndex ? this.props.color.highlighted : this.props.color.background};
                 cursor: pointer;
                 ">
                 ${item}

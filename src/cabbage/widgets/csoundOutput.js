@@ -16,29 +16,30 @@ export class CsoundOutput {
                 "width": 200,
                 "height": 300
             },
-            "id": "",
-            "type": "csoundOutput",
-            "colour": {
-                "fill": "#0295cf",
-                "stroke": {
-                    "colour": "#dddddd",
-                    "width": 1
-                }
-            },
             "channels": [
                 { "id": "checkbox", "event": "valueChanged" }
             ],
-            "font": {
-                "family": "Verdana",
-                "size": 14,
-                "align": "left",
-                "colour": "#dddddd"
+            "visible": true,
+            "automatable": false,
+            "opacity": 1,
+            "type": "csoundOutput",
+
+            "shape": {
+                "borderRadius": 4,
+                "borderWidth": 1,
+                "borderColor": "#dddddd",
+                "fill": "#0295cf"
             },
-            "corners": 4,
-            "visible": 1,
-            "text": "Csound Output",
-            "automatable": 0,
-            "opacity": 1
+
+            "label": {
+                "fontFamily": "Verdana",
+                "fontSize": 14,
+                "color": "#dddddd",
+                "textAlign": "left"
+            },
+
+            "id": "",
+            "text": "Csound Output"
         };
 
     }
@@ -52,19 +53,19 @@ export class CsoundOutput {
     }
 
     getInnerHTML() {
-        const fontSize = this.props.font.size > 0 ? this.props.font.size : Math.max(this.props.height * 0.8, 12);
+        const fontSize = this.props.label.fontSize === "auto" ? Math.max(this.props.height * 0.8, 12) : this.props.label.fontSize;
         const alignMap = {
             'left': 'start',
             'center': 'center',
             'centre': 'center',
             'right': 'end',
         };
-        const textAlign = alignMap[this.props.font.align] || 'start';
+        const textAlign = alignMap[this.props.label.textAlign] || 'start';
 
         return `
-                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.colour.fill}; 
-                color: ${this.props.font.colour}; font-family: ${this.props.font.family}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.opacity}; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.shape.fill}; 
+                color: ${this.props.label.color}; font-family: ${this.props.label.fontFamily}; font-size: ${fontSize}px; 
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
 ${this.props.text}
                 </textarea>
         `;

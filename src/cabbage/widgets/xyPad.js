@@ -22,38 +22,40 @@ export class XyPad {
                 { "id": "rangeY", "event": "mouseDragY" }
             ],
             "value": null,
+            "visible": true,
+            "popup": true,
+            "automatable": true,
+            "presetIgnore": false,
+            "type": "xyPad",
+
+            "shape": {
+                "borderRadius": 5,
+                "borderWidth": 1,
+                "borderColor": "#525252",
+                "fill": "#323232"
+            },
+
+            "label": {
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "color": "#dddddd",
+                "textAlign": "center"
+            },
+
+            "ball": {
+                "size": 20,
+                "fill": "#93d200",
+                "borderWidth": 2
+            },
+
             "text": {
                 "x": "X",
                 "y": "Y"
             },
-            "font": {
-                "family": "Verdana",
-                "size": 0,
-                "align": "centre",
-                "colour": "#dddddd"
-            },
-            "colour": {
-                "fill": "#323232",
-                "stroke": {
-                    "colour": "#525252",
-                    "width": 1
-                },
-                "ball": {
-                    "fill": "#93d200",
-                    "width": 2
-                }
-            },
-            "ballSize": 20,
-            "type": "xyPad",
-            "corners": 5,
             "decimalPlaces": 1,
             "velocity": 0,
-            "visible": 1,
-            "popup": 1,
-            "automatable": 1,
             "valuePrefix": "",
-            "valuePostfix": "",
-            "presetIgnore": 0
+            "valuePostfix": ""
         };
 
         this.parameterIndex = 0;
@@ -584,7 +586,7 @@ export class XyPad {
 
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.shape.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
@@ -605,7 +607,7 @@ export class XyPad {
         line.setAttribute('y1', startY);
         line.setAttribute('x2', endX);
         line.setAttribute('y2', endY);
-        line.setAttribute('stroke', this.props.colour.ball.fill);
+        line.setAttribute('stroke', this.props.ball.fill);
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-dasharray', '5,5');
 
@@ -630,12 +632,12 @@ export class XyPad {
 
             const padWidth = this.props.bounds.width;
             const padHeight = this.props.bounds.height;
-            const strokeWidth = this.props.colour.stroke.width;
+            const strokeWidth = this.props.shape.borderWidth;
             const effectiveWidth = padWidth - (2 * strokeWidth);
             const effectiveHeight = padHeight - (2 * strokeWidth);
             const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
             const activeHeight = effectiveHeight - valueBoxHeight;
-            const ballRadius = this.props.ballSize / 2;
+            const ballRadius = this.props.ball.size / 2;
 
             // Calculate boundaries accounting for ball radius
             const maxXRange = 1 - (ballRadius / effectiveWidth);
