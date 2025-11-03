@@ -22,6 +22,7 @@ export class VerticalSlider {
       "index": 0,
 
       "thumb": {
+        "width": "auto",
         "height": "auto",
         "fill": "#0295cf",
         "borderColor": "#525252",
@@ -29,7 +30,7 @@ export class VerticalSlider {
       },
 
       "track": {
-        "width": 20,
+        "width": "auto",
         "fill": "#93d200",
         "background": "#ffffff"
       },
@@ -49,7 +50,7 @@ export class VerticalSlider {
         "prefix": "",
         "postfix": "",
         "fontFamily": "Verdana",
-        "fontSize": 0,
+        "fontSize": 11,
         "color": "#dddddd"
       },
 
@@ -323,11 +324,17 @@ export class VerticalSlider {
     const textX = this.props.bounds.width / 2;
 
     // Calculate fontSize - use explicit fontSize if provided, otherwise calculate from widget width
-    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.width * 0.3;
+    // Use smaller multiplier (0.13) to fit text better in bounds
+    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.width * 0.13;
 
-    // Use track width for the thumb/track thickness
-    const trackWidth = this.props.track.width;
-    const thumbHeight = this.props.thumb.height === "auto" ? Math.min(trackWidth, sliderHeight * 0.95) : this.props.thumb.height;
+    // For vertical sliders, the track/thumb should be sized based on a standard narrow width,
+    // not the full bounds.width (which might be wide to accommodate labels).
+    // Use min of bounds.width or a reasonable max (e.g., 60px) as the basis for auto calculations.
+    const sliderControlWidth = Math.min(this.props.bounds.width, 60);
+
+    const trackWidth = this.props.track.width === "auto" ? sliderControlWidth * 0.15 : this.props.track.width;
+    const thumbWidth = this.props.thumb.width === "auto" ? sliderControlWidth * 0.3 : this.props.thumb.width;
+    const thumbHeight = this.props.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderHeight * 0.08) : this.props.thumb.height;
 
     const textElement = this.props.label.text ? `
     <foreignObject x="0" y="${this.props.valueText.visible ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}">
@@ -340,18 +347,22 @@ export class VerticalSlider {
     // calculate Y offset to center the track vertically
     const trackY = 0;
 
+    // Center the track and thumb horizontally
+    const trackX = (this.props.bounds.width - trackWidth) / 2;
+    const thumbX = (this.props.bounds.width - thumbWidth) / 2;
+
     const sliderElement = `
     <svg x="0" y="${this.props.valueText.visible ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-      <rect x="${this.props.bounds.width * 0.4}" y="${trackY}" width="${this.props.bounds.width * 0.2}" height="${sliderHeight}" rx="2" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
-      <rect x="${this.props.bounds.width * 0.4}" y="${trackY + sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" width="${this.props.bounds.width * 0.2}" rx="2" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
-      <rect x="${this.props.bounds.width * 0.3}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${this.props.bounds.width * 0.4}" height="${thumbHeight}" rx="2" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+      <rect x="${trackX}" y="${trackY}" width="${trackWidth}" height="${sliderHeight}" rx="2" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+      <rect x="${trackX}" y="${trackY + sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" width="${trackWidth}" rx="2" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
+      <rect x="${thumbX}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${thumbWidth}" height="${thumbHeight}" rx="2" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
     </svg>
     `;
 
     const valueTextElement = this.props.valueText.visible ? `
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight * 1.2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight * 1.2}">
       <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
-      style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize > 0 ? this.props.valueText.fontSize : fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
+      style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
       onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
     ` : '';

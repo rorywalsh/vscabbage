@@ -18,11 +18,11 @@ export class MidiKeyboard {
         "height": 300
       },
       "channel": "",
-      "value": "36",
+      "value": 36,
       "automatable": false,
       "opacity": 1,
       "type": "keyboard",
-      
+
       "label": {
         "fontFamily": "Verdana",
         "fontSize": "auto",

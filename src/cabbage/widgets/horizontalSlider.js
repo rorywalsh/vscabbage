@@ -25,15 +25,16 @@ export class HorizontalSlider {
       "index": 0,
 
       "thumb": {
-        "width": 8,
+        "width": "auto",
+        "height": "auto",
         "fill": "#0295cf",
         "borderColor": "#525252",
-        "borderWidth": 1,
+        "borderWidth": 2,
         "corners": 4
       },
 
       "track": {
-        "thickness": 2,
+        "width": "auto",
         "fill": "#93d200",
         "background": "#ffffff"
       },
@@ -54,7 +55,7 @@ export class HorizontalSlider {
         "prefix": "",
         "postfix": "",
         "fontFamily": "Verdana",
-        "fontSize": 0,
+        "fontSize": 11,
         "color": "#dddddd"
       },
 
@@ -365,7 +366,7 @@ export class HorizontalSlider {
     };
 
     const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
-    
+
     // Add padding if alignment is 'end' or 'middle'
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
@@ -376,7 +377,16 @@ export class HorizontalSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
 
     // Calculate fontSize - use explicit fontSize if provided, otherwise calculate from widget height
-    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.height * 0.6;
+    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.height * 0.4;
+
+    // For horizontal sliders, the track/thumb should be sized based on a standard narrow height,
+    // not the full bounds.height (which might be tall to accommodate labels).
+    // Use min of bounds.height or a reasonable max (e.g., 60px) as the basis for auto calculations.
+    const sliderControlHeight = Math.min(this.props.bounds.height, 60);
+
+    const trackWidth = this.props.track.width === "auto" ? sliderControlHeight * 0.2 : this.props.track.width;
+    const thumbWidth = this.props.thumb.width === "auto" ? sliderControlHeight * 0.4 : this.props.thumb.width;
+    const thumbHeight = this.props.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderControlHeight * 0.8) : this.props.thumb.height;
 
     textWidth += padding;
 
@@ -388,22 +398,22 @@ export class HorizontalSlider {
       </foreignObject>
     ` : '';
 
-    // Use track thickness and clamp to available slider height
-    const trackerHeight = Math.min(this.props.track.thickness, this.props.bounds.height * 0.9);
-    const trackerY = (this.props.bounds.height - trackerHeight) / 2;
+    // Center the track and thumb vertically
+    const trackY = (this.props.bounds.height - trackWidth) / 2;
+    const thumbY = (this.props.bounds.height - thumbHeight) / 2;
 
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-        <rect x="1" y="${trackerY}" width="${sliderWidth - 2}" height="${trackerHeight}" rx="4" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
-        <rect x="1" y="${trackerY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackerHeight}" rx="4" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
-        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - this.props.thumb.width - 1) + 1}" y="0" width="${this.props.thumb.width}" height="${this.props.bounds.height}" rx="${this.props.thumb.corners}" ry="${this.props.thumb.corners}" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+        <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackWidth}" rx="2" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+        <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackWidth}" rx="2" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
+        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.thumb.corners}" ry="${this.props.thumb.corners}" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
       </svg>
     `;
 
     const valueTextElement = this.props.valueText.visible ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
-        style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize > 0 ? this.props.valueText.fontSize : fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
+        style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';

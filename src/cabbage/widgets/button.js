@@ -34,7 +34,7 @@ export class Button {
       "opacity": 1,
 
       "shape": {
-        "borderRadius": 6,
+        "borderRadius": 4,
         "borderWidth": 0,
         "borderColor": "#dddddd"
       },
@@ -49,10 +49,12 @@ export class Button {
           "textColor": "#dddddd"
         },
         "hover": {
-          "backgroundColor": "#4ca10c"
+          "backgroundColor": "#4ca10c",
+          "textColor": "#dddddd"
         },
         "active": {
-          "backgroundColor": "#2d6008"
+          "backgroundColor": "#2d6008",
+          "textColor": "#dddddd"
         }
       },
 
@@ -193,20 +195,22 @@ export class Button {
       (currentValue === 1 ? this.props.label.text.on : this.props.label.text.off) :
       (currentValue === 1 ? this.props.label.text.on : this.props.label.text.off);
 
-    // Determine background color based on state
+    // Determine background color and text color based on state
     const isOn = currentValue === 1;
     const baseColour = isOn ? this.props.state.on.backgroundColor : this.props.state.off.backgroundColor;
-    
+    const baseTextColour = isOn ? this.props.state.on.textColor : this.props.state.off.textColor;
+
     // Apply hover or active state if applicable
     let currentColour = baseColour;
+    let textColour = baseTextColour;
+
     if (this.isMouseDown && this.props.state.active.backgroundColor) {
       currentColour = this.props.state.active.backgroundColor;
+      textColour = this.props.state.active.textColor;
     } else if (this.isMouseInside && this.props.state.hover.backgroundColor) {
       currentColour = this.props.state.hover.backgroundColor;
+      textColour = this.props.state.hover.textColor;
     }
-
-    // Determine text color
-    const textColour = isOn ? this.props.state.on.textColor : this.props.state.off.textColor;
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 

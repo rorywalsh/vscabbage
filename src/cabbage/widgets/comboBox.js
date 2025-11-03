@@ -40,7 +40,7 @@ export class ComboBox {
                 "textAlign": "center"
             },
 
-            "items": "One, Two, Three",
+            "items": ["One", "Two", "Three"],
             "indexOffset": false,
             "populate": {
                 "directory": "",
@@ -88,17 +88,14 @@ export class ComboBox {
         this.selectedItem = item;
         const items = this.getItemsArray();
         const index = items.indexOf(this.selectedItem);
-        this.props.value = this.props.indexOffset ? index + 1 : index; // Update the value property
+        const valueToSend = this.props.indexOffset ? index + 1 : index;
 
-        // Send normalized value (0-1) to maintain consistency with parameter system
-        const normalizedValue = this.props.indexOffset
-            ? CabbageUtils.map(index + 1, 1, items.length, 0, 1)
-            : CabbageUtils.map(index, 0, items.length - 1, 0, 1);
+        this.props.value = valueToSend; // Update the value property
 
         const msg = {
             paramIdx: this.parameterIndex,
             channel: CabbageUtils.getChannelId(this.props),
-            value: this.props.channelType === "string" ? this.selectedItem : normalizedValue,
+            value: this.props.channelType === "string" ? this.selectedItem : valueToSend,
             channelType: this.props.channelType
         };
 
