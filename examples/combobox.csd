@@ -12,7 +12,7 @@
                 "range": {"min": 0, "max": 1, "value": 0.01, "defaultValue": 0.01, "skew": 1, "increment": 0.001}
             }
         ],
-        "text": "Att."
+        "label": {"text": "Att."}
     },
     {
         "type": "rotarySlider",
@@ -25,7 +25,7 @@
                 "range": {"min": 0, "max": 1, "value": 0.4, "defaultValue": 0.4, "skew": 1, "increment": 0.001}
             }
         ],
-        "text": "Dec."
+        "label": {"text": "Dec."}
     },
     {
         "type": "rotarySlider",
@@ -38,7 +38,7 @@
                 "range": {"min": 0, "max": 1, "value": 0.7, "defaultValue": 0.7, "skew": 1, "increment": 0.001}
             }
         ],
-        "text": "Sus."
+        "label": {"text": "Sus."}
     },
     {
         "type": "rotarySlider",
@@ -51,7 +51,7 @@
                 "range": {"min": 0, "max": 1, "value": 0.8, "defaultValue": 0.8, "skew": 1, "increment": 0.001}
             }
         ],
-        "text": "Rel."
+        "label": {"text": "Rel."}
     },
     {
         "type": "keyboard",
@@ -76,7 +76,7 @@
                 "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1}
             }
         ],
-        "corners": 5,
+        "shape": {"borderRadius": 5},
         "items": ["Saw", "Square", "Triangle"],
         "max": 2
     }

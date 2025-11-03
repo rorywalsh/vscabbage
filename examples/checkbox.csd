@@ -17,8 +17,7 @@
                 "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
             }
         ],
-        "text": "Synth Enabled",
-        "corners": 2
+        "label": {"text": "Synth Enabled"}
     },
     {
         "type": "button",
@@ -30,15 +29,14 @@
                 "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 1}
             }
         ],
-        "text": {"off": "Unmute", "on": "Mute"},
-        "corners": 2
+        "label": {"text": {"off": "Unmute", "on": "Mute"}}
     },
     {
         "type": "button",
-        "channels": [{"id": "toggleFreq", "event": "valueChanged"}],
         "bounds": {"left": 240, "top": 12, "width": 121, "height": 30},
-        "text": {"off": "Toggle Freq", "on": "Toggle Freq"},
-        "colour": {"off": {"fill": "#ff0000", "stroke": "#000000"}, "on": {"fill": "#0295cf", "stroke": "#000000"}}
+        "channels": [{"id": "toggleFreq", "event": "valueChanged"}],
+        "label": {"text": {"off": "Toggle Freq", "on": "Toggle Freq"}},
+        "state": {"off": {"backgroundColor": "#ff0000"}, "on": {"backgroundColor": "#0295cf"}}
     }
 ]
 </Cabbage>
@@ -59,9 +57,9 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-
+    
     kVal, kTrig = cabbageGetValue("trigger")
-
+    
     if kTrig == 1 then
         if kVal == 1 then
             event("i", "Synth", 0, 3600)
@@ -74,7 +72,7 @@ instr 1
 endin
 
 instr Synth
-    prints("Starting Synth")   
+    prints("Starting Synth")
     kMute = cabbageGetValue("mute")
     a1 = oscili(.5*kMute, 300*(cabbageGetValue("toggleFreq")+1))
     outs(a1, a1)
