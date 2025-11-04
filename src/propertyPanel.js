@@ -93,7 +93,8 @@ export class PropertyPanel {
      * @param panel - The panel to which the special section is appended.
      */
     createSpecialSection(panel) {
-        const specialSection = this.createSection('Widget Properties');
+        // Make the Widget Properties section non-collapsible
+        const specialSection = this.createSection('Widget Properties', { collapsible: false });
 
         // Track handled properties to avoid duplication in the misc section
         this.handledProperties = new Set();
@@ -328,11 +329,17 @@ export class PropertyPanel {
         const header = document.createElement('div');
         header.classList.add('section-header');
 
-        // Add arrow for collapsible functionality
-        const arrow = document.createElement('span');
-        arrow.classList.add('arrow');
-        arrow.textContent = '▼';
-        header.appendChild(arrow);
+        // Add arrow for collapsible functionality (unless explicitly disabled)
+        let arrow;
+        const isCollapsible = options.collapsible !== false;
+        if (isCollapsible) {
+            arrow = document.createElement('span');
+            arrow.classList.add('arrow');
+            arrow.textContent = '▼';
+            header.appendChild(arrow);
+        } else {
+            header.classList.add('non-collapsible');
+        }
 
         const title = document.createElement('h3');
         // Capitalize first letter of section name
@@ -350,26 +357,28 @@ export class PropertyPanel {
         }
 
         // Add click handler for collapsible functionality
-        header.addEventListener('click', (e) => {
-            console.log('PropertyPanel: Section header clicked:', name);
-            // Don't collapse if clicking on buttons
-            if (e.target.tagName === 'BUTTON' || e.target.closest('.button-container')) {
-                console.log('PropertyPanel: Clicked on button, not collapsing');
-                return;
-            }
+        if (isCollapsible) {
+            header.addEventListener('click', (e) => {
+                console.log('PropertyPanel: Section header clicked:', name);
+                // Don't collapse if clicking on buttons
+                if (e.target.tagName === 'BUTTON' || e.target.closest('.button-container')) {
+                    console.log('PropertyPanel: Clicked on button, not collapsing');
+                    return;
+                }
 
-            const isCollapsed = sectionDiv.classList.contains('collapsed');
-            console.log('PropertyPanel: Section', name, 'isCollapsed:', isCollapsed);
-            if (isCollapsed) {
-                sectionDiv.classList.remove('collapsed');
-                arrow.textContent = '▼';
-                console.log('PropertyPanel: Expanded section:', name);
-            } else {
-                sectionDiv.classList.add('collapsed');
-                arrow.textContent = '▶';
-                console.log('PropertyPanel: Collapsed section:', name);
-            }
-        });
+                const isCollapsed = sectionDiv.classList.contains('collapsed');
+                console.log('PropertyPanel: Section', name, 'isCollapsed:', isCollapsed);
+                if (isCollapsed) {
+                    sectionDiv.classList.remove('collapsed');
+                    arrow.textContent = '▼';
+                    console.log('PropertyPanel: Expanded section:', name);
+                } else {
+                    sectionDiv.classList.add('collapsed');
+                    arrow.textContent = '▶';
+                    console.log('PropertyPanel: Collapsed section:', name);
+                }
+            });
+        }
 
         sectionDiv.appendChild(header);
 
@@ -394,6 +403,25 @@ export class PropertyPanel {
     createInputElement(key, value, path = '') {
         let input;
         const fullPath = path ? `${path}.${key}` : key;
+
+        // Handle boolean values with toggle switches
+        if (typeof value === 'boolean') {
+            const toggleContainer = document.createElement('label');
+            toggleContainer.classList.add('toggle-switch');
+
+            input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = value;
+
+            const toggleSlider = document.createElement('span');
+            toggleSlider.classList.add('toggle-slider');
+
+            toggleContainer.appendChild(input);
+            toggleContainer.appendChild(toggleSlider);
+
+            // Return the container instead of just the input
+            return toggleContainer;
+        }
 
         // Handle file input
         if (key.toLowerCase().includes('file') && key !== 'currentCsdFile') {
@@ -623,10 +651,12 @@ export class PropertyPanel {
             }
         }
 
-        // Set input attributes
-        input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
-        input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
-        input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
+        // Set input attributes and event listener for direct input elements
+        if (input && input.tagName === 'INPUT') {
+            input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
+            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
+            input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
+        }
 
         return input; // Return the created input element
     }
@@ -662,12 +692,23 @@ export class PropertyPanel {
 
         // Create the full property path for the input id
         const fullPropertyPath = path ? `${path}.${key}` : key;
-        const input = this.createInputElement(key, value, path);
+        const inputElement = this.createInputElement(key, value, path);
+
+        // Find the actual input element (could be nested in a container like toggle switch)
+        const input = inputElement.tagName === 'INPUT' ? inputElement : inputElement.querySelector('input');
 
         // Set the full property path as the input id
-        input.id = fullPropertyPath;
+        if (input) {
+            input.id = fullPropertyPath;
+            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
+            input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
+            if (input.type === 'checkbox') {
+                // Some browsers/extensions fire change more reliably for checkboxes
+                input.addEventListener('change', this.handleInputChange.bind(this));
+            }
+        }
 
-        propertyDiv.appendChild(input);
+        propertyDiv.appendChild(inputElement);
         // Handle both section objects (with contentDiv) and direct DOM elements
         if (section.contentDiv) {
             section.contentDiv.appendChild(propertyDiv);
@@ -750,19 +791,72 @@ export class PropertyPanel {
             return;
         }
 
-        console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'value:', input.value);
+        console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'type:', input.type, 'value:', input.value, 'checked:', input.checked);
 
         this.widgets.forEach((widget) => {
             if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
+                const path = input.id;
                 const inputValue = input.value;
-                // Don't parse color values as numbers - keep them as hex strings
-                const isColorProperty = input.id.toLowerCase().includes('color');
-                let parsedValue = (isColorProperty || isNaN(inputValue)) ? inputValue : Number(inputValue);
+                const isColorProperty = path.toLowerCase().includes('color');
+
+                // Helper to safely get the current value at a nested path
+                const getNestedValue = (obj, pathStr) => {
+                    const keys = [];
+                    let current = '';
+                    for (let i = 0; i < pathStr.length; i++) {
+                        if (pathStr[i] === '.' || pathStr[i] === '[' || pathStr[i] === ']') {
+                            if (current) {
+                                keys.push(current);
+                                current = '';
+                            }
+                            if (pathStr[i] === '[') {
+                                i++;
+                                let index = '';
+                                while (i < pathStr.length && pathStr[i] !== ']') {
+                                    index += pathStr[i];
+                                    i++;
+                                }
+                                keys.push(parseInt(index));
+                            }
+                        } else {
+                            current += pathStr[i];
+                        }
+                    }
+                    if (current) keys.push(current);
+                    let cur = obj;
+                    for (let k of keys) {
+                        if (cur == null) return undefined;
+                        cur = cur[k];
+                    }
+                    return cur;
+                };
+
+                const currentValue = getNestedValue(widget.props, path);
+
+                // Parse value with proper types
+                let parsedValue;
+                if (input.type === 'checkbox') {
+                    parsedValue = input.checked; // true/false
+                } else if (isColorProperty) {
+                    parsedValue = inputValue; // keep hex string
+                } else if (typeof currentValue === 'boolean') {
+                    // Coerce string to boolean if the model expects a boolean
+                    const v = String(inputValue).toLowerCase();
+                    parsedValue = (v === 'true' || v === '1');
+                } else if (input.type === 'number') {
+                    const n = Number(inputValue);
+                    parsedValue = isNaN(n) ? inputValue : n;
+                } else if (!isNaN(inputValue) && inputValue !== '') {
+                    // Numeric strings to numbers (but do not coerce empty strings)
+                    parsedValue = Number(inputValue);
+                } else {
+                    parsedValue = inputValue;
+                }
 
                 console.log('PropertyPanel: updating widget with channel id:', input.dataset.parent, 'setting', input.id, 'to', parsedValue);
 
                 // Handle nested properties
-                this.setNestedProperty(widget.props, input.id, parsedValue);
+                this.setNestedProperty(widget.props, path, parsedValue);
 
                 console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
 
@@ -777,7 +871,7 @@ export class PropertyPanel {
                 }
 
                 // Update widget styles if the index property changed (for z-index updates)
-                if (input.id === 'index') {
+                if (path === 'index') {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 
