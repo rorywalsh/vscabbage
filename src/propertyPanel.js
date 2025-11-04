@@ -62,7 +62,7 @@ export class PropertyPanel {
             panel.addEventListener('wheel', (e) => {
                 // Check if the panel is scrollable
                 const isScrollable = panel.scrollHeight > panel.clientHeight;
-                
+
                 if (isScrollable) {
                     // Allow scrolling within the panel but prevent bubbling
                     e.stopPropagation();
@@ -104,7 +104,7 @@ export class PropertyPanel {
         }
 
         panel.appendChild(specialSection); // Append special section to panel
-        
+
         // Add Bounds section before Channels (handled separately to control order)
         if (this.properties.bounds) {
             const boundsSection = this.createSection('Bounds');
@@ -382,7 +382,8 @@ export class PropertyPanel {
         header.style.alignItems = 'center';
 
         const title = document.createElement('h3');
-        title.textContent = name;
+        // Capitalize first letter of section name
+        title.textContent = name.charAt(0).toUpperCase() + name.slice(1);
         title.style.margin = '0';
         title.style.flex = '1';
         header.appendChild(title);
@@ -554,18 +555,42 @@ export class PropertyPanel {
             });
         } else {
             // Handle color input for properties that are specifically color values
-            // But exclude numeric tracker width (e.g. `colour.tracker.width`) so it is shown as a number input
-            if (fullPath.toLowerCase().includes("colour") && !fullPath.includes("stroke.width") && !fullPath.toLowerCase().includes("tracker.width")) {
+            // But exclude numeric tracker width (e.g. `color.tracker.width`) so it is shown as a number input
+            if (fullPath.toLowerCase().includes("color") && !fullPath.includes("stroke.width") && !fullPath.toLowerCase().includes("tracker.width")) {
                 input = document.createElement('input');
+                input.type = 'text';
                 input.value = value; // Set the initial color value
                 input.style.backgroundColor = value; // Set background color
+                input.style.padding = '4px 8px'; // Add padding for better visibility
+                input.style.fontFamily = 'monospace'; // Use monospace for hex values
+                input.style.fontSize = '12px'; // Smaller font for hex
+                input.style.textAlign = 'center'; // Center the text
+
+                // Calculate contrasting text color (light or dark) based on background
+                const getContrastColor = (hexColor) => {
+                    // Convert hex to RGB
+                    const hex = hexColor.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    // Calculate luminance
+                    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+                };
+
+                input.style.color = getContrastColor(value); // Set contrasting text color
 
                 // Initialize color picker
                 const picker = new CP(input);
                 picker.on('change', (r, g, b, a) => {
-                    input.value = CP.HEX([r, g, b, a]); // Update input value to HEX
-                    input.style.backgroundColor = CP.HEX([r, g, b, a]); // Update background color
-                    this.handleInputChange(input.parentElement); // Trigger change handler
+                    const hexColor = CP.HEX([r, g, b, a]);
+                    input.value = hexColor; // Update input value to HEX
+                    input.style.backgroundColor = hexColor; // Update background color
+                    input.style.color = getContrastColor(hexColor); // Update text color for contrast
+                    // Create a proper Event object to pass to handleInputChange
+                    const event = new Event('input', { bubbles: true });
+                    Object.defineProperty(event, 'target', { value: input, enumerable: true });
+                    this.handleInputChange(event); // Trigger change handler
                 });
             }
             // Handle numeric input for stroke width and other numeric properties
@@ -620,7 +645,7 @@ export class PropertyPanel {
         }
 
         // Set input attributes
-        input.id = key; // Use the key as ID directly (case-sensitive)
+        input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
         input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
         input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
 
@@ -746,7 +771,9 @@ export class PropertyPanel {
         this.widgets.forEach((widget) => {
             if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
                 const inputValue = input.value;
-                let parsedValue = isNaN(inputValue) ? inputValue : Number(inputValue);
+                // Don't parse color values as numbers - keep them as hex strings
+                const isColorProperty = input.id.toLowerCase().includes('color');
+                let parsedValue = (isColorProperty || isNaN(inputValue)) ? inputValue : Number(inputValue);
 
                 console.log('PropertyPanel: updating widget with channel id:', input.dataset.parent, 'setting', input.id, 'to', parsedValue);
 
@@ -863,7 +890,7 @@ export class PropertyPanel {
                 id: w.props.id,
                 channelId: CabbageUtils.getChannelId(w.props, 0)
             })));
-            
+
             widgets.forEach((widget, index) => {
                 const widgetChannelId = CabbageUtils.getChannelId(widget.props, 0);
                 console.log(`PropertyPanel: checking widget ${index}: channelId=${widgetChannelId}, name=${name}, match=${widgetChannelId === name}`);

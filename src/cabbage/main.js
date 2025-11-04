@@ -172,15 +172,22 @@ window.addEventListener('message', async event => {
             const parameterMessage = message;
             console.log(`main.js parameterChange: paramIdx=${parameterMessage.paramIdx}, value=${parameterMessage.value}`);
             // {command: "parameterChange", paramIdx: 0, value: 35}
+
+            // Find the widget and channel that matches this paramIdx
             for (const widget of widgets) {
-                if (widget.parameterIndex == parameterMessage.paramIdx) {
-                    console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, 0)} (${widget.props.type}) with value ${parameterMessage.value}`);
-                    const updateMsg = {
-                        id: CabbageUtils.getChannelId(widget.props, 0),
-                        channel: CabbageUtils.getChannelId(widget.props, 0),
-                        value: parameterMessage.value
-                    };
-                    await WidgetManager.updateWidget(updateMsg);
+                const channels = CabbageUtils.getChannels(widget.props);
+                for (let i = 0; i < channels.length; i++) {
+                    const channel = channels[i];
+                    if (channel.parameterIndex === parameterMessage.paramIdx) {
+                        console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
+                        const updateMsg = {
+                            id: channel.id,
+                            channel: channel.id,
+                            value: parameterMessage.value
+                        };
+                        await WidgetManager.updateWidget(updateMsg);
+                        break; // Found the matching channel, no need to continue
+                    }
                 }
             }
             break;
