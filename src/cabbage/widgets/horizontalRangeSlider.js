@@ -110,7 +110,7 @@ export class HorizontalRangeSlider {
   }
 
   pointerDown(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -144,7 +144,7 @@ export class HorizontalRangeSlider {
   }
 
   mouseEnter(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -159,7 +159,7 @@ export class HorizontalRangeSlider {
     const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup === true) {
+    if (popup && this.props.popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
@@ -193,7 +193,7 @@ export class HorizontalRangeSlider {
   }
 
   mouseLeave(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -222,7 +222,7 @@ export class HorizontalRangeSlider {
   }
 
   pointerMove({ clientX }) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -345,7 +345,7 @@ export class HorizontalRangeSlider {
     ` : '';
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === false ? 'none' : 'block'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible ? 'block' : 'none'};">
         ${textElement}
         ${sliderElement}
         ${valueTextElement}

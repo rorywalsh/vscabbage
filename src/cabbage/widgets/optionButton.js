@@ -31,17 +31,14 @@ export class OptionButton {
         "borderRadius": 2,
         "borderWidth": 1,
         "borderColor": "#dddddd",
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "fontColor": "#dddddd",
+        "textAlign": "center",
         "fill": "#0295cf"
       },
 
-      "label": {
-        "fontFamily": "Verdana",
-        "fontSize": "auto",
-        "color": "#dddddd",
-        "textAlign": "center"
-      },
-
-      "items": "Item1, Item2, Item3"
+      "items": ["Item1", "Item2", "Item3"]
     };
 
     this.vscode = null;
@@ -53,7 +50,7 @@ export class OptionButton {
 
 
   pointerUp() {
-    if (this.props.active === false || this.props.active === 0) {
+    if (!this.props.active) {
       return '';
     }
     this.isMouseDown = false;
@@ -64,7 +61,7 @@ export class OptionButton {
     evt.stopPropagation();
     console.log('OptionButton pointerDown - Target:', evt.currentTarget.id, 'Channel:', CabbageUtils.getChannelId(this.props));
 
-    if (this.props.visible === false || this.props.visible === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -79,7 +76,7 @@ export class OptionButton {
     const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
     console.log('Sending parameter update:', msg);
-    if (this.props.automatable === true || this.props.automatable === 1) {
+    if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -98,7 +95,7 @@ export class OptionButton {
 
   pointerEnter(evt) {
     evt.stopPropagation();
-    if (this.props.active === false || this.props.active === 0) {
+    if (!this.props.active) {
       return '';
     }
     this.isMouseOver = true;
@@ -107,7 +104,7 @@ export class OptionButton {
 
   pointerLeave(evt) {
     evt.stopPropagation();
-    if (this.props.active === false || this.props.active === 0) {
+    if (!this.props.active) {
       return '';
     }
     this.isMouseOver = false;
@@ -158,16 +155,16 @@ export class OptionButton {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
-    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.5 : this.props.label.fontSize;
+    const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
+    const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.5 : this.props.style.fontSize;
     const padding = 5;
     const items = this.getItems();
     const currentText = items[this.currentIndex];
 
     let textX;
-    if (this.props.label.textAlign === 'left') {
+    if (this.props.style.textAlign === 'left') {
       textX = this.props.style.borderRadius + padding;
-    } else if (this.props.label.textAlign === 'right') {
+    } else if (this.props.style.textAlign === 'right') {
       textX = this.props.bounds.width - this.props.style.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
@@ -175,11 +172,11 @@ export class OptionButton {
 
     const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.style.fill, 0.2) : this.props.style.fill;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
                 <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius}" fill="${currentColour}" stroke="${this.props.style.borderColor}"
                   stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
-                <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
-                  fill="${this.props.label.color}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
+                <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
+                  fill="${this.props.style.fontColor}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
             </svg>
         `;
   }

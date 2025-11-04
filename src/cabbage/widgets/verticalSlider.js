@@ -80,7 +80,7 @@ export class VerticalSlider {
   }
 
   pointerUp(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
     const popup = document.getElementById('popupValue');
@@ -103,7 +103,7 @@ export class VerticalSlider {
   }
 
   pointerDown(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -152,7 +152,7 @@ export class VerticalSlider {
   }
 
   mouseEnter(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -167,7 +167,7 @@ export class VerticalSlider {
     const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup === true) {
+    if (popup && this.props.popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
@@ -244,7 +244,7 @@ export class VerticalSlider {
   }
 
   pointerMove({ clientY }) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -301,7 +301,7 @@ export class VerticalSlider {
     }
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
     console.log('VerticalSlider pointerMove sending:', msg);
-    if (this.props.automatable === true || this.props.automatable === 1) {
+    if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -373,7 +373,7 @@ export class VerticalSlider {
     ` : '';
 
     return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false ? 'none' : 'block'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
       ${textElement}
       ${sliderElement}
       ${valueTextElement}

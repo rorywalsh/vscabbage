@@ -34,16 +34,16 @@ export class NumberSlider {
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,
-                "fill": "#0295cf"
+                "fill": "#0295cf",
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "fontColor": "#dddddd",
+                "textAlign": "center"
             },
 
             "label": {
                 "text": "",
-                "offsetY": 0,
-                "fontFamily": "Verdana",
-                "fontSize": "auto",
-                "color": "#dddddd",
-                "textAlign": "center"
+                "offsetY": 0
             },
 
             "valuePrefix": "",
@@ -70,7 +70,7 @@ export class NumberSlider {
                 if (key === 'visible') {
                     console.log(`NumberSlider: visible changed from ${oldValue} to ${value}`);
                     if (this.widgetDiv) {
-                        this.widgetDiv.style.pointerEvents = value === false || value === 0 ? 'none' : 'auto';
+                        this.widgetDiv.style.pointerEvents = value ? 'auto' : 'none';
                     }
                 }                // Custom logic: trigger your onPropertyChange method with the path
                 if (this.onPropertyChange) {
@@ -200,7 +200,7 @@ export class NumberSlider {
         input.style.width = '60%'; // Adjust the width as needed
         input.style.height = 'auto';
         input.style.fontSize = `${Math.max(this.props.bounds.height * 0.4, 12)}px`; // Adjust font size
-        input.style.fontFamily = this.props.label.fontFamily;
+        input.style.fontFamily = this.props.style.fontFamily;
         input.style.textAlign = 'center'; // Center align the text inside input
         input.style.boxSizing = 'border-box';
 
@@ -211,7 +211,7 @@ export class NumberSlider {
                     this.props.value = newValue;
                     // Send denormalized value to backend
                     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: this.props.value };
-                    if (this.props.automatable === true || this.props.automatable === 1) {
+                    if (this.props.automatable) {
                         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
                     }
                     this.updateSliderValue();
@@ -243,7 +243,7 @@ export class NumberSlider {
 
     getInnerHTML() {
         // console.log(`NumberSlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
-        const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? 12 : this.props.label.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 12 : this.props.style.fontSize;
         const channelId = CabbageUtils.getChannelId(this.props);
         const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
         const alignMap = {
@@ -252,23 +252,23 @@ export class NumberSlider {
             'centre': 'center',
             'right': 'flex-end',
         };
-        const flexAlign = alignMap[this.props.label.textAlign] || 'center';
+        const flexAlign = alignMap[this.props.style.textAlign] || 'center';
         const currentValue = this.props.value === null ? range.defaultValue : this.props.value;
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         const html = `
-            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible === false || this.props.visible === 0 ? '0' : '1'}; pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible ? 'auto' : 'none'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.fill}" 
-                        pointer-events="${this.props.visible === false || this.props.visible === 0 ? 'none' : 'all'}" opacity="${this.props.style.opacity}"></rect>
+                        pointer-events="${this.props.visible ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
                 </svg>
     
                 <!-- Text using foreignObject for consistent rendering -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0; pointer-events: none;">
                     <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}">
-                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color};">
+                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.style.fontFamily}; color:${this.props.style.fontColor};">
                             ${valueText}
                         </div>
                     </foreignObject>

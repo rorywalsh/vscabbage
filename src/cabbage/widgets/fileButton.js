@@ -77,7 +77,7 @@ export class FileButton extends Button {
   }
 
   pointerDown(evt) {
-    if (this.props.active === false || this.props.active === 0) {
+    if (!this.props.active) {
       return '';
     }
     console.log("Cabbage: fileButton pointerDown");

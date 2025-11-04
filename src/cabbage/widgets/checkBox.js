@@ -61,7 +61,7 @@ export class Checkbox {
   }
 
   toggle() {
-    if (this.props.active === false || this.props.active === 0) {
+    if (!this.props.active) {
       return '';
     }
 
@@ -131,7 +131,7 @@ export class Checkbox {
     const currentState = isOn ? this.props.style.on : this.props.style.off;
 
     return `
-      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
         <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentState.fill}" stroke="${currentState.borderColor}" stroke-width="${currentState.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
         <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}" fill="${currentState.textColor}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.label.text}</text>
       </svg>

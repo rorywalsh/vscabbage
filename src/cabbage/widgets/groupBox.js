@@ -27,15 +27,15 @@ export class GroupBox {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#888888"
+                "fill": "#888888",
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "fontColor": "#dddddd",
+                "textAlign": "center"
             },
 
             "label": {
-                "text": "Hello",
-                "fontFamily": "Verdana",
-                "fontSize": "auto",
-                "color": "#dddddd",
-                "textAlign": "center"
+                "text": "Hello"
             }
         };
     }
@@ -61,7 +61,7 @@ export class GroupBox {
         const strokeWidth = this.props.style.borderWidth;
 
         const outlineOffset = strokeWidth / 2;
-        const textSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? 16 : this.props.label.fontSize;
+        const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 16 : this.props.style.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 5; // padding around text to leave a gap in the line
         const textWidth = (this.props.label.text.length * textSize) / 2; // approximate width of text
@@ -73,7 +73,7 @@ export class GroupBox {
             'right': 'end',
         };
 
-        const svgAlign = alignMap[this.props.label.textAlign] || 'middle'; // Default to 'middle' if textAlign is not set or invalid
+        const svgAlign = this.props.style.textAlign || 'middle'; // Default to 'middle' if textAlign is not set or invalid
 
         // Calculate text position based on textAlign
         let textXPosition;
@@ -100,7 +100,7 @@ export class GroupBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
-                 width="${width}" height="${height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                 width="${width}" height="${height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
                 <defs>
                     <!-- Mask to create transparent area behind text -->
                     <mask id="textMask_${this.props.channels[0].id}">
@@ -124,8 +124,8 @@ export class GroupBox {
                       mask="url(#textMask_${this.props.channels[0].id})"/>
                 
                 <!-- Text at the top with alignment support -->
-                <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
-                      font-family="${this.props.label.fontFamily}" font-size="${textSize}" fill="${this.props.label.color}">
+                    <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
+                          font-family="${this.props.style.fontFamily}" font-size="${textSize}" fill="${this.props.style.fontColor}">
                     ${this.props.label.text}
                 </text>
             </svg>

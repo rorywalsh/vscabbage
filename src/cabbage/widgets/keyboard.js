@@ -17,19 +17,21 @@ export class MidiKeyboard {
         "width": 600,
         "height": 300
       },
-      "channel": "",
+      "channels": [
+        { "id": "comboBox", "event": "valueChanged" }
+      ],
       "value": 36,
       "automatable": false,
       "style": {
-        "opacity": 1
+        "opacity": 1,
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "fontColor": "#000000",
+        "textAlign": "center"
       },
       "type": "keyboard",
 
-      "label": {
-        "fontFamily": "Verdana",
-        "fontSize": "auto",
-        "textAlign": "center"
-      },
+      "label": {},
 
       "color": {
         "whiteNote": "#ffffff",
@@ -230,7 +232,7 @@ export class MidiKeyboard {
     let whiteSvgKeys = '';
     let blackSvgKeys = '';
 
-    const fontSize = this.props.label.fontSize === "auto" ? this.props.bounds.height * 0.1 : this.props.label.fontSize;
+    const fontSize = this.props.style.fontSize === "auto" ? this.props.bounds.height * 0.1 : this.props.style.fontSize;
 
     for (let octave = 0; octave < octavesToDisplay; octave++) {
       for (let i = 0; i < whiteKeys.length; i++) {
@@ -250,7 +252,7 @@ export class MidiKeyboard {
         if (i === 0) { // First white key of the octave
           const textX = xOffset + whiteKeyWidth / 2; // Position text in the middle of the white key
           const textY = whiteKeyHeight * 0.8; // Position text in the middle vertically
-          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.label.fontFamily}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.color.blackNote}" style="pointer-events: none;">${note}</text>`;
+          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.style.fontFamily}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.color.blackNote}" style="pointer-events: none;">${note}</text>`;
         }
       }
     }
@@ -263,7 +265,7 @@ export class MidiKeyboard {
     const keyboardWidth = totalWhiteKeys * whiteKeyWidth;
 
     return `
-      <div id="${this.props.channel}" style="display: ${this.props.visible === 0 ? 'none' : 'flex'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
+      <div id="${this.props.channel}" style="display: ${this.props.visible ? 'flex' : 'none'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
         <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.color.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}">

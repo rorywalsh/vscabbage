@@ -105,7 +105,7 @@ export class HorizontalSlider {
   }
 
   pointerDown(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -176,7 +176,7 @@ export class HorizontalSlider {
   }
 
   mouseEnter(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -228,7 +228,7 @@ export class HorizontalSlider {
 
 
   mouseLeave(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -257,7 +257,7 @@ export class HorizontalSlider {
   }
 
   pointerMove({ clientX }) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -316,7 +316,7 @@ export class HorizontalSlider {
     const valueToSend = skewedValue;
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
-    if (this.props.automatable === true || this.props.automatable === 1) {
+    if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -426,7 +426,7 @@ export class HorizontalSlider {
     ` : '';
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible === false ? 'none' : 'block'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible ? 'block' : 'none'};">
         ${textElement}
         ${sliderElement}
         ${valueTextElement}

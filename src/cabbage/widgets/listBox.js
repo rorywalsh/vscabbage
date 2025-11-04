@@ -88,7 +88,7 @@ export class ListBox {
         `).join('');
 
         return `
-            <div style="position: relative; width: 100%; height: 100%; overflow-y: auto; display: ${this.props.visible === 0 ? 'none' : 'block'};">
+            <div style="position: relative; width: 100%; height: 100%; overflow-y: auto; display: ${this.props.visible ? 'block' : 'none'};">
                 ${listItemsHTML}
             </div>
         `;

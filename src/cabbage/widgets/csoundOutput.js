@@ -28,18 +28,18 @@ export class CsoundOutput {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#0295cf"
-            },
-
-            "label": {
+                "fill": "#0295cf",
                 "fontFamily": "Verdana",
                 "fontSize": 14,
-                "color": "#dddddd",
+                "fontColor": "#dddddd",
                 "textAlign": "left"
+            },
+            "label": {
+                "text": "Csound Output"
             },
 
             "id": "",
-            "text": "Csound Output"
+
         };
 
     }
@@ -53,26 +53,26 @@ export class CsoundOutput {
     }
 
     getInnerHTML() {
-        const fontSize = this.props.label.fontSize === "auto" ? Math.max(this.props.height * 0.8, 12) : this.props.label.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" ? Math.max(this.props.height * 0.8, 12) : this.props.style.fontSize;
         const alignMap = {
             'left': 'start',
             'center': 'center',
             'centre': 'center',
             'right': 'end',
         };
-        const textAlign = alignMap[this.props.label.textAlign] || 'start';
+        const textAlign = alignMap[this.props.style.textAlign] || 'start';
 
         return `
-                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
-                color: ${this.props.label.color}; font-family: ${this.props.label.fontFamily}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
-${this.props.text}
-                </textarea>
-        `;
+    <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
+    color: ${this.props.style.fontColor}; font-family: ${this.props.style.fontFamily}; font-size: ${fontSize}px; 
+    text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
+${this.props.label.text}
+        </textarea>
+    `;
     }
 
     appendText(newText) {
-        this.props.text += newText + '\n';
+        this.props.label.text += newText + '\n';
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
 
         if (widgetDiv) {

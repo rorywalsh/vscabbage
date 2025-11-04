@@ -109,7 +109,7 @@ export class RotarySlider {
         if (key === 'visible') {
           console.log(`RotarySlider: visible changed from ${oldValue} to ${value}`);
           if (this.widgetDiv) {
-            this.widgetDiv.style.pointerEvents = value === false || value === 0 ? 'none' : 'auto';
+            this.widgetDiv.style.pointerEvents = value ? 'auto' : 'none';
           }
         }
 
@@ -172,7 +172,7 @@ export class RotarySlider {
   }
 
   pointerUp(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
     const popup = document.getElementById('popupValue');
@@ -205,7 +205,7 @@ export class RotarySlider {
       range: range,
       parameterIndex: this.parameterIndex
     });
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -235,7 +235,7 @@ export class RotarySlider {
   }
 
   mouseEnter(evt) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -250,7 +250,7 @@ export class RotarySlider {
     const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup === true) {
+    if (popup && this.props.popup) {
       popup.textContent = parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces);
 
       // Calculate the position for the popup
@@ -311,7 +311,7 @@ export class RotarySlider {
   }
 
   pointerMove({ clientY }) {
-    if (this.props.active === 0) {
+    if (!this.props.visible) {
       return '';
     }
 
@@ -459,7 +459,7 @@ export class RotarySlider {
           value: valueToSend,
           channelType: "number"
         };
-        if (this.props.automatable === true || this.props.automatable === 1) {
+        if (this.props.automatable) {
           Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
         }
       }
@@ -538,7 +538,7 @@ export class RotarySlider {
         const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
 
         return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
           ${filmStripElement}
           <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${labelY} font-size="${labelFontSize}px" font-family="${this.props.style.label.fontFamily}" stroke="none" fill="${this.props.style.label.fontColor}">${this.props.label.text}</text>
         </svg>
@@ -628,7 +628,7 @@ export class RotarySlider {
       const labelText = this.props.label.text;
 
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
         <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
           <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
             ${labelText}
@@ -652,7 +652,7 @@ export class RotarySlider {
 
     // Render without value text (label only)
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />

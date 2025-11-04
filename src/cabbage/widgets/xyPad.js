@@ -33,15 +33,13 @@ export class XyPad {
                 "borderRadius": 5,
                 "borderWidth": 1,
                 "borderColor": "#525252",
-                "fill": "#323232"
-            },
-
-            "label": {
+                "fill": "#323232",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
-                "color": "#dddddd",
+                "fontColor": "#dddddd",
                 "textAlign": "center"
             },
+
 
             "ball": {
                 "size": 20,
@@ -49,9 +47,9 @@ export class XyPad {
                 "borderWidth": 2
             },
 
-            "text": {
-                "x": "X",
-                "y": "Y"
+            "label": {
+                "textX": "X",
+                "textY": "Y"
             },
             "decimalPlaces": 1,
             "velocity": 0,
@@ -172,7 +170,7 @@ export class XyPad {
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
-        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
         const x = evt.offsetX - strokeWidth; // Adjust for padding
@@ -214,7 +212,7 @@ export class XyPad {
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
-        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
         const x = evt.clientX - rect.left - strokeWidth; // Adjust for padding
@@ -260,7 +258,7 @@ export class XyPad {
         const strokeWidth = this.props.colour.stroke.width;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
         const ballLeft = this.ballX * effectiveWidth;
@@ -328,7 +326,7 @@ export class XyPad {
         const strokeWidth = this.props.colour.stroke.width;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
         const ballRadius = this.props.ballSize / 2;
 
@@ -378,7 +376,7 @@ export class XyPad {
                 channelType: "number"
             };
             console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
-            if (this.props.automatable === true || this.props.automatable === 1) {
+            if (this.props.automatable) {
                 Cabbage.sendChannelUpdate(msgY, this.vscode, this.props.automatable);
             }
         }
@@ -390,7 +388,7 @@ export class XyPad {
         const strokeWidth = this.props.colour.stroke.width;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const hasValueBoxes = this.props.text.x && this.props.text.y;
+        const hasValueBoxes = (this.props.label && this.props.label.textX && this.props.label.textY) ? true : false;
         const valueBoxHeight = hasValueBoxes ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
         const innerCornerRadius = Math.max(0, this.props.corners - strokeWidth);
@@ -530,6 +528,8 @@ export class XyPad {
                 </div>`;
 
         if (hasValueBoxes) {
+            const labelX = (this.props.label && this.props.label.textX) ? this.props.label.textX : 'X';
+            const labelY = (this.props.label && this.props.label.textY) ? this.props.label.textY : 'Y';
             html += `
                 <div style="display: flex; justify-content: space-between; 
                             width: 100%; height: ${valueBoxHeight}px;
@@ -542,13 +542,13 @@ export class XyPad {
                             border-bottom-left-radius: ${innerCornerRadius}px;
                             border-bottom-right-radius: ${innerCornerRadius}px;">
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span>${this.props.text.x}:</span>
+                        <span>${labelX}:</span>
                         <span class="xypad-value-x" style="font-weight: bold;">
                             ${this.props.valuePrefix}${xValue.toFixed(xDecimalPlaces)}${this.props.valuePostfix}
                         </span>
                     </div>
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span>${this.props.text.y}:</span>
+                        <span>${labelY}:</span>
                         <span class="xypad-value-y" style="font-weight: bold;">
                             ${this.props.valuePrefix}${yValue.toFixed(yDecimalPlaces)}${this.props.valuePostfix}
                         </span>
@@ -590,7 +590,7 @@ export class XyPad {
         const strokeWidth = this.props.style.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+        const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
         // Calculate pixel positions
@@ -636,7 +636,7 @@ export class XyPad {
             const strokeWidth = this.props.style.borderWidth;
             const effectiveWidth = padWidth - (2 * strokeWidth);
             const effectiveHeight = padHeight - (2 * strokeWidth);
-            const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
+            const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
             const activeHeight = effectiveHeight - valueBoxHeight;
             const ballRadius = this.props.ball.size / 2;
 

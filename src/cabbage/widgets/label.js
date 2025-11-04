@@ -30,10 +30,9 @@ export class Label {
                 "fontColor": "#444444",
                 "textAlign": "center"
             },
-
             "label": {
                 "text": "Default Label"
-            }
+            },
         };
         this.vscode = null;
     }
@@ -63,7 +62,7 @@ export class Label {
         const svgAlign = alignMap[this.props.style.textAlign] || 'middle';
 
         return `
-            <div style="position: relative; width: 100%; height: 100%; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+            <div style="position: relative; width: 100%; height: 100%; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">

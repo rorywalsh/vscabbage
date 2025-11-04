@@ -40,25 +40,23 @@ export class GenTable {
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
                 "fill": "#93d200",
-                "background": "#00000022"
-            },
-
-            "label": {
+                "background": "#00000022",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
-                "color": "#dddddd",
+                "fontColor": "#dddddd",
                 "textAlign": "left"
             },
-
+            "label": { "text": "" },
             "range": {
                 "x": { "start": 0, "end": -1 },
                 "y": { "min": -1.0, "max": 1.0 }
             },
             "id": "",
             "file": "",
-            "text": "",
+
             "tableNumber": -9999,
             "samples": [],
+
             "fill": 1,
             "selectableRegions": false
         };
@@ -317,7 +315,7 @@ export class GenTable {
             widgetElement.style.padding = '0';
             widgetElement.style.margin = '0';
             widgetElement.innerHTML = ''; // Clear existing content
-            this.canvas.style.display = Number(this.props.visible) === 0 ? 'none' : 'block';
+            this.canvas.style.display = this.props.visible ? 'block' : 'none';
             widgetElement.appendChild(this.canvas); // Append canvas
 
             // Add event listeners
@@ -448,9 +446,9 @@ export class GenTable {
      * @param {CanvasRenderingContext2D} ctx - The canvas context to draw on
      */
     drawText(ctx) {
-        if (!this.props.text) return;
+        if (!this.props.label || !this.props.label.text) return;
 
-        const fontSize = this.props.label.fontSize === "auto" ? Math.max(this.props.bounds.height * 0.1, 12) : this.props.label.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" ? Math.max(this.props.bounds.height * 0.1, 12) : this.props.style.fontSize;
         const canvasAlignMap = {
             'left': 'left',
             'center': 'center',
@@ -458,15 +456,15 @@ export class GenTable {
             'right': 'right',
         };
 
-        const textAlign = canvasAlignMap[this.props.label.textAlign] || 'left';
-        ctx.font = `${fontSize}px ${this.props.label.fontFamily}`;
-        ctx.fillStyle = this.props.label.color;
+        const textAlign = canvasAlignMap[this.props.style.textAlign] || 'left';
+        ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;
+        ctx.fillStyle = this.props.style.fontColor;
         ctx.textAlign = textAlign;
         ctx.textBaseline = 'bottom';
 
-        const textX = this.props.label.textAlign === 'right' ? this.props.bounds.width - 10 : this.props.label.textAlign === 'center' || this.props.label.textAlign === 'centre' ? this.props.bounds.width / 2 : 10;
+        const textX = this.props.style.textAlign === 'right' ? this.props.bounds.width - 10 : this.props.style.textAlign === 'center' || this.props.style.textAlign === 'centre' ? this.props.bounds.width / 2 : 10;
         const textY = this.props.bounds.height - 10;
-        ctx.fillText(this.props.text, textX, textY);
+        ctx.fillText(this.props.label.text, textX, textY);
     }
 }
 

@@ -91,7 +91,7 @@ export class Image {
         // Check if svgText is not empty and render it
         if (this.props.svgText) {
             return `
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                         ${this.props.svgText}
                     </div>
@@ -106,7 +106,7 @@ export class Image {
             if (imagePath) {
                 console.log("Cabbage: setting file");
                 return `
-                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.style.borderRadius}px; opacity: ${this.props.style.opacity}; pointer-events: none; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}" />
+                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.style.borderRadius}px; opacity: ${this.props.style.opacity}; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}" />
                 `;
             }
         }
@@ -117,7 +117,7 @@ export class Image {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}"
-                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
+                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
                 <rect width="${this.props.bounds.width - this.props.style.borderWidth}" height="${this.props.bounds.height - this.props.style.borderWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${fillColor}" 
                       stroke="${this.props.style.borderColor}" stroke-width="${this.props.style.borderWidth}" pointer-events="${pointerEvents}"></rect>
             </svg>
