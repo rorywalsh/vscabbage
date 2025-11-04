@@ -1026,7 +1026,7 @@ ${JSON.stringify(props, null, 4)}
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, isDarkTheme: boolean) {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri, isDarkTheme: boolean) {
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         return `
 <!doctype html>
@@ -1040,7 +1040,8 @@ ${JSON.stringify(props, null, 4)}
   <script type="module" src="${colourPickerJS}"></script>
   <link href="${styles}" rel="stylesheet">
   <link href="${cabbageStyles}" rel="stylesheet">  
-  <link href="${colourPickerStyles}" rel="stylesheet">  
+  <link href="${colourPickerStyles}" rel="stylesheet">
+  <link href="${propertyPanelStyles}" rel="stylesheet">  
   <script>
             window.interactJS = "${interactJS}";
 </script>
@@ -1404,14 +1405,14 @@ f0 z
                         // Find all occurrences of this channel in the document (both old and new formats)
                         const oldFormatRegex = new RegExp(`"channel"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
                         const newFormatRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
-                        
+
                         [oldFormatRegex, newFormatRegex].forEach(regex => {
                             let match;
                             while ((match = regex.exec(editor.getText())) !== null) {
                                 const matchIndex = match.index;
                                 const beforeMatch = editor.getText().substring(0, matchIndex);
                                 const lineNumber = beforeMatch.split('\n').length - 1;
-                                
+
                                 if (!channelMap.has(channelId)) {
                                     channelMap.set(channelId, []);
                                 }

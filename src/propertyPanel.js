@@ -60,17 +60,22 @@ export class PropertyPanel {
         // Prevent scroll events from bubbling to the main webview
         if (!panel.hasAttribute('data-scroll-handler-attached')) {
             panel.addEventListener('wheel', (e) => {
-                // Check if the panel is scrollable
                 const isScrollable = panel.scrollHeight > panel.clientHeight;
+                const isAtTop = panel.scrollTop === 0;
+                const isAtBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight;
+                const deltaY = e.deltaY;
 
+                // If panel is scrollable and user is trying to scroll within bounds, allow it
                 if (isScrollable) {
-                    // Allow scrolling within the panel but prevent bubbling
-                    e.stopPropagation();
-                } else {
-                    // If not scrollable, still prevent bubbling to avoid main page scroll
-                    e.stopPropagation();
-                    e.preventDefault();
+                    if ((deltaY > 0 && !isAtBottom) || (deltaY < 0 && !isAtTop)) {
+                        // Allow scrolling within the panel
+                        return;
+                    }
                 }
+
+                // Prevent bubbling to main panel and prevent default scroll behavior
+                e.stopPropagation();
+                e.preventDefault();
             }, { passive: false }); // passive: false to allow preventDefault
             panel.setAttribute('data-scroll-handler-attached', 'true');
         }
@@ -184,12 +189,7 @@ export class PropertyPanel {
         const addBtn = document.createElement('button');
         addBtn.textContent = '+';
         addBtn.title = 'Add Channel';
-        addBtn.style.padding = '2px 6px';
-        addBtn.style.fontSize = '11px';
-        addBtn.style.width = 'auto';
-        addBtn.style.minWidth = '18px';
-        addBtn.style.borderRadius = '2px';
-        addBtn.style.fontWeight = 'normal';
+        addBtn.classList.add('add-channel-btn');
         addBtn.addEventListener('click', () => {
             this.addChannel();
         });
@@ -200,71 +200,32 @@ export class PropertyPanel {
             // Create a collapsible channel card
             const channelCard = document.createElement('div');
             channelCard.classList.add('channel-card');
-            channelCard.style.border = '1px solid var(--vscode-panel-border)';
-            channelCard.style.borderRadius = '4px';
-            channelCard.style.marginBottom = '8px';
-            channelCard.style.backgroundColor = 'var(--vscode-editor-background)';
 
-            // Create channel header (collapsible)
+            // Create channel header (non-collapsible)
             const channelHeader = document.createElement('div');
             channelHeader.classList.add('channel-header');
-            channelHeader.style.display = 'flex';
-            channelHeader.style.alignItems = 'center';
-            channelHeader.style.padding = '4px 8px';
-            channelHeader.style.cursor = 'pointer';
-            channelHeader.style.userSelect = 'none';
-            channelHeader.style.backgroundColor = 'var(--vscode-sideBar-background)';
-            channelHeader.style.borderRadius = '4px 4px 0 0';
-
-            // Collapse/expand arrow
-            const arrow = document.createElement('span');
-            arrow.textContent = '▼';
-            arrow.style.marginRight = '8px';
-            arrow.style.fontSize = '10px';
-            arrow.style.transition = 'transform 0.2s';
-            arrow.style.display = 'inline-block';
 
             // Channel title
             const channelTitle = document.createElement('span');
             channelTitle.textContent = `${channel.id || `Channel ${index + 1}`}`;
-            channelTitle.style.flex = '1';
-            channelTitle.style.fontWeight = '500';
-            channelTitle.style.fontSize = '13px';
-            channelTitle.style.color = 'var(--vscode-foreground)';
+            channelTitle.classList.add('channel-title');
 
             // Remove button
             const removeBtn = document.createElement('button');
             removeBtn.textContent = '×';
             removeBtn.title = 'Remove Channel';
-            removeBtn.style.padding = '1px 4px';
-            removeBtn.style.fontSize = '14px';
-            removeBtn.style.width = 'auto';
-            removeBtn.style.minWidth = '18px';
-            removeBtn.style.borderRadius = '2px';
-            removeBtn.style.fontWeight = 'normal';
-            removeBtn.style.marginLeft = 'auto';
-            removeBtn.style.color = 'var(--vscode-button-foreground)';
-            removeBtn.style.background = 'var(--vscode-button-background)';
+            removeBtn.classList.add('remove-channel-btn');
             removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent collapse toggle
+                e.stopPropagation(); // Prevent any parent click handlers
                 this.removeChannel(index);
             });
-            removeBtn.addEventListener('mouseenter', () => {
-                removeBtn.style.background = 'var(--vscode-button-hoverBackground)';
-            });
-            removeBtn.addEventListener('mouseleave', () => {
-                removeBtn.style.background = 'var(--vscode-button-background)';
-            });
 
-            channelHeader.appendChild(arrow);
             channelHeader.appendChild(channelTitle);
             channelHeader.appendChild(removeBtn);
 
-            // Create channel content (collapsible)
+            // Create channel content (always visible)
             const channelContent = document.createElement('div');
             channelContent.classList.add('channel-content');
-            channelContent.style.padding = '10px';
-            channelContent.style.display = 'block'; // Start expanded
 
             // Add properties to content
             this.addPropertyToSection('id', channel.id, channelContent, `channels[${index}]`);
@@ -275,16 +236,9 @@ export class PropertyPanel {
             this.addPropertyToSection('range.skew', channel.range ? channel.range.skew : 1, channelContent, `channels[${index}]`);
             this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelContent, `channels[${index}]`);
 
-            // Toggle collapse/expand on header click
-            channelHeader.addEventListener('click', () => {
-                const isCollapsed = channelContent.style.display === 'none';
-                channelContent.style.display = isCollapsed ? 'block' : 'none';
-                arrow.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
-            });
-
             channelCard.appendChild(channelHeader);
             channelCard.appendChild(channelContent);
-            channelsSection.appendChild(channelCard);
+            channelsSection.contentDiv.appendChild(channelCard);
         });
 
         panel.appendChild(channelsSection);
@@ -366,40 +320,66 @@ export class PropertyPanel {
         });
     }
 
-    /** 
-     * Creates a new section with a header.
-     * @param name - The name of the section to create.
-     * @param options - Optional object with buttons to add to the header.
-     * @returns The created section div.
-     */
     createSection(name, options = {}) {
+        console.log('PropertyPanel: Creating section:', name);
         const sectionDiv = document.createElement('div');
         sectionDiv.classList.add('property-section');
 
         const header = document.createElement('div');
         header.classList.add('section-header');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
+
+        // Add arrow for collapsible functionality
+        const arrow = document.createElement('span');
+        arrow.classList.add('arrow');
+        arrow.textContent = '▼';
+        header.appendChild(arrow);
 
         const title = document.createElement('h3');
         // Capitalize first letter of section name
         title.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-        title.style.margin = '0';
-        title.style.flex = '1';
         header.appendChild(title);
 
         if (options.buttons && options.buttons.length > 0) {
-            header.style.justifyContent = 'space-between';
+            header.classList.add('justify-space-between');
             const buttonContainer = document.createElement('div');
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.gap = '5px';
+            buttonContainer.classList.add('button-container');
             options.buttons.forEach(btn => buttonContainer.appendChild(btn));
             header.appendChild(buttonContainer);
         } else {
-            header.style.justifyContent = 'center';
+            header.classList.add('justify-center');
         }
 
+        // Add click handler for collapsible functionality
+        header.addEventListener('click', (e) => {
+            console.log('PropertyPanel: Section header clicked:', name);
+            // Don't collapse if clicking on buttons
+            if (e.target.tagName === 'BUTTON' || e.target.closest('.button-container')) {
+                console.log('PropertyPanel: Clicked on button, not collapsing');
+                return;
+            }
+
+            const isCollapsed = sectionDiv.classList.contains('collapsed');
+            console.log('PropertyPanel: Section', name, 'isCollapsed:', isCollapsed);
+            if (isCollapsed) {
+                sectionDiv.classList.remove('collapsed');
+                arrow.textContent = '▼';
+                console.log('PropertyPanel: Expanded section:', name);
+            } else {
+                sectionDiv.classList.add('collapsed');
+                arrow.textContent = '▶';
+                console.log('PropertyPanel: Collapsed section:', name);
+            }
+        });
+
         sectionDiv.appendChild(header);
+
+        // Create section content wrapper
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('section-content');
+        sectionDiv.appendChild(contentDiv);
+
+        // Store reference to content div for adding properties
+        sectionDiv.contentDiv = contentDiv;
 
         return sectionDiv;
     }
@@ -560,11 +540,7 @@ export class PropertyPanel {
                 input = document.createElement('input');
                 input.type = 'text';
                 input.value = value; // Set the initial color value
-                input.style.backgroundColor = value; // Set background color
-                input.style.padding = '4px 8px'; // Add padding for better visibility
-                input.style.fontFamily = 'monospace'; // Use monospace for hex values
-                input.style.fontSize = '12px'; // Smaller font for hex
-                input.style.textAlign = 'center'; // Center the text
+                input.classList.add('color-input');
 
                 // Calculate contrasting text color (light or dark) based on background
                 const getContrastColor = (hexColor) => {
@@ -578,15 +554,18 @@ export class PropertyPanel {
                     return luminance > 0.5 ? '#000000' : '#FFFFFF';
                 };
 
-                input.style.color = getContrastColor(value); // Set contrasting text color
+                // Set CSS custom properties for dynamic styling
+                input.style.setProperty('--color-value', value);
+                input.style.setProperty('--contrast-color', getContrastColor(value));
 
                 // Initialize color picker
                 const picker = new CP(input);
                 picker.on('change', (r, g, b, a) => {
                     const hexColor = CP.HEX([r, g, b, a]);
                     input.value = hexColor; // Update input value to HEX
-                    input.style.backgroundColor = hexColor; // Update background color
-                    input.style.color = getContrastColor(hexColor); // Update text color for contrast
+                    // Update CSS custom properties for dynamic styling
+                    input.style.setProperty('--color-value', hexColor);
+                    input.style.setProperty('--contrast-color', getContrastColor(hexColor));
                     // Create a proper Event object to pass to handleInputChange
                     const event = new Event('input', { bubbles: true });
                     Object.defineProperty(event, 'target', { value: input, enumerable: true });
@@ -689,7 +668,12 @@ export class PropertyPanel {
         input.id = fullPropertyPath;
 
         propertyDiv.appendChild(input);
-        section.appendChild(propertyDiv);
+        // Handle both section objects (with contentDiv) and direct DOM elements
+        if (section.contentDiv) {
+            section.contentDiv.appendChild(propertyDiv);
+        } else {
+            section.appendChild(propertyDiv);
+        }
     }
 
     /**
