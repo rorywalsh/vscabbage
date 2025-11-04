@@ -17,8 +17,9 @@ export class Form {
       ],
       "type": "form",
 
-      "shape": {
-        "fill": "#004c6b"
+      "style": {
+        "fill": "#004c6b",
+        "opacity": 1
       },
 
       "id": "MainForm",
@@ -37,7 +38,7 @@ export class Form {
   getInnerHTML() {
     return `
       <svg class="widget-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.size.width} ${this.props.size.height}" width="100%" height="100%" preserveAspectRatio="none" style="position: relative; z-index: 0;">
-        <rect width="${this.props.size.width}" height="${this.props.size.height}" x="0" y="0" rx="2" ry="2" fill="${this.props.shape.fill}" />
+        <rect width="${this.props.size.width}" height="${this.props.size.height}" x="0" y="0" rx="2" ry="2" fill="${this.props.style.fill}" />
       </svg>
     `;
   }
@@ -67,7 +68,7 @@ export class Form {
       if (rect) {
         rect.setAttribute('width', this.props.size.width);
         rect.setAttribute('height', this.props.size.height);
-        rect.setAttribute('fill', this.props.shape.fill);
+        rect.setAttribute('fill', this.props.style.fill);
       }
       console.log("Cabbage: updateSVG updated existing SVG");
     } else {

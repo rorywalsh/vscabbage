@@ -21,10 +21,10 @@ export class CsoundOutput {
             ],
             "visible": true,
             "automatable": false,
-            "opacity": 1,
             "type": "csoundOutput",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
@@ -63,9 +63,9 @@ export class CsoundOutput {
         const textAlign = alignMap[this.props.label.textAlign] || 'start';
 
         return `
-                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.shape.fill}; 
+                <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
                 color: ${this.props.label.color}; font-family: ${this.props.label.fontFamily}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
 ${this.props.text}
                 </textarea>
         `;

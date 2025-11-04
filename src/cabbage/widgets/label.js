@@ -19,20 +19,20 @@ export class Label {
             "index": 0,
             "visible": true,
             "automatable": false,
-            "opacity": 1,
             "type": "label",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
-                "fill": "#00000000"
+                "fill": "#00000000",
+                "fontFamily": "Verdana",
+                "fontSize": "auto",
+                "fontColor": "#444444",
+                "textAlign": "center"
             },
 
             "label": {
-                "text": "Default Label",
-                "fontFamily": "Verdana",
-                "fontSize": "auto",
-                "color": "#4444443",
-                "textAlign": "center"
+                "text": "Default Label"
             }
         };
         this.vscode = null;
@@ -50,32 +50,32 @@ export class Label {
     }
 
     getInnerHTML() {
-        const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 
-            ? Math.max(this.props.bounds.height, 12) 
-            : this.props.label.fontSize; // Ensuring font size doesn't get too small
-        
+        const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0
+            ? Math.max(this.props.bounds.height, 12)
+            : this.props.style.fontSize; // Ensuring font size doesn't get too small
+
         const alignMap = {
             'left': 'end',
             'center': 'middle',
             'centre': 'middle',
             'right': 'start',
         };
-        const svgAlign = alignMap[this.props.label.textAlign] || 'middle';
+        const svgAlign = alignMap[this.props.style.textAlign] || 'middle';
 
         return `
-            <div style="position: relative; width: 100%; height: 100%; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+            <div style="position: relative; width: 100%; height: 100%; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
-                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" fill="${this.props.shape.fill}" 
+                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.fill}" 
                         pointer-events="all"></rect>
                 </svg>
     
                 <!-- Text SVG with proper alignment -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
                      style="position: absolute; top: 0; left: 0;">
-                    <text x="${this.props.label.textAlign === 'left' ? '10%' : this.props.label.textAlign === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
-                        fill="${this.props.label.color}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
+                    <text x="${this.props.style.textAlign === 'left' ? '10%' : this.props.style.textAlign === 'right' ? '90%' : '50%'}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
+                        fill="${this.props.style.fontColor}" text-anchor="${svgAlign}" dominant-baseline="middle" alignment-baseline="middle" 
                         style="pointer-events: none;">${this.props.label.text}</text>
                 </svg>
             </div>

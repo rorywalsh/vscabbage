@@ -20,46 +20,53 @@ export class VerticalSlider {
       ],
       "value": null,
       "index": 0,
-
-      "thumb": {
-        "width": "auto",
-        "height": "auto",
-        "fill": "#0295cf",
-        "borderColor": "#525252",
-        "borderWidth": 2
-      },
-
-      "track": {
-        "width": "auto",
-        "fill": "#93d200",
-        "background": "#ffffff"
-      },
+      "type": "verticalSlider",
+      "velocity": 0,
+      "visible": true,
+      "popup": false,
+      "automatable": true,
 
       "label": {
-        "text": "",
-        "height": "auto",
-        "fontFamily": "Verdana",
-        "fontSize": 0,
-        "color": "#dddddd",
-        "textAlign": "center"
+        "text": ""
       },
 
       "valueText": {
         "visible": true,
-        "height": "auto",
+        "width": "auto",
         "prefix": "",
-        "postfix": "",
-        "fontFamily": "Verdana",
-        "fontSize": 11,
-        "color": "#dddddd"
+        "postfix": ""
       },
 
-      "type": "verticalSlider",
-      "velocity": 0,
-      "visible": true,
-      "opacity": 1,
-      "popup": false,
-      "automatable": true
+      "style": {
+        "opacity": 1,
+
+        "thumb": {
+          "width": "auto",
+          "height": "auto",
+          "fillColor": "#0295cf",
+          "borderColor": "#525252",
+          "borderWidth": 2
+        },
+
+        "track": {
+          "width": "auto",
+          "fillColor": "#93d200",
+          "backgroundColor": "#ffffff"
+        },
+
+        "label": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#dddddd",
+          "textAlign": "center"
+        },
+
+        "valueText": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#dddddd"
+        }
+      }
     };
 
     this.moveListener = this.pointerMove.bind(this);
@@ -137,7 +144,7 @@ export class VerticalSlider {
         console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
         return;
       }
-      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+      const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
       console.log('VerticalSlider pointerMove sending:', msg);
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -292,9 +299,9 @@ export class VerticalSlider {
       console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
       return;
     }
-    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
     console.log('VerticalSlider pointerMove sending:', msg);
-    if (this.props.automatable === 1) {
+    if (this.props.automatable === true || this.props.automatable === 1) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -314,31 +321,29 @@ export class VerticalSlider {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const svgAlign = alignMap[this.props.style.label.textAlign] || this.props.style.label.textAlign;
 
     // Calculate text height
     let textHeight = this.props.label.text ? this.props.bounds.height * 0.1 : 0;
     const valueTextBoxHeight = this.props.valueText.visible ? this.props.bounds.height * 0.1 : 0;
     const sliderHeight = this.props.bounds.height - textHeight - valueTextBoxHeight * 1.1;
 
-    const textX = this.props.bounds.width / 2;
-
     // Calculate fontSize - use explicit fontSize if provided, otherwise calculate from widget width
     // Use smaller multiplier (0.13) to fit text better in bounds
-    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.width * 0.13;
+    const fontSize = this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.style.label.fontSize : this.props.bounds.width * 0.13;
 
     // For vertical sliders, the track/thumb should be sized based on a standard narrow width,
     // not the full bounds.width (which might be wide to accommodate labels).
     // Use min of bounds.width or a reasonable max (e.g., 60px) as the basis for auto calculations.
     const sliderControlWidth = Math.min(this.props.bounds.width, 60);
 
-    const trackWidth = this.props.track.width === "auto" ? sliderControlWidth * 0.15 : this.props.track.width;
-    const thumbWidth = this.props.thumb.width === "auto" ? sliderControlWidth * 0.3 : this.props.thumb.width;
-    const thumbHeight = this.props.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderHeight * 0.08) : this.props.thumb.height;
+    const trackWidth = this.props.style.track.width === "auto" ? sliderControlWidth * 0.15 : this.props.style.track.width;
+    const thumbWidth = this.props.style.thumb.width === "auto" ? sliderControlWidth * 0.3 : this.props.style.thumb.width;
+    const thumbHeight = this.props.style.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderHeight * 0.08) : this.props.style.thumb.height;
 
     const textElement = this.props.label.text ? `
     <foreignObject x="0" y="${this.props.valueText.visible ? 0 : this.props.bounds.height - textHeight}" width="${this.props.bounds.width}" height="${textHeight + 5}">
-      <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color};">
+      <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${fontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor};">
         ${this.props.label.text}
       </div>
     </foreignObject>
@@ -352,23 +357,23 @@ export class VerticalSlider {
     const thumbX = (this.props.bounds.width - thumbWidth) / 2;
 
     const sliderElement = `
-    <svg x="0" y="${this.props.valueText.visible ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-      <rect x="${trackX}" y="${trackY}" width="${trackWidth}" height="${sliderHeight}" rx="2" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
-      <rect x="${trackX}" y="${trackY + sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" width="${trackWidth}" rx="2" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
-      <rect x="${thumbX}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${thumbWidth}" height="${thumbHeight}" rx="2" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+    <svg x="0" y="${this.props.valueText.visible ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
+      <rect x="${trackX}" y="${trackY}" width="${trackWidth}" height="${sliderHeight}" rx="2" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+      <rect x="${trackX}" y="${trackY + sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" width="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
+      <rect x="${thumbX}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${thumbWidth}" height="${thumbHeight}" rx="2" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
     </svg>
     `;
 
     const valueTextElement = this.props.valueText.visible ? `
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight * 1.2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight * 1.2}">
       <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
-      style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
+      style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? this.props.style.valueText.fontSize : fontSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0;"
       onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
     ` : '';
 
     return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false ? 'none' : 'block'};">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false ? 'none' : 'block'};">
       ${textElement}
       ${sliderElement}
       ${valueTextElement}

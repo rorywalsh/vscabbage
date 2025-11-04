@@ -28,7 +28,8 @@ export class XyPad {
             "presetIgnore": false,
             "type": "xyPad",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 5,
                 "borderWidth": 1,
                 "borderColor": "#525252",
@@ -356,7 +357,7 @@ export class XyPad {
         const xCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
         if (xCh) {
             const msgX = {
-                paramIdx: this.parameterIndex,
+                paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
                 channel: xCh.id,
                 value: xToSend,
                 channelType: "number"
@@ -371,13 +372,13 @@ export class XyPad {
         const yCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
         if (yCh) {
             const msgY = {
-                paramIdx: this.parameterIndex + 1,
+                paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 1),
                 channel: yCh.id,
                 value: yToSend,
                 channelType: "number"
             };
             console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
-            if (this.props.automatable === 1) {
+            if (this.props.automatable === true || this.props.automatable === 1) {
                 Cabbage.sendChannelUpdate(msgY, this.vscode, this.props.automatable);
             }
         }
@@ -586,7 +587,7 @@ export class XyPad {
 
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.shape.borderWidth;
+        const strokeWidth = this.props.style.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;
@@ -632,7 +633,7 @@ export class XyPad {
 
             const padWidth = this.props.bounds.width;
             const padHeight = this.props.bounds.height;
-            const strokeWidth = this.props.shape.borderWidth;
+            const strokeWidth = this.props.style.borderWidth;
             const effectiveWidth = padWidth - (2 * strokeWidth);
             const effectiveHeight = padHeight - (2 * strokeWidth);
             const valueBoxHeight = (this.props.text.x && this.props.text.y) ? 25 : 0;

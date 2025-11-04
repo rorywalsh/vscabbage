@@ -36,7 +36,10 @@
         "bounds": {"left": 240, "top": 12, "width": 121, "height": 30},
         "channels": [{"id": "toggleFreq", "event": "valueChanged"}],
         "label": {"text": {"off": "Toggle Freq", "on": "Toggle Freq"}},
-        "state": {"off": {"backgroundColor": "#ff0000"}, "on": {"backgroundColor": "#0295cf"}}
+        "style": {
+            "off": {"backgroundColor": "#ff0000", "textColor": "#ffffff"},
+            "on": {"backgroundColor": "#0295cf", "textColor": "#ffffff"}
+        }
     }
 ]
 </Cabbage>

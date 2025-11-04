@@ -11,17 +11,17 @@ export class Cabbage {
    * This function automatically routes messages to the appropriate backend function
    * based on the automatable flag:
    * 
-   * - automatable=1: Routes to sendParameterUpdate for real-time parameter control /
-   *                              this also sends the value as channel data to Csound
+   * - automatable=true: Routes to sendParameterUpdate for real-time parameter control /
+   *                     this also sends the value as channel data to Csound
    * 
-   * - automatable=0: Routes to sendChannelData for string/numeric data transmission
+   * - automatable=false: Routes to sendChannelData for string/numeric data transmission
    * 
    * All widget interactions should use this function instead of calling the lower-level
    * sendParameterUpdate or sendChannelData functions directly.
    */
-  static sendChannelUpdate(message, vscode = null, automatable = 0) {
-    if (automatable === 1) {
-      // Use parameter update for automatable controls
+  static sendChannelUpdate(message, vscode = null, automatable = false) {
+    if (automatable === true || automatable === 1) {
+      // Use parameter update for automatable controls (support both boolean and legacy numeric)
       Cabbage.sendParameterUpdate(message, vscode);
     } else {
       // Use channel data for non-automatable controls
@@ -31,9 +31,23 @@ export class Cabbage {
   }
 
   static sendParameterUpdate(message, vscode = null) {
+    // Validate that paramIdx is present and valid
+    if (message.paramIdx === undefined || message.paramIdx === null) {
+      console.error("Cabbage.sendParameterUpdate: message missing paramIdx!", message);
+      return;
+    }
+
+    if (message.paramIdx < 0) {
+      console.warn("Cabbage.sendParameterUpdate: paramIdx is -1, skipping (non-automatable widget)", message);
+      return;
+    }
+
     const msg = {
       command: "parameterChange",
-      ...message
+      paramIdx: message.paramIdx,
+      channel: message.channel,
+      value: message.value,
+      channelType: message.channelType || "number"
     };
     console.log("Cabbage.sendParameterUpdate:", message, "vscode:", vscode, "msg:", msg);
     if (vscode !== null) {

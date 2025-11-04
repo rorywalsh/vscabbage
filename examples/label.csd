@@ -11,7 +11,7 @@
             }
         ],
         "bounds": {"left": 158, "top": 37, "width": 228, "height": 21},
-        "text": "Don't label me!!",
+        "label": {"text": "Don't label me!!"},
         "channelType": "number",
         "automatable": 1
     }

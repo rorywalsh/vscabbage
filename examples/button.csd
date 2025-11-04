@@ -11,14 +11,21 @@
         "type": "button",
         "bounds": {"left": 146, "top": 12, "width": 80, "height": 30},
         "channels": [{"id": "mute", "event": "valueChanged"}],
-        "label": {"text": {"off": "Unmute", "on": "Mute"}}
+        "label": {"text": {"off": "Unmute", "on": "Mute"}},
+        "style": {
+            "off": {"backgroundColor": "#993d00", "textColor": "#ffffff"},
+            "on": {"backgroundColor": "#cc5200", "textColor": "#ffffff"}
+        }
     },
     {
         "type": "button",
         "bounds": {"left": 240, "top": 12, "width": 121, "height": 30},
         "channels": [{"id": "toggleFreq", "event": "valueChanged"}],
         "label": {"text": {"off": "Toggle Freq", "on": "Toggle Freq"}},
-        "state": {"off": {"backgroundColor": "#1da96fff"}, "on": {"backgroundColor": "#0295cf"}}
+        "style": {
+            "off": {"backgroundColor": "#1da96f", "textColor": "#ffffff"},
+            "on": {"backgroundColor": "#0295cf", "textColor": "#ffffff"}
+        }
     }
 ]
 </Cabbage>

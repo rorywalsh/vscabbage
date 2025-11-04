@@ -24,10 +24,10 @@ export class OptionButton {
       "active": true,
       "automatable": true,
       "presetIgnore": false,
-      "opacity": 1,
       "type": "optionButton",
 
-      "shape": {
+      "style": {
+        "opacity": 1,
         "borderRadius": 2,
         "borderWidth": 1,
         "borderColor": "#dddddd",
@@ -77,7 +77,7 @@ export class OptionButton {
 
     // Send normalized value (0-1) to maintain consistency with parameter system
     const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
-    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
     console.log('Sending parameter update:', msg);
     if (this.props.automatable === true || this.props.automatable === 1) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -166,18 +166,18 @@ export class OptionButton {
 
     let textX;
     if (this.props.label.textAlign === 'left') {
-      textX = this.props.shape.borderRadius + padding;
+      textX = this.props.style.borderRadius + padding;
     } else if (this.props.label.textAlign === 'right') {
-      textX = this.props.bounds.width - this.props.shape.borderRadius - padding;
+      textX = this.props.bounds.width - this.props.style.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
     }
 
-    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.shape.fill, 0.2) : this.props.shape.fill;
+    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.style.fill, 0.2) : this.props.style.fill;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
-                <rect x="${this.props.shape.borderRadius / 2}" y="${this.props.shape.borderRadius / 2}" width="${this.props.bounds.width - this.props.shape.borderRadius}" height="${this.props.bounds.height - this.props.shape.borderRadius}" fill="${currentColour}" stroke="${this.props.shape.borderColor}"
-                  stroke-width="${this.props.shape.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius}" fill="${currentColour}" stroke="${this.props.style.borderColor}"
+                  stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
                   fill="${this.props.label.color}" text-anchor="${svgAlign}" alignment-baseline="middle">${currentText}</text>
             </svg>

@@ -28,40 +28,47 @@ export class RotarySlider {
       "popup": false,
       "visible": true,
       "automatable": true,
-      "opacity": 1,
-
-      "thumb": {
-        "radius": "auto",
-        "fill": "#0295cf",
-        "borderColor": "#525252",
-        "borderWidth": 2
-      },
-
-      "track": {
-        "thickness": "auto",
-        "fill": "#93d200",
-        "background": "#393939ff"
-      },
 
       "label": {
         "text": "",
-        "width": "auto",
-        "height": "auto",
-        "offsetY": 0,
-        "fontFamily": "Verdana",
-        "fontSize": 12,
-        "color": "#dddddd",
-        "textAlign": "center"
+        "offsetY": 0
       },
 
       "valueText": {
         "visible": true,
         "width": "auto",
         "prefix": "",
-        "postfix": "",
-        "fontFamily": "Verdana",
-        "fontSize": 11,
-        "color": "#aaaaaa"
+        "postfix": ""
+      },
+
+      "style": {
+        "opacity": 1,
+
+        "thumb": {
+          "radius": "auto",
+          "fillColor": "#0295cf",
+          "borderColor": "#525252",
+          "borderWidth": 2
+        },
+
+        "track": {
+          "thickness": "auto",
+          "fillColor": "#93d200",
+          "backgroundColor": "#393939ff"
+        },
+
+        "label": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#dddddd",
+          "textAlign": "center"
+        },
+
+        "valueText": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#aaaaaa"
+        }
       },
 
       "filmStrip": {
@@ -360,7 +367,7 @@ export class RotarySlider {
     const valueToSend = snappedSkewedValue;
 
     const msg = {
-      paramIdx: this.parameterIndex,
+      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
       channel: CabbageUtils.getChannelId(this.props),
       value: valueToSend,
       channelType: "number"
@@ -447,12 +454,12 @@ export class RotarySlider {
         // Send denormalized value directly to backend
         const valueToSend = inputValue;
         const msg = {
-          paramIdx: this.parameterIndex,
+          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
           channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
           channelType: "number"
         };
-        if (this.props.automatable === 1) {
+        if (this.props.automatable === true || this.props.automatable === 1) {
           Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
         }
       }
@@ -524,16 +531,16 @@ export class RotarySlider {
       const filmStripElement = this.drawFilmStrip();
 
       if (filmStripElement) {
-        const labelFontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 
-          ? (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.18 
-          : this.props.label.fontSize;
-        
-        const labelY = this.props.bounds.height + (this.props.label.fontSize !== "auto" && this.props.label.fontSize > 0 ? this.props.label.offsetY : 0);
-        
+        const labelFontSize = this.props.style.label.fontSize === "auto" || this.props.style.label.fontSize === 0
+          ? (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.18
+          : this.props.style.label.fontSize;
+
+        const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
+
         return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
           ${filmStripElement}
-          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${labelY} font-size="${labelFontSize}px" font-family="${this.props.label.fontFamily}" stroke="none" fill="${this.props.label.color}">${this.props.label.text}</text>
+          <text text-anchor="middle" x=${this.props.bounds.width / 2} y=${labelY} font-size="${labelFontSize}px" font-family="${this.props.style.label.fontFamily}" stroke="none" fill="${this.props.style.label.fontColor}">${this.props.label.text}</text>
         </svg>
       `;
       }
@@ -542,27 +549,27 @@ export class RotarySlider {
     // Calculate sizes and positions
     const minDimension = Math.min(this.props.bounds.width, this.props.bounds.height);
     let w = minDimension * 0.75;
-    
+
     // Calculate track thickness
-    const trackThickness = this.props.track.thickness === "auto" ? minDimension * 0.1 : this.props.track.thickness;
-    const innerTrackerWidth = trackThickness - this.props.thumb.borderWidth;
-    const innerTrackerEndPoints = this.props.thumb.borderWidth * 0.5;
-    const trackerOutlineColour = this.props.thumb.borderWidth === 0 ? this.props.track.background : this.props.thumb.borderColor;
+    const trackThickness = this.props.style.track.thickness === "auto" ? minDimension * 0.1 : this.props.style.track.thickness;
+    const innerTrackerWidth = trackThickness - this.props.style.thumb.borderWidth;
+    const innerTrackerEndPoints = this.props.style.thumb.borderWidth * 0.5;
+    const trackerOutlineColour = this.props.style.thumb.borderWidth === 0 ? this.props.style.track.backgroundColor : this.props.style.thumb.borderColor;
 
     // Calculate paths
     const outerTrackerPath = this.describeArc(
-      this.props.bounds.width / 2, 
-      this.props.bounds.height / 2, 
-      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)), 
-      -130, 
+      this.props.bounds.width / 2,
+      this.props.bounds.height / 2,
+      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)),
+      -130,
       132
     );
-    
+
     const trackerPath = this.describeArc(
-      this.props.bounds.width / 2, 
-      this.props.bounds.height / 2, 
-      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)), 
-      -(130 - innerTrackerEndPoints), 
+      this.props.bounds.width / 2,
+      this.props.bounds.height / 2,
+      (w / 2) * (1 - (trackThickness / this.props.bounds.width / 2)),
+      -(130 - innerTrackerEndPoints),
       132 - innerTrackerEndPoints
     );
 
@@ -579,18 +586,18 @@ export class RotarySlider {
     );
 
     // Calculate font sizes
-    const labelFontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 
-      ? w * 0.24 
-      : this.props.label.fontSize;
-    
-    const valueTextSize = this.props.valueText.fontSize === "auto" || this.props.valueText.fontSize === 0 
-      ? w * 0.24 
-      : this.props.valueText.fontSize;
+    const labelFontSize = this.props.style.label.fontSize === "auto" || this.props.style.label.fontSize === 0
+      ? w * 0.24
+      : this.props.style.label.fontSize;
+
+    const valueTextSize = this.props.style.valueText.fontSize === "auto" || this.props.style.valueText.fontSize === 0
+      ? w * 0.24
+      : this.props.style.valueText.fontSize;
 
     // Calculate thumb radius
-    const thumbRadius = this.props.thumb.radius === "auto" ? w * 0.367 : this.props.thumb.radius;
-    
-    const labelY = this.props.bounds.height + (this.props.label.fontSize !== "auto" && this.props.label.fontSize > 0 ? this.props.label.offsetY : 0);
+    const thumbRadius = this.props.style.thumb.radius === "auto" ? w * 0.367 : this.props.style.thumb.radius;
+
+    const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
     let scale = 100;
 
     // Render with value text visible
@@ -617,26 +624,25 @@ export class RotarySlider {
 
       const inputX = 0;
 
-      // Create label text with ellipsis if needed
-      const labelWidth = this.props.label.width === "auto" ? this.props.bounds.width : this.props.label.width;
+      // Create label text
       const labelText = this.props.label.text;
 
       return `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
         <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
-          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
             ${labelText}
           </div>
         </foreignObject>
         <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
-        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.thumb.borderWidth} />
-        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.track.background} stroke-width=${innerTrackerWidth} />
-        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.track.fill} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.thumb.borderColor} fill="${this.props.thumb.fill}" stroke-width=${this.props.thumb.borderWidth} />
+        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
+        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
+        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
+        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.fillColor}" stroke-width=${this.props.style.thumb.borderWidth} />
         </g>
-        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.valueText.fontSize !== "auto" && this.props.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.valueText.fontSize !== "auto" && this.props.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
+        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
-            style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
+            style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
             onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
@@ -646,13 +652,13 @@ export class RotarySlider {
 
     // Render without value text (label only)
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
-      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.thumb.borderWidth} />
-      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.track.background} stroke-width=${innerTrackerWidth} />
-      <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.track.fill} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.thumb.borderColor} fill="${this.props.thumb.fill}" stroke-width=${this.props.thumb.borderWidth} />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible === false || this.props.visible === 0 ? '0' : this.props.style.opacity}" style="pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
+      <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
+      <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
+      <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
+      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.fillColor}" stroke-width=${this.props.style.thumb.borderWidth} />
       <foreignObject x="0" y="${labelY - labelFontSize}" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
-        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
           ${this.props.label.text}
         </div>
       </foreignObject>

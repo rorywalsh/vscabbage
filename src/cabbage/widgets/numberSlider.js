@@ -26,13 +26,13 @@ export class NumberSlider {
             "visible": true,
             "automatable": true,
             "presetIgnore": false,
-            "opacity": 1,
             "type": "numberSlider",
             "velocity": 0,
             "popup": true,
             "sensitivity": 0.5,
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
                 "fill": "#0295cf"
             },
@@ -167,7 +167,7 @@ export class NumberSlider {
 
             // Send denormalized value to backend
             console.log(`NumberSlider sending value: ${this.props.value} (range: ${range.min}-${range.max})`);
-            const msg = { paramIdx: this.parameterIndex, channel: channelId, value: this.props.value };
+            const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: this.props.value };
 
             Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -210,7 +210,7 @@ export class NumberSlider {
                 if (!isNaN(newValue) && newValue >= range.min && newValue <= range.max) {
                     this.props.value = newValue;
                     // Send denormalized value to backend
-                    const msg = { paramIdx: this.parameterIndex, channel: channelId, value: this.props.value };
+                    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: this.props.value };
                     if (this.props.automatable === true || this.props.automatable === 1) {
                         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
                     }
@@ -260,8 +260,8 @@ export class NumberSlider {
             <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible === false || this.props.visible === 0 ? '0' : '1'}; pointer-events: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'auto'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
-                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" fill="${this.props.shape.fill}" 
-                        pointer-events="${this.props.visible === false || this.props.visible === 0 ? 'none' : 'all'}" opacity="${this.props.opacity}"></rect>
+                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.fill}" 
+                        pointer-events="${this.props.visible === false || this.props.visible === 0 ? 'none' : 'all'}" opacity="${this.props.style.opacity}"></rect>
                 </svg>
     
                 <!-- Text using foreignObject for consistent rendering -->

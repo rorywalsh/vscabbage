@@ -10,8 +10,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 20, "top": 60, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 1", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 1"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic1",
@@ -23,8 +23,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 150, "top": 60, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 2", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 2"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic2",
@@ -36,8 +36,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 280, "top": 60, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 3", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 3"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic3",
@@ -49,8 +49,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 410, "top": 60, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 4", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 4"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic4",
@@ -62,8 +62,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 20, "top": 200, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 5", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 5"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic5",
@@ -75,8 +75,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 150, "top": 200, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 6", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 6"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic6",
@@ -88,8 +88,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 280, "top": 200, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 7", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 7"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic7",
@@ -101,8 +101,8 @@
     {
         "type": "rotarySlider",
         "bounds": {"left": 410, "top": 200, "width": 120, "height": 80},
-        "label": {"text": "Harmonic 8", "color": "#dddddd"},
-        "valueText": {"fontSize": 12},
+        "label": {"text": "Harmonic 8"},
+        "style": {"label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12}},
         "channels": [
             {
                 "id": "harmonic8",

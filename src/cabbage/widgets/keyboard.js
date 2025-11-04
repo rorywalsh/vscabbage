@@ -20,7 +20,9 @@ export class MidiKeyboard {
       "channel": "",
       "value": 36,
       "automatable": false,
-      "opacity": 1,
+      "style": {
+        "opacity": 1
+      },
       "type": "keyboard",
 
       "label": {
@@ -264,7 +266,7 @@ export class MidiKeyboard {
       <div id="${this.props.channel}" style="display: ${this.props.visible === 0 ? 'none' : 'flex'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
         <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.color.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>

@@ -17,10 +17,10 @@ export class TextEditor {
             "channel": "texteditor",
             "visible": true,
             "automatable": false,
-            "opacity": 1,
             "type": "textEditor",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
                 "fill": "#0295cf"
             },
@@ -56,9 +56,9 @@ export class TextEditor {
         const textAlign = alignMap[this.props.label.textAlign] || 'start';
 
         return `
-                <textarea style="width: 100%; height: 100%; background-color: ${this.props.shape.fill}; 
+                <textarea style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
                 color: ${this.props.label.color}; font-family: ${this.props.label.fontFamily}; font-size: ${fontSize}px; 
-                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+                text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
 ${this.props.text}
                 </textarea>
         `;

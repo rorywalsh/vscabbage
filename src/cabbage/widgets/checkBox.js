@@ -26,15 +26,17 @@ export class Checkbox {
       "active": true,
       "automatable": true,
       "presetIgnore": false,
-      "opacity": 1,
       "radioGroup": -1,
       "type": "checkBox",
 
-      "shape": {
-        "borderRadius": 2
-      },
+      "style": {
+        "opacity": 1,
+        "borderRadius": 2,
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "fontColor": "#dddddd",
+        "textAlign": "left",
 
-      "state": {
         "on": {
           "fill": "#93d200",
           "borderColor": "#dddddd",
@@ -50,10 +52,7 @@ export class Checkbox {
       },
 
       "label": {
-        "text": "On/Off",
-        "fontFamily": "Verdana",
-        "fontSize": "auto",
-        "textAlign": "left"
+        "text": "On/Off"
       }
     };
 
@@ -88,7 +87,7 @@ export class Checkbox {
     }
 
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
-    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -119,22 +118,22 @@ export class Checkbox {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
-    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.8 : this.props.label.fontSize;
+    const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
+    const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.8 : this.props.style.fontSize;
 
     const checkboxSize = this.props.bounds.height * 0.8;
-    const checkboxX = this.props.label.textAlign === 'right' ? this.props.bounds.width - checkboxSize - this.props.shape.borderRadius : this.props.shape.borderRadius;
-    const textX = this.props.label.textAlign === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4;
+    const checkboxX = this.props.style.textAlign === 'right' ? this.props.bounds.width - checkboxSize - this.props.style.borderRadius : this.props.style.borderRadius;
+    const textX = this.props.style.textAlign === 'right' ? checkboxX - 10 : checkboxX + checkboxSize + 4;
 
-    const adjustedTextAnchor = this.props.label.textAlign === 'right' ? 'end' : 'start';
+    const adjustedTextAnchor = this.props.style.textAlign === 'right' ? 'end' : 'start';
 
     const isOn = currentValue === 1;
-    const currentState = isOn ? this.props.state.on : this.props.state.off;
+    const currentState = isOn ? this.props.style.on : this.props.style.off;
 
     return `
-      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
-        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentState.fill}" stroke="${currentState.borderColor}" stroke-width="${currentState.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
-        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.label.fontFamily}" font-size="${fontSize}" fill="${currentState.textColor}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.label.text}</text>
+      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+        <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentState.fill}" stroke="${currentState.borderColor}" stroke-width="${currentState.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
+        <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}" fill="${currentState.textColor}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.label.text}</text>
       </svg>
     `;
   }

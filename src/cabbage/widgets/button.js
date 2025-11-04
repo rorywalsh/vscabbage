@@ -31,15 +31,13 @@ export class Button {
       "presetIgnore": false,
       "radioGroup": -1,
       "type": "button",
-      "opacity": 1,
 
-      "shape": {
+      "style": {
+        "opacity": 1,
         "borderRadius": 4,
         "borderWidth": 0,
-        "borderColor": "#dddddd"
-      },
+        "borderColor": "#dddddd",
 
-      "state": {
         "on": {
           "backgroundColor": "#3d800a",
           "textColor": "#dddddd"
@@ -62,10 +60,7 @@ export class Button {
         "text": {
           "on": "On",
           "off": "Off"
-        },
-        "fontFamily": "Verdana",
-        "fontSize": "auto",
-        "textAlign": "center"
+        }
       }
     };
 
@@ -113,7 +108,7 @@ export class Button {
     }
 
     CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
-    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
     console.log(msg);
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -178,15 +173,15 @@ export class Button {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
-    const fontSize = this.props.label.fontSize === "auto" || this.props.label.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.label.fontSize;
+    const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
+    const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.style.fontSize;
     const padding = 5;
 
     let textX;
-    if (this.props.label.textAlign === 'left') {
-      textX = this.props.shape.borderRadius + padding;
-    } else if (this.props.label.textAlign === 'right') {
-      textX = this.props.bounds.width - this.props.shape.borderRadius - padding;
+    if (this.props.style.textAlign === 'left') {
+      textX = this.props.style.borderRadius + padding;
+    } else if (this.props.style.textAlign === 'right') {
+      textX = this.props.bounds.width - this.props.style.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
     }
@@ -197,27 +192,27 @@ export class Button {
 
     // Determine background color and text color based on state
     const isOn = currentValue === 1;
-    const baseColour = isOn ? this.props.state.on.backgroundColor : this.props.state.off.backgroundColor;
-    const baseTextColour = isOn ? this.props.state.on.textColor : this.props.state.off.textColor;
+    const baseColour = isOn ? this.props.style.on.backgroundColor : this.props.style.off.backgroundColor;
+    const baseTextColour = isOn ? this.props.style.on.textColor : this.props.style.off.textColor;
 
     // Apply hover or active state if applicable
     let currentColour = baseColour;
     let textColour = baseTextColour;
 
-    if (this.isMouseDown && this.props.state.active.backgroundColor) {
-      currentColour = this.props.state.active.backgroundColor;
-      textColour = this.props.state.active.textColor;
-    } else if (this.isMouseInside && this.props.state.hover.backgroundColor) {
-      currentColour = this.props.state.hover.backgroundColor;
-      textColour = this.props.state.hover.textColor;
+    if (this.isMouseDown && this.props.style.active.backgroundColor) {
+      currentColour = this.props.style.active.backgroundColor;
+      textColour = this.props.style.active.textColor;
+    } else if (this.isMouseInside && this.props.style.hover.backgroundColor) {
+      currentColour = this.props.style.hover.backgroundColor;
+      textColour = this.props.style.hover.textColor;
     }
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
-        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.shape.borderColor}"
-          stroke-width="${this.props.shape.borderWidth}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}"></rect>
-        <text x="${textX}" y="50%" font-family="${this.props.label.fontFamily}" font-size="${fontSize}"
+           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'};">
+        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.style.borderColor}"
+          stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
+        <text x="${textX}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
           fill="${textColour}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;

@@ -5,7 +5,7 @@
         "type": "groupBox",
         "channels": [{"id": "groupbox1"}],
         "bounds": {"left": 10, "top": 10, "width": 500, "height": 480},
-        "text": "I'm a groupbox"
+        "label": {"text": "I'm a groupbox"}
     }
 ]
 </Cabbage>

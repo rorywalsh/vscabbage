@@ -32,10 +32,10 @@ export class GenTable {
             ],
             "visible": true,
             "automatable": false,
-            "opacity": 1,
             "type": "genTable",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
@@ -351,13 +351,13 @@ export class GenTable {
         const yMax = this.props.range.y.max;
 
         // Draw background with rounded corners
-        ctx.fillStyle = this.props.shape.background;
+        ctx.fillStyle = this.props.style.background;
         ctx.beginPath();
-        ctx.moveTo(Number(this.props.shape.borderRadius), 0);
-        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.shape.borderRadius));
-        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.shape.borderRadius));
-        ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.shape.borderRadius));
-        ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.shape.borderRadius));
+        ctx.moveTo(Number(this.props.style.borderRadius), 0);
+        ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.style.borderRadius));
+        ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.style.borderRadius));
+        ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.style.borderRadius));
+        ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.style.borderRadius));
         ctx.closePath();
         ctx.fill();
 
@@ -377,7 +377,7 @@ export class GenTable {
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
             // Draw filled waveform from center line to amplitudes
-            ctx.fillStyle = this.props.shape.fill;
+            ctx.fillStyle = this.props.style.fill;
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 const startIdx = Math.floor(x * samplesPerPixel);
                 const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
@@ -409,9 +409,9 @@ export class GenTable {
         }
 
         // Draw outline stroke on top
-        if (Number(this.props.shape.borderWidth) > 0) {
-            ctx.strokeStyle = this.props.shape.borderColor;
-            ctx.lineWidth = Number(this.props.shape.borderWidth);
+        if (Number(this.props.style.borderWidth) > 0) {
+            ctx.strokeStyle = this.props.style.borderColor;
+            ctx.lineWidth = Number(this.props.style.borderWidth);
             ctx.beginPath();
 
             for (let x = 0; x < Number(this.props.bounds.width); x++) {

@@ -23,48 +23,55 @@ export class HorizontalSlider {
       ],
       "value": null,
       "index": 0,
-
-      "thumb": {
-        "width": "auto",
-        "height": "auto",
-        "fill": "#0295cf",
-        "borderColor": "#525252",
-        "borderWidth": 2,
-        "corners": 4
-      },
-
-      "track": {
-        "width": "auto",
-        "fill": "#93d200",
-        "background": "#ffffff"
-      },
+      "type": "horizontalSlider",
+      "visible": true,
+      "popup": false,
+      "automatable": true,
+      "presetIgnore": false,
 
       "label": {
         "text": "",
-        "width": "auto",
-        "offsetX": 0,
-        "fontFamily": "Verdana",
-        "fontSize": 0,
-        "color": "#dddddd",
-        "textAlign": "center"
+        "offsetX": 0
       },
 
       "valueText": {
         "visible": true,
         "width": "auto",
         "prefix": "",
-        "postfix": "",
-        "fontFamily": "Verdana",
-        "fontSize": 11,
-        "color": "#dddddd"
+        "postfix": ""
       },
 
-      "type": "horizontalSlider",
-      "visible": true,
-      "opacity": 1,
-      "popup": false,
-      "automatable": true,
-      "presetIgnore": false
+      "style": {
+        "opacity": 1,
+
+        "thumb": {
+          "width": "auto",
+          "height": "auto",
+          "fillColor": "#0295cf",
+          "borderColor": "#525252",
+          "borderWidth": 2,
+          "corners": 4
+        },
+
+        "track": {
+          "width": "auto",
+          "fillColor": "#93d200",
+          "backgroundColor": "#ffffff"
+        },
+
+        "label": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#dddddd",
+          "textAlign": "center"
+        },
+
+        "valueText": {
+          "fontFamily": "Verdana",
+          "fontSize": "auto",
+          "fontColor": "#dddddd"
+        }
+      }
     };
 
     this.parameterIndex = 0;
@@ -114,7 +121,7 @@ export class HorizontalSlider {
       'centre': 'middle',
       'right': 'end',
     };
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const svgAlign = alignMap[this.props.style.label.textAlign] || this.props.style.label.textAlign;
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
     let textWidth = this.props.label.text ? CabbageUtils.getStringWidth(this.props.label.text, this.props, 20) : 0;
@@ -158,7 +165,7 @@ export class HorizontalSlider {
 
       // Send denormalized value directly to backend
       const valueToSend = skewedValue;
-      const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+      const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
       console.log(`pointerDown: sending valueToSend=${valueToSend}`);
 
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -266,7 +273,7 @@ export class HorizontalSlider {
       'centre': 'middle',
       'right': 'end',
     };
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const svgAlign = alignMap[this.props.style.label.textAlign] || this.props.style.label.textAlign;
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
 
     let textWidth = this.props.label.text ? CabbageUtils.getStringWidth(this.props.label.text, this.props, 20) : 0;
@@ -307,9 +314,9 @@ export class HorizontalSlider {
 
     // Send denormalized value directly to backend
     const valueToSend = skewedValue;
-    const msg = { paramIdx: this.parameterIndex, channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
     console.log(`pointerMove: sending valueToSend=${valueToSend}`);
-    if (this.props.automatable === 1) {
+    if (this.props.automatable === true || this.props.automatable === 1) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
   }
@@ -338,7 +345,7 @@ export class HorizontalSlider {
         // Send denormalized value directly to backend
         const valueToSend = inputValue;
         const msg = {
-          paramIdx: this.parameterIndex,
+          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
           channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
           channelType: "number"
@@ -365,7 +372,7 @@ export class HorizontalSlider {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.label.textAlign] || this.props.label.textAlign;
+    const svgAlign = alignMap[this.props.style.label.textAlign] || this.props.style.label.textAlign;
 
     // Add padding if alignment is 'end' or 'middle'
     const padding = (svgAlign === 'end' || svgAlign === 'middle') ? 5 : 0;
@@ -377,22 +384,22 @@ export class HorizontalSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
 
     // Calculate fontSize - use explicit fontSize if provided, otherwise calculate from widget height
-    const fontSize = this.props.label.fontSize > 0 ? this.props.label.fontSize : this.props.bounds.height * 0.4;
+    const fontSize = this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.style.label.fontSize : this.props.bounds.height * 0.4;
 
     // For horizontal sliders, the track/thumb should be sized based on a standard narrow height,
     // not the full bounds.height (which might be tall to accommodate labels).
     // Use min of bounds.height or a reasonable max (e.g., 60px) as the basis for auto calculations.
     const sliderControlHeight = Math.min(this.props.bounds.height, 60);
 
-    const trackWidth = this.props.track.width === "auto" ? sliderControlHeight * 0.2 : this.props.track.width;
-    const thumbWidth = this.props.thumb.width === "auto" ? sliderControlHeight * 0.4 : this.props.thumb.width;
-    const thumbHeight = this.props.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderControlHeight * 0.8) : this.props.thumb.height;
+    const trackWidth = this.props.style.track.width === "auto" ? sliderControlHeight * 0.2 : this.props.style.track.width;
+    const thumbWidth = this.props.style.thumb.width === "auto" ? sliderControlHeight * 0.4 : this.props.style.thumb.width;
+    const thumbHeight = this.props.style.thumb.height === "auto" ? Math.min(trackWidth * 2, sliderControlHeight * 0.8) : this.props.style.thumb.height;
 
     textWidth += padding;
 
     const textElement = this.props.label.text ? `
       <foreignObject x="0" y="0" width="${textWidth}" height="${this.props.bounds.height}">
-        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${svgAlign === 'end' ? 'flex-end' : (svgAlign === 'middle' ? 'center' : 'flex-start')}; font-size:${fontSize}px; font-family:${this.props.label.fontFamily}; color:${this.props.label.color}; padding-right:${svgAlign === 'end' ? padding : 0}px;">
+        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${svgAlign === 'end' ? 'flex-end' : (svgAlign === 'middle' ? 'center' : 'flex-start')}; font-size:${fontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; padding-right:${svgAlign === 'end' ? padding : 0}px;">
           ${this.props.label.text}
         </div>
       </foreignObject>
@@ -403,17 +410,17 @@ export class HorizontalSlider {
     const thumbY = (this.props.bounds.height - thumbHeight) / 2;
 
     const sliderElement = `
-      <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.opacity}">
-        <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackWidth}" rx="2" fill="${this.props.track.background}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
-        <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackWidth}" rx="2" fill="${this.props.track.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/> 
-        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.thumb.corners}" ry="${this.props.thumb.corners}" fill="${this.props.thumb.fill}" stroke-width="${this.props.thumb.borderWidth}" stroke="${this.props.thumb.borderColor}"/>
+      <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
+        <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackWidth}" rx="2" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+        <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
+        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.corners}" ry="${this.props.style.thumb.corners}" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
       </svg>
     `;
 
     const valueTextElement = this.props.valueText.visible ? `
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
-        style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.valueText.fontSize}px; font-family:${this.props.valueText.fontFamily}; color:${this.props.valueText.color}; background:none; border:none; padding:0; margin:0;"
+        style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? this.props.style.valueText.fontSize : fontSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0;"
         onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';

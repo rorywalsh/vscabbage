@@ -17,6 +17,9 @@ export class ListBox {
             "visible": true,
             "automatable": true,
             "type": "listBox",
+            "style": {
+                "opacity": 1
+            },
 
             "color": {
                 "background": "#ffffff",

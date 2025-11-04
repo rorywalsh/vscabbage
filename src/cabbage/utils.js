@@ -73,6 +73,16 @@ export class CabbageUtils {
   }
 
   /**
+   * Returns the parameterIndex of the nth channel.
+   * This is critical for sending parameter updates to the backend with the correct index.
+   * @returns {number} The parameter index, or -1 if not found (indicating non-automatable or invalid channel)
+   */
+  static getChannelParameterIndex(props, index = 0) {
+    const ch = CabbageUtils.getChannel(props, index);
+    return ch?.parameterIndex ?? -1;
+  }
+
+  /**
    * Returns the first channel matching a given event name, applying defaults if needed.
    */
   static getChannelByEvent(props, event, interaction = 'drag') {

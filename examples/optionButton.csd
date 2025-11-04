@@ -5,25 +5,25 @@
         "type": "rotarySlider",
         "bounds": {"left": 12, "top": 9, "width": 86, "height": 90},
         "channels": [{"id": "att", "range": {"min": 0, "max": 1, "defaultValue": 0.01, "skew": 1, "increment": 0.001}}],
-        "text": "Att."
+        "label": {"text": "Att."}
     },
     {
         "type": "rotarySlider",
         "bounds": {"left": 99, "top": 9, "width": 86, "height": 90},
         "channels": [{"id": "dec", "range": {"min": 0, "max": 1, "defaultValue": 0.4, "skew": 1, "increment": 0.001}}],
-        "text": "Dec."
+        "label": {"text": "Dec."}
     },
     {
         "type": "rotarySlider",
         "bounds": {"left": 187, "top": 9, "width": 86, "height": 90},
         "channels": [{"id": "sus", "range": {"min": 0, "max": 1, "defaultValue": 0.7, "skew": 1, "increment": 0.001}}],
-        "text": "Sus."
+        "label": {"text": "Sus."}
     },
     {
         "type": "rotarySlider",
         "bounds": {"left": 274, "top": 9, "width": 86, "height": 90},
         "channels": [{"id": "rel", "range": {"min": 0, "max": 1, "defaultValue": 0.8, "skew": 1, "increment": 0.001}}],
-        "text": "Rel."
+        "label": {"text": "Rel."}
     },
     {
         "type": "keyboard",
@@ -34,7 +34,7 @@
         "type": "optionButton",
         "bounds": {"left": 260, "top": 188, "width": 100, "height": 30},
         "channels": [{"id": "waveform"}],
-        "corners": 5,
+        "style": {"borderRadius": 5},
         "items": ["Saw", "Square", "Triangle"]
     }
 ]
@@ -58,7 +58,7 @@ nchnls = 2
 
 instr 1
     
-    iVcoModes[] fillarray 0, 10, 12    
+    iVcoModes[] fillarray 0, 10, 12
     iAtt = cabbageGetValue("att")
     iDec = cabbageGetValue("dec")
     iSus = cabbageGetValue("sus")

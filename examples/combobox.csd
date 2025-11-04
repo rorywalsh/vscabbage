@@ -76,7 +76,7 @@
                 "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1}
             }
         ],
-        "shape": {"borderRadius": 5},
+        "style": {"borderRadius": 5},
         "items": ["Saw", "Square", "Triangle"],
         "max": 2
     }

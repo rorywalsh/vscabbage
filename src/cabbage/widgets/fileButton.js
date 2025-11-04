@@ -28,15 +28,17 @@ export class FileButton extends Button {
       "presetIgnore": false,
       "radioGroup": -1,
       "type": "fileButton",
-      "opacity": 1,
 
-      "shape": {
+      "style": {
+        "opacity": 1,
         "borderRadius": 6,
         "borderWidth": 0,
-        "borderColor": "#dddddd"
-      },
+        "borderColor": "#dddddd",
+        "fontFamily": "Verdana",
+        "fontSize": "auto",
+        "fontColor": "#dddddd",
+        "textAlign": "center",
 
-      "state": {
         "on": {
           "backgroundColor": "#3d800a",
           "textColor": "#dddddd"
@@ -46,10 +48,12 @@ export class FileButton extends Button {
           "textColor": "#dddddd"
         },
         "hover": {
-          "backgroundColor": "#4ca10c"
+          "backgroundColor": "#4ca10c",
+          "textColor": "#dddddd"
         },
         "active": {
-          "backgroundColor": "#2d6008"
+          "backgroundColor": "#2d6008",
+          "textColor": "#dddddd"
         }
       },
 
@@ -57,10 +61,7 @@ export class FileButton extends Button {
         "text": {
           "on": "Choose File",
           "off": "Choose File"
-        },
-        "fontFamily": "Verdana",
-        "fontSize": "auto",
-        "textAlign": "center"
+        }
       },
 
       "directory": "",

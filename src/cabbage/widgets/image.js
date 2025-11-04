@@ -24,10 +24,10 @@ export class Image {
             "index": 0,
             "visible": true,
             "automatable": false,
-            "opacity": 1,
             "type": "image",
 
-            "shape": {
+            "style": {
+                "opacity": 1,
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
@@ -78,7 +78,7 @@ export class Image {
     }
 
     getInnerHTML() {
-        const outlineOffset = this.props.shape.borderWidth / 2;
+        const outlineOffset = this.props.style.borderWidth / 2;
 
         // Calculate rotation transform if rotate values are set
         // Transform origin is relative to the widget's position within the form
@@ -91,7 +91,7 @@ export class Image {
         // Check if svgText is not empty and render it
         if (this.props.svgText) {
             return `
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; opacity: ${this.props.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; opacity: ${this.props.style.opacity}; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                         ${this.props.svgText}
                     </div>
@@ -106,20 +106,20 @@ export class Image {
             if (imagePath) {
                 console.log("Cabbage: setting file");
                 return `
-                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.shape.borderRadius}px; opacity: ${this.props.opacity}; pointer-events: none; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}" />
+                    <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.style.borderRadius}px; opacity: ${this.props.style.opacity}; pointer-events: none; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}" />
                 `;
             }
         }
 
         // Preserve the fill color regardless of whether there are children
-        const fillColor = this.props.shape.fill;
+        const fillColor = this.props.style.fill;
         const pointerEvents = 'none'; // Images should not capture pointer events to allow child widgets or underlying widgets to be interactive
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.opacity}"
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}"
                  style="position: absolute; top: 0; left: 0; display: ${this.props.visible === false || this.props.visible === 0 ? 'none' : 'block'}; ${transformStyle}">
-                <rect width="${this.props.bounds.width - this.props.shape.borderWidth}" height="${this.props.bounds.height - this.props.shape.borderWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.shape.borderRadius}" ry="${this.props.shape.borderRadius}" fill="${fillColor}" 
-                      stroke="${this.props.shape.borderColor}" stroke-width="${this.props.shape.borderWidth}" pointer-events="${pointerEvents}"></rect>
+                <rect width="${this.props.bounds.width - this.props.style.borderWidth}" height="${this.props.bounds.height - this.props.style.borderWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${fillColor}" 
+                      stroke="${this.props.style.borderColor}" stroke-width="${this.props.style.borderWidth}" pointer-events="${pointerEvents}"></rect>
             </svg>
         `;
     }
