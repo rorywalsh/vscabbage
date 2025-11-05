@@ -256,7 +256,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: var(--vscode-editor-foreground, #ffffff);
+    background-color: var(--vscode-button-background, #0e639c);
     left: 2px;
     top: 50%;
     transform: translate(0, -50%);
@@ -270,6 +270,7 @@
 
 .property-panel .toggle-switch input:checked+.toggle-slider::before {
     transform: translate(80px, -50%);
+    background-color: #00a2ff;
 }
 
 .property-panel .toggle-switch input:focus-visible+.toggle-slider {

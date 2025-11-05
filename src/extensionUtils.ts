@@ -1026,9 +1026,10 @@ ${JSON.stringify(props, null, 4)}
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean) {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean, propertyPanelPosition: string = 'right') {
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         const propertyPanelStylesLink = propertyPanelStyles ? `<link href="${propertyPanelStyles}" rel="stylesheet">` : '';
+        const panelLayoutClass = propertyPanelPosition === 'left' ? 'property-panel-left' : 'property-panel-right';
         return `
 <!doctype html>
 <html lang="en">
@@ -1054,7 +1055,7 @@ ${JSON.stringify(props, null, 4)}
   </style>
 </head>
 
-<body data-vscode-context='{"webviewSection": "nav", "preventDefaultContextMenuItems": true}' class="${themeClass}">
+<body data-vscode-context='{"webviewSection": "nav", "preventDefaultContextMenuItems": true}' class="${themeClass} ${panelLayoutClass}">
 
 
 <div id="parent" class="full-height-div">
@@ -1272,7 +1273,6 @@ f0 z
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
-    <link rel="stylesheet" href="propertyPanel.css">
     <style>
         html,
         body {

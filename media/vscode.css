@@ -91,4 +91,31 @@ textarea::placeholder {
 }
 
 /* ================================== */
+/* Property Panel Layout Control */
+/* ================================== */
 
+/* Default layout: property panel on the right */
+#parent {
+	display: flex;
+	flex-direction: row;
+}
+
+#LeftPanel {
+	flex: 1;
+	order: 1;
+}
+
+#RightPanel {
+	order: 2;
+	min-width: 250px;
+	max-width: 400px;
+}
+
+/* Alternative layout: property panel on the left */
+body.property-panel-left #LeftPanel {
+	order: 2;
+}
+
+body.property-panel-left #RightPanel {
+	order: 1;
+}

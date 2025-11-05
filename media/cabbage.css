@@ -64,39 +64,35 @@
 
 .selected {
 	border: 1px dashed #000;
-    border-radius: 0px;
-    margin-right: 0;
-    box-sizing: border-box; /* Include padding and border in element's total width and height */
+	border-radius: 0px;
+	margin-right: 0;
+	box-sizing: border-box;
+	/* Include padding and border in element's total width and height */
 }
 
 #parent {
 	display: flex;
 	/* border: 1px solid #000; */
-	height: 75vh;
+	height: 100vh;
 	width: 100%;
 	padding: 0px;
 }
 
 #LeftPanel {
-    resize: horizontal;
-    overflow: auto;
-    width: 2000px; /* Example initial width */
-    height: 2000px; /* Example initial height */
-    position: absolute;
-    top: 50px;
-    left: 50px;
-    box-sizing: border-box;
+	flex: 1;
+	position: relative;
+	overflow: auto;
+	box-sizing: border-box;
 }
 
 #RightPanel {
-    padding: 0px;
-    position: fixed;
-    z-index: 9999;
-    top: 0;
-    right: 0;
-    width: 300px;
-    height: 100%;
-    box-sizing: border-box;
+	padding: 0px;
+	position: relative;
+	z-index: 9999;
+	width: 300px;
+	height: 100%;
+	box-sizing: border-box;
+	flex-shrink: 0;
 }
 
 .form {
@@ -174,64 +170,68 @@
 
 /* Explicitly style the scrollbar within your widget */
 .widget-menu {
-    overflow: auto; /* Ensure scrolling is enabled */
+	overflow: auto;
+	/* Ensure scrolling is enabled */
 }
 
 .widget-menu::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+	width: 10px;
+	height: 10px;
 }
 
 .widget-menu::-webkit-scrollbar-track {
-    background: #f0f0f0 !important; /* Override dark theme background */
+	background: #f0f0f0 !important;
+	/* Override dark theme background */
 }
 
 .widget-menu::-webkit-scrollbar-thumb {
-    background-color: #888 !important; /* Use a lighter thumb color */
-    border-radius: 5px;
-    border: 2px solid #f0f0f0 !important; /* Ensure contrast */
+	background-color: #888 !important;
+	/* Use a lighter thumb color */
+	border-radius: 5px;
+	border: 2px solid #f0f0f0 !important;
+	/* Ensure contrast */
 }
 
 /* Optional for hover effect */
 .widget-menu::-webkit-scrollbar-thumb:hover {
-    background-color: #555 !important;
+	background-color: #555 !important;
 }
 
 /* Dark theme scrollbar */
 .vscode-dark .widget-menu::-webkit-scrollbar-track {
-    background: #2d2d30 !important;
+	background: #2d2d30 !important;
 }
 
 .vscode-dark .widget-menu::-webkit-scrollbar-thumb {
-    background-color: #555 !important;
-    border: 2px solid #2d2d30 !important;
+	background-color: #555 !important;
+	border: 2px solid #2d2d30 !important;
 }
 
 .vscode-dark .widget-menu::-webkit-scrollbar-thumb:hover {
-    background-color: #777 !important;
+	background-color: #777 !important;
 }
 
 /* Number input spinner controls (up/down arrows) */
 .property input[type="number"]::-webkit-outer-spin-button,
 .property input[type="number"]::-webkit-inner-spin-button {
-    opacity: 1;
-    height: 20px;
-    width: 16px;
-    cursor: pointer;
+	opacity: 1;
+	height: 20px;
+	width: 16px;
+	cursor: pointer;
 }
 
 .property input[type="number"]::-webkit-inner-spin-button:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+	background-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Dark theme for number input spinners */
 .vscode-dark .property input[type="number"]::-webkit-inner-spin-button {
-    filter: invert(1) brightness(0.8);
+	filter: invert(1) brightness(0.8);
 }
 
 .vscode-dark .property input[type="number"]::-webkit-inner-spin-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    filter: invert(1) brightness(1);
+	background-color: rgba(255, 255, 255, 0.1);
+	filter: invert(1) brightness(1);
 }
 
 /*
@@ -404,7 +404,8 @@
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	user-select: none; /* Prevent text selection in the full-screen div */
+	user-select: none;
+	/* Prevent text selection in the full-screen div */
 }
 
 /* Dark theme for full-screen div */
@@ -429,21 +430,30 @@
 	z-index: 1000000;
 	opacity: 0;
 	transition: opacity 0.3s ease-in-out;
-	pointer-events: none; /* Prevent pointer events while hidden */
-	user-select: none; /* Prevent text selection in the popup */
+	pointer-events: none;
+	/* Prevent pointer events while hidden */
+	user-select: none;
+	/* Prevent text selection in the popup */
 }
 
 .popup-value {
-    user-select: none; /* Prevent text selection */
-    -webkit-user-select: none; /* For Safari */
-    -moz-user-select: none; /* For Firefox */
-    -ms-user-select: none; /* For Internet Explorer/Edge */
-    
-    /* Font properties */
-    font-family: 'Verdana', sans-serif; /* Change to your desired font */
-    font-size: 14px; /* Change to your desired font size */
-    color: #ffffff; /* Change to your desired text color */
-    /* Add any other font properties you want, such as font-weight, line-height, etc. */
+	user-select: none;
+	/* Prevent text selection */
+	-webkit-user-select: none;
+	/* For Safari */
+	-moz-user-select: none;
+	/* For Firefox */
+	-ms-user-select: none;
+	/* For Internet Explorer/Edge */
+
+	/* Font properties */
+	font-family: 'Verdana', sans-serif;
+	/* Change to your desired font */
+	font-size: 14px;
+	/* Change to your desired font size */
+	color: #ffffff;
+	/* Change to your desired text color */
+	/* Add any other font properties you want, such as font-weight, line-height, etc. */
 }
 
 .popup::after {
@@ -454,38 +464,57 @@
 	margin-top: -10px;
 	border-width: 10px;
 	border-style: solid;
-	border-color: transparent #333 transparent transparent; /* Arrow pointing left */
+	border-color: transparent #333 transparent transparent;
+	/* Arrow pointing left */
 }
 
 .popup.right::after {
 	left: auto;
-	right: -20px; /* Position the arrow */
-	border-color: transparent transparent transparent #333; /* Arrow pointing right */
+	right: -20px;
+	/* Position the arrow */
+	border-color: transparent transparent transparent #333;
+	/* Arrow pointing right */
 }
 
 
 .popup.above::after {
-    content: ''; /* Ensure the pseudo-element is created */
-    position: absolute;
-    top: 24px; /* Position the arrow at the top of the popup */
-    left: 50%; /* Center the arrow horizontally */
-    margin-left: -10px; /* Center the arrow by adjusting its position */
-    width: 0; /* No width */
-    height: 0; /* No height */
-    clip-path: polygon(50% 100%, 0% 50%, 100% 50%); /* Arrow shape pointing up */
-    background-color: #333; /* Color of the arrow */
+	content: '';
+	/* Ensure the pseudo-element is created */
+	position: absolute;
+	top: 24px;
+	/* Position the arrow at the top of the popup */
+	left: 50%;
+	/* Center the arrow horizontally */
+	margin-left: -10px;
+	/* Center the arrow by adjusting its position */
+	width: 0;
+	/* No width */
+	height: 0;
+	/* No height */
+	clip-path: polygon(50% 100%, 0% 50%, 100% 50%);
+	/* Arrow shape pointing up */
+	background-color: #333;
+	/* Color of the arrow */
 }
 
 .popup.below::after {
-    content: ''; /* Ensure the pseudo-element is created */
-    position: absolute;
-    top: 3px; /* Position the arrow at the top of the popup */
-    left: 50%; /* Center the arrow horizontally */
-    margin-left: -10px; /* Center the arrow by adjusting its position */
-    width: 0; /* No width */
-    height: 0; /* No height */
-    clip-path: polygon(50% 0%, 0% 70%, 100% 70%); /* Arrow shape pointing up */
-    background-color: #333; /* Color of the arrow */
+	content: '';
+	/* Ensure the pseudo-element is created */
+	position: absolute;
+	top: 3px;
+	/* Position the arrow at the top of the popup */
+	left: 50%;
+	/* Center the arrow horizontally */
+	margin-left: -10px;
+	/* Center the arrow by adjusting its position */
+	width: 0;
+	/* No width */
+	height: 0;
+	/* No height */
+	clip-path: polygon(50% 0%, 0% 70%, 100% 70%);
+	/* Arrow shape pointing up */
+	background-color: #333;
+	/* Color of the arrow */
 }
 
 .popup.show {

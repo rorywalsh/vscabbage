@@ -416,6 +416,16 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.manageServer();
         }));
 
+    // Explicit start/stop server commands for Command Palette
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.startServer', async () => {
+            await Commands.startCabbageServer(true);
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.stopServer', async () => {
+            await Commands.startCabbageServer(false);
+        }));
+
     // Register command for jumping to widget definition
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => {

@@ -502,7 +502,11 @@ export class Commands {
         const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
             vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
 
-        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme);
+        // Get property panel position from settings
+        const cabbageConfig = vscode.workspace.getConfiguration('cabbage');
+        const propertyPanelPosition = cabbageConfig.get<string>('propertyPanelPosition', 'right');
+
+        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition);
         return this.panel;
 
     }
