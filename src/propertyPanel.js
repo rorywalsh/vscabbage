@@ -191,16 +191,6 @@ export class PropertyPanel {
         addBtn.textContent = '+';
         addBtn.title = 'Add Channel';
         addBtn.classList.add('add-channel-btn');
-        addBtn.style.width = '24px';
-        addBtn.style.height = '24px';
-        addBtn.style.padding = '0';
-        addBtn.style.display = 'flex';
-        addBtn.style.alignItems = 'center';
-        addBtn.style.justifyContent = 'center';
-        addBtn.style.borderRadius = '4px';
-        addBtn.style.background = 'var(--vscode-button-background, #0e639c)';
-        addBtn.style.color = 'var(--vscode-button-foreground, #ffffff)';
-        addBtn.style.border = '1px solid var(--vscode-button-border, transparent)';
         addBtn.addEventListener('click', () => {
             this.addChannel();
         });
@@ -215,33 +205,23 @@ export class PropertyPanel {
             // Create channel content container
             const channelContent = document.createElement('div');
             channelContent.classList.add('channel-content');
-            channelContent.style.display = 'flex';
-            channelContent.style.flexDirection = 'column';
-            channelContent.style.gap = '6px';
 
             // Add properties to content
             const idRow = this.addPropertyToSection('id', channel.id, channelContent, `channels[${index}]`);
             if (idRow) {
-                idRow.style.display = 'grid';
-                idRow.style.gridTemplateColumns = '24px minmax(0, 110px) 1fr';
-                idRow.style.alignItems = 'center';
-                idRow.style.columnGap = '8px';
-                idRow.style.rowGap = '4px';
+                idRow.classList.add('channel-id-row');
 
                 const label = idRow.querySelector('label');
                 if (label) {
-                    label.style.margin = '0';
-                    label.style.justifySelf = 'start';
-                    label.style.paddingLeft = '93%';
+                    label.classList.add('channel-id-label');
                 }
 
                 const inputElement = idRow.querySelector('input, select, textarea, .toggle-switch');
                 if (inputElement) {
                     if (inputElement.tagName === 'DIV' && inputElement.classList.contains('toggle-switch')) {
-                        inputElement.style.justifySelf = 'start';
+                        inputElement.classList.add('channel-id-toggle');
                     } else {
-                        inputElement.style.width = '85%';
-                        inputElement.style.marginLeft = '5px';
+                        inputElement.classList.add('channel-id-input');
                     }
                 }
 
@@ -249,26 +229,6 @@ export class PropertyPanel {
                 removeBtn.textContent = '×';
                 removeBtn.title = 'Remove Channel';
                 removeBtn.classList.add('remove-channel-btn');
-                removeBtn.style.padding = '0';
-                removeBtn.style.fontSize = '13px';
-                removeBtn.style.width = '24px';
-                removeBtn.style.height = '24px';
-                removeBtn.style.display = 'flex';
-                removeBtn.style.alignItems = 'center';
-                removeBtn.style.justifyContent = 'center';
-                removeBtn.style.minWidth = '24px';
-                removeBtn.style.borderRadius = '4px';
-                removeBtn.style.fontWeight = 'bold';
-                removeBtn.style.background = 'var(--vscode-button-secondaryBackground, #3a3d41)';
-                removeBtn.style.color = 'var(--vscode-button-secondaryForeground, #ffffff)';
-                removeBtn.style.border = '1px solid var(--vscode-button-border, transparent)';
-                removeBtn.style.cursor = 'pointer';
-                removeBtn.addEventListener('mouseenter', () => {
-                    removeBtn.style.background = 'var(--vscode-button-secondaryHoverBackground, #45494e)';
-                });
-                removeBtn.addEventListener('mouseleave', () => {
-                    removeBtn.style.background = 'var(--vscode-button-secondaryBackground, #3a3d41)';
-                });
                 removeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.removeChannel(index);
@@ -371,16 +331,9 @@ export class PropertyPanel {
         console.log('PropertyPanel: Creating section:', name);
         const sectionDiv = document.createElement('div');
         sectionDiv.classList.add('property-section');
-        // Reduce default gap between stacked sections to avoid large whitespace
-        sectionDiv.style.marginBottom = '6px';
 
         const header = document.createElement('div');
         header.classList.add('section-header');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
-        header.style.padding = '6px 10px';
-        header.style.backgroundColor = 'var(--vscode-sideBar-background, #2d2d30)';
-        header.style.userSelect = 'none';
 
         // Add arrow for collapsible functionality (unless explicitly disabled)
         let arrow;
@@ -389,39 +342,24 @@ export class PropertyPanel {
             arrow = document.createElement('span');
             arrow.classList.add('arrow');
             arrow.textContent = '▼';
-            arrow.style.marginRight = '8px';
-            arrow.style.fontSize = '10px';
-            arrow.style.display = 'inline-block';
-            arrow.style.transition = 'transform 0.2s ease';
             header.appendChild(arrow);
-            header.style.cursor = 'pointer';
         } else {
             header.classList.add('non-collapsible');
-            header.style.cursor = 'default';
         }
 
         const title = document.createElement('h3');
         // Capitalize first letter of section name
         title.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-        title.style.margin = '0';
-        title.style.flex = '1';
-        title.style.fontSize = '13px';
-        title.style.fontWeight = '600';
-        title.style.backgroundColor = '#ff0000ff';
         header.appendChild(title);
 
         if (options.buttons && options.buttons.length > 0) {
             header.classList.add('justify-space-between');
-            header.style.justifyContent = 'space-between';
             const buttonContainer = document.createElement('div');
             buttonContainer.classList.add('button-container');
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.gap = '5px';
             options.buttons.forEach(btn => buttonContainer.appendChild(btn));
             header.appendChild(buttonContainer);
         } else {
             header.classList.add('justify-center');
-            header.style.justifyContent = 'flex-start';
         }
 
         // Add click handler for collapsible functionality
@@ -455,10 +393,6 @@ export class PropertyPanel {
         // Create section content wrapper
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('section-content');
-        // Keep horizontal padding but slightly reduce bottom padding to tighten space after last property
-        contentDiv.style.padding = '8px 10px 0px';
-        contentDiv.style.backgroundColor = 'var(--vscode-editor-background, #1e1e1e)';
-        contentDiv.style.display = 'block';
         sectionDiv.appendChild(contentDiv);
 
         // Store reference to content div for adding properties
@@ -643,8 +577,6 @@ export class PropertyPanel {
                 input.type = 'text';
                 input.value = value; // Set the initial color value
                 input.classList.add('color-input');
-                input.style.border = '1px solid var(--vscode-input-border, #3c3c3c)';
-                input.style.textTransform = 'uppercase';
 
                 // Calculate contrasting text color (light or dark) based on background
                 const getContrastColor = (hexColor) => {

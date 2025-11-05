@@ -1272,6 +1272,7 @@ f0 z
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
+    <link rel="stylesheet" href="propertyPanel.css">
     <style>
         html,
         body {

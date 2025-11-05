@@ -1,0 +1,257 @@
+/* Property panel layout */
+.property-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    border: 1px solid var(--vscode-editorWidget-border, #3c3c3c);
+    border-radius: 3px;
+    background-color: var(--vscode-editor-background, #1e1e1e);
+    color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.property-panel .property-section {
+    margin: 0 0 6px;
+    padding: 0;
+    text-align: left;
+    background: transparent;
+}
+
+.property-panel .section-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    background-color: transparent;
+    color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground, #e7e7e7));
+    user-select: none;
+    cursor: pointer;
+    gap: 8px;
+}
+
+.vscode-dark .property-panel .section-header,
+.vscode-high-contrast .property-panel .section-header {
+    color: #ffffff;
+}
+
+.vscode-light .property-panel .section-header,
+.vscode-high-contrast-light .property-panel .section-header {
+    color: #1a1a1a;
+}
+
+.property-panel .section-header.non-collapsible {
+    cursor: default;
+}
+
+.property-panel .section-header .arrow {
+    font-size: 10px;
+    display: inline-block;
+    transition: transform 0.2s ease;
+    color: inherit;
+}
+
+.property-panel .section-header h3 {
+    margin: 0;
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: inherit;
+    background-color: transparent;
+}
+
+.property-panel .section-header.justify-space-between {
+    justify-content: space-between;
+}
+
+.property-panel .section-header.justify-center {
+    justify-content: flex-start;
+}
+
+.property-panel .section-header .button-container {
+    display: flex;
+    gap: 5px;
+}
+
+.property-panel .section-content {
+    display: block;
+    padding: 8px 10px 0;
+    background-color: var(--vscode-editor-background, #1e1e1e);
+}
+
+/* Generic property rows */
+.property-panel .property {
+    margin: 0;
+    padding: 4px 0;
+    background: transparent;
+}
+
+.property-panel .property label {
+    color: var(--vscode-editor-foreground, #d4d4d4);
+    background-color: transparent;
+}
+
+.property-panel .property input,
+.property-panel .property select,
+.property-panel .property textarea {
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-input-border, #3c3c3c);
+    background-color: var(--vscode-input-background, #1e1e1e);
+    color: var(--vscode-input-foreground, #d4d4d4);
+}
+
+.property-panel .property input:focus,
+.property-panel .property select:focus,
+.property-panel .property textarea:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder, #0098ff);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder, rgba(0, 120, 215, 0.6));
+}
+
+/* Channel controls */
+.property-panel .channel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.property-panel .channel-id-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 110px) 1fr;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 4px;
+}
+
+.property-panel .channel-id-label {
+    margin: 0;
+    justify-self: start;
+    padding-left: 93%;
+}
+
+.property-panel .channel-id-input {
+    width: 85%;
+    margin-left: 5px;
+}
+
+.property-panel .channel-id-toggle {
+    justify-self: start;
+}
+
+.property-panel .add-channel-btn,
+.property-panel .remove-channel-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-button-border, transparent);
+    cursor: pointer;
+}
+
+.property-panel .add-channel-btn {
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff);
+}
+
+.property-panel .add-channel-btn:hover {
+    background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.property-panel .remove-channel-btn {
+    font-size: 13px;
+    font-weight: bold;
+    background: var(--vscode-button-secondaryBackground, #3a3d41);
+    color: var(--vscode-button-secondaryForeground, #ffffff);
+}
+
+.property-panel .remove-channel-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+/* Color inputs */
+.property-panel .color-input {
+    border: 1px solid var(--vscode-input-border, #3c3c3c);
+    text-transform: uppercase;
+    padding: 4px 6px;
+    border-radius: 3px;
+}
+
+.property-panel .color-input:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder, #0098ff);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder, rgba(0, 120, 215, 0.6));
+}
+
+/* Toggle switches */
+.property-panel .toggle-switch {
+    position: relative;
+    display: inline-flex;
+    width: 32px;
+    height: 20px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.property-panel .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.property-panel .toggle-slider {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background-color: var(--vscode-input-background, #3c3c3c);
+    border: 1px solid var(--vscode-input-border, #3c3c3c);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.property-panel .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: var(--vscode-editor-foreground, #ffffff);
+    left: 2px;
+    top: 50%;
+    transform: translate(0, -50%);
+    transition: transform 0.2s ease;
+}
+
+.property-panel .toggle-switch input:checked+.toggle-slider {
+    background-color: var(--vscode-button-background, #0e639c);
+    border-color: var(--vscode-button-border, transparent);
+}
+
+.property-panel .toggle-switch input:checked+.toggle-slider::before {
+    transform: translate(14px, -50%);
+}
+
+.property-panel .toggle-switch input:focus-visible+.toggle-slider {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--vscode-focusBorder, rgba(0, 120, 215, 0.35));
+}
+
+/* Scrollable property panel adjustments */
+.property-panel .section-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.property-panel .section-content::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+    border-radius: 4px;
+}
+
+.property-panel .section-content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+}
