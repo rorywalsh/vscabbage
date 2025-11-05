@@ -25,7 +25,7 @@ export class Label {
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,
-                "fill": "#00000000",
+                "backgroundColor": "#00000000",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#444444",
@@ -72,7 +72,7 @@ export class Label {
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
-                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.fill}" 
+                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
                         pointer-events="all"></rect>
                 </svg>
     

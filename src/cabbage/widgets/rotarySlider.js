@@ -47,13 +47,13 @@ export class RotarySlider {
 
         "thumb": {
           "radius": "auto",
-          "fillColor": "#0295cf",
+          "backgroundColor": "#0295cf",
           "borderColor": "#525252",
           "borderWidth": 2
         },
 
         "track": {
-          "thickness": "auto",
+          "width": "auto",
           "fillColor": "#93d200",
           "backgroundColor": "#393939ff"
         },
@@ -547,8 +547,9 @@ export class RotarySlider {
     const minDimension = Math.min(this.props.bounds.width, this.props.bounds.height);
     let w = minDimension * 0.75;
 
-    // Calculate track thickness
-    const trackThickness = this.props.style.track.thickness === "auto" ? minDimension * 0.1 : this.props.style.track.thickness;
+    // Calculate track thickness/width (use width only; 'auto' means derive from size)
+    const configuredTrackWidth = this.props.style.track.width;
+    const trackThickness = configuredTrackWidth === "auto" ? (minDimension * 0.1) : configuredTrackWidth;
     const innerTrackerWidth = trackThickness - this.props.style.thumb.borderWidth;
     const innerTrackerEndPoints = this.props.style.thumb.borderWidth * 0.5;
     const trackerOutlineColour = this.props.style.thumb.borderWidth === 0 ? this.props.style.track.backgroundColor : this.props.style.thumb.borderColor;
@@ -635,7 +636,7 @@ export class RotarySlider {
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
         <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
-        <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.fillColor}" stroke-width=${this.props.style.thumb.borderWidth} />
+  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} />
         </g>
         <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
@@ -653,7 +654,7 @@ export class RotarySlider {
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
-      <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.fillColor}" stroke-width=${this.props.style.thumb.borderWidth} />
+  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} />
       <foreignObject x="0" y="${labelY - labelFontSize}" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
         <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
           ${this.props.label.text}

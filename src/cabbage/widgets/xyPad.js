@@ -34,7 +34,7 @@ export class XyPad {
                 "borderRadius": 5,
                 "borderWidth": 1,
                 "borderColor": "#525252",
-                "fill": "#323232",
+                "backgroundColor": "#323232",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -44,7 +44,7 @@ export class XyPad {
 
             "ball": {
                 "size": 20,
-                "fill": "#93d200",
+                "backgroundColor": "#93d200",
                 "borderWidth": 2
             },
 
@@ -455,8 +455,8 @@ export class XyPad {
             border-radius: ${this.props.corners}px;
             box-sizing: border-box;
             overflow: hidden;">
-        <div style="width: 100%; height: ${activeHeight}px; 
-                background-color: ${this.props.colour.fill}; 
+    <div style="width: 100%; height: ${activeHeight}px; 
+        background-color: ${this.props.style.backgroundColor}; 
                 position: relative; cursor: crosshair;
                 ${padCornerStyle}">
                     <!-- Static background crosshairs (centered, gray, fading) - DISABLED BY DEFAULT -->
@@ -503,9 +503,9 @@ export class XyPad {
                         height: 2px;
                         background: linear-gradient(to right, 
                             transparent 0%, 
-                            ${this.props.colour.ball.fill}40 20%, 
-                            ${this.props.colour.ball.fill}B3 50%, 
-                            ${this.props.colour.ball.fill}40 80%, 
+                            ${this.props.ball.backgroundColor}40 20%, 
+                            ${this.props.ball.backgroundColor}B3 50%, 
+                            ${this.props.ball.backgroundColor}40 80%, 
                             transparent 100%);
                         pointer-events: none;
                         transform: translateY(-50%);
@@ -519,9 +519,9 @@ export class XyPad {
                         height: 100%;
                         background: linear-gradient(to bottom, 
                             transparent 0%, 
-                            ${this.props.colour.ball.fill}40 20%, 
-                            ${this.props.colour.ball.fill}B3 50%, 
-                            ${this.props.colour.ball.fill}40 80%, 
+                            ${this.props.ball.backgroundColor}40 20%, 
+                            ${this.props.ball.backgroundColor}B3 50%, 
+                            ${this.props.ball.backgroundColor}40 80%, 
                             transparent 100%);
                         pointer-events: none;
                         transform: translateX(-50%);
@@ -531,7 +531,7 @@ export class XyPad {
                         width: ${ballSize}px;
                         height: ${ballSize}px;
                         border-radius: 50%;
-                        background-color: ${this.props.colour.ball.fill};
+                        background-color: ${this.props.ball.backgroundColor};
                         border: ${this.props.colour.ball.width}px solid ${this.props.colour.stroke.colour};
                         left: ${ballLeft}px;
                         top: ${ballTop}px;
@@ -625,7 +625,7 @@ export class XyPad {
         line.setAttribute('y1', startY);
         line.setAttribute('x2', endX);
         line.setAttribute('y2', endY);
-        line.setAttribute('stroke', this.props.ball.fill);
+        line.setAttribute('stroke', this.props.ball.backgroundColor);
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-dasharray', '5,5');
 

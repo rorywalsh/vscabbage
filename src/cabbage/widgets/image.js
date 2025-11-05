@@ -32,7 +32,7 @@ export class Image {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#0295cf"
+                "backgroundColor": "#0295cf"
             },
 
             "rotate": {
@@ -116,14 +116,14 @@ export class Image {
             }
         }
 
-        // Preserve the fill color regardless of whether there are children
-        const fillColor = this.props.style.fill;
+        // Preserve the background color regardless of whether there are children
+        const backgroundColor = this.props.style.backgroundColor;
         const pointerEvents = 'none'; // Images should not capture pointer events to allow child widgets or underlying widgets to be interactive
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}"
                  style="position: absolute; top: 0; left: 0; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
-                <rect width="${this.props.bounds.width - this.props.style.borderWidth}" height="${this.props.bounds.height - this.props.style.borderWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${fillColor}" 
+                <rect width="${this.props.bounds.width - this.props.style.borderWidth}" height="${this.props.bounds.height - this.props.style.borderWidth}" x="${outlineOffset}" y="${outlineOffset}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${backgroundColor}" 
                       stroke="${this.props.style.borderColor}" stroke-width="${this.props.style.borderWidth}" pointer-events="${pointerEvents}"></rect>
             </svg>
         `;

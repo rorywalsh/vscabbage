@@ -35,7 +35,7 @@ export class OptionButton {
         "fontSize": "auto",
         "fontColor": "#dddddd",
         "textAlign": "center",
-        "fill": "#0295cf"
+        "backgroundColor": "#0295cf"
       },
 
       "items": ["Item1", "Item2", "Item3"]
@@ -174,7 +174,7 @@ export class OptionButton {
       textX = this.props.bounds.width / 2;
     }
 
-    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.style.fill, 0.2) : this.props.style.fill;
+    const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.style.backgroundColor, 0.2) : this.props.style.backgroundColor;
     return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
                 <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius}" fill="${currentColour}" stroke="${this.props.style.borderColor}"

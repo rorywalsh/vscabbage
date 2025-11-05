@@ -48,10 +48,10 @@ export class HorizontalSlider {
         "thumb": {
           "width": "auto",
           "height": "auto",
-          "fillColor": "#0295cf",
+          "backgroundColor": "#0295cf",
           "borderColor": "#525252",
           "borderWidth": 2,
-          "corners": 4
+          "borderRadius": 4
         },
 
         "track": {
@@ -425,7 +425,7 @@ export class HorizontalSlider {
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
         <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackWidth}" rx="2" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
         <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
-        <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.corners}" ry="${this.props.style.thumb.corners}" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+  <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.borderRadius}" ry="${this.props.style.thumb.borderRadius}" fill="${this.props.style.thumb.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
       </svg>
     `;
 

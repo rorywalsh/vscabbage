@@ -44,7 +44,7 @@ export class VerticalSlider {
         "thumb": {
           "width": "auto",
           "height": "auto",
-          "fillColor": "#0295cf",
+          "backgroundColor": "#0295cf",
           "borderColor": "#525252",
           "borderWidth": 2
         },
@@ -375,7 +375,7 @@ export class VerticalSlider {
     <svg x="0" y="${this.props.valueText.visible ? textHeight + 2 : 0}" width="${this.props.bounds.width}" height="${sliderHeight}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
       <rect x="${trackX}" y="${trackY}" width="${trackWidth}" height="${sliderHeight}" rx="2" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
       <rect x="${trackX}" y="${trackY + sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" height="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderHeight)}" width="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
-      <rect x="${thumbX}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${thumbWidth}" height="${thumbHeight}" rx="2" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+  <rect x="${thumbX}" y="${sliderHeight - CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, thumbHeight + 1, sliderHeight - 1)}" width="${thumbWidth}" height="${thumbHeight}" rx="2" fill="${this.props.style.thumb.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
     </svg>
     `;
 

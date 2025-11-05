@@ -28,7 +28,7 @@ export class TextEditor {
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,
-                "fill": "#0295cf",
+                "backgroundColor": "#0295cf",
                 "fontFamily": "Verdana",
                 "fontSize": 14,
                 "fontColor": "#222222",
@@ -65,7 +65,7 @@ export class TextEditor {
         const textAlign = alignMap[this.props.style.textAlign] || 'start';
 
         return `
-    <textarea style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
+    <textarea style="width: 100%; height: 100%; background-color: ${this.props.style.backgroundColor}; 
     color: ${this.props.style.fontColor}; font-family: ${this.props.style.fontFamily}; font-size: ${fontSize}px; 
     text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; position:absolute; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
 ${this.props.label.text}
