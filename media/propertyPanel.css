@@ -83,11 +83,33 @@
     margin: 0;
     padding: 4px 0;
     background: transparent;
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 }
 
-.property-panel .property label {
+.vscode-light .property-panel .property,
+.vscode-high-contrast-light .property-panel .property {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.property-panel .property>label:first-child {
+    display: inline-block;
+    width: 110px;
     color: var(--vscode-editor-foreground, #d4d4d4);
     background-color: transparent;
+}
+
+.property-panel .section-content>.property input,
+.property-panel .section-content>.property select,
+.property-panel .section-content>.property textarea {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(100% - 120px);
+}
+
+.property-panel .section-content>.property .toggle-switch {
+    display: inline-block;
+    vertical-align: middle;
+    width: 36px;
 }
 
 .property-panel .property input,
@@ -107,6 +129,16 @@
     outline: none;
     border-color: var(--vscode-focusBorder, #0098ff);
     box-shadow: 0 0 0 1px var(--vscode-focusBorder, rgba(0, 120, 215, 0.6));
+}
+
+/* Number input spinner positioning */
+/* .property-panel .property input[type="number"] {
+    padding-right: 20px;
+} */
+
+.property-panel .property input[type="number"]::-webkit-inner-spin-button,
+.property-panel .property input[type="number"]::-webkit-outer-spin-button {
+    margin-right: -5px;
 }
 
 /* Channel controls */
@@ -131,7 +163,7 @@
 }
 
 .property-panel .channel-id-input {
-    width: 85%;
+    width: 83%;
     margin-left: 5px;
 }
 
@@ -190,11 +222,13 @@
 /* Toggle switches */
 .property-panel .toggle-switch {
     position: relative;
-    display: inline-flex;
-    width: 32px;
-    height: 20px;
-    align-items: center;
+    display: inline-block;
+    width: 100px;
+    max-width: 100px;
+    height: 18px;
     cursor: pointer;
+    flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .property-panel .toggle-switch input {
@@ -205,10 +239,11 @@
 }
 
 .property-panel .toggle-slider {
-    position: relative;
-    display: block;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     border-radius: 999px;
     background-color: var(--vscode-input-background, #3c3c3c);
     border: 1px solid var(--vscode-input-border, #3c3c3c);
@@ -218,8 +253,8 @@
 .property-panel .toggle-slider::before {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background-color: var(--vscode-editor-foreground, #ffffff);
     left: 2px;
@@ -234,7 +269,7 @@
 }
 
 .property-panel .toggle-switch input:checked+.toggle-slider::before {
-    transform: translate(14px, -50%);
+    transform: translate(80px, -50%);
 }
 
 .property-panel .toggle-switch input:focus-visible+.toggle-slider {
