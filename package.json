@@ -147,6 +147,15 @@
           "default": true,
           "description": "Clear console each time Csound is compiled."
         },
+        "cabbage.propertyPanelPosition": {
+          "type": "string",
+          "enum": [
+            "right",
+            "left"
+          ],
+          "default": "right",
+          "description": "Position of the property panel in the webview."
+        },
         "cabbage.bundleResources": {
           "type": "boolean",
           "default": false,
@@ -203,8 +212,13 @@
         "category": "Cabbage"
       },
       {
-        "command": "cabbage.manageServer",
-        "title": "Launch Cabbage Server",
+        "command": "cabbage.startServer",
+        "title": "Start Cabbage Server",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.stopServer",
+        "title": "Stop Cabbage Server",
         "category": "Cabbage"
       },
       {
