@@ -24,6 +24,7 @@ export class NumberSlider {
             "value": null,
             "index": 0,
             "visible": true,
+            "active": true,
             "automatable": true,
             "presetIgnore": false,
             "type": "numberSlider",
@@ -57,29 +58,8 @@ export class NumberSlider {
         this.vscode = null;
         this.decimalPlaces = CabbageUtils.getDecimalPlaces(CabbageUtils.getChannelRange(this.props, 0, 'drag').increment);
 
-        this.props = new Proxy(this.props, {
-            set: (target, key, value) => {
-                const oldValue = target[key];
-                // Track the path of the key being set, including the parent object
-                const path = CabbageUtils.getPath(target, key);
-
-                // Set the value as usual
-                target[key] = value;
-
-                // Log visibility changes
-                if (key === 'visible') {
-                    console.log(`NumberSlider: visible changed from ${oldValue} to ${value}`);
-                    if (this.widgetDiv) {
-                        this.widgetDiv.style.pointerEvents = value ? 'auto' : 'none';
-                    }
-                }                // Custom logic: trigger your onPropertyChange method with the path
-                if (this.onPropertyChange) {
-                    this.onPropertyChange(path, key, value, oldValue);  // Pass the full path and value
-                }
-
-                return true;
-            }
-        });
+        // Use centralized reactive props helper to manage visible/active toggling and cleanup
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
@@ -89,6 +69,9 @@ export class NumberSlider {
 
     addEventListeners(widgetDiv) {
         this.widgetDiv = widgetDiv;
+        // ensure initial pointer-events reflects visible && active
+        try { this.widgetDiv.style.pointerEvents = (this.props.visible && this.props.active) ? 'auto' : 'none'; } catch (e) { }
+
         widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
         widgetDiv.addEventListener("dblclick", this.doubleClick.bind(this)); // Add double-click event listener
     }
@@ -110,8 +93,14 @@ export class NumberSlider {
             console.warn('Invalid startValue in numberSlider pointerDown, using default', this.startValue);
             this.startValue = range.defaultValue ?? 0;
         }
-        window.addEventListener("pointermove", this.pointerMove.bind(this));
-        window.addEventListener("pointerup", this.pointerUp.bind(this));
+        // use pre-bound handlers so removeEventListener works reliably
+        const moveHandler = this.boundPointerMove || this.pointerMove.bind(this);
+        const upHandler = this.boundPointerUp || this.pointerUp.bind(this);
+        // store bound handlers if they weren't present
+        if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+        if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+        window.addEventListener("pointermove", this.boundPointerMove);
+        window.addEventListener("pointerup", this.boundPointerUp);
     }
 
     pointerMove(event) {
@@ -177,8 +166,9 @@ export class NumberSlider {
 
     pointerUp(event) {
         this.isDragging = false;
-        window.removeEventListener("pointermove", this.pointerMove.bind(this));
-        window.removeEventListener("pointerup", this.pointerUp.bind(this));
+        // remove the bound handlers
+        if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
+        if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
     }
 
     doubleClick(event) {

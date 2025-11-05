@@ -2,6 +2,8 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
+import { CabbageUtils } from "../utils.js";
+
 /**
  * GroupBox class
  */
@@ -19,6 +21,7 @@ export class GroupBox {
             ],
             "index": 0,
             "visible": true,
+            "active": true,
             "automatable": false,
             "type": "groupBox",
 
@@ -38,10 +41,14 @@ export class GroupBox {
                 "text": "Hello"
             }
         };
+        // Wrap props with reactive proxy to unify visible/active handling
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 

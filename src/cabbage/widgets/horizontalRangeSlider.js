@@ -26,6 +26,7 @@ export class HorizontalRangeSlider {
       "velocity": 0,
       "popup": false,
       "visible": true,
+      "active": true,
       "automatable": true,
       "presetIgnore": false,
 
@@ -87,6 +88,8 @@ export class HorizontalRangeSlider {
     this.vscode = null;
     this.isMouseDown = false;
     this.decimalPlaces = 0;
+    // Wrap props with reactive proxy
+    this.props = CabbageUtils.createReactiveProps(this, this.props);
   }
 
   pointerUp(evt) {
@@ -104,8 +107,8 @@ export class HorizontalRangeSlider {
       this.activePointerId = undefined;
     }
 
-    window.removeEventListener("pointermove", this.moveListener);
-    window.removeEventListener("pointerup", this.upListener);
+    if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
+    if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
     this.isMouseDown = false;
   }
 
@@ -113,6 +116,9 @@ export class HorizontalRangeSlider {
     if (!this.props.visible) {
       return '';
     }
+
+    // Respect active flag
+    if (!this.props.active) return '';
 
     // Don't perform slider actions in edit mode (draggable mode)
     if (getCabbageMode() === 'draggable') {
@@ -134,8 +140,12 @@ export class HorizontalRangeSlider {
       evt.target.setPointerCapture(evt.pointerId);
       this.activePointerId = evt.pointerId;
 
-      window.addEventListener("pointermove", this.moveListener);
-      window.addEventListener("pointerup", this.upListener);
+      const moveHandler = this.boundPointerMove || this.moveListener;
+      const upHandler = this.boundPointerUp || this.upListener;
+      if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+      if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+      window.addEventListener("pointermove", this.boundPointerMove);
+      window.addEventListener("pointerup", this.boundPointerUp);
 
       this.props.value = Math.round(this.props.value / range.increment) * range.increment;
       this.startValue = this.props.value;
@@ -211,6 +221,8 @@ export class HorizontalRangeSlider {
 
   addVsCodeEventListeners(widgetDiv, vs) {
     this.vscode = vs;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 
@@ -239,6 +251,9 @@ export class HorizontalRangeSlider {
 
     // Get the bounding rectangle of the slider
     const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
+
+    // Respect active flag
+    if (!this.props.active) return '';
 
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetX = clientX - sliderRect.left - textWidth;

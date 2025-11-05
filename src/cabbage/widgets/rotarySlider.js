@@ -27,6 +27,7 @@ export class RotarySlider {
       "velocity": 0,
       "popup": false,
       "visible": true,
+      "active": true,
       "automatable": true,
 
       "label": {
@@ -95,31 +96,9 @@ export class RotarySlider {
     this.parameterIndex = 0;
     this.widgetDiv = null;
 
-    // Create a Proxy to listen for changes
-    this.props = new Proxy(this.props, {
-      set: (target, key, value) => {
-        const oldValue = target[key];
-        // Track the path of the key being set, including the parent object
-        const path = CabbageUtils.getPath(target, key);
-
-        // Set the value as usual
-        target[key] = value;
-
-        // Log visibility changes
-        if (key === 'visible') {
-          console.log(`RotarySlider: visible changed from ${oldValue} to ${value}`);
-          if (this.widgetDiv) {
-            this.widgetDiv.style.pointerEvents = value ? 'auto' : 'none';
-          }
-        }
-
-        // Custom logic: trigger your onPropertyChange method with the path
-        if (this.onPropertyChange) {
-          this.onPropertyChange(path, key, value, oldValue);  // Pass the full path and value
-        }
-
-        return true;
-      }
+    // Use centralized reactive props helper to manage visible/active toggling and cleanup
+    this.props = CabbageUtils.createReactiveProps(this, this.props, {
+      onPropertyChange: this.onPropertyChange
     });
 
   }
@@ -189,8 +168,9 @@ export class RotarySlider {
       this.activePointerId = undefined;
     }
 
-    window.removeEventListener("pointermove", this.moveListener);
-    window.removeEventListener("pointerup", this.upListener);
+    // Remove bound handlers if present
+    if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
+    if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
     this.isMouseDown = false;
     this.isDragging = false;
   }
@@ -206,6 +186,11 @@ export class RotarySlider {
       parameterIndex: this.parameterIndex
     });
     if (!this.props.visible) {
+      return '';
+    }
+
+    // Respect active flag (disable interactions when inactive)
+    if (!this.props.active) {
       return '';
     }
 
@@ -230,8 +215,13 @@ export class RotarySlider {
     evt.target.setPointerCapture(evt.pointerId);
     this.activePointerId = evt.pointerId;
 
-    window.addEventListener("pointermove", this.moveListener);
-    window.addEventListener("pointerup", this.upListener);
+    // Use bound handlers if available so removeEventListener works reliably
+    const moveHandler = this.boundPointerMove || this.moveListener;
+    const upHandler = this.boundPointerUp || this.upListener;
+    if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+    if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+    window.addEventListener("pointermove", this.boundPointerMove);
+    window.addEventListener("pointerup", this.boundPointerUp);
   }
 
   mouseEnter(evt) {
@@ -299,6 +289,8 @@ export class RotarySlider {
 
   addVsCodeEventListeners(widgetDiv, vs) {
     this.vscode = vs;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 
@@ -312,6 +304,11 @@ export class RotarySlider {
 
   pointerMove({ clientY }) {
     if (!this.props.visible) {
+      return '';
+    }
+
+    // If widget is inactive, ignore pointer moves
+    if (!this.props.active) {
       return '';
     }
 

@@ -158,6 +158,88 @@ export class CabbageUtils {
     findKey(obj, '');
     return path.length > 0 ? path[0] : ''; // Return the first found path or an empty string
   }
+
+  /**
+   * Wrap a props object in a Proxy that reacts to common widget property changes.
+   * The proxy will toggle pointer-events for 'visible' and 'active', and perform
+   * safe cleanup when a widget is disabled (active = false).
+   *
+   * @param {Object} widget - The widget instance (this) that owns the props.
+   * @param {Object} props - The plain props object to wrap.
+   * @param {Object} opts - Optional settings: { onPropertyChange: fn }
+   * @returns {Proxy} proxied props object
+   */
+  static createReactiveProps(widget, props, opts = {}) {
+    const onPropertyChange = typeof opts.onPropertyChange === 'function' ? opts.onPropertyChange : null;
+
+    // Pre-bind common listeners if the widget exposes the methods (defensive)
+    if (!widget.boundPointerMove && typeof widget.pointerMove === 'function') {
+      widget.boundPointerMove = widget.pointerMove.bind(widget);
+    }
+    if (!widget.boundPointerUp && typeof widget.pointerUp === 'function') {
+      widget.boundPointerUp = widget.pointerUp.bind(widget);
+    }
+
+    return new Proxy(props, {
+      set: (target, key, value) => {
+        const oldValue = target[key];
+        // assign the new value
+        target[key] = value;
+
+        // compute a path for change notifications (useful for deep updates)
+        const path = CabbageUtils.getPath(target, key);
+
+        // Toggle pointer-events when visible/active change. Use combined state
+        // so pointer-events is only enabled when both visible and active are true.
+        if (key === 'visible' || key === 'active') {
+          if (widget.widgetDiv) {
+            const visible = (typeof target.visible !== 'undefined') ? target.visible : true;
+            const active = (typeof target.active !== 'undefined') ? target.active : true;
+            widget.widgetDiv.style.pointerEvents = (visible && active) ? 'auto' : 'none';
+          }
+        }
+
+        // If active is turned off, perform defensive cleanup so ongoing interactions stop.
+        if (key === 'active' && value === false) {
+          try {
+            if (widget.pointerCaptureTarget && typeof widget.pointerCaptureTarget.releasePointerCapture === 'function' && typeof widget.activePointerId !== 'undefined') {
+              widget.pointerCaptureTarget.releasePointerCapture(widget.activePointerId);
+            }
+          } catch (e) {
+            // ignore; release may throw if capture already released
+          }
+
+          if (widget.boundPointerMove) window.removeEventListener('pointermove', widget.boundPointerMove);
+          if (widget.boundPointerUp) window.removeEventListener('pointerup', widget.boundPointerUp);
+
+          // Reset interaction state commonly used across widgets
+          try { widget.isMouseDown = false; } catch (e) { }
+          try { widget.activePointerId = undefined; } catch (e) { }
+          try { widget.pointerCaptureTarget = undefined; } catch (e) { }
+
+          // Call widget-specific stop hooks if provided
+          if (typeof widget.stopAnimation === 'function' && widget.isAnimating) {
+            try { widget.stopAnimation(); } catch (e) { /* ignore */ }
+          }
+
+          // Hide any popup elements the widget may have (defensive)
+          try {
+            if (widget.popupElement) {
+              widget.popupElement.classList?.add('hide');
+              widget.popupElement.classList?.remove('show');
+            }
+          } catch (e) { }
+        }
+
+        // Call optional custom handler provided by the caller
+        if (onPropertyChange) {
+          try { onPropertyChange.call(widget, path, key, value, oldValue); } catch (e) { console.error('onPropertyChange handler threw', e); }
+        }
+
+        return true;
+      }
+    });
+  }
   /**
    * this function will return the number of plugin parameter in our widgets array
    */

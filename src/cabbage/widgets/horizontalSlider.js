@@ -26,6 +26,7 @@ export class HorizontalSlider {
       "type": "horizontalSlider",
       "visible": true,
       "popup": false,
+      "active": true,
       "automatable": true,
       "presetIgnore": false,
 
@@ -82,6 +83,8 @@ export class HorizontalSlider {
     this.vscode = null;
     this.isMouseDown = false;
     this.decimalPlaces = 0;
+    // Wrap props with reactive proxy to manage visible/active and cleanup
+    this.props = CabbageUtils.createReactiveProps(this, this.props);
   }
 
   pointerUp(evt) {
@@ -99,8 +102,8 @@ export class HorizontalSlider {
       this.activePointerId = undefined;
     }
 
-    window.removeEventListener("pointermove", this.moveListener);
-    window.removeEventListener("pointerup", this.upListener);
+    if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
+    if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
     this.isMouseDown = false;
   }
 
@@ -108,6 +111,9 @@ export class HorizontalSlider {
     if (!this.props.visible) {
       return '';
     }
+
+    // Respect active flag
+    if (!this.props.active) return '';
 
     // Don't perform slider actions in edit mode (draggable mode)
     if (getCabbageMode() === 'draggable') {
@@ -157,8 +163,12 @@ export class HorizontalSlider {
       evt.target.setPointerCapture(evt.pointerId);
       this.activePointerId = evt.pointerId;
 
-      window.addEventListener("pointermove", this.moveListener);
-      window.addEventListener("pointerup", this.upListener);
+      const moveHandler = this.boundPointerMove || this.moveListener;
+      const upHandler = this.boundPointerUp || this.upListener;
+      if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+      if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+      window.addEventListener("pointermove", this.boundPointerMove);
+      window.addEventListener("pointerup", this.boundPointerUp);
 
       this.startValue = this.props.value;
       CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
@@ -246,6 +256,8 @@ export class HorizontalSlider {
 
   addVsCodeEventListeners(widgetDiv, vs) {
     this.vscode = vs;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 

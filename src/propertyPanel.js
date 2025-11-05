@@ -191,6 +191,16 @@ export class PropertyPanel {
         addBtn.textContent = '+';
         addBtn.title = 'Add Channel';
         addBtn.classList.add('add-channel-btn');
+        addBtn.style.width = '24px';
+        addBtn.style.height = '24px';
+        addBtn.style.padding = '0';
+        addBtn.style.display = 'flex';
+        addBtn.style.alignItems = 'center';
+        addBtn.style.justifyContent = 'center';
+        addBtn.style.borderRadius = '4px';
+        addBtn.style.background = 'var(--vscode-button-background, #0e639c)';
+        addBtn.style.color = 'var(--vscode-button-foreground, #ffffff)';
+        addBtn.style.border = '1px solid var(--vscode-button-border, transparent)';
         addBtn.addEventListener('click', () => {
             this.addChannel();
         });
@@ -198,38 +208,75 @@ export class PropertyPanel {
         const channelsSection = this.createSection('Channels', { buttons: [addBtn] });
 
         this.properties.channels.forEach((channel, index) => {
-            // Create a collapsible channel card
+            // Create a channel card container
             const channelCard = document.createElement('div');
             channelCard.classList.add('channel-card');
 
-            // Create channel header (non-collapsible)
-            const channelHeader = document.createElement('div');
-            channelHeader.classList.add('channel-header');
-
-            // Channel title
-            const channelTitle = document.createElement('span');
-            channelTitle.textContent = `${channel.id || `Channel ${index + 1}`}`;
-            channelTitle.classList.add('channel-title');
-
-            // Remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.textContent = '×';
-            removeBtn.title = 'Remove Channel';
-            removeBtn.classList.add('remove-channel-btn');
-            removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent any parent click handlers
-                this.removeChannel(index);
-            });
-
-            channelHeader.appendChild(channelTitle);
-            channelHeader.appendChild(removeBtn);
-
-            // Create channel content (always visible)
+            // Create channel content container
             const channelContent = document.createElement('div');
             channelContent.classList.add('channel-content');
+            channelContent.style.display = 'flex';
+            channelContent.style.flexDirection = 'column';
+            channelContent.style.gap = '6px';
 
             // Add properties to content
-            this.addPropertyToSection('id', channel.id, channelContent, `channels[${index}]`);
+            const idRow = this.addPropertyToSection('id', channel.id, channelContent, `channels[${index}]`);
+            if (idRow) {
+                idRow.style.display = 'grid';
+                idRow.style.gridTemplateColumns = '24px minmax(0, 110px) 1fr';
+                idRow.style.alignItems = 'center';
+                idRow.style.columnGap = '8px';
+                idRow.style.rowGap = '4px';
+
+                const label = idRow.querySelector('label');
+                if (label) {
+                    label.style.margin = '0';
+                    label.style.justifySelf = 'start';
+                    label.style.paddingLeft = '93%';
+                }
+
+                const inputElement = idRow.querySelector('input, select, textarea, .toggle-switch');
+                if (inputElement) {
+                    if (inputElement.tagName === 'DIV' && inputElement.classList.contains('toggle-switch')) {
+                        inputElement.style.justifySelf = 'start';
+                    } else {
+                        inputElement.style.width = '85%';
+                        inputElement.style.marginLeft = '5px';
+                    }
+                }
+
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '×';
+                removeBtn.title = 'Remove Channel';
+                removeBtn.classList.add('remove-channel-btn');
+                removeBtn.style.padding = '0';
+                removeBtn.style.fontSize = '13px';
+                removeBtn.style.width = '24px';
+                removeBtn.style.height = '24px';
+                removeBtn.style.display = 'flex';
+                removeBtn.style.alignItems = 'center';
+                removeBtn.style.justifyContent = 'center';
+                removeBtn.style.minWidth = '24px';
+                removeBtn.style.borderRadius = '4px';
+                removeBtn.style.fontWeight = 'bold';
+                removeBtn.style.background = 'var(--vscode-button-secondaryBackground, #3a3d41)';
+                removeBtn.style.color = 'var(--vscode-button-secondaryForeground, #ffffff)';
+                removeBtn.style.border = '1px solid var(--vscode-button-border, transparent)';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.addEventListener('mouseenter', () => {
+                    removeBtn.style.background = 'var(--vscode-button-secondaryHoverBackground, #45494e)';
+                });
+                removeBtn.addEventListener('mouseleave', () => {
+                    removeBtn.style.background = 'var(--vscode-button-secondaryBackground, #3a3d41)';
+                });
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.removeChannel(index);
+                });
+
+                idRow.insertBefore(removeBtn, idRow.firstChild);
+            }
+
             this.addPropertyToSection('event', channel.event || '', channelContent, `channels[${index}]`);
             this.addPropertyToSection('range.min', channel.range ? channel.range.min : 0, channelContent, `channels[${index}]`);
             this.addPropertyToSection('range.max', channel.range ? channel.range.max : 1, channelContent, `channels[${index}]`);
@@ -237,7 +284,6 @@ export class PropertyPanel {
             this.addPropertyToSection('range.skew', channel.range ? channel.range.skew : 1, channelContent, `channels[${index}]`);
             this.addPropertyToSection('range.increment', channel.range ? channel.range.increment : 0.01, channelContent, `channels[${index}]`);
 
-            channelCard.appendChild(channelHeader);
             channelCard.appendChild(channelContent);
             channelsSection.contentDiv.appendChild(channelCard);
         });
@@ -325,9 +371,16 @@ export class PropertyPanel {
         console.log('PropertyPanel: Creating section:', name);
         const sectionDiv = document.createElement('div');
         sectionDiv.classList.add('property-section');
+        // Reduce default gap between stacked sections to avoid large whitespace
+        sectionDiv.style.marginBottom = '6px';
 
         const header = document.createElement('div');
         header.classList.add('section-header');
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+        header.style.padding = '6px 10px';
+        header.style.backgroundColor = 'var(--vscode-sideBar-background, #2d2d30)';
+        header.style.userSelect = 'none';
 
         // Add arrow for collapsible functionality (unless explicitly disabled)
         let arrow;
@@ -336,24 +389,39 @@ export class PropertyPanel {
             arrow = document.createElement('span');
             arrow.classList.add('arrow');
             arrow.textContent = '▼';
+            arrow.style.marginRight = '8px';
+            arrow.style.fontSize = '10px';
+            arrow.style.display = 'inline-block';
+            arrow.style.transition = 'transform 0.2s ease';
             header.appendChild(arrow);
+            header.style.cursor = 'pointer';
         } else {
             header.classList.add('non-collapsible');
+            header.style.cursor = 'default';
         }
 
         const title = document.createElement('h3');
         // Capitalize first letter of section name
         title.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+        title.style.margin = '0';
+        title.style.flex = '1';
+        title.style.fontSize = '13px';
+        title.style.fontWeight = '600';
+        title.style.backgroundColor = '#ff0000ff';
         header.appendChild(title);
 
         if (options.buttons && options.buttons.length > 0) {
             header.classList.add('justify-space-between');
+            header.style.justifyContent = 'space-between';
             const buttonContainer = document.createElement('div');
             buttonContainer.classList.add('button-container');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '5px';
             options.buttons.forEach(btn => buttonContainer.appendChild(btn));
             header.appendChild(buttonContainer);
         } else {
             header.classList.add('justify-center');
+            header.style.justifyContent = 'flex-start';
         }
 
         // Add click handler for collapsible functionality
@@ -371,10 +439,12 @@ export class PropertyPanel {
                 if (isCollapsed) {
                     sectionDiv.classList.remove('collapsed');
                     arrow.textContent = '▼';
+                    sectionDiv.contentDiv.style.display = 'block';
                     console.log('PropertyPanel: Expanded section:', name);
                 } else {
                     sectionDiv.classList.add('collapsed');
                     arrow.textContent = '▶';
+                    sectionDiv.contentDiv.style.display = 'none';
                     console.log('PropertyPanel: Collapsed section:', name);
                 }
             });
@@ -385,6 +455,10 @@ export class PropertyPanel {
         // Create section content wrapper
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('section-content');
+        // Keep horizontal padding but slightly reduce bottom padding to tighten space after last property
+        contentDiv.style.padding = '8px 10px 0px';
+        contentDiv.style.backgroundColor = 'var(--vscode-editor-background, #1e1e1e)';
+        contentDiv.style.display = 'block';
         sectionDiv.appendChild(contentDiv);
 
         // Store reference to content div for adding properties
@@ -569,31 +643,39 @@ export class PropertyPanel {
                 input.type = 'text';
                 input.value = value; // Set the initial color value
                 input.classList.add('color-input');
+                input.style.border = '1px solid var(--vscode-input-border, #3c3c3c)';
+                input.style.textTransform = 'uppercase';
 
                 // Calculate contrasting text color (light or dark) based on background
                 const getContrastColor = (hexColor) => {
-                    // Convert hex to RGB
                     const hex = hexColor.replace('#', '');
                     const r = parseInt(hex.substr(0, 2), 16);
                     const g = parseInt(hex.substr(2, 2), 16);
                     const b = parseInt(hex.substr(4, 2), 16);
-                    // Calculate luminance
                     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
                     return luminance > 0.5 ? '#000000' : '#FFFFFF';
                 };
 
-                // Set CSS custom properties for dynamic styling
-                input.style.setProperty('--color-value', value);
-                input.style.setProperty('--contrast-color', getContrastColor(value));
+                const updateColorStyles = (hexColor) => {
+                    if (!/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(hexColor)) {
+                        return;
+                    }
+                    input.style.setProperty('--color-value', hexColor);
+                    const contrast = getContrastColor(hexColor);
+                    input.style.setProperty('--contrast-color', contrast);
+                    input.style.backgroundColor = hexColor;
+                    input.style.color = contrast;
+                };
+
+                updateColorStyles(value);
+                input.addEventListener('input', () => updateColorStyles(input.value.trim()));
 
                 // Initialize color picker
                 const picker = new CP(input);
                 picker.on('change', (r, g, b, a) => {
                     const hexColor = CP.HEX([r, g, b, a]);
                     input.value = hexColor; // Update input value to HEX
-                    // Update CSS custom properties for dynamic styling
-                    input.style.setProperty('--color-value', hexColor);
-                    input.style.setProperty('--contrast-color', getContrastColor(hexColor));
+                    updateColorStyles(hexColor);
                     // Create a proper Event object to pass to handleInputChange
                     const event = new Event('input', { bubbles: true });
                     Object.defineProperty(event, 'target', { value: input, enumerable: true });
@@ -715,6 +797,8 @@ export class PropertyPanel {
         } else {
             section.appendChild(propertyDiv);
         }
+
+        return propertyDiv;
     }
 
     /**

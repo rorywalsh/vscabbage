@@ -22,6 +22,7 @@ export class MidiKeyboard {
       ],
       "value": 36,
       "automatable": false,
+      "active": true,
       "style": {
         "opacity": 1,
         "fontFamily": "Verdana",
@@ -49,6 +50,9 @@ export class MidiKeyboard {
     this.activeNotes = new Set(); // Track active notes
     this.vscode = null;
 
+    // Wrap props with reactive proxy to unify visible/active handling
+    this.props = CabbageUtils.createReactiveProps(this, this.props);
+
     // Define an array of note names
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -65,6 +69,7 @@ export class MidiKeyboard {
       }
     }
   }
+
 
   pointerDown(e) {
     if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
@@ -152,6 +157,8 @@ export class MidiKeyboard {
 
   addVsCodeEventListeners(widgetDiv, vscode) {
     this.vscode = vscode;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 

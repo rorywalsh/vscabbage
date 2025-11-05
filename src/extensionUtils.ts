@@ -1026,8 +1026,9 @@ ${JSON.stringify(props, null, 4)}
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri, isDarkTheme: boolean) {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean) {
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
+        const propertyPanelStylesLink = propertyPanelStyles ? `<link href="${propertyPanelStyles}" rel="stylesheet">` : '';
         return `
 <!doctype html>
 <html lang="en">
@@ -1041,7 +1042,7 @@ ${JSON.stringify(props, null, 4)}
   <link href="${styles}" rel="stylesheet">
   <link href="${cabbageStyles}" rel="stylesheet">  
   <link href="${colourPickerStyles}" rel="stylesheet">
-  <link href="${propertyPanelStyles}" rel="stylesheet">  
+  ${propertyPanelStylesLink}
   <script>
             window.interactJS = "${interactJS}";
 </script>

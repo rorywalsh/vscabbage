@@ -23,6 +23,7 @@ export class XyPad {
             ],
             "value": null,
             "visible": true,
+            "active": true,
             "popup": true,
             "automatable": true,
             "presetIgnore": false,
@@ -61,6 +62,8 @@ export class XyPad {
         this.moveListener = this.pointerMove.bind(this);
         this.upListener = this.pointerUp.bind(this);
         this.vscode = null;
+        // Wrap props with reactive proxy to handle active/visible toggling and cleanup
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
         this.isMouseDown = false;
         this.decimalPlaces = 0;
         this.ballX = 0.5; // Normalized position [0,1]
@@ -126,8 +129,9 @@ export class XyPad {
             this.activePointerId = undefined;
         }
 
-        window.removeEventListener("pointermove", this.moveListener);
-        window.removeEventListener("pointerup", this.upListener);
+        // Remove bound handlers if present
+        if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
+        if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
         this.isMouseDown = false;
     }
 
@@ -149,16 +153,18 @@ export class XyPad {
             evt.target.setPointerCapture(evt.pointerId);
             this.activePointerId = evt.pointerId;
 
-            window.addEventListener("pointermove", this.moveListener);
-            window.addEventListener("pointerup", this.upListener);
+            // Use bound handlers so removeEventListener will work
+            const moveHandler = this.boundPointerMove || this.moveListener;
+            const upHandler = this.boundPointerUp || this.upListener;
+            if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+            if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+            window.addEventListener("pointermove", this.boundPointerMove);
+            window.addEventListener("pointerup", this.boundPointerUp);
             return;
         }
 
         this.isMouseDown = true;
 
-        // Capture pointer to ensure we receive pointerup even if pointer leaves element
-        evt.target.setPointerCapture(evt.pointerId);
-        this.activePointerId = evt.pointerId;
 
         // Calculate ball position from click
         const rect = evt.currentTarget.getBoundingClientRect();
@@ -193,8 +199,16 @@ export class XyPad {
         this.updateBallPosition();
         this.sendParameterUpdates();
 
-        window.addEventListener("pointermove", this.moveListener);
-        window.addEventListener("pointerup", this.upListener);
+        // Capture pointer to ensure we receive pointerup even if pointer leaves element
+        evt.target.setPointerCapture(evt.pointerId);
+        this.activePointerId = evt.pointerId;
+
+        const moveHandler = this.boundPointerMove || this.moveListener;
+        const upHandler = this.boundPointerUp || this.upListener;
+        if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
+        if (!this.boundPointerUp) this.boundPointerUp = upHandler;
+        window.addEventListener("pointermove", this.boundPointerMove);
+        window.addEventListener("pointerup", this.boundPointerUp);
     }
 
     pointerMove(evt) {
@@ -562,6 +576,9 @@ export class XyPad {
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        // Save reference to the widget div so we can toggle pointer-events when `active` changes
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 

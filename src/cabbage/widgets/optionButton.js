@@ -46,6 +46,8 @@ export class OptionButton {
     this.isMouseInside = false;
     this.parameterIndex = 0;
     this.currentIndex = 0;
+    // Wrap props with reactive proxy to unify visible/active handling
+    this.props = CabbageUtils.createReactiveProps(this, this.props);
   }
 
 
@@ -130,6 +132,8 @@ export class OptionButton {
   addVsCodeEventListeners(widgetDiv, vs) {
     console.log("Cabbage: addVsCodeEventListeners");
     this.vscode = vs;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 

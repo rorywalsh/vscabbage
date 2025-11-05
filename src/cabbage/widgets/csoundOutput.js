@@ -20,6 +20,7 @@ export class CsoundOutput {
                 { "id": "checkbox", "event": "valueChanged" }
             ],
             "visible": true,
+            "active": true,
             "automatable": false,
             "type": "csoundOutput",
 
@@ -42,10 +43,15 @@ export class CsoundOutput {
 
         };
 
+        // Wrap props with reactive proxy to unify visible/active handling
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
+
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     }
 
     addEventListeners(widgetDiv) {

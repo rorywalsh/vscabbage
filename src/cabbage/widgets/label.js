@@ -18,6 +18,7 @@ export class Label {
             "channels": [{ "id": "label", "event": "valueChanged" }],
             "index": 0,
             "visible": true,
+            "active": true,
             "automatable": false,
             "type": "label",
 
@@ -35,10 +36,15 @@ export class Label {
             },
         };
         this.vscode = null;
+        // Wrap props with reactive proxy to unify visible/active handling
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        // Disable pointer events when active is false
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 

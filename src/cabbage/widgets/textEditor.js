@@ -2,6 +2,8 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
+import { CabbageUtils } from "../utils.js";
+
 /**
  * TextEditor class
  */
@@ -19,6 +21,7 @@ export class TextEditor {
             ],
 
             "visible": true,
+            "active": true,
             "automatable": false,
             "type": "textEditor",
 
@@ -38,10 +41,13 @@ export class TextEditor {
 
         };
         this.vscode = null;
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     }
 
     addEventListeners(widgetDiv) {

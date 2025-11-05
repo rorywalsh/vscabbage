@@ -31,6 +31,7 @@ export class GenTable {
                 }
             ],
             "visible": true,
+            "active": true,
             "automatable": false,
             "type": "genTable",
 
@@ -73,6 +74,8 @@ export class GenTable {
         // Cache for the waveform rendering (for performance)
         this.waveformCanvas = null;
         this.waveformCtx = null;
+        // Wrap props with reactive proxy to unify visible/active handling
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
 
 
@@ -93,6 +96,8 @@ export class GenTable {
 
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 

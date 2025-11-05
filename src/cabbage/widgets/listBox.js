@@ -2,6 +2,8 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
+import { CabbageUtils } from "../utils.js";
+
 /**
  * ListBox class
  */
@@ -15,6 +17,7 @@ export class ListBox {
                 "height": 300
             },
             "visible": true,
+            "active": true,
             "automatable": true,
             "type": "listBox",
             "style": {
@@ -33,9 +36,13 @@ export class ListBox {
             "min": 0,
             "max": 3
         };
+        // Wrap props with reactive proxy to unify visible/active handling
+        this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
+        this.widgetDiv = widgetDiv;
+        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
         // VS Code specific listeners are already added by addEventListeners
 
     }

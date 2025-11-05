@@ -58,6 +58,8 @@ export class Checkbox {
 
     this.vscode = null;
     this.parameterIndex = 0;
+    // Wrap props with reactive proxy to unify visible/active handling
+    this.props = CabbageUtils.createReactiveProps(this, this.props);
   }
 
   toggle() {
@@ -99,6 +101,8 @@ export class Checkbox {
 
   addVsCodeEventListeners(widgetDiv, vscode) {
     this.vscode = vscode;
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
   }
 
