@@ -71,7 +71,10 @@ export class GroupBox {
         const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 11 : this.props.style.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 4; // padding around text to leave a gap in the line
-        const textWidth = (this.props.label.text.length * textSize) / 2.2; // approximate width of text (adjusted for better centering)
+        
+        // Use a more accurate text width estimation for SVG text
+        const avgCharWidth = textSize * 0.6; // More accurate approximation for most fonts
+        const textWidth = this.props.label.text.length * avgCharWidth;
 
         const alignMap = {
             'left': 'start',
@@ -83,22 +86,26 @@ export class GroupBox {
         const svgAlign = this.props.style.textAlign || 'middle'; // Default to 'middle' if textAlign is not set or invalid
 
         // Calculate text position based on textAlign
-        let textXPosition;
         let gapStart;
         let gapEnd;
+        let textAlign = 'center';
+        let textLeft = '50%';
 
         if (svgAlign === 'start') {
-            textXPosition = outlineOffset + padding; // Left-aligned, with padding
-            gapStart = textXPosition - padding;
-            gapEnd = textXPosition + textWidth + padding;
+            gapStart = outlineOffset;
+            gapEnd = outlineOffset + textWidth + (padding * 2);
+            textAlign = 'left';
+            textLeft = `${padding}px`;
         } else if (svgAlign === 'end') {
-            textXPosition = this.props.bounds.width - outlineOffset - padding; // Right-aligned, with padding
-            gapStart = textXPosition - textWidth - padding;
-            gapEnd = textXPosition + padding;
+            gapStart = width - outlineOffset - textWidth - (padding * 2);
+            gapEnd = width - outlineOffset;
+            textAlign = 'right';
+            textLeft = 'auto';
         } else {
-            textXPosition = this.props.bounds.width / 2; // Center-aligned
-            gapStart = (this.props.bounds.width / 2) - textWidth / 2 - padding;
-            gapEnd = (this.props.bounds.width / 2) + textWidth / 2 + padding;
+            gapStart = (width / 2) - textWidth / 2 - padding;
+            gapEnd = (width / 2) + textWidth / 2 + padding;
+            textAlign = 'center';
+            textLeft = '50%';
         }
 
         // For containers with children, make background transparent so children are visible
@@ -106,36 +113,43 @@ export class GroupBox {
         const fillColor = hasChildren ? 'transparent' : this.props.style.fill;
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
-                 width="${width}" height="${height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
-                <defs>
-                    <!-- Mask to create transparent area behind text -->
-                    <mask id="textMask_${this.props.channels[0].id}">
-                        <!-- White rectangle covers everything (visible) -->
-                        <rect x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}" fill="white"/>
-                        <!-- Black rectangle behind text creates transparent area with rounded corners and extra padding -->
-                        <rect x="${gapStart}" y="${yOffset - textSize / 2}" width="${gapEnd - gapStart}" height="${textSize + padding}" 
-                              rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="black"/>
-                    </mask>
-                </defs>
-                
-                <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
-                <rect width="${this.props.bounds.width - (strokeWidth * 2)}" height="${this.props.bounds.height - (yOffset + strokeWidth)}" 
-                      x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
-                      fill="${fillColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
-                
-                <!-- Rounded rectangle border outline with gap for text -->
-                <rect width="${this.props.bounds.width - strokeWidth}" height="${this.props.bounds.height - (yOffset + strokeWidth / 2)}" 
-                      x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
-                      fill="none" stroke="${strokeColour}" stroke-width="${strokeWidth}" 
-                      mask="url(#textMask_${this.props.channels[0].id})"/>
-                
-                <!-- Text at the top with alignment support -->
-                    <text x="${textXPosition}" y="${textSize + 2}" text-anchor="${svgAlign}" 
-                          font-family="${this.props.style.fontFamily}" font-size="${textSize}" fill="${this.props.style.fontColor}">
+            <div style="position: relative; width: ${width}px; height: ${height}px;">
+                <div style="position: absolute; top: 0; left: ${textLeft}; transform: translateX(-50%); 
+                            text-align: ${textAlign}; 
+                            font-family: ${this.props.style.fontFamily}; 
+                            font-size: ${textSize}px; 
+                            color: ${this.props.style.fontColor};
+                            line-height: ${textSize}px;
+                            padding: 0 ${padding}px;
+                            z-index: 1;">
                     ${this.props.label.text}
-                </text>
-            </svg>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" 
+                     width="${width}" height="${height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" 
+                     style="display: ${this.props.visible ? 'block' : 'none'}; position: absolute; top: 0; left: 0;">
+                    <defs>
+                        <!-- Mask to create transparent area behind text -->
+                        <mask id="textMask_${this.props.channels[0].id}">
+                            <!-- White rectangle covers everything (visible) -->
+                            <rect x="0" y="0" width="${width}" height="${height}" fill="white"/>
+                            <!-- Black rectangle behind text creates transparent area -->
+                            <rect x="${gapStart}" y="0" width="${gapEnd - gapStart}" height="${textSize + padding}" 
+                                  rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="black"/>
+                        </mask>
+                    </defs>
+                    
+                    <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
+                    <rect width="${width - (strokeWidth * 2)}" height="${height - (yOffset + strokeWidth)}" 
+                          x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
+                          fill="${fillColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
+                    
+                    <!-- Rounded rectangle border outline with gap for text -->
+                    <rect width="${width - strokeWidth}" height="${height - (yOffset + strokeWidth / 2)}" 
+                          x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
+                          fill="none" stroke="${strokeColour}" stroke-width="${strokeWidth}" 
+                          mask="url(#textMask_${this.props.channels[0].id})"/>
+                </svg>
+            </div>
         `;
     }
 }
