@@ -68,10 +68,10 @@ export class GroupBox {
         const strokeWidth = this.props.style.borderWidth;
 
         const outlineOffset = strokeWidth / 2;
-        const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 16 : this.props.style.fontSize;
+        const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 11 : this.props.style.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
-        const padding = 5; // padding around text to leave a gap in the line
-        const textWidth = (this.props.label.text.length * textSize) / 2; // approximate width of text
+        const padding = 4; // padding around text to leave a gap in the line
+        const textWidth = (this.props.label.text.length * textSize) / 2.2; // approximate width of text (adjusted for better centering)
 
         const alignMap = {
             'left': 'start',
@@ -131,7 +131,7 @@ export class GroupBox {
                       mask="url(#textMask_${this.props.channels[0].id})"/>
                 
                 <!-- Text at the top with alignment support -->
-                    <text x="${textXPosition}" y="${textSize * 0.95}" text-anchor="${svgAlign}" 
+                    <text x="${textXPosition}" y="${textSize + 2}" text-anchor="${svgAlign}" 
                           font-family="${this.props.style.fontFamily}" font-size="${textSize}" fill="${this.props.style.fontColor}">
                     ${this.props.label.text}
                 </text>
