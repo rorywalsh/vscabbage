@@ -34,6 +34,9 @@ export class Commands {
     private static diagnosticCollection: vscode.DiagnosticCollection;
     private static diagnosticCollectionCsound: vscode.DiagnosticCollection;
     private static lastCsoundErrorMessage: string | undefined;
+    private static compilationFailed: boolean = false;
+    private static panelRevealTimeout: NodeJS.Timeout | undefined;
+    private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
     appendOutput: Boolean = true;
 
     /**
@@ -658,11 +661,8 @@ export class Commands {
             const launchInNewColumn = config.get("launchInNewColumn");
             const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
-            this.panel.reveal(viewColumn, true);
-
             // Clear previous Csound diagnostics before compilation
             this.diagnosticCollectionCsound.clear();
-            this.lastCsoundErrorMessage = undefined;
 
             this.panel.webview.postMessage({
                 command: "onFileChanged",
@@ -674,6 +674,29 @@ export class Commands {
                 command: "onFileChanged",
                 lastSavedFileName: finalFileName
             });
+
+            // Wait a bit for compilation to start and check for immediate errors
+            // If no errors after this delay, then reveal the panel
+            setTimeout(() => {
+                console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
+                if (this.panel && !this.compilationFailed) {
+                    console.log('Cabbage: No errors detected, revealing panel');
+                    this.panel.reveal(viewColumn, true);
+
+                    // Also send onEnterPerformanceMode message
+                    setTimeout(() => {
+                        if (this.panel && !this.compilationFailed) {
+                            console.log('Cabbage: Sending onEnterPerformanceMode message');
+                            this.panel.webview.postMessage({
+                                command: "onEnterPerformanceMode",
+                                text: ""
+                            });
+                        }
+                    }, 100);
+                } else {
+                    console.log('Cabbage: Errors detected, not revealing panel');
+                }
+            }, 100); // Wait 300ms for compilation to start and errors to appear
         } else {
             // No existing panel, validate first before creating one
             const fileContent = editor.getText();
@@ -694,11 +717,8 @@ export class Commands {
                 const launchInNewColumn = config.get("launchInNewColumn");
                 const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 
-                panel.reveal(viewColumn, true);
-
                 // Clear previous Csound diagnostics before compilation
                 this.diagnosticCollectionCsound.clear();
-                this.lastCsoundErrorMessage = undefined;
 
                 panel.webview.postMessage({
                     command: "onFileChanged",
@@ -710,6 +730,29 @@ export class Commands {
                     command: "onFileChanged",
                     lastSavedFileName: finalFileName
                 });
+
+                // Wait a bit for compilation to start and check for immediate errors
+                // If no errors after this delay, then reveal the panel
+                setTimeout(() => {
+                    console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
+                    if (this.panel && !this.compilationFailed) {
+                        console.log('Cabbage: No errors detected, revealing panel');
+                        this.panel.reveal(viewColumn, true);
+
+                        // Also send onEnterPerformanceMode message
+                        setTimeout(() => {
+                            if (this.panel && !this.compilationFailed) {
+                                console.log('Cabbage: Sending onEnterPerformanceMode message');
+                                this.panel.webview.postMessage({
+                                    command: "onEnterPerformanceMode",
+                                    text: ""
+                                });
+                            }
+                        }, 100);
+                    } else {
+                        console.log('Cabbage: Errors detected, not revealing panel');
+                    }
+                }, 200); // Wait 200ms for compilation to start and errors to appear
             }
         }
 
@@ -902,21 +945,22 @@ export class Commands {
                                         this.panel = undefined;
                                     }
                                 }
-                                // Parse Csound errors for diagnostics
-                                if (line.startsWith('error:')) {
+                                console.log(`Cabbage: Processing line: "${line}"`);
+                                // Parse Csound errors for diagnostics - simplified detection
+                                if (line.toLowerCase().includes('error')) {
+                                    console.log(`Cabbage: DETECTED ERROR LINE: "${line}"`);
+                                    this.compilationFailed = true;
+                                    console.log(`Cabbage: Setting compilationFailed=true`);
                                     this.lastCsoundErrorMessage = line;
-                                } else if (line.match(/^Line (\d+)$/)) {
-                                    const lineMatch = line.match(/^Line (\d+)$/);
-                                    if (lineMatch && this.lastCsoundErrorMessage && this.lastSavedFileName) {
-                                        const errorLine = parseInt(lineMatch[1]); // 0-based, Csound reports 1-based
-                                        const fileUri = vscode.Uri.file(this.lastSavedFileName);
-                                        const diagnostic = new vscode.Diagnostic(
-                                            new vscode.Range(errorLine, 0, errorLine, 1000), // whole line
-                                            this.lastCsoundErrorMessage.replace('error: ', ''),
-                                            vscode.DiagnosticSeverity.Error
-                                        );
-                                        this.diagnosticCollectionCsound.set(fileUri, [diagnostic]);
-                                        this.lastCsoundErrorMessage = undefined;
+
+                                    // Create diagnostic to highlight error in editor
+                                    this.createCsoundErrorDiagnostic(line, this.lastSavedFileName);
+
+                                    // If panel is already open and we detect an error, dispose of it
+                                    if (this.panel) {
+                                        console.log('Cabbage: Disposing panel due to runtime error');
+                                        this.panel.dispose();
+                                        this.panel = undefined;
                                     }
                                 }
                                 this.vscodeOutputChannel.appendLine(line);
@@ -1291,6 +1335,127 @@ export class Commands {
         if (this.diagnosticCollection) {
             this.diagnosticCollection.delete(uri);
         }
+    }
+
+    /**
+     * Creates a diagnostic for Csound compilation errors to highlight them in the editor.
+     * @param errorLine The error line from Csound output
+     * @param documentUri The URI of the document to create diagnostics for
+     */
+    static createCsoundErrorDiagnostic(errorLine: string, documentUri?: string) {
+        let document: vscode.TextDocument | undefined;
+
+        if (documentUri) {
+            // Use the provided document URI
+            try {
+                // We need to get the document from the URI - this is async but we'll handle it synchronously for now
+                // In practice, we should have the document already open
+                const uri = vscode.Uri.file(documentUri);
+                // Try to find the document in open editors first
+                document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === documentUri);
+                if (!document) {
+                    console.log(`Cabbage: Document not found in open editors: ${documentUri}`);
+                    return;
+                }
+            } catch (error) {
+                console.log(`Cabbage: Error getting document from URI ${documentUri}:`, error);
+                return;
+            }
+        } else {
+            // Fallback to active editor (for backward compatibility)
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                console.log('Cabbage: No active editor found for diagnostics');
+                return;
+            }
+            document = editor.document;
+        }
+
+        // Try to extract line number from error message first
+        // Csound errors typically look like: "error: message at line X"
+        const lineMatch = errorLine.match(/line\s+(\d+)/i);
+        if (lineMatch) {
+            const lineNumber = parseInt(lineMatch[1], 10) - 1; // Convert to 0-based indexing
+            if (isNaN(lineNumber) || lineNumber < 0) {
+                console.log(`Cabbage: Invalid line number extracted: ${lineNumber}`);
+                return;
+            }
+
+            // Get the document and check if line number is valid
+            if (lineNumber >= document.lineCount) {
+                console.log(`Cabbage: Line number ${lineNumber} is beyond document length ${document.lineCount}`);
+                return;
+            }
+
+            // Create diagnostic range for the entire line
+            const line = document.lineAt(lineNumber);
+            const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+
+            // Create the diagnostic
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                errorLine.trim(),
+                vscode.DiagnosticSeverity.Error
+            );
+
+            // Add to diagnostic collection
+            if (!this.diagnosticCollectionCsound) {
+                this.initialize();
+                console.log('Cabbage: Initialized diagnosticCollectionCsound');
+            }
+            console.log(`Cabbage: About to set diagnostic for line ${lineNumber + 1}, range: ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}, message: "${errorLine.trim()}"`);
+            this.diagnosticCollectionCsound.set(document.uri, [diagnostic]);
+            console.log(`Cabbage: Successfully set diagnostic for line ${lineNumber + 1}`);
+            return;
+        }
+
+        // If no line number, try to extract opcode name from error message
+        // Look for patterns like "Unable to find opcode with name: invalidOpcode"
+        const opcodeMatch = errorLine.match(/opcode with name:\s*(\w+)/i) ||
+                           errorLine.match(/Unknown opcode:\s*(\w+)/i) ||
+                           errorLine.match(/opcode\s*['"]?(\w+)['"]?\s*not found/i);
+
+        if (opcodeMatch) {
+            const opcodeName = opcodeMatch[1];
+            console.log(`Cabbage: Extracted opcode name "${opcodeName}" from error: "${errorLine}"`);
+
+            // Search for the first occurrence of this opcode in the document
+            const text = document.getText();
+            const lines = text.split('\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // Look for the opcode as a whole word (word boundary)
+                const opcodeRegex = new RegExp(`\\b${opcodeName}\\b`, 'i');
+                const match = line.match(opcodeRegex);
+
+                if (match) {
+                    // Found the opcode, create diagnostic for this line
+                    const range = new vscode.Range(i, match.index!, i, match.index! + opcodeName.length);
+
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        errorLine.trim(),
+                        vscode.DiagnosticSeverity.Error
+                    );
+
+                    // Add to diagnostic collection
+                    if (!this.diagnosticCollectionCsound) {
+                        this.initialize();
+                        console.log('Cabbage: Initialized diagnosticCollectionCsound for opcode');
+                    }
+                    console.log(`Cabbage: About to set diagnostic for opcode "${opcodeName}" at line ${i + 1}, range: ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}, message: "${errorLine.trim()}"`);
+                    this.diagnosticCollectionCsound.set(document.uri, [diagnostic]);
+                    console.log(`Cabbage: Successfully set diagnostic for opcode "${opcodeName}" at line ${i + 1}`);
+                    return;
+                }
+            }
+
+            console.log(`Cabbage: Opcode "${opcodeName}" not found in document`);
+            return;
+        }
+
+        console.log(`Cabbage: Could not extract line number or opcode name from error: "${errorLine}"`);
     }
 
     /**

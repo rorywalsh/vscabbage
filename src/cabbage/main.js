@@ -144,26 +144,26 @@ window.addEventListener('message', async event => {
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
 
             // Add a 5-second delay to check DOM structure after widget creation
-            setTimeout(() => {
-                console.log('Cabbage: DOM structure after 5 seconds:');
-                const mainForm = document.getElementById('MainForm');
-                if (mainForm) {
-                    console.log('MainForm children:', mainForm.children.length);
-                    console.log('MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
-                    Array.from(mainForm.children).forEach((child, index) => {
-                        console.log(`Child ${index}: ${child.tagName} id=${child.id} class=${child.className}`);
-                    });
-                    console.log('MainForm outerHTML length:', mainForm.outerHTML.length);
-                    console.log('MainForm is still in document.body?', document.body.contains(mainForm));
-                } else {
-                    console.log('MainForm not found - it was removed!');
-                    console.log('document.body.children.length:', document.body.children.length);
-                    Array.from(document.body.children).forEach((child, index) => {
-                        console.log(`Body child ${index}: ${child.tagName} id=${child.id}`);
-                    });
-                }
-                console.log('Widgets array length:', widgets.length);
-            }, 5000);
+            // setTimeout(() => {
+            //     console.log('Cabbage: DOM structure after 5 seconds:');
+            //     const mainForm = document.getElementById('MainForm');
+            //     if (mainForm) {
+            //         console.log('MainForm children:', mainForm.children.length);
+            //         console.log('MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
+            //         Array.from(mainForm.children).forEach((child, index) => {
+            //             console.log(`Child ${index}: ${child.tagName} id=${child.id} class=${child.className}`);
+            //         });
+            //         console.log('MainForm outerHTML length:', mainForm.outerHTML.length);
+            //         console.log('MainForm is still in document.body?', document.body.contains(mainForm));
+            //     } else {
+            //         console.log('MainForm not found - it was removed!');
+            //         console.log('document.body.children.length:', document.body.children.length);
+            //         Array.from(document.body.children).forEach((child, index) => {
+            //             console.log(`Body child ${index}: ${child.tagName} id=${child.id}`);
+            //         });
+            //     }
+            //     console.log('Widgets array length:', widgets.length);
+            // }, 5000);
 
             break;
 
