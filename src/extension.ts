@@ -251,6 +251,16 @@ export async function activate(context: vscode.ExtensionContext):
             await Commands.withServerRestart(() => Settings.selectCabbageBinaryPath());
         }));
 
+    // Custom widget commands
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCustomWidgetDirectory', async () => {
+            await Settings.selectCustomWidgetDirectory();
+        }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.createNewCustomWidget', async () => {
+            await Settings.createNewCustomWidget();
+        }));
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.openOpcodeReference', async () => {
             await Commands.openOpcodeReference(context);

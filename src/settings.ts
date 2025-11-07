@@ -14,7 +14,7 @@ export class Settings {
     {
         "currentConfig": {
             "audio": {},
-            "jsSourceDir": "${Settings.getPathJsSourceDir()}",
+            "jsSourceDir": ["${Settings.getPathJsSourceDir()}"],
             "midi": {}
         },
         "systemAudioMidiIOListing": {
@@ -306,9 +306,135 @@ export class Settings {
                     return;
             }
 
-            // Update the settings with the new path.
-            settings['currentConfig']['jsSourceDir'] = newPath;
+            // Update the settings with the new path. Store as array for multiple sources support.
+            settings['currentConfig']['jsSourceDir'] = newPath ? [newPath] : [];
             await Settings.setCabbageSettings(settings);
+        }
+    }
+
+    /**
+     * Prompts the user to select a custom widget directory and stores it alongside
+     * the default JS source directory. The selected directory will be appended to
+     * currentConfig.jsSourceDir (an array). Duplicate paths are ignored.
+     */
+    static async selectCustomWidgetDirectory() {
+        let settings = await Settings.getCabbageSettings();
+
+        const selectedPath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select custom widget directory'
+        });
+
+        if (!selectedPath || selectedPath.length === 0) {
+            return;
+        }
+
+        const folderPath = selectedPath[0].fsPath;
+
+        // Normalise into array and append if not present
+        const defPath = Settings.getPathJsSourceDir();
+        const current = settings['currentConfig']['jsSourceDir'];
+        let dirs: string[] = [];
+        if (Array.isArray(current)) {
+            dirs = current as string[];
+        } else if (typeof current === 'string' && current.length > 0) {
+            dirs = [current as string];
+        } else {
+            dirs = [];
+        }
+
+        // Ensure default path is present
+        if (defPath && !dirs.includes(defPath)) {
+            dirs.unshift(defPath);
+        }
+
+        // Append custom folder if not already present
+        if (!dirs.includes(folderPath)) {
+            dirs.push(folderPath);
+        }
+
+        settings['currentConfig']['jsSourceDir'] = dirs;
+        await Settings.setCabbageSettings(settings);
+        vscode.window.showInformationMessage(`Cabbage: Custom widget directory set to ${folderPath}`);
+    }
+
+    /**
+     * Creates a new custom widget from the template, in the configured custom directory.
+     * If multiple custom directories are configured, prompts the user to choose one.
+     * Fails with an error if no custom directory is configured.
+     */
+    static async createNewCustomWidget() {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (!extension) {
+            vscode.window.showErrorMessage('Cabbage: Extension not found.');
+            return;
+        }
+
+        // Resolve template path
+        const templatePath = path.join(extension.extensionPath, 'src', 'cabbage', 'widgets', 'CustomWidgetTemplate.js');
+
+        // Load settings and extract js source directories
+        const settings = await Settings.getCabbageSettings();
+        const defPath = Settings.getPathJsSourceDir();
+        const jsSource = settings['currentConfig']['jsSourceDir'];
+        const dirs: string[] = Array.isArray(jsSource) ? jsSource as string[] : (typeof jsSource === 'string' && jsSource.length > 0) ? [jsSource as string] : [];
+
+        // Custom directories are those not equal to the default extension src path
+        const customDirs = dirs.filter(d => d !== defPath);
+        if (customDirs.length === 0) {
+            vscode.window.showErrorMessage('Cabbage: No custom widget directory configured. Use "Cabbage: Set Custom Widget Directory" first.');
+            return;
+        }
+
+        // If multiple, ask user to choose
+        let targetDir = customDirs[0];
+        if (customDirs.length > 1) {
+            const picked = await vscode.window.showQuickPick(customDirs, { placeHolder: 'Select a target directory for the new widget' });
+            if (!picked) return;
+            targetDir = picked;
+        }
+
+        // Ask for widget name
+        const widgetName = await vscode.window.showInputBox({
+            prompt: 'Enter a name for your custom widget class (e.g., MyWidget)',
+            validateInput: (val: string) => {
+                if (!val || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) return 'Please enter a valid JavaScript class name';
+                return null;
+            }
+        });
+        if (!widgetName) return;
+
+        const targetFile = path.join(targetDir, `${widgetName}.js`);
+
+        try {
+            // Read template
+            const templateUri = vscode.Uri.file(templatePath);
+            const data = await vscode.workspace.fs.readFile(templateUri);
+            let content = Buffer.from(data).toString('utf8');
+
+            // Replace class name
+            content = content.replace(/export class\s+CustomWidgetTemplate\b/, `export class ${widgetName}`);
+
+            // Write file
+            const targetUri = vscode.Uri.file(targetFile);
+            // If exists, ask for overwrite
+            try {
+                await vscode.workspace.fs.stat(targetUri);
+                const overwrite = await vscode.window.showQuickPick(['Overwrite', 'Cancel'], { placeHolder: `${widgetName}.js already exists. Overwrite?` });
+                if (overwrite !== 'Overwrite') return;
+            } catch { /* file does not exist, continue */ }
+
+            await vscode.workspace.fs.writeFile(targetUri, new TextEncoder().encode(content));
+
+            // Open the new file in editor
+            const doc = await vscode.workspace.openTextDocument(targetUri);
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage(`Cabbage: Created custom widget ${widgetName} at ${targetDir}`);
+        } catch (err) {
+            console.error('Cabbage: Failed to create custom widget', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to create custom widget: ${String(err)}`);
         }
     }
 

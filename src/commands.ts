@@ -1053,9 +1053,11 @@ export class Commands {
      */
     static async setCabbageSrcDirectoryIfEmpty() {
         let settings = await Settings.getCabbageSettings();
-        if (settings["currentConfig"]["jsSourceDir"].length === 0) {
+        const current = settings["currentConfig"]["jsSourceDir"];
+        const isEmpty = (Array.isArray(current) && current.length === 0) || (typeof current === 'string' && current.length === 0) || (typeof current === 'undefined');
+        if (isEmpty) {
             const newPath = Settings.getPathJsSourceDir();
-            settings['currentConfig']['jsSourceDir'] = newPath;
+            settings['currentConfig']['jsSourceDir'] = newPath ? [newPath] : [];
             await Settings.setCabbageSettings(settings);
         }
     }
