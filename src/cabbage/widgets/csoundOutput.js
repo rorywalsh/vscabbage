@@ -29,7 +29,7 @@ export class CsoundOutput {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#0295cf",
+                "backgroundColor": "#0295cf",
                 "fontFamily": "Verdana",
                 "fontSize": 14,
                 "fontColor": "#dddddd",
@@ -69,7 +69,7 @@ export class CsoundOutput {
         const textAlign = alignMap[this.props.style.textAlign] || 'start';
 
         return `
-    <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.fill}; 
+    <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.backgroundColor}; 
     color: ${this.props.style.fontColor}; font-family: ${this.props.style.fontFamily}; font-size: ${fontSize}px; 
     text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
 ${this.props.label.text}

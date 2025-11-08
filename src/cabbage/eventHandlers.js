@@ -246,7 +246,7 @@ async function groupSelectedWidgets() {
             containerDiv.innerHTML = containerInstance.getInnerHTML();
             console.log("Cabbage: Updated container HTML to reflect children");
         }
-        
+
         // Use insertChildWidgets to properly render the children
         await WidgetManager.insertChildWidgets(containerWidget, containerDiv);
         console.log("Cabbage: Re-inserted", childWidgets.length, "children into container DOM");
@@ -305,7 +305,7 @@ async function ungroupSelectedWidgets() {
     const childrenPromises = containerWidget.props.children.map(async (childProps) => {
         const childChannelId = CabbageUtils.getChannelId(childProps, 0);
         const existingChildDiv = document.getElementById(childChannelId);
-        
+
         // Calculate absolute position
         const absoluteBounds = {
             ...childProps.bounds,
@@ -316,25 +316,25 @@ async function ungroupSelectedWidgets() {
         if (existingChildDiv) {
             // Reuse existing DOM element - just update its properties
             console.log(`Cabbage: Reusing existing child element ${childChannelId}`);
-            
+
             // Remove the grouped-child class and add draggable class
             existingChildDiv.classList.remove('grouped-child');
             existingChildDiv.classList.add('draggable');
-            
+
             // Remove the parent channel attribute
             existingChildDiv.removeAttribute('data-parent-channel');
-            
+
             // Update position to absolute coordinates
             existingChildDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
             existingChildDiv.setAttribute('data-x', absoluteBounds.left);
             existingChildDiv.setAttribute('data-y', absoluteBounds.top);
-            
+
             // Re-enable pointer events
             existingChildDiv.style.pointerEvents = 'auto';
-            
+
             // Re-parent to MainForm (remove from container, add to form)
             mainForm.appendChild(existingChildDiv);
-            
+
             // Add pointer down event listener for draggable mode
             existingChildDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, existingChildDiv));
         }
@@ -378,7 +378,7 @@ async function ungroupSelectedWidgets() {
 
     // Keep the container widget but update it to have no children
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
-    
+
     // Update the CSD file with the container (now without children)
     if (vscode) {
         vscode.postMessage({
@@ -477,7 +477,7 @@ export function setupFormHandlers() {
         const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
             const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
             return widget && widget.props.children && widget.props.children.length > 0 &&
-                   (widget.props.type === "groupBox" || widget.props.type === "image");
+                (widget.props.type === "groupBox" || widget.props.type === "image");
         });
         if (!canUngroup) return;
 
@@ -491,12 +491,31 @@ export function setupFormHandlers() {
     const contextMenu = document.querySelector(".wrapper");
     const form = document.getElementById('MainForm');
 
+    console.log("Cabbage: Setting up context menu handlers");
+    console.log("Cabbage: form element:", form);
+    console.log("Cabbage: contextMenu element:", contextMenu);
+
+    // Add a global listener to see what's actually receiving events
+    document.addEventListener("click", (e) => {
+        console.log("Cabbage: Click on document, target:", e.target.tagName, "id:", e.target.id, "class:", e.target.className);
+    });
+
+    document.addEventListener("contextmenu", (e) => {
+        console.log("Cabbage: Right-click on document, target:", e.target.tagName, "id:", e.target.id, "class:", e.target.className);
+    });
+
     // Setup event handler for right-click context menu in the form
     if (typeof acquireVsCodeApi === 'function') {
         let mouseDownPosition = {};
 
         if (form && contextMenu) {
+            // Test if form is receiving any events at all
+            form.addEventListener("click", (e) => {
+                console.log("Cabbage: Form received click event at", e.clientX, e.clientY, "target:", e.target);
+            });
+
             form.addEventListener("contextmenu", async (e) => {
+                console.log("Cabbage: Context menu event triggered, cabbageMode:", cabbageMode, "selectedElements.size:", selectedElements.size);
                 e.preventDefault(); // Prevent default context menu
                 e.stopImmediatePropagation();
                 e.stopPropagation();
@@ -528,8 +547,48 @@ export function setupFormHandlers() {
                 mouseDownPosition = { x: x, y: y };
 
                 // Show appropriate menu based on mode and selection
+                // Check if the right-click is on the form background (not on a widget)
+                // Walk up the DOM tree to see if we hit a widget before hitting the form
+                let isWidgetClick = false;
+                let element = e.target;
+                console.log("Cabbage: Right-click target:", e.target, "tagName:", e.target.tagName);
+
+                try {
+                    // Safety: limit iterations to prevent infinite loop
+                    let iterations = 0;
+                    const maxIterations = 20;
+
+                    while (element && element !== formDiv && iterations < maxIterations) {
+                        iterations++;
+                        console.log("Cabbage: Iteration", iterations, "element:", element.tagName, "classList:", element.classList);
+
+                        // Check if this element is a widget (has cabbage-widget-div class)
+                        if (element.classList && element.classList.contains('cabbage-widget-div')) {
+                            isWidgetClick = true;
+                            console.log("Cabbage: Found widget in click path:", element);
+                            break;
+                        }
+
+                        // Move to parent (handle both HTML and SVG elements)
+                        const nextElement = element.parentElement || element.parentNode;
+                        console.log("Cabbage: Moving from", element.tagName, "to parent:", nextElement?.tagName);
+                        element = nextElement;
+                    }
+
+                    console.log("Cabbage: Loop completed - isWidgetClick:", isWidgetClick, "iterations:", iterations);
+                } catch (error) {
+                    console.error("Cabbage: Error in DOM traversal:", error);
+                }
+
+                console.log("Cabbage: Final decision - isWidgetClick:", isWidgetClick, "selectedElements.size:", selectedElements.size);
+
                 if (cabbageMode === 'draggable') {
-                    if (selectedElements.size > 0) {
+                    // If clicking on form background (not on a widget), show widget insertion menu
+                    if (!isWidgetClick) {
+                        console.log("Cabbage: Right-clicked on form background, showing widget insertion menu");
+                        contextMenu.style.visibility = "visible";
+                    } else if (selectedElements.size > 0) {
+                        console.log("Cabbage: Showing group context menu");
                         // Update menu options based on selection
                         const canGroup = selectedElements.size > 1;
                         const hasGroupableWidgets = Array.from(selectedElements).some(el => {
@@ -540,7 +599,7 @@ export function setupFormHandlers() {
                         const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
                             const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
                             return widget && widget.props.children && widget.props.children.length > 0 &&
-                                   (widget.props.type === "groupBox" || widget.props.type === "image");
+                                (widget.props.type === "groupBox" || widget.props.type === "image");
                         });
 
                         groupOption.style.color = (canGroup && hasGroupableWidgets) ? "#000" : "#999";
@@ -553,10 +612,13 @@ export function setupFormHandlers() {
 
                         groupContextMenu.style.visibility = "visible";
                     } else {
+                        console.log("Cabbage: Showing widget insertion menu");
                         contextMenu.style.visibility = "visible";
                     }
                 } else {
-                    groupContextMenu.style.visibility = "visible";
+                    console.log("Cabbage: Not in draggable mode, showing widget insertion menu");
+                    // In edit mode, always show the widget insertion menu
+                    contextMenu.style.visibility = "visible";
                 }
 
                 // Wait for PropertyPanel to be loaded before using it
@@ -591,13 +653,18 @@ export function setupFormHandlers() {
 
                         // Insert new widget and update the editor
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
+                        console.log("Cabbage: Inserting widget with uniqueId:", uniqueId);
                         const widget = await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
-                        console.warn(widget);
+                        console.warn("Cabbage: Inserted widget:", widget);
                         if (widgets) {
-                            vscode.postMessage({
-                                command: 'widgetUpdate',
-                                text: JSON.stringify(widget)
-                            });
+                            if (widget) {
+                                vscode.postMessage({
+                                    command: 'widgetUpdate',
+                                    text: JSON.stringify(widget)
+                                });
+                            } else {
+                                console.error("Cabbage: Widget is undefined, cannot send to VS Code");
+                            }
                         }
                     });
                 }

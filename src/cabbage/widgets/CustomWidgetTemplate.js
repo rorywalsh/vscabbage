@@ -12,16 +12,21 @@ import { CabbageUtils } from "../utils.js";
  * It provides the essential structure and methods needed for a widget to function
  * within the VS Code extension environment.
  *
+ * RELATIVE IMPORTS: This template uses relative imports like the built-in widgets.
+ * When you set a custom widget directory, the entire cabbage folder structure is
+ * copied to your directory, so these relative imports will work correctly.
+ *
  * This template renders a simple rectangular shape based on the style properties
  * (backgroundColor, borderRadius, opacity).
  *
  * To create a new widget:
- * 1. Copy this file and rename it to your widget's name (e.g., MyWidget.js)
+ * 1. Use the command "Cabbage: Create New Custom Widget" to scaffold this template
  * 2. Change the class name from CustomWidgetTemplate to your widget name
  * 3. Update the props object with your widget's default properties
  * 4. Implement the getInnerHTML() method to return your widget's HTML/SVG
  * 5. Add any custom event listeners in addEventListeners() if needed
  * 6. Update the JSDoc comments to reflect your widget's purpose
+ * 7. Test in VS Code, then copy to cabbage/widgets folder for plugin distribution
  */
 export class CustomWidgetTemplate {
     /**

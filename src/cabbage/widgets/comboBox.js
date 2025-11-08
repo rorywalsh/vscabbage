@@ -30,7 +30,7 @@ export class ComboBox {
                 "borderRadius": 2,
                 "borderWidth": 1,
                 "borderColor": "#222222",
-                "fill": "#0295cf",
+                "backgroundColor": "#0295cf",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -157,7 +157,7 @@ export class ComboBox {
         dropdown.style.width = `${maxWidth}px`;
         dropdown.style.height = `${dropdownHeight}px`;
         dropdown.style.zIndex = '9999';
-        dropdown.style.backgroundColor = this.props.style.fill;
+        dropdown.style.backgroundColor = this.props.style.backgroundColor;
         dropdown.style.border = `${this.props.style.borderWidth}px solid ${this.props.style.borderColor}`;
         dropdown.style.borderRadius = `${this.props.style.borderRadius}px`;
         dropdown.style.overflowY = 'auto';
@@ -175,16 +175,16 @@ export class ComboBox {
             itemDiv.style.alignItems = 'center';
             itemDiv.style.justifyContent = 'center';
             itemDiv.style.cursor = 'pointer';
-            itemDiv.style.backgroundColor = CabbageColours.darker(this.props.style.fill, 0.2);
+            itemDiv.style.backgroundColor = CabbageColours.darker(this.props.style.backgroundColor, 0.2);
             itemDiv.style.fontFamily = this.props.style.fontFamily;
             itemDiv.style.fontSize = `${fontSize}px`;
             itemDiv.style.color = this.props.style.fontColor;
 
             itemDiv.onmouseover = () => {
-                itemDiv.style.backgroundColor = CabbageColours.lighter(this.props.style.fill, 0.2);
+                itemDiv.style.backgroundColor = CabbageColours.lighter(this.props.style.backgroundColor, 0.2);
             };
             itemDiv.onmouseout = () => {
-                itemDiv.style.backgroundColor = CabbageColours.darker(this.props.style.fill, 0.2);
+                itemDiv.style.backgroundColor = CabbageColours.darker(this.props.style.backgroundColor, 0.2);
             };
 
             itemDiv.onclick = () => {
@@ -271,7 +271,7 @@ export class ComboBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
-                <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius * 2}" fill="${this.props.style.fill}" stroke="${this.props.style.borderColor}"
+                <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius * 2}" fill="${this.props.style.backgroundColor}" stroke="${this.props.style.borderColor}"
                     stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
                     style="cursor: pointer;" pointer-events="all" 
                     onclick="document.getElementById('${CabbageUtils.getChannelId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>

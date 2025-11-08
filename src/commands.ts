@@ -374,7 +374,7 @@ export class Commands {
                             });
                         }
 
-                        Commands.onDidSave(documentToSave, context);
+                        // Commands.onDidSave(documentToSave, context); // Removed - VS Code save event will trigger this
                     } catch (error) {
                         console.error('Cabbage: Error saving file:', error);
                         vscode.window.showErrorMessage('Failed to save the file. Please try again.');
@@ -385,6 +385,100 @@ export class Commands {
                 }
                 break;
 
+
+            case 'getCustomWidgetInfo':
+                // Webview is requesting all custom widget information
+                try {
+                    const customDirs = await ExtensionUtils.getCustomWidgetDirectories();
+                    const allWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+
+                    for (const dir of customDirs) {
+                        const widgets = await ExtensionUtils.scanForCustomWidgets(dir);
+
+                        for (const widget of widgets) {
+                            // Convert file system path to webview URI
+                            const filePath = path.join(dir, widget.filename);
+                            const webviewUri = this.panel?.webview.asWebviewUri(vscode.Uri.file(filePath));
+
+                            if (webviewUri) {
+                                // Use toString(true) to skip encoding, which prevents %2B instead of +
+                                const uriString = webviewUri.toString(true);
+                                allWidgets.push({
+                                    widgetType: widget.widgetType,
+                                    filename: widget.filename,
+                                    className: widget.className,
+                                    webviewPath: uriString
+                                });
+                                console.log(`Cabbage: Custom widget ${widget.widgetType} webview path:`, uriString);
+                            }
+                        }
+                    }
+
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'customWidgetInfo',
+                            widgets: allWidgets
+                        });
+                    }
+                } catch (error) {
+                    console.error('Cabbage: Error getting custom widget info:', error);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'customWidgetInfo',
+                            widgets: []
+                        });
+                    }
+                }
+                break;
+
+            case 'getCustomWidgetDirectories':
+                // Legacy - kept for compatibility
+                try {
+                    const customDirs = await ExtensionUtils.getCustomWidgetDirectories();
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'customWidgetDirectories',
+                            directories: customDirs
+                        });
+                    }
+                } catch (error) {
+                    console.error('Cabbage: Error getting custom widget directories:', error);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'customWidgetDirectories',
+                            directories: []
+                        });
+                    }
+                }
+                break;
+
+            case 'getWidgetFiles':
+                // Legacy - kept for compatibility
+                try {
+                    const directory = message.directory;
+                    if (!directory) {
+                        break;
+                    }
+
+                    const widgets = await ExtensionUtils.scanForCustomWidgets(directory);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'widgetFiles',
+                            directory: directory,
+                            files: widgets
+                        });
+                    }
+                } catch (error) {
+                    console.error('Cabbage: Error scanning for widgets:', error);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'widgetFiles',
+                            directory: message.directory,
+                            files: []
+                        });
+                    }
+                }
+                break;
 
             default:
                 console.log('Cabbage: handleWebviewMessage default case, command:', message.command);
@@ -461,6 +555,32 @@ export class Commands {
         if (fs.existsSync(path.join(directoryPath, 'media'))) {
             localResources.push(vscode.Uri.file(path.join(directoryPath, 'media')));
         }
+
+        // Add custom widget directories to local resource roots
+        // Note: getCustomWidgetDirectories returns paths to cabbage/widgets subdirectories,
+        // but we need to add the root custom folder to localResourceRoots so the webview
+        // can access the entire cabbage folder structure with relative imports
+        console.log('Cabbage: Getting custom widget directories...');
+        try {
+            const customWidgetDirs = await ExtensionUtils.getCustomWidgetDirectories();
+            console.log('Cabbage: Custom widget directories:', customWidgetDirs);
+            for (const widgetsDir of customWidgetDirs) {
+                // Go up two levels: from cabbage/widgets to the root custom folder
+                const customRootDir = path.dirname(path.dirname(widgetsDir));
+                console.log('Cabbage: Adding custom root directory to localResourceRoots:', customRootDir);
+                if (fs.existsSync(customRootDir)) {
+                    const uri = vscode.Uri.file(customRootDir);
+                    localResources.push(uri);
+                    console.log('Cabbage: Added custom root directory to localResourceRoots:', uri.toString());
+                } else {
+                    console.warn('Cabbage: Custom root directory does not exist:', customRootDir);
+                }
+            }
+        } catch (error) {
+            console.error('Cabbage: Error adding custom widget directories:', error);
+        }
+
+        console.log('Cabbage: All local resource roots:', localResources.map(r => r.toString()));
 
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
@@ -695,6 +815,26 @@ export class Commands {
                     }, 100);
                 } else {
                     console.log('Cabbage: Errors detected, not revealing panel');
+
+                    // Print diagnostic errors to console
+                    const cabbageDiagnostics = this.diagnosticCollection.get(editor.uri);
+                    const csoundDiagnostics = this.diagnosticCollectionCsound.get(editor.uri);
+
+                    if (cabbageDiagnostics && cabbageDiagnostics.length > 0) {
+                        console.log('Cabbage: Cabbage JSON diagnostics:');
+                        cabbageDiagnostics.forEach(diagnostic => {
+                            console.log(`  ${diagnostic.severity === 0 ? 'Error' : 'Warning'}: ${diagnostic.message} at line ${diagnostic.range.start.line + 1}`);
+                        });
+                    }
+
+                    if (csoundDiagnostics && csoundDiagnostics.length > 0) {
+                        console.log('Cabbage: Csound diagnostics:');
+                        csoundDiagnostics.forEach(diagnostic => {
+                            console.log(`  ${diagnostic.severity === 0 ? 'Error' : 'Warning'}: ${diagnostic.message} at line ${diagnostic.range.start.line + 1}`);
+                        });
+                    }
+
+                    console.log(`Cabbage: compilationFailed flag: ${this.compilationFailed}`);
                 }
             }, 100); // Wait 300ms for compilation to start and errors to appear
         } else {
@@ -1414,8 +1554,8 @@ export class Commands {
         // If no line number, try to extract opcode name from error message
         // Look for patterns like "Unable to find opcode with name: invalidOpcode"
         const opcodeMatch = errorLine.match(/opcode with name:\s*(\w+)/i) ||
-                           errorLine.match(/Unknown opcode:\s*(\w+)/i) ||
-                           errorLine.match(/opcode\s*['"]?(\w+)['"]?\s*not found/i);
+            errorLine.match(/Unknown opcode:\s*(\w+)/i) ||
+            errorLine.match(/opcode\s*['"]?(\w+)['"]?\s*not found/i);
 
         if (opcodeMatch) {
             const opcodeName = opcodeMatch[1];

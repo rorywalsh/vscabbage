@@ -2,11 +2,21 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
+console.log('Cabbage: main.js START - top of file');
+
+try {
+    console.log('Cabbage: About to import modules...');
+    throw new Error('Test error before imports');
+} catch (e) {
+    console.error('Cabbage: Caught test error:', e);
+}
+
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
+import { discoverAndRegisterCustomWidgets } from "./widgetDiscovery.js";
 
 
 // Update the vscode assignment
@@ -29,35 +39,65 @@ if (rightPanel) { rightPanel.style.visibility = "hidden"; }
 // Notify the plugin that Cabbage is ready to load
 CabbageUtils.showOverlay();
 
-// Check if running in VS Code context
-if (typeof acquireVsCodeApi === 'function') {
+// Wrap async initialization in an IIFE with comprehensive error handling
+(async () => {
     try {
-        console.log("Cabbage: Loading modules in main.js");
-        // Load PropertyPanel and WidgetWrapper modules concurrently
-        const [propertyPanelModule, widgetWrapperModule] = await Promise.all([
-            import("../propertyPanel.js"),
-            import("../widgetWrapper.js")
-        ]);
+        console.log('Cabbage: Starting async initialization in main.js');
 
-        console.log("Cabbage: Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
+        // Discover and register custom widgets before loading other modules
+        if (typeof acquireVsCodeApi === 'function') {
+            console.log('Cabbage: Discovering custom widgets...');
+            try {
+                const customWidgets = await discoverAndRegisterCustomWidgets(vscode);
+                if (customWidgets.length > 0) {
+                    console.log(`Cabbage: Registered ${customWidgets.length} custom widgets:`, customWidgets);
+                }
+            } catch (error) {
+                console.error('Cabbage: Error during custom widget discovery:', error);
+                console.error('Cabbage: Error stack:', error.stack);
+            }
+        }
 
-        const { PropertyPanel } = propertyPanelModule;
-        const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
+        // Check if running in VS Code context
+        if (typeof acquireVsCodeApi === 'function') {
+            try {
+                console.log("Cabbage: Loading modules in main.js");
+                // Load PropertyPanel and WidgetWrapper modules concurrently
+                const [propertyPanelModule, widgetWrapperModule] = await Promise.all([
+                    import("../propertyPanel.js"),
+                    import("../widgetWrapper.js")
+                ]);
 
-        // Initialize interact with the correct URI
-        initializeInteract(window.interactJS);
+                console.log("Cabbage: Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
 
-        // Initialize widget wrappers with necessary dependencies
-        widgetWrappers = new WidgetWrapper(PropertyPanel.updatePanel, selectedElements, widgets, vscode);
+                const { PropertyPanel } = propertyPanelModule;
+                const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
 
-        // You might want to wait for the interact script to load before proceeding
-        await widgetWrappers.interactPromise;
+                // Initialize interact with the correct URI
+                initializeInteract(window.interactJS);
+
+                // Initialize widget wrappers with necessary dependencies
+                widgetWrappers = new WidgetWrapper(PropertyPanel.updatePanel, selectedElements, widgets, vscode);
+
+                // You might want to wait for the interact script to load before proceeding
+                await widgetWrappers.interactPromise;
+
+                console.log('Cabbage: Initialization complete');
+            } catch (error) {
+                console.error("Cabbage: Error loading modules in main.js:", error);
+                console.error("Cabbage: Error stack:", error.stack);
+            }
+        } else {
+            console.log("Cabbage: Running outside of VSCode environment");
+        }
     } catch (error) {
-        console.error("Error loading modules in main.js:", error);
+        console.error('Cabbage: Fatal error in main.js async IIFE:', error);
+        console.error('Cabbage: Fatal error stack:', error.stack);
     }
-} else {
-    console.log("Cabbage: Running outside of VSCode environment");
-}
+})().catch(error => {
+    console.error('Cabbage: Unhandled promise rejection in main.js:', error);
+    console.error('Cabbage: Rejection stack:', error.stack);
+});
 
 //send message to Cabbage to indicate that the UI is ready to load
 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);

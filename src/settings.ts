@@ -9,6 +9,37 @@ import path from 'path';
 
 export class Settings {
 
+    private static async copyDirectoryRecursive(source: string, target: string) {
+        const sourceUri = vscode.Uri.file(source);
+        const targetUri = vscode.Uri.file(target);
+
+        // Create target directory if it doesn't exist
+        try {
+            await vscode.workspace.fs.createDirectory(targetUri);
+        } catch (err) {
+            // Directory might already exist, that's okay
+        }
+
+        // Read source directory
+        const entries = await vscode.workspace.fs.readDirectory(sourceUri);
+
+        for (const [name, type] of entries) {
+            const sourcePath = path.join(source, name);
+            const targetPath = path.join(target, name);
+
+            if (type === vscode.FileType.Directory) {
+                // Recursively copy subdirectory
+                await Settings.copyDirectoryRecursive(sourcePath, targetPath);
+            } else {
+                // Copy file
+                const sourceFileUri = vscode.Uri.file(sourcePath);
+                const targetFileUri = vscode.Uri.file(targetPath);
+                const data = await vscode.workspace.fs.readFile(sourceFileUri);
+                await vscode.workspace.fs.writeFile(targetFileUri, data);
+            }
+        }
+    }
+
     private static getDefaultSettings() {
         return `
     {
@@ -332,6 +363,25 @@ export class Settings {
         }
 
         const folderPath = selectedPath[0].fsPath;
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (!extension) {
+            vscode.window.showErrorMessage('Cabbage: Extension not found.');
+            return;
+        }
+
+        // Copy the cabbage folder structure to the custom widget directory
+        const sourceCabbageDir = path.join(extension.extensionPath, 'src', 'cabbage');
+        const targetCabbageDir = path.join(folderPath, 'cabbage');
+
+        try {
+            // Copy the entire cabbage directory recursively
+            await Settings.copyDirectoryRecursive(sourceCabbageDir, targetCabbageDir);
+            Commands.getOutputChannel().appendLine(`Cabbage: Copied cabbage folder structure to ${targetCabbageDir}`);
+        } catch (err) {
+            console.error('Cabbage: Failed to copy cabbage folder', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to copy cabbage folder: ${String(err)}`);
+            return;
+        }
 
         // Normalise into array and append if not present
         const defPath = Settings.getPathJsSourceDir();
@@ -357,7 +407,17 @@ export class Settings {
 
         settings['currentConfig']['jsSourceDir'] = dirs;
         await Settings.setCabbageSettings(settings);
-        vscode.window.showInformationMessage(`Cabbage: Custom widget directory set to ${folderPath}`);
+
+        // Also update VS Code settings for visibility
+        const customDirs = dirs.filter(d => d !== defPath);
+        const config = vscode.workspace.getConfiguration('cabbage');
+        await config.update('customWidgetDirectories', customDirs, vscode.ConfigurationTarget.Global);
+
+        // Trigger a rescan by sending backend restart command if there's an active panel
+        // This ensures the new custom widget directory is picked up immediately
+        await vscode.commands.executeCommand('cabbage.restartBackend');
+
+        vscode.window.showInformationMessage(`Cabbage: Custom widget directory set to ${folderPath}\nCabbage folder structure copied successfully.`);
     }
 
     /**
@@ -396,17 +456,45 @@ export class Settings {
             targetDir = picked;
         }
 
+        // Custom widgets go in cabbage/widgets/ subdirectory
+        const widgetsDir = path.join(targetDir, 'cabbage', 'widgets');
+
+        // Verify the directory structure exists
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(widgetsDir));
+        } catch {
+            vscode.window.showErrorMessage(`Cabbage: Widget directory not found at ${widgetsDir}. The custom widget folder structure may not have been set up correctly.`);
+            return;
+        }
+
+        // List of built-in widget types to prevent conflicts
+        const builtInWidgets = [
+            'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider', 'numberSlider',
+            'keyboard', 'form', 'button', 'fileButton', 'infoButton', 'optionButton',
+            'genTable', 'label', 'image', 'listBox', 'comboBox', 'groupBox', 'checkBox',
+            'csoundOutput', 'textEditor', 'xyPad'
+        ];
+
         // Ask for widget name
         const widgetName = await vscode.window.showInputBox({
-            prompt: 'Enter a name for your custom widget class (e.g., MyWidget)',
+            prompt: 'Enter a name for your custom widget class (e.g., MyWidget, TestButton)',
             validateInput: (val: string) => {
-                if (!val || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) return 'Please enter a valid JavaScript class name';
+                if (!val || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) {
+                    return 'Please enter a valid JavaScript class name';
+                }
+
+                // Check if the camelCase version conflicts with built-in widgets
+                const widgetType = val.charAt(0).toLowerCase() + val.slice(1);
+                if (builtInWidgets.includes(widgetType)) {
+                    return `Widget type "${widgetType}" conflicts with a built-in widget. Please choose a different name.`;
+                }
+
                 return null;
             }
         });
         if (!widgetName) return;
 
-        const targetFile = path.join(targetDir, `${widgetName}.js`);
+        const targetFile = path.join(widgetsDir, `${widgetName}.js`);
 
         try {
             // Read template
@@ -414,8 +502,17 @@ export class Settings {
             const data = await vscode.workspace.fs.readFile(templateUri);
             let content = Buffer.from(data).toString('utf8');
 
+            // Convert widget name to camelCase for the type identifier
+            const widgetType = widgetName.charAt(0).toLowerCase() + widgetName.slice(1);
+
             // Replace class name
             content = content.replace(/export class\s+CustomWidgetTemplate\b/, `export class ${widgetName}`);
+
+            // Replace widget type identifier in the props (e.g., "type": "customWidget" -> "type": "testButton")
+            content = content.replace(/"type":\s*"customWidget"/g, `"type": "${widgetType}"`);
+
+            // Replace channel id (e.g., "id": "customWidget" -> "id": "testButton")
+            content = content.replace(/"id":\s*"customWidget"/g, `"id": "${widgetType}"`);
 
             // Write file
             const targetUri = vscode.Uri.file(targetFile);
@@ -431,7 +528,11 @@ export class Settings {
             // Open the new file in editor
             const doc = await vscode.workspace.openTextDocument(targetUri);
             await vscode.window.showTextDocument(doc);
-            vscode.window.showInformationMessage(`Cabbage: Created custom widget ${widgetName} at ${targetDir}`);
+
+            // Trigger a rescan so the new widget appears in the context menu immediately
+            await vscode.commands.executeCommand('cabbage.restartBackend');
+
+            vscode.window.showInformationMessage(`Cabbage: Created custom widget ${widgetName} at ${widgetsDir}`);
         } catch (err) {
             console.error('Cabbage: Failed to create custom widget', err);
             vscode.window.showErrorMessage(`Cabbage: Failed to create custom widget: ${String(err)}`);

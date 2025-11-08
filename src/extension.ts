@@ -613,7 +613,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
         if (!Commands.getPanel()) {
             console.warn('Cabbage: Cabbage: Creating new webview panel');
-            Commands.setupWebViewPanel(context);
+            await Commands.setupWebViewPanel(context);
         } else {
             const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
             const fileName =

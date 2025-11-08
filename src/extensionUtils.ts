@@ -8,12 +8,11 @@ import { WidgetProps } from './cabbage/widgetTypes';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-// @ts-ignore
-import { initialiseDefaultProps } from './cabbage/widgetTypes';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
 import WebSocket from 'ws';
 import stringify from 'json-stringify-pretty-compact';
+import { Settings } from './settings';
 
 
 // Define an interface for the old-style widget structure
@@ -466,10 +465,9 @@ editor. -->\n`;
 
         const originalText = document.getText();
 
-        const defaultProps = await initialiseDefaultProps(props.type);
-        if (!defaultProps) {
-            return;
-        }
+        // Default props are only used for filtering - we don't need them in the extension
+        // The webview will handle actual widget defaults
+        const defaultProps = {} as WidgetProps;
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<!--[\s\S]*?Warning:[\s\S]*?-->[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -1030,6 +1028,7 @@ ${JSON.stringify(props, null, 4)}
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         const propertyPanelStylesLink = propertyPanelStyles ? `<link href="${propertyPanelStyles}" rel="stylesheet">` : '';
         const panelLayoutClass = propertyPanelPosition === 'left' ? 'property-panel-left' : 'property-panel-right';
+
         return `
 <!doctype html>
 <html lang="en">
@@ -1086,8 +1085,12 @@ ${JSON.stringify(props, null, 4)}
 
 </div>
   <script type="module" src="${widgetWrapper}"></script>
+  <script>
+    console.log('Cabbage: HTML loaded, about to load main.js from:', '${mainJS}');
+  </script>
   <script type="module" src="${mainJS}"></script>
   <script>
+    console.log('Cabbage: Script tag for main.js was added to DOM');
     // Theme change handling
     window.addEventListener('message', event => {
       const message = event.data;
@@ -1528,5 +1531,125 @@ f0 z
             Commands.clearJSONDiagnostics(editor.uri);
             return true;
         }
+    }
+
+    /**
+     * Scans a directory for custom widget files and extracts their metadata.
+     * @param directory The absolute path to the directory to scan
+     * @returns Array of widget file information objects
+     */
+    static async scanForCustomWidgets(directory: string): Promise<Array<{ filename: string, className: string, widgetType: string }>> {
+        const widgets: Array<{ filename: string, className: string, widgetType: string }> = [];
+
+        // List of built-in widget types to skip (these shouldn't be registered as custom widgets)
+        const builtInWidgets = [
+            'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider', 'numberSlider',
+            'keyboard', 'form', 'button', 'fileButton', 'infoButton', 'optionButton',
+            'genTable', 'label', 'image', 'listBox', 'comboBox', 'groupBox', 'checkBox',
+            'csoundOutput', 'textEditor', 'xyPad'
+        ];
+
+        try {
+            if (!fs.existsSync(directory)) {
+                return widgets;
+            }
+
+            const files = fs.readdirSync(directory);
+
+            for (const file of files) {
+                // Only process .js files, skip template and test files
+                if (!file.endsWith('.js') ||
+                    file.includes('Template') ||
+                    file.includes('test') ||
+                    file.startsWith('.')) {
+                    continue;
+                }
+
+                const filePath = path.join(directory, file);
+                const stats = fs.statSync(filePath);
+
+                if (!stats.isFile()) {
+                    continue;
+                }
+
+                try {
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    const widgetInfo = this.extractWidgetInfoFromFile(content);
+
+                    if (widgetInfo) {
+                        // Skip built-in widgets - only register actual custom widgets
+                        if (builtInWidgets.includes(widgetInfo.widgetType)) {
+                            console.log(`Cabbage: Skipping built-in widget: ${widgetInfo.widgetType} in ${file}`);
+                            continue;
+                        }
+
+                        widgets.push({
+                            filename: file,
+                            className: widgetInfo.className,
+                            widgetType: widgetInfo.widgetType
+                        });
+                        console.log(`Cabbage: Found custom widget: ${widgetInfo.widgetType} in ${file}`);
+                    }
+                } catch (error) {
+                    console.error(`Cabbage: Error reading widget file ${file}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error(`Cabbage: Error scanning directory ${directory}:`, error);
+        }
+
+        return widgets;
+    }
+
+    /**
+     * Extracts widget class name and type from file content.
+     * @param content The JavaScript file content
+     * @returns Object with className and widgetType, or null
+     */
+    static extractWidgetInfoFromFile(content: string): { className: string, widgetType: string } | null {
+        try {
+            // Match: export class ClassName
+            const classMatch = content.match(/export\s+class\s+(\w+)/);
+            if (!classMatch) {
+                return null;
+            }
+
+            const className = classMatch[1];
+
+            // Try to find widget type from the constructor
+            // Look for: "type": "widgetType"
+            const typeMatch = content.match(/"type"\s*:\s*"(\w+)"/);
+
+            // If no type found in props, use lowercase class name as fallback
+            const widgetType = typeMatch ? typeMatch[1] : className.charAt(0).toLowerCase() + className.slice(1);
+
+            return { className, widgetType };
+        } catch (error) {
+            console.error('Cabbage: Error extracting widget info:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Gets custom widget directories from settings, excluding the default extension source.
+     * Returns paths to the cabbage/widgets subdirectories within each custom directory.
+     * @returns Array of custom widget directory paths (pointing to cabbage/widgets subdirs)
+     */
+    static async getCustomWidgetDirectories(): Promise<string[]> {
+        const settings = await Settings.getCabbageSettings();
+        const defPath = Settings.getPathJsSourceDir();
+        const jsSource = settings['currentConfig']['jsSourceDir'];
+
+        const dirs: string[] = Array.isArray(jsSource)
+            ? jsSource as string[]
+            : (typeof jsSource === 'string' && jsSource.length > 0)
+                ? [jsSource as string]
+                : [];
+
+        // Filter to only custom directories (not the default extension src path)
+        // and append /cabbage/widgets to each
+        return dirs
+            .filter(d => d !== defPath)
+            .map(d => path.join(d, 'cabbage', 'widgets'));
     }
 }

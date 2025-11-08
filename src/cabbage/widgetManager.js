@@ -5,7 +5,7 @@
 console.log("Cabbage: Loading widgetManager.js...");
 
 // Import necessary modules and utilities
-import { widgetConstructors, widgetTypes } from "./widgetTypes.js";
+import { widgetConstructors, getWidgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
@@ -79,19 +79,19 @@ export class WidgetManager {
     /**
      * Dynamically creates a widget based on the provided type.
      * @param {string} type - The type of the widget to create.
-     * @returns {object|null} - The created widget object or null if the type is invalid.
+     * @returns {Promise<object|null>} - The created widget object or null if the type is invalid.
      */
-    static createWidget(type) {
-        const WidgetClass = widgetConstructors[type];
-        if (WidgetClass) {
+    static async createWidget(type) {
+        try {
+            const WidgetClass = await widgetConstructors[type];
             const widget = new WidgetClass();
             //special case for genTable..
             if (type === "genTable") {
                 widget.createCanvas(); // Special logic for "gentable" widget
             }
             return widget;
-        } else {
-            console.error("Unknown widget type: " + type);
+        } catch (error) {
+            console.error("Unknown widget type: " + type, error);
             console.trace();
             return null;
         }
@@ -113,7 +113,7 @@ export class WidgetManager {
             || (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel);
         widgetDiv.id = widgetId;
 
-        const widget = WidgetManager.createWidget(type);
+        const widget = await WidgetManager.createWidget(type);
         if (!widget) {
             console.error("Failed to create widget of type:", type);
             return;
@@ -160,7 +160,8 @@ export class WidgetManager {
 
         // Store the minimal original props for grouping/ungrouping
         try {
-            const defaultProps = new widgetConstructors[type]().props;
+            const WidgetClass = await widgetConstructors[type];
+            const defaultProps = new WidgetClass().props;
             const minimalProps = { ...props };
             const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
             excludeFromJson.forEach(prop => delete minimalProps[prop]);
@@ -317,7 +318,9 @@ export class WidgetManager {
      * @param {object} widget - The "form" widget to set up.
      */
     static setupFormWidget(widget) {
+        console.log("Cabbage: setupFormWidget called");
         let formDiv = document.getElementById('MainForm');
+        console.log("Cabbage: MainForm element:", formDiv ? "found" : "not found");
         if (!formDiv) {
             formDiv = document.createElement('div');
             formDiv.id = 'MainForm';
@@ -347,9 +350,10 @@ export class WidgetManager {
                 contentDiv.addEventListener('mousedown', preventClose);
                 contentDiv.addEventListener('pointerdown', preventClose);
 
-                // Populate the menu with widget types
+                // Populate the menu with widget types (get fresh list including custom widgets)
                 let menuItems = "";
-                widgetTypes.forEach((widget) => {
+                const currentWidgetTypes = getWidgetTypes();
+                currentWidgetTypes.forEach((widget) => {
                     menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
                 });
 
@@ -405,6 +409,27 @@ export class WidgetManager {
             }
         }
 
+        // Populate the menu with widget types (works for both new and existing forms)
+        if (vscode) {
+            console.log("Cabbage: Attempting to populate menu, vscode context:", !!vscode);
+            const ulMenu = document.querySelector('.menu');
+            console.log("Cabbage: Menu element:", ulMenu);
+            if (ulMenu) {
+                let menuItems = "";
+                const currentWidgetTypes = getWidgetTypes();
+                console.log("Cabbage: Widget types to add to menu:", currentWidgetTypes.length, currentWidgetTypes);
+                currentWidgetTypes.forEach((widgetType) => {
+                    menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
+                });
+                ulMenu.innerHTML = menuItems;
+                console.log(`Cabbage: Populated context menu with ${currentWidgetTypes.length} widget types`);
+            } else {
+                console.error("Cabbage: Could not find .menu element to populate");
+            }
+        } else {
+            console.log("Cabbage: Not in vscode context, skipping menu population");
+        }
+
         // Set MainForm styles and properties
         if (formDiv) {
             formDiv.style.width = widget.props.size.width + "px";
@@ -415,7 +440,9 @@ export class WidgetManager {
             // Update SVG if needed
             if (typeof widget.updateSVG === 'function') {
                 widget.updateSVG();
-                const selectionColour = CabbageColours.invertColor(widget.props.colour.fill);
+                // Form widget uses 'style' instead of 'colour'
+                const fillColor = widget.props.style?.fill || widget.props.colour?.fill || '#000000';
+                const selectionColour = CabbageColours.invertColor(fillColor);
                 CabbageColours.changeSelectedBorderColor(selectionColour);
             }
         } else {
@@ -877,7 +904,7 @@ export class WidgetManager {
                         console.warn("Cabbage: Updated child widget instance", CabbageUtils.getChannelId({ channel: obj.id }, 0), instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
-                        const tempWidget = WidgetManager.createWidget(childProps.type);
+                        const tempWidget = await WidgetManager.createWidget(childProps.type);
                         WidgetManager.deepMerge(tempWidget.props, childProps);
                         // Ensure slider values are not null
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {

@@ -30,7 +30,7 @@ export class GroupBox {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#888888",
+                "backgroundColor": "#888888",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -71,7 +71,7 @@ export class GroupBox {
         const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 11 : this.props.style.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
         const padding = 4; // padding around text to leave a gap in the line
-        
+
         // Use a more accurate text width estimation for SVG text
         const avgCharWidth = textSize * 0.6; // More accurate approximation for most fonts
         const textWidth = this.props.label.text.length * avgCharWidth;
@@ -110,7 +110,7 @@ export class GroupBox {
 
         // For containers with children, make background transparent so children are visible
         const hasChildren = this.props.children && Array.isArray(this.props.children) && this.props.children.length > 0;
-        const fillColor = hasChildren ? 'transparent' : this.props.style.fill;
+        const fillColor = hasChildren ? 'transparent' : this.props.style.backgroundColor;
 
         return `
             <div style="position: relative; width: ${width}px; height: ${height}px;">

@@ -901,10 +901,14 @@ export class CabbageColours {
 */
 export class CabbageTestUtilities {
 
-  static createWidgetInstances(widgetConstructors) {
+  static async createWidgetInstances(widgetConstructors) {
     const widgetInstances = {};
 
-    for (const [key, Constructor] of Object.entries(widgetConstructors)) {
+    // Get all widget types from the proxy
+    const widgetTypes = Reflect.ownKeys(widgetConstructors);
+
+    for (const key of widgetTypes) {
+      const Constructor = await widgetConstructors[key];
       widgetInstances[key] = new Constructor();
     }
 
@@ -915,18 +919,23 @@ export class CabbageTestUtilities {
   * Generate a CabbageWidgetDescriptors class with all the identifiers for each widget type, this can be inserted
   directly into the Cabbage source code
   */
-  static generateCabbageWidgetDescriptorsClass(widgetConstructors) {
+  static async generateCabbageWidgetDescriptorsClass(widgetConstructors) {
     const widgets = {};
-    for (const [key, Constructor] of Object.entries(widgetConstructors)) {
+
+    // Get all widget types from the proxy
+    const widgetTypes = Reflect.ownKeys(widgetConstructors);
+
+    for (const key of widgetTypes) {
+      const Constructor = await widgetConstructors[key];
       widgets[key] = new Constructor();
       console.log(widgets[key]);
     }
 
-    let widgetTypes = '{';
+    let widgetTypesStr = '{';
     for (const widget of Object.values(widgets)) {
-      widgetTypes += `"${widget.props.type}", `;
+      widgetTypesStr += `"${widget.props.type}", `;
     }
-    widgetTypes = widgetTypes.slice(0, -2) + "};";
+    widgetTypesStr = widgetTypesStr.slice(0, -2) + "};";
 
     let cppCode = `
   #pragma once
@@ -942,7 +951,7 @@ export class CabbageTestUtilities {
   class CabbageWidgetDescriptors {
   public:
       static std::vector<std::string> getWidgetTypes(){
-          return ${widgetTypes};
+          return ${widgetTypesStr};
       }
   
       static nlohmann::json get(std::string widgetType) {

@@ -23,6 +23,7 @@ export class MidiKeyboard {
       "value": 36,
       "automatable": false,
       "active": true,
+      "visible": true,
       "style": {
         "opacity": 1,
         "fontFamily": "Verdana",
@@ -114,7 +115,7 @@ export class MidiKeyboard {
     const note = keyElement.dataset.note;
     if (!this.activeNotes.has(note)) {
       this.activeNotes.add(note);
-      keyElement.setAttribute('fill', this.props.color.keydown);
+      keyElement.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
       const rect = keyElement.getBoundingClientRect();
       const velocity = Math.max(1, Math.floor((e.offsetY / rect.height) * 127));
       console.log(`Key down: ${this.noteMap[note]} velocity: ${velocity}`);
@@ -126,7 +127,7 @@ export class MidiKeyboard {
     const note = keyElement.dataset.note;
     if (this.activeNotes.has(note)) {
       this.activeNotes.delete(note);
-      keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? this.props.color.whiteNote : this.props.color.blackNote);
+      keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? (this.props.style?.whiteNoteColor || this.props.color?.whiteNote || '#ffffff') : (this.props.style?.blackNoteColor || this.props.color?.blackNote || '#000000'));
       console.log(`Key up: ${this.noteMap[note]}`);
       Cabbage.sendMidiMessageFromUI(0x80, this.noteMap[note], 0, this.vscode);
     }
@@ -176,7 +177,7 @@ export class MidiKeyboard {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
-      key.setAttribute('fill', this.props.color.keydown);
+      key.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
       console.log(`Key down: ${note} ${noteName}`);
     } else if (midiData.status === 128) {
       const note = midiData.data1;
@@ -249,17 +250,17 @@ export class MidiKeyboard {
         const height = whiteKeyHeight - strokeWidth;
         const xOffset = octave * whiteKeys.length * whiteKeyWidth + i * whiteKeyWidth;
 
-        whiteSvgKeys += `<rect x="${xOffset}" y="0" width="${width}" height="${height}" fill="${this.props.color.whiteNote}" stroke="${this.props.keySeparatorColour}" stroke-width="${strokeWidth}" data-note="${note}" class="white-key" style="height: ${whiteKeyHeight}px;" />`;
+        whiteSvgKeys += `<rect x="${xOffset}" y="0" width="${width}" height="${height}" fill="${this.props.style?.whiteNoteColor || this.props.color?.whiteNote || '#ffffff'}" stroke="${this.props.keySeparatorColour}" stroke-width="${strokeWidth}" data-note="${note}" class="white-key" style="height: ${whiteKeyHeight}px;" />`;
 
         if (blackKeys[key]) {
           const note = blackKeys[key] + (octave + this.octaveOffset);
-          blackSvgKeys += `<rect x="${xOffset + whiteKeyWidth * 0.75 - strokeWidth / 2}" y="${strokeWidth / 2}" width="${blackKeyWidth}" height="${blackKeyHeight + strokeWidth}" fill="${this.props.color.blackNote}" stroke="${this.props.keySeparatorColour}"  stroke-width="${strokeWidth}" data-note="${note}" class="black-key" />`;
+          blackSvgKeys += `<rect x="${xOffset + whiteKeyWidth * 0.75 - strokeWidth / 2}" y="${strokeWidth / 2}" width="${blackKeyWidth}" height="${blackKeyHeight + strokeWidth}" fill="${this.props.style?.blackNoteColor || this.props.color?.blackNote || '#000000'}" stroke="${this.props.keySeparatorColour}"  stroke-width="${strokeWidth}" data-note="${note}" class="black-key" />`;
         }
 
         if (i === 0) { // First white key of the octave
           const textX = xOffset + whiteKeyWidth / 2; // Position text in the middle of the white key
           const textY = whiteKeyHeight * 0.8; // Position text in the middle vertically
-          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.style.fontFamily}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.color.blackNote}" style="pointer-events: none;">${note}</text>`;
+          whiteSvgKeys += `<text x="${textX}" y="${textY}" text-anchor="middle"  font-family="${this.props.style.fontFamily}" dominant-baseline="middle" font-size="${fontSize}" fill="${this.props.style?.blackNoteColor || this.props.color?.blackNote || '#000000'}" style="pointer-events: none;">${note}</text>`;
         }
       }
     }
@@ -273,14 +274,14 @@ export class MidiKeyboard {
 
     return `
       <div id="${this.props.channel}" style="display: ${this.props.visible ? 'flex' : 'none'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
-        <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.color.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
+        <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
         <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>
         </div>
-        <button id="octave-up" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.color.arrowBackground};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">+</button>
+        <button id="octave-up" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">+</button>
       </div>
     `;
   }
