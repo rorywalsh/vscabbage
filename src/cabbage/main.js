@@ -120,7 +120,7 @@ window.addEventListener('message', async event => {
         }
     }
 
-    console.log('Cabbage: main.js: received message:', message.command, message);
+    // console.log('Cabbage: main.js: received message:', message.command, message);
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Set up MutationObserver to watch for changes to MainForm
@@ -165,7 +165,7 @@ window.addEventListener('message', async event => {
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
-            console.log("Cabbage - case 'widgetUpdate':", message);
+            // console.log("Cabbage - case 'widgetUpdate':", message);
             CabbageUtils.hideOverlay(); // Hide the overlay before updating
             const updateMsg = message;
             // Parse widgetJson to extract id if not present

@@ -604,30 +604,30 @@ export class WidgetManager {
             console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
             return;
         }
-        console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        //console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
         // Extract channel ID for logging
         const channelStr = obj.id;
-        console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
+        //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
         // Check if 'widgetJson' exists, otherwise use 'value'
         const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
-        console.log(`WidgetManager.updateWidget: Parsed data:`, data);
+        //console.log(`WidgetManager.updateWidget: Parsed data:`, data);
 
         // Determine the channel to use for finding the widget
         const channelToFind = data.id || (data.channels && data.channels.length > 0 && data.channels[0].id) || obj.id;
-        console.log(`WidgetManager.updateWidget: Channel to find: ${channelToFind}`);
+        //console.log(`WidgetManager.updateWidget: Channel to find: ${channelToFind}`);
 
         const widget = widgets.find(w => {
             return WidgetManager.channelsMatch(w.props.channel, channelToFind) ||
                 (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
                 w.props.id === channelToFind;
         });
-        console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
+        //console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
         let widgetFound = false;
 
         // Check if this is a child widget
         const isChildWidget = widget && widget.props.parentChannel;
         if (isChildWidget) {
-            console.log(`WidgetManager.updateWidget: ${channelStr} is a child of ${widget.props.parentChannel}`);
+            //console.log(`WidgetManager.updateWidget: ${channelStr} is a child of ${widget.props.parentChannel}`);
         }
 
         if (widget) {
@@ -637,10 +637,10 @@ export class WidgetManager {
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
             //if only updating value..
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
-                console.log(`WidgetManager.updateWidget: Value-only update for ${widget.props.type}, value=${obj.value}`);
+                //console.log(`WidgetManager.updateWidget: Value-only update for ${widget.props.type}, value=${obj.value}`);
                 // Special handling for xyPad - determine which axis to update
                 if (widget.props.type === "xyPad") {
-                    console.log(`WidgetManager.updateWidget: Handling xyPad update`);
+                    //console.log(`WidgetManager.updateWidget: Handling xyPad update`);
                     if (obj.value != null && !isNaN(obj.value)) {
                         // Determine which axis by checking if obj.id matches x or y
                         const channelStr = obj.id;
@@ -648,13 +648,13 @@ export class WidgetManager {
                         const yChannelId = CabbageUtils.getChannelId(widget.props, 1);
                         const isXChannel = channelStr === xChannelId;
                         const isYChannel = channelStr === yChannelId;
-                        console.log(`WidgetManager.updateWidget: xyPad - channelStr=${channelStr}, xChannelId=${xChannelId}, yChannelId=${yChannelId}, isX=${isXChannel}, isY=${isYChannel}`);
+                        //console.log(`WidgetManager.updateWidget: xyPad - channelStr=${channelStr}, xChannelId=${xChannelId}, yChannelId=${yChannelId}, isX=${isXChannel}, isY=${isYChannel}`);
 
                         if (isXChannel || isYChannel) {
                             widget.isUpdatingFromBackend = true;
                             const axis = isXChannel ? 'x' : 'y';
                             const range = CabbageUtils.getChannelRange(widget.props, isXChannel ? 0 : 1);
-                            console.log(`WidgetManager.updateWidget: xyPad - axis=${axis}, range=`, range);
+                            //console.log(`WidgetManager.updateWidget: xyPad - axis=${axis}, range=`, range);
 
                             // Normalize the value to [0,1] based on the range
                             let normalizedValue;
@@ -693,7 +693,7 @@ export class WidgetManager {
 
                 // Don't update value for sliders that are currently being dragged
                 if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
-                    console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
+                    //console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
                     if (obj.value != null) {
                         // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
                         // Set flag to indicate this is a programmatic update from backend
@@ -701,7 +701,7 @@ export class WidgetManager {
                         let newValue = obj.value;
                         // For sliders, handle value conversion
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                            console.log(`WidgetManager.updateWidget: Converting slider value ${obj.value}`);
+                            //console.log(`WidgetManager.updateWidget: Converting slider value ${obj.value}`);
                             const range = CabbageUtils.getChannelRange(widget.props, 0);
                             if (!isNaN(obj.value) && obj.value >= 0 && obj.value <= 1) {
                                 // Assume received value is linear normalized [0,1], convert to skewed
@@ -711,9 +711,9 @@ export class WidgetManager {
                             } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
                                 // Assume received value is already skewed
                                 newValue = obj.value;
-                                console.log(`WidgetManager.updateWidget: Value ${obj.value} assumed skewed`);
+                                //console.log(`WidgetManager.updateWidget: Value ${obj.value} assumed skewed`);
                             } else {
-                                console.log(`WidgetManager.updateWidget: Invalid value ${obj.value}, skipping`);
+                                //console.log(`WidgetManager.updateWidget: Invalid value ${obj.value}, skipping`);
                                 return; // Skip update for invalid values
                             }
                         }
@@ -743,14 +743,14 @@ export class WidgetManager {
                 return; // Early return
             }
 
-            console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
+            //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
             // Save current value for sliders to prevent accidental null resets during visibility changes
             let savedSliderValue;
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 savedSliderValue = widget.props.value;
             }
             // Update widget properties
-            console.log(`WidgetManager.updateWidget: Merging data into widget props`);
+            //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
             WidgetManager.deepMerge(widget.props, data);
             // Restore value if accidentally set to null
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
@@ -770,10 +770,10 @@ export class WidgetManager {
                         // Convert linear normalized value to skewed value
                         const skewedNormalized = Math.pow(widget.props.value, range.skew);
                         widget.props.value = range.min + skewedNormalized * (range.max - range.min);
-                        console.log(`WidgetManager.updateWidget: converted linear ${widget.props.value} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
+                        //console.log(`WidgetManager.updateWidget: converted linear ${widget.props.value} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
                     } else if (!isNaN(widget.props.value) && (widget.props.value < 0 || widget.props.value > 1)) {
                         // Assume already skewed
-                        console.log(`WidgetManager.updateWidget: value ${widget.props.value} assumed skewed for ${widget.props.type} in merge case`);
+                        //console.log(`WidgetManager.updateWidget: value ${widget.props.value} assumed skewed for ${widget.props.type} in merge case`);
                     }
                 }
             }
