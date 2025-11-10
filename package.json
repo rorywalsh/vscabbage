@@ -357,6 +357,16 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.createVanillaVST3Effect",
+        "title": "Create Vanilla VST3 Effect",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.createVanillaVST3Synth",
+        "title": "Create Vanilla VST3 Synth",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.jumpToWidgetObject",
         "title": "Jump to widget definition",
         "category": "Cabbage"

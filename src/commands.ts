@@ -1700,6 +1700,407 @@ include $(SYSTEM_FILES_DIR)/Makefile
     }
 
     /**
+     * Gets the path to the Cabbage JS source directory based on configuration
+     */
+    private static getJsSourcePath(): string {
+        const config = vscode.workspace.getConfiguration('cabbage');
+        let jsSource = "";
+        if (os.platform() === 'win32') {
+            jsSource = config.get<string>('pathToJsSourceWindows') || '';
+        } else if (os.platform() === 'linux') {
+            jsSource = config.get<string>('pathToJsSourceLinux') || '';
+        } else if (os.platform() === 'darwin') {
+            jsSource = config.get<string>('pathToJsSourceMacOS') || '';
+        }
+
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (jsSource === '') {
+            if (extension) {
+                return path.join(extension.extensionPath, 'src', 'cabbage');
+            }
+        } else {
+            if (extension) {
+                return path.join(jsSource, 'cabbage');
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Gets the path to the Cabbage CSS file
+     */
+    private static getCabbageCssPath(): string {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (extension) {
+            return path.join(extension.extensionPath, 'media', 'cabbage.css');
+        }
+        return '';
+    }
+
+    /**
+     * Sets up the project resources directory with JS sources, CSS, index.html, and CSD file
+     */
+    private static async setupProjectResources(resourcesDir: string, indexHtmlContent: string, csdContent: string, projectName: string): Promise<void> {
+        // Create resources directory
+        await fs.promises.mkdir(resourcesDir, { recursive: true });
+        console.log('Cabbage: Created resources directory:', resourcesDir);
+
+        // Copy JS source files
+        const jsSourcePath = Commands.getJsSourcePath();
+        await Commands.copyDirectory(jsSourcePath, path.join(resourcesDir, 'cabbage'));
+        console.log('Cabbage: Copied JS source files');
+
+        // Copy CSS file
+        const cssPath = Commands.getCabbageCssPath();
+        const cssFileName = path.basename(cssPath);
+        const cssDestPath = path.join(resourcesDir, cssFileName);
+        await fs.promises.copyFile(cssPath, cssDestPath);
+        console.log('Cabbage: Copied CSS file');
+
+        // Create index.html
+        const indexHtmlPath = path.join(resourcesDir, 'index.html');
+        await fs.promises.writeFile(indexHtmlPath, indexHtmlContent);
+        console.log('Cabbage: Created index.html');
+
+        // Create CSD file
+        const csdPath = path.join(resourcesDir, `${projectName}.csd`);
+        await fs.promises.writeFile(csdPath, csdContent);
+        console.log('Cabbage: Created CSD file');
+    }
+
+    /**
+     * Creates a new vanilla Cabbage plugin with predefined content.
+     * Behaves exactly like export commands but with vanilla content instead of current editor content.
+     * @param type The type of plugin to create ('VST3Effect' or 'VST3Synth')
+     */
+    static async createVanillaProject(type: string): Promise<void> {
+        const filters: Record<string, string[]> = { 'VST3 Plugin': ['vst3'] };
+
+        const fileUri = await vscode.window.showSaveDialog({
+            saveLabel: 'Create Vanilla Plugin',
+            filters
+        });
+
+        if (!fileUri) {
+            console.log('Cabbage: No file selected.');
+            return;
+        }
+
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const destinationPath = fileUri.fsPath;
+        const pluginName = path.basename(destinationPath, '.vst3');
+
+        let binaryFile = '';
+        switch (type) {
+            case 'VST3Effect':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginEffect');
+                break;
+            case 'VST3Synth':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginSynth');
+                break;
+            default:
+                console.error('Cabbage: Not valid type provided for vanilla project');
+                return;
+        }
+
+        // Check if destination folder exists and ask for overwrite permission
+        if (fs.existsSync(destinationPath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Plugin ${pluginName} already exists. Do you want to replace it?`,
+                'Yes', 'No'
+            );
+            if (overwrite !== 'Yes') {
+                console.log('Cabbage: Operation cancelled by user');
+                return;
+            }
+            // Remove existing directory
+            await fs.promises.rm(destinationPath, { recursive: true });
+        }
+
+        try {
+            // Create vanilla index.html
+            const vanillaIndexHtml = `<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centered Sliders</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <input type="range" id="slider1" min="0" max="1000" value="0" step="1"
+            oninput="window.handleValueChange(this.value, 'slider1')">
+        <input type="range" id="slider2" min="0" max="1000" value="0" step="1"
+            oninput="window.handleValueChange(this.value, 'slider2')">
+    </div>
+
+    <script type="module">
+        /* Cabbage JS API integration */
+        import { Cabbage } from './cabbage/cabbage.js';
+        /* Notify Cabbage that the UI is ready to load */
+        Cabbage.sendCustomCommand('cabbageIsReadyToLoad', null);
+        // Make handleValueChange available globally
+        window.handleValueChange = (newValue, sliderId) => {
+            console.log(\`Slider \${sliderId} changed to:\`, newValue);
+            const msg = {
+                paramIdx: sliderId === 'slider1' ? 0 : 1,
+                channel: sliderId,
+                value: parseFloat(newValue),
+            };
+            const automatable = 1;
+            Cabbage.sendChannelUpdate(msg, null, automatable);
+        };
+
+        const handleMessage = async (event) => {
+            console.log("Message received:", event.data);
+            let obj = event.data;
+
+            let slider;
+            if (obj.command === "parameterChange") {
+                // For parameterChange messages, find slider by paramIdx
+                slider = obj.paramIdx === 0 ? document.getElementById('slider1') : document.getElementById('slider2');
+            } else {
+                // For other messages, find slider by id
+                slider = document.getElementById(obj.id);
+            }
+
+            if (slider) {
+                switch (obj.command) {
+                    case "parameterChange":
+                        console.log(\`Parameter change for \${obj.paramIdx}:\`, obj);
+                        slider.value = obj.value;
+                        break;
+                    case "widgetUpdate":
+                        if (obj.value !== undefined) {
+                            console.log(\`Updating \${obj.id} to value:\`, obj.value);
+                            slider.value = obj.value;
+                        }
+                        else if (obj.widgetJson !== undefined) {
+                            let widgetObj = JSON.parse(obj.widgetJson);
+                            let bounds = widgetObj.bounds;
+                            if (bounds) {
+                                slider.style.position = 'absolute';
+                                slider.style.top = bounds.top + 'px';
+                            }
+                            // Set value if the UI has just been reopened
+                            if (widgetObj.value !== undefined) {
+                                slider.value = widgetObj.value;
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        };
+
+        // Add event listener
+        window.addEventListener("message", handleMessage);
+    </script>
+</body>
+
+</html>`;
+
+            // Create vanilla CSD
+            const vanillaCsd = `<Cabbage>
+[
+    {"type": "form", "caption": "${pluginName}", "size": {"width": 380, "height": 200}, "pluginId": "def1", "enableDevTools": true},
+    {
+        "type": "rotarySlider",
+        "channels": [
+            {
+                "id": "slider1",
+                "event": "valueChanged",
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
+            }
+        ]
+    },
+    {
+        "type": "rotarySlider",
+        "channels": [
+            {
+                "id": "slider2",
+                "event": "valueChanged",
+                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
+            }
+        ]
+    }
+]
+</Cabbage>
+<CsoundSynthesizer>
+<CsOptions>
+-n -d
+</CsOptions>
+<CsInstruments>
+; Initialize the global variables.
+ksmps = 32
+nchnls = 2
+0dbfs = 1
+
+instr 1
+    slider1:k = cabbageGetValue("slider1")
+    slider2:k = cabbageGetValue("slider2")
+    osc1:a = oscili(.5, slider1)
+    osc2:a = oscili(.5, slider2)
+    outs(osc1, osc2)
+endin
+
+instr 2
+    cabbageSet("slider2", "bounds.top", 50)
+endin
+
+</CsInstruments>
+<CsScore>
+;causes Csound to run for about 7000 years...
+i1 0 z
+i2 5 z
+</CsScore>
+</CsoundSynthesizer>`;
+
+            let resourcesDir = '';
+            if (config.get<boolean>('bundleResources')) {
+                resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
+            }
+            else {
+                resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+            }
+
+            // Setup project resources (JS, CSS, index.html, CSD)
+            await Commands.setupProjectResources(resourcesDir, vanillaIndexHtml, vanillaCsd, pluginName);
+
+            // Copy the plugin
+            if (os.platform() === 'darwin') {
+                await Commands.copyDirectory(binaryFile, destinationPath);
+                console.log('Cabbage: Vanilla plugin successfully copied to:', destinationPath);
+
+                // Rename the executable file inside the folder
+                const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+                let originalFilePath = '';
+                switch (type) {
+                    case 'VST3Effect':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffect');
+                        break;
+                    case 'VST3Synth':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynth');
+                        break;
+                    default:
+                        originalFilePath = '';
+                        break;
+                }
+                const newFilePath = path.join(macOSDirPath, pluginName);
+                await fs.promises.rename(originalFilePath, newFilePath);
+                console.log(`File renamed to ${pluginName} in ${macOSDirPath}`);
+
+                // Modify the plist file
+                const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
+                const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
+                const parser = new xml2js.Parser();
+                const builder = new xml2js.Builder();
+
+                parser.parseString(plistData, async (err, result) => {
+                    if (err) {
+                        throw new Error('Error parsing plist file: ' + err);
+                    }
+
+                    const dict = result.plist.dict[0];
+
+                    const updatePlistKey = (keyName: string, newValue: string) => {
+                        // Find the key in the alternating key-value structure
+                        const keyIndex = dict.key.indexOf(keyName);
+                        if (keyIndex !== -1) {
+                            // Update the corresponding value (strings are at the same index)
+                            if (dict.string && dict.string[keyIndex] !== undefined) {
+                                dict.string[keyIndex] = newValue;
+                            }
+                        } else {
+                            // Add new key-value pair
+                            if (!dict.key) dict.key = [];
+                            if (!dict.string) dict.string = [];
+                            dict.key.push(keyName);
+                            dict.string.push(newValue);
+                        }
+                    };
+
+                    updatePlistKey('CFBundleExecutable', pluginName);
+                    updatePlistKey('CFBundleName', pluginName);
+                    updatePlistKey('CFBundleIdentifier', `com.cabbageaudio.${pluginName.toLowerCase()}`);
+
+                    const updatedPlist = builder.buildObject(result);
+                    await fs.promises.writeFile(plistFilePath, updatedPlist);
+                    console.log(`Info.plist updated: CFBundleExecutable, CFBundleName, and CFBundleIdentifier set to "${pluginName}"`);
+
+                    // Sign the VST3 plugin after all modifications are complete
+                    await Commands.signPlugin(destinationPath, pluginName);
+                });
+            } else {
+                if (!await ExtensionUtils.isDirectory(binaryFile)) {
+                    await fs.promises.copyFile(binaryFile, destinationPath);
+
+                    let newName = await ExtensionUtils.renameFile(destinationPath, pluginName);
+                    console.log(`File renamed to ${newName}`);
+                    Commands.getOutputChannel().appendLine("Vanilla plugin successfully copied to:" + destinationPath);
+                } else {
+                    await Commands.copyDirectory(binaryFile, destinationPath);
+
+                    // Rename the executable file inside the folder
+                    let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
+
+                    if (!fs.existsSync(win64DirPath)) {
+                        win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
+                    }
+
+                    if (!fs.existsSync(win64DirPath)) {
+                        win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                    }
+
+                    if (!fs.existsSync(win64DirPath)) {
+                        Commands.getOutputChannel().appendLine("Error: Could not find win64 directory");
+                        return;
+                    }
+
+                    console.log('Cabbage: win64DirPath:', win64DirPath);
+                    const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
+                    console.log('Cabbage: originalFilePath:', originalFilePath);
+                    const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
+                    console.log('Cabbage: newFilePath:', newFilePath);
+                    await fs.promises.rename(originalFilePath, newFilePath);
+                    console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
+                    Commands.getOutputChannel().appendLine("Vanilla plugin successfully copied to:" + destinationPath);
+                }
+            }
+
+            // Open the CSD file in editor
+            const csdUri = vscode.Uri.file(path.join(resourcesDir, `${pluginName}.csd`));
+            const csdDoc = await vscode.workspace.openTextDocument(csdUri);
+            await vscode.window.showTextDocument(csdDoc);
+
+            vscode.window.showInformationMessage(`Cabbage: Created vanilla ${type === 'VST3Effect' ? 'effect' : 'synth'} plugin at ${destinationPath}`);
+            Commands.getOutputChannel().appendLine(`Vanilla ${type} plugin created successfully at: ${destinationPath}`);
+
+        } catch (err) {
+            vscode.window.showErrorMessage('Error during vanilla plugin creation: ' + err);
+            throw err;
+        }
+    }
+
+    /**
      * Copies and configures a VST3 plugin to a user-specified location.
      * Handles copying the binary, updating the CabbageAudio folder, and modifying configuration files.
      * @param {string} type - The type of plugin to export (VST3Effect, VST3Synth, etc.)
@@ -1815,24 +2216,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
         }
 
         try {
-            // 1. Create the export directory
-            await fs.promises.mkdir(resourcesDir, { recursive: true });
-            console.log('Cabbage: Created export directory:', resourcesDir);
-
-            // 2. Copy JS source files
-            await Commands.copyDirectory(pathToCabbageJsSource, path.join(resourcesDir, 'cabbage'));
-            console.log('Cabbage: Copied JS source files');
-
-            // 3. Create and write index.html
-            const indexHtmlPath = path.join(resourcesDir, 'index.html');
-            await fs.promises.writeFile(indexHtmlPath, indexDotHtml);
-            console.log('Cabbage: Created index.html');
-
-            // 4. Copy CSS file
-            const cssFileName = path.basename(cabbageCSS);
-            const cssDestPath = path.join(resourcesDir, cssFileName);
-            await fs.promises.copyFile(cabbageCSS, cssDestPath);
-            console.log('Cabbage: Copied CSS file');
+            // Setup project resources (JS, CSS, index.html, CSD)
+            const indexDotHtml = ExtensionUtils.getIndexHtml();
+            await Commands.setupProjectResources(resourcesDir, indexDotHtml, '', pluginName);
 
             // Rename and update the .csd file
             const newCsdPath = path.join(resourcesDir, `${pluginName}.csd`);
