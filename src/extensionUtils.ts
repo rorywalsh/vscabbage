@@ -43,8 +43,9 @@ editor. -->\n`;
      * @returns The text with warning comments removed.
      */
     static removeWarningComment(text: string): string {
-        return text.replace(/<!--[\s\S]*?Warning:[\s\S]*?-->[\s\n]*/g, '');
+        return text.replace(/<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*/g, '');
     }
+
 
     static sendTextToWebView(editor: vscode.TextDocument | undefined, command: string, panel: vscode.WebviewPanel | undefined) {
         if (editor) {
@@ -470,7 +471,7 @@ editor. -->\n`;
         const defaultProps = {} as WidgetProps;
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
-        const cabbageRegexWithWarning = /<!--[\s\S]*?Warning:[\s\S]*?-->[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
         const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
         let cabbageMatch = originalText.match(cabbageRegexWithWarning);
 

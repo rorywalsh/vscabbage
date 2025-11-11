@@ -186,7 +186,7 @@ async function groupSelectedWidgets() {
         if (vscode) {
             vscode.postMessage({
                 command: 'widgetUpdate',
-                text: JSON.stringify(containerWidget)
+                text: JSON.stringify(containerWidget.originalProps)
             });
         }
 
@@ -562,8 +562,13 @@ export function setupFormHandlers() {
                         iterations++;
                         console.log("Cabbage: Iteration", iterations, "element:", element.tagName, "classList:", element.classList);
 
-                        // Check if this element is a widget (has cabbage-widget-div class)
-                        if (element.classList && element.classList.contains('cabbage-widget-div')) {
+                        // Check if this element is a widget (has widget classes)
+                        if (element.classList && (
+                            element.classList.contains('draggable') ||
+                            element.classList.contains('nonDraggable') ||
+                            element.classList.contains('grouped-child') ||
+                            element.classList.contains('resizeOnly')
+                        )) {
                             isWidgetClick = true;
                             console.log("Cabbage: Found widget in click path:", element);
                             break;
@@ -583,12 +588,8 @@ export function setupFormHandlers() {
                 console.log("Cabbage: Final decision - isWidgetClick:", isWidgetClick, "selectedElements.size:", selectedElements.size);
 
                 if (cabbageMode === 'draggable') {
-                    // If clicking on form background (not on a widget), show widget insertion menu
-                    if (!isWidgetClick) {
-                        console.log("Cabbage: Right-clicked on form background, showing widget insertion menu");
-                        contextMenu.style.visibility = "visible";
-                    } else if (selectedElements.size > 0) {
-                        console.log("Cabbage: Showing group context menu");
+                    if (selectedElements.size > 0) {
+                        console.log("Cabbage: Selected widgets exist, showing group context menu");
                         // Update menu options based on selection
                         const canGroup = selectedElements.size > 1;
                         const hasGroupableWidgets = Array.from(selectedElements).some(el => {
@@ -612,7 +613,7 @@ export function setupFormHandlers() {
 
                         groupContextMenu.style.visibility = "visible";
                     } else {
-                        console.log("Cabbage: Showing widget insertion menu");
+                        console.log("Cabbage: No selected widgets, showing widget insertion menu");
                         contextMenu.style.visibility = "visible";
                     }
                 } else {
@@ -660,7 +661,7 @@ export function setupFormHandlers() {
                             if (widget) {
                                 vscode.postMessage({
                                     command: 'widgetUpdate',
-                                    text: JSON.stringify(widget)
+                                    text: JSON.stringify(widget.originalProps)
                                 });
                             } else {
                                 console.error("Cabbage: Widget is undefined, cannot send to VS Code");
@@ -731,7 +732,7 @@ export function setupFormHandlers() {
                     selectionBox.style.left = `${startX}px`;
                     selectionBox.style.top = `${startY}px`;
                     form.appendChild(selectionBox);
-                } else if (clickedElement.classList.contains('draggable') && event.target.id !== "MainForm") {
+                } else if ((clickedElement.classList.contains('draggable') || clickedElement.classList.contains('nonDraggable')) && event.target.id !== "MainForm") {
                     // Handle individual widget selection and toggling
                     if (!event.shiftKey && !event.altKey) {
                         if (!selectedElements.has(clickedElement)) {
@@ -750,8 +751,27 @@ export function setupFormHandlers() {
                     }
                 }
 
-                // Deselect all if clicking on the form background
-                if (event.target.id === "MainForm") {
+                // Deselect all if clicking on the form background (not on a widget)
+                let clickedOnWidget = false;
+                let element = event.target;
+                let iterations = 0;
+                const maxIterations = 20;
+
+                while (element && element !== form && iterations < maxIterations) {
+                    iterations++;
+                    if (element.classList && (
+                        element.classList.contains('draggable') ||
+                        element.classList.contains('nonDraggable') ||
+                        element.classList.contains('grouped-child') ||
+                        element.classList.contains('resizeOnly')
+                    )) {
+                        clickedOnWidget = true;
+                        break;
+                    }
+                    element = element.parentElement || element.parentNode;
+                }
+
+                if (!clickedOnWidget) {
                     selectedElements.forEach(element => element.classList.remove('selected'));
                     selectedElements.clear();
                 }
@@ -775,7 +795,7 @@ export function setupFormHandlers() {
                 }
             }
             lastClickTime = currentTime;
-        });
+        }, { capture: true });
 
         // Handles pointer movement for selection and dragging
         document.addEventListener('pointermove', (event) => {
@@ -820,7 +840,7 @@ export function setupFormHandlers() {
         document.addEventListener('pointerup', (event) => {
             if (isSelecting) {
                 const rect = selectionBox.getBoundingClientRect();
-                const elements = form.querySelectorAll('.draggable');
+                const elements = form.querySelectorAll('.draggable, .nonDraggable');
 
                 // Select widgets that fall within the selection box
                 elements.forEach((element) => {

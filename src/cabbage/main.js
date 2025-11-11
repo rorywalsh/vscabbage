@@ -268,6 +268,10 @@ window.addEventListener('message', async event => {
             console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
             CabbageUtils.hideOverlay(); // Hide the overlay
             setCabbageMode('draggable'); // Set the mode to draggable
+            
+            // Clear any existing selection
+            selectedElements.forEach(element => element.classList.remove('selected'));
+            selectedElements.clear();
 
             const widgetUpdatesMessages = [];
             widgets.forEach(widget => {
