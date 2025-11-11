@@ -2,691 +2,991 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-import { CabbageUtils } from './cabbage/utils.js';
+console.log("Cabbage: Loading widgetManager.js...");
 
-// At the beginning of the file
-let interactPromise;
-
-/**
- * Initializes the interact.js library by loading the specified script.
- * @param {string} interactJSUri - The URI of the interact.js script.
- */
-export function initializeInteract(interactJSUri) {
-    interactPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = interactJSUri; // Set the source of the script
-        script.onload = resolve; // Resolve promise when the script loads
-        script.onerror = reject; // Reject promise on error
-        document.head.appendChild(script); // Append script to the document head
-    });
-}
+// Import necessary modules and utilities
+import { widgetConstructors, getWidgetTypes } from "./widgetTypes.js";
+import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
+import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
+import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
+import { Cabbage } from "../cabbage/cabbage.js";
+import { handleRadioGroup } from "./radioGroup.js";
 
 /**
- * This class wraps all widgets and provides drag-and-drop functionality for the UI designer.
+ * WidgetManager class handles the creation, insertion, and management of widgets.
  */
-export class WidgetWrapper {
-    constructor(updatePanelCallback, selectedSet, widgets, vscode) {
-        const restrictions = {
-            restriction: 'parent', // Restrict movements to the parent container
-            endOnly: true // Only restrict at the end of the movement
-        };
-        this.snapSize = 2; // Snap grid size
-        this.selectedElements = selectedSet; // Selected elements for dragging
-        this.updatePanelCallback = updatePanelCallback; // Callback to update the panel
-        this.dragMoveListener = this.dragMoveListener.bind(this); // Bind the drag move listener
-        this.dragEndListener = this.dragEndListener.bind(this); // 
-        // Bind the drag end listener
-        this.widgets = widgets; // All widgets in the UI
-        this.vscode = vscode; // VSCode API for messaging
+export class WidgetManager {
+    static currentCsdPath = '';
 
-        // Add global event listeners for context menu handling
-        this.setupGlobalEventListeners();
-
-        // Wait for interact to load before applying the configuration
-        interactPromise.then(() => {
-            this.applyInteractConfig({
-                restriction: 'parent',
-                endOnly: true
-            });
-        }).catch(error => {
-            console.error("Cabbage: Failed to load interact.min.js:", error);
-        });
-
-        this.applyInteractConfig(restrictions); // Apply the initial interact configuration
+    /**
+     * Deep equal function to compare objects.
+     */
+    static deepEqual(obj1, obj2) {
+        if (obj1 === obj2) return true;
+        if (obj1 == null || obj2 == null) return obj1 === obj2;
+        if (typeof obj1 !== typeof obj2) return false;
+        if (typeof obj1 !== 'object') return obj1 === obj2;
+        if (Array.isArray(obj1) !== Array.isArray(obj2)) return false;
+        if (Array.isArray(obj1)) {
+            if (obj1.length !== obj2.length) return false;
+            for (let i = 0; i < obj1.length; i++) {
+                if (!this.deepEqual(obj1[i], obj2[i])) return false;
+            }
+            return true;
+        }
+        const keys1 = Object.keys(obj1);
+        const keys2 = Object.keys(obj2);
+        if (keys1.length !== keys2.length) return false;
+        for (const key of keys1) {
+            if (!keys2.includes(key)) return false;
+            if (!this.deepEqual(obj1[key], obj2[key])) return false;
+        }
+        return true;
     }
 
     /**
-     * Sets up global event listeners for context menu handling.
+     * @returns {string} - The current CSD path.
      */
-    setupGlobalEventListeners() {
-        // Store mouse position for context menu positioning
-        let mousePosition = { x: 0, y: 0 };
+    static getCurrentCsdPath() {
+        return WidgetManager.currentCsdPath;
+    }
 
-        // Track mouse position
-        document.addEventListener('mousemove', (event) => {
-            mousePosition.x = event.clientX;
-            mousePosition.y = event.clientY;
-        });
-
-        // Handle right-click context menu for selected widgets
-        document.addEventListener('contextmenu', (event) => {
-            const draggableElement = event.target.closest('.draggable');
-            if (draggableElement) {
-                console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);
-                console.log('Cabbage: Selected elements count:', this.selectedElements.size);
-                console.log('Cabbage: Selected element IDs:', Array.from(this.selectedElements).map(el => el.id));
-
-                // Check if the clicked element is selected or if there are selected elements
-                const isClickedElementSelected = this.selectedElements.has(draggableElement);
-                const hasSelectedElements = this.selectedElements.size > 0;
-
-                console.log('Cabbage: Is clicked element selected:', isClickedElementSelected);
-                console.log('Cabbage: Has selected elements:', hasSelectedElements);
-
-                // For now, show context menu if there are any selected elements
-                // Later we can make it more specific to only show when clicking on selected elements
-                if (hasSelectedElements) {
-                    // Show context menu for selected widgets
-                    console.log('Cabbage: Showing context menu for selected widgets:', Array.from(this.selectedElements).map(el => el.id));
-
-                    // Create custom context menu positioned at mouse location
-                    this.showSelectionContextMenu(mousePosition.x, mousePosition.y);
-                    event.preventDefault(); // Prevent default context menu
-                    return false;
+    /**
+     * Deep merge function to merge nested objects properly.
+     * @param {object} target - The target object to merge into.
+     * @param {object} source - The source object to merge from.
+     */
+    static deepMerge(target, source) {
+        for (const key in source) {
+            if (source.hasOwnProperty(key)) {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                    // If the property doesn't exist in target, create it
+                    if (!target[key] || typeof target[key] !== 'object') {
+                        target[key] = {};
+                    }
+                    // Recursively merge nested objects
+                    this.deepMerge(target[key], source[key]);
                 } else {
-                    console.log('Cabbage: No selected elements, preventing context menu');
-                    // Prevent context menu on non-selected draggable elements
-                    event.preventDefault();
-                    return false;
+                    // For primitive values, arrays, or null, do direct assignment, but skip undefined
+                    if (source[key] !== undefined) {
+                        target[key] = source[key];
+                    }
                 }
             }
-        });
-
-        // Handle mouse down to prevent dragging when right-clicking on selected elements
-        document.addEventListener('mousedown', (event) => {
-            // Hide custom context menu on any mouse down
-            this.hideCustomContextMenu();
-        });
-
-        // Re-enable dragging when Alt is released (keep for other functionality)
-        document.addEventListener('keyup', (event) => {
-            if (event.key === 'Alt') {
-                document.querySelectorAll('[data-alt-pressed]').forEach(element => {
-                    element.removeAttribute('data-alt-pressed');
-                });
-            }
-        });
-
-        // Hide context menu when clicking elsewhere
-        document.addEventListener('click', () => {
-            this.hideCustomContextMenu();
-        });
+        }
     }
 
     /**
-     * Shows a custom context menu for selected widgets at the specified position.
-     * @param {number} x - The x coordinate for the menu position
-     * @param {number} y - The y coordinate for the menu position
+     * Dynamically creates a widget based on the provided type.
+     * @param {string} type - The type of the widget to create.
+     * @returns {Promise<object|null>} - The created widget object or null if the type is invalid.
      */
-    showSelectionContextMenu(x, y) {
-        // Remove any existing context menu
-        this.hideCustomContextMenu();
+    static async createWidget(type) {
+        try {
+            const WidgetClass = await widgetConstructors[type];
+            const widget = new WidgetClass();
+            // special case for genTable: guard createCanvas in case the instance lacks it
 
-        const selectedCount = this.selectedElements.size;
-        const isMultipleSelection = selectedCount > 1;
+            if (widget && typeof widget.createCanvas === 'function') {
+                try {
+                    widget.createCanvas(); // Special logic for "gentable" widget
+                } catch (err) {
+                    console.error('WidgetManager: error calling createCanvas during createWidget', err);
+                }
+            } else {
+                console.warn(`WidgetManager: createCanvas not available for widget type ${type}`);
+            }
 
-        // Create custom context menu
-        const contextMenu = document.createElement('div');
-        contextMenu.id = 'custom-context-menu';
-        contextMenu.style.cssText = `
-            position: fixed;
-            top: ${y}px;
-            left: ${x}px;
-            background: var(--vscode-menu-background, #ffffff);
-            border: 1px solid var(--vscode-menu-border, #ccc);
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            z-index: 999999;
-            min-width: 180px;
-            padding: 4px 0;
-            font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
-            font-size: 13px;
-            color: var(--vscode-menu-foreground, #333);
-        `;
+            return widget;
+        } catch (error) {
+            console.error("Unknown widget type: " + type, error);
+            console.trace();
+            return null;
+        }
+    }
 
-        // Add context menu items based on selection
-        const menuItems = [];
+    /**
+     * Inserts a new widget into the form. This function is called when loading/saving a file 
+     * or when adding widgets via right-click in the editor.
+     * @param {string} type - The type of widget to insert.
+     * @param {object} props - The properties to assign to the widget.
+     * @returns {string} - The currentCsdFile if it is known.
+     */
+    static async insertWidget(type, props, currentCsdFile) {
+        // console.trace("Inserting widget of type:", type, 'CurrentCsdFile', props.currentCsdFile);
+        const widgetDiv = document.createElement('div');
+        // Widget ID takes precedence over channel ID
+        const widgetId = props.id
+            || (Array.isArray(props?.channels) && props.channels.length > 0 ? props.channels[0].id : null)
+            || (typeof props.channel === 'object' && props.channel !== null ? (props.channel.id || props.channel.x) : props.channel);
+        widgetDiv.id = widgetId;
 
-        if (isMultipleSelection) {
-            // Menu items for multiple selection
-            menuItems.push(
-                { label: `Group ${selectedCount} Widgets`, action: () => this.groupSelectedWidgets() },
-                { label: 'Align Left', action: () => this.alignSelectedWidgets('left') },
-                { label: 'Align Right', action: () => this.alignSelectedWidgets('right') },
-                { label: 'Align Top', action: () => this.alignSelectedWidgets('top') },
-                { label: 'Align Bottom', action: () => this.alignSelectedWidgets('bottom') },
-                { label: 'Distribute Horizontally', action: () => this.distributeSelectedWidgets('horizontal') },
-                { label: 'Distribute Vertically', action: () => this.distributeSelectedWidgets('vertical') },
-                { label: '---', action: null }, // Separator
-                { label: `Copy ${selectedCount} Widgets`, action: () => this.copySelectedWidgets() },
-                { label: `Delete ${selectedCount} Widgets`, action: () => this.deleteSelectedWidgets() }
-            );
-        } else {
-            // Menu items for single selection
-            const singleElement = Array.from(this.selectedElements)[0];
-            menuItems.push(
-                { label: 'Copy Widget', action: () => this.copySelectedWidgets() },
-                { label: 'Duplicate Widget', action: () => this.duplicateWidget(singleElement) },
-                { label: 'Delete Widget', action: () => this.deleteSelectedWidgets() },
-                { label: '---', action: null }, // Separator
-                { label: 'Bring to Front', action: () => this.bringToFront(singleElement) },
-                { label: 'Send to Back', action: () => this.sendToBack(singleElement) }
-            );
+        const widget = await WidgetManager.createWidget(type);
+        if (!widget) {
+            console.error("Failed to create widget of type:", type);
+            return;
         }
 
-        menuItems.forEach(item => {
-            if (item.label === '---') {
-                // Add separator
-                const separator = document.createElement('div');
-                separator.style.cssText = `
-                    height: 1px;
-                    background: var(--vscode-menu-separatorBackground, #e5e5e5);
-                    margin: 4px 0;
+        // attach the instance to the div so future updates can find it
+        widgetDiv.cabbageInstance = widget;
+
+
+        // Assign class based on widget type and mode (draggable/non-draggable)
+        widgetDiv.className = (type === "form") ? "resizeOnly" : (props.parentChannel ? "grouped-child" : cabbageMode);
+
+        // Set up event listeners for draggable mode (skip for child widgets)
+        if (cabbageMode === 'draggable' && !props.parentChannel) {
+            widgetDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, widgetDiv));
+        }
+
+        // Assign properties to the widget
+        if (props.top !== undefined && props.left !== undefined) {
+            widget.props.bounds = widget.props.bounds || {};
+            widget.props.bounds.top = props.top;
+            widget.props.bounds.left = props.left;
+            delete props.top;
+            delete props.left;
+        }
+
+        // Deep merge props instead of shallow assign to preserve nested object properties
+        this.deepMerge(widget.props, props);
+
+        // Only set the first channel's id to match the widget id if the channel doesn't already have an id
+        // This preserves custom channel IDs while ensuring new widgets have matching IDs
+        if (props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            // Only update if the channel ID is not explicitly provided in props
+            if (!props.channels || !props.channels[0] || !props.channels[0].id) {
+                widget.props.channels[0].id = props.id;
+            }
+        }
+
+        // Recalculate derived properties after merging props
+        if (Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            const rng = (widget.props.channels[0].range) ? widget.props.channels[0].range : CabbageUtils.getDefaultRange('drag');
+            widget.decimalPlaces = CabbageUtils.getDecimalPlaces(rng.increment);
+        }
+
+        // Store the minimal original props for grouping/ungrouping
+        try {
+            const WidgetClass = await widgetConstructors[type];
+            const defaultProps = new WidgetClass().props;
+            const minimalProps = { ...props };
+            const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
+            excludeFromJson.forEach(prop => delete minimalProps[prop]);
+            for (let key in defaultProps) {
+                if (this.deepEqual(minimalProps[key], defaultProps[key]) && key !== 'type') {
+                    delete minimalProps[key];
+                }
+            }
+            widget.originalProps = JSON.parse(JSON.stringify(minimalProps));
+        } catch (error) {
+            console.error('Failed to minimize props:', error);
+            widget.originalProps = JSON.parse(JSON.stringify(props));
+        }
+
+        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {
+            const interaction = (type === 'button' || type === 'checkBox' || type === 'optionButton') ? 'click' : 'drag';
+            const channels = Array.isArray(widget.props.channels) ? widget.props.channels : [];
+            const range = (channels[0] && channels[0].range) ? channels[0].range : CabbageUtils.getDefaultRange(interaction);
+            widget.props.value = (typeof range.defaultValue !== 'undefined') ? range.defaultValue : 0;
+        }
+
+        // Handle combobox default value for indexOffset compatibility
+        if (type === "comboBox" && widget.props.indexOffset && widget.props.value === null) {
+            widget.props.value = 1; // Cabbage2 comboboxes default to index 1
+        }
+
+        if (!widget.props.currentCsdFile) {
+            widget.props.currentCsdFile = currentCsdFile;
+        }
+        // Add the widget to the global widgets array
+        console.log("Cabbage: Pushing widget to widgets array", widget, `parentChannel: ${widget.props.parentChannel || 'none'}`);
+        widgets.push(widget);
+        widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
+
+        // Append widget to the form
+        if (widget.props.type !== "form") {
+            const html = widget.getInnerHTML();
+            if (!html) {
+                console.error("Cabbage: insertWidget - widget.getInnerHTML() returned empty for type:", type, "id:", props.id, "props:", props);
+                return;
+            }
+            widgetDiv.innerHTML = html;
+            WidgetManager.appendToMainForm(widgetDiv);
+            if (widget.props.type === "genTable") {
+                // Guard call to updateCanvas: some widget instances may not implement it
+                if (widget && typeof widget.updateCanvas === 'function') {
+                    try {
+                        widget.updateCanvas(); // Special handling for "gentable" widgets
+                    } catch (err) {
+                        console.error('WidgetManager: error calling updateCanvas during insertWidget', err);
+                    }
+                } else {
+                    const wid = CabbageUtils.getChannelId(widget.props, 0) || widget.props.id || '(unknown)';
+                    console.warn(`WidgetManager: insertWidget - updateCanvas not available for widget ${wid}`);
+                }
+            }
+        } else if (widget.props.type === "form") {
+            WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
+        }
+
+        // Handle non-draggable mode setup
+        if (cabbageMode === 'nonDraggable') {
+            WidgetManager.setPerformanceMode(widget, widgetDiv);
+        }
+
+        // Apply styles and return the widget properties
+        if (vscode) {
+            // Use requestAnimationFrame to ensure DOM is ready, then apply styles
+            requestAnimationFrame(() => {
+                WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+
+                // Handle children widgets if this is a container
+                // Normalize children to array if it's a single object
+                if (widget.props.children) {
+                    if (!Array.isArray(widget.props.children)) {
+                        widget.props.children = [widget.props.children];
+                    }
+                    WidgetManager.insertChildWidgets(widget, widgetDiv);
+                }
+            });
+        }
+        else {
+            WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+
+            // Handle children widgets if this is a container
+            // Normalize children to array if it's a single object
+            if (widget.props.children) {
+                if (!Array.isArray(widget.props.children)) {
+                    widget.props.children = [widget.props.children];
+                }
+                WidgetManager.insertChildWidgets(widget, widgetDiv);
+            }
+        }
+
+        return widget.props;
+    }
+
+    /**
+     * Sets up a widget for performance mode by adding appropriate event 
+     * listeners as the widget level.
+     * @param {object} widget - The widget to set up.
+     * @param {HTMLElement} widgetDiv - The widget's corresponding DOM element.
+     */
+    static setPerformanceMode(widget, widgetDiv) {
+        if (typeof acquireVsCodeApi === 'function') {
+            if (!vscode) {
+                vscode = acquireVsCodeApi();
+            }
+            if (typeof widget.addVsCodeEventListeners === 'function') {
+                widget.addVsCodeEventListeners(widgetDiv, vscode);
+            }
+        } else if (widget.props.type !== "form") {
+            if (typeof widget.addEventListeners === 'function') {
+                widget.addEventListeners(widgetDiv);
+            }
+        }
+    }
+
+    /**
+     * Appends a widget's DOM element to the MainForm in the editor.
+     * @param {HTMLElement} widgetDiv - The widget's DOM element.
+     */
+    static appendToMainForm(widgetDiv) {
+        const form = document.getElementById('MainForm');
+        if (form) {
+            console.log(`Cabbage: appendToMainForm - Found MainForm tagName=${form.tagName}, appending widget id=${widgetDiv.id}`);
+        } else {
+            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id} to body`);
+        }
+        if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
+            // MainForm is an HTML element - append to it
+            form.appendChild(widgetDiv);
+        } else {
+            // MainForm not found or is an SVG rect - append to document body
+            document.body.appendChild(widgetDiv);
+        }
+
+        // Diagnostic: log current MainForm child count and visible child IDs
+        try {
+            const currentForm = document.getElementById('MainForm');
+            if (currentForm) {
+                const ids = Array.from(currentForm.children).map(c => c.id || c.tagName);
+                console.log(`Cabbage: appendToMainForm - MainForm now has ${currentForm.childElementCount} children:`, ids);
+            } else {
+                console.log('Cabbage: appendToMainForm - MainForm not present after append');
+            }
+            const found = document.getElementById(widgetDiv.id);
+            console.log(`Cabbage: appendToMainForm - element with id ${widgetDiv.id} in DOM?`, !!found);
+        } catch (e) {
+            console.error('Cabbage: appendToMainForm diagnostic failed', e);
+        }
+
+        // Log MainForm structure for debugging
+        console.log(`Cabbage: MainForm outerHTML:`, form.outerHTML.substring(0, 1000));
+        console.log(`Cabbage: MainForm in document.body?`, document.body.contains(form));
+        console.log(`Cabbage: MainForm.parentElement`, form.parentElement);
+        console.log(`Cabbage: widgetDiv.ownerDocument === document`, widgetDiv.ownerDocument === document);
+        console.log(`Cabbage: document.body.children.length`, document.body.children.length);
+    }
+
+    /**
+     * Sets up a "form" widget with specific structure and elements, 
+     * particularly when using the VSCode extension.
+     * @param {object} widget - The "form" widget to set up.
+     */
+    static setupFormWidget(widget) {
+        console.log("Cabbage: setupFormWidget called");
+        let formDiv = document.getElementById('MainForm');
+        console.log("Cabbage: MainForm element:", formDiv ? "found" : "not found");
+        if (!formDiv) {
+            formDiv = document.createElement('div');
+            formDiv.id = 'MainForm';
+            formDiv.style.position = 'relative';
+
+            // Setup for VSCode mode
+            if (vscode) {
+                formDiv.className = "form resizeOnly";
+
+                // Create the structure inside the form
+                const wrapperDiv = document.createElement('div');
+                wrapperDiv.className = 'wrapper';
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'content';
+                contentDiv.style.overflowY = 'auto';
+
+
+                const ulMenu = document.createElement('ul');
+                ulMenu.className = 'menu';
+
+                // Prevent menu from closing when interacting with the scrollbar
+                const preventClose = (e) => {
+                    e.stopPropagation(); // Prevent click from closing the menu
+                };
+
+                contentDiv.addEventListener('mousedown', preventClose);
+                contentDiv.addEventListener('pointerdown', preventClose);
+
+                // Populate the menu with widget types (get fresh list including custom widgets)
+                let menuItems = "";
+                const currentWidgetTypes = getWidgetTypes();
+                currentWidgetTypes.forEach((widget) => {
+                    menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
+                });
+
+                ulMenu.innerHTML = menuItems;
+
+                // Append the inner elements to the form
+                contentDiv.appendChild(ulMenu);
+                wrapperDiv.appendChild(contentDiv);
+                formDiv.appendChild(wrapperDiv);
+
+                // Append the MainForm to the LeftPanel in VSCode
+                const leftPanel = document.getElementById('LeftPanel');
+                if (leftPanel) {
+                    leftPanel.appendChild(formDiv);
+                } else {
+                    console.error("LeftPanel not found");
+                }
+
+                // Create a style element
+                const style = document.createElement('style');
+                style.textContent = `
+                    /* For WebKit browsers (Chrome, Safari) */
+                    .wrapper .content::-webkit-scrollbar {
+                        width: 12px; /* Width of the scrollbar */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-track {
+                        background: #f1f1f1; /* Background of the scrollbar track */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-thumb {
+                        background: #888; /* Color of the scrollbar thumb */
+                        border-radius: 6px; /* Rounded corners for the thumb */
+                    }
+
+                    .wrapper .content::-webkit-scrollbar-thumb:hover {
+                        background: #555; /* Color of the thumb on hover */
+                    }
+
+                    /* For Firefox */
+                    .wrapper .content {
+                        scrollbar-width: thin; /* Makes the scrollbar thinner */
+                        scrollbar-color: #888 #f1f1f1; /* thumb color and track color */
+                    }
                 `;
-                contextMenu.appendChild(separator);
+
+                // Append the style element to the head
+                document.head.appendChild(style);
+            } else {
+                // Fallback for non-VSCode mode
+                formDiv.className = "form nonDraggable";
+                document.body.appendChild(formDiv);
+            }
+        }
+
+        // Populate the menu with widget types (works for both new and existing forms)
+        if (vscode) {
+            console.log("Cabbage: Attempting to populate menu, vscode context:", !!vscode);
+            const ulMenu = document.querySelector('.menu');
+            console.log("Cabbage: Menu element:", ulMenu);
+            if (ulMenu) {
+                let menuItems = "";
+                const currentWidgetTypes = getWidgetTypes();
+                console.log("Cabbage: Widget types to add to menu:", currentWidgetTypes.length, currentWidgetTypes);
+                currentWidgetTypes.forEach((widgetType) => {
+                    menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
+                });
+                ulMenu.innerHTML = menuItems;
+                console.log(`Cabbage: Populated context menu with ${currentWidgetTypes.length} widget types`);
+            } else {
+                console.error("Cabbage: Could not find .menu element to populate");
+            }
+        } else {
+            console.log("Cabbage: Not in vscode context, skipping menu population");
+        }
+
+        // Set MainForm styles and properties
+        if (formDiv) {
+            formDiv.style.width = widget.props.size.width + "px";
+            formDiv.style.height = widget.props.size.height + "px";
+            formDiv.style.top = '0px';
+            formDiv.style.left = '0px';
+
+            // Update SVG if needed
+            if (typeof widget.updateSVG === 'function') {
+                widget.updateSVG();
+                // Form widget uses 'style' instead of 'colour'
+                const fillColor = widget.props.style?.fill || widget.props.colour?.fill || '#000000';
+                const selectionColour = CabbageColours.invertColor(fillColor);
+                CabbageColours.changeSelectedBorderColor(selectionColour);
+            }
+        } else {
+            console.error("MainForm not found");
+        }
+
+        // Initialize form event handlers if in vscode mode
+        if (typeof acquireVsCodeApi === 'function') {
+            setupFormHandlers();
+        }
+    }
+
+    /**
+     * Inserts child widgets for a container widget (groupBox or image)
+     * @param {object} parentWidget - The parent container widget
+     * @param {HTMLElement} parentDiv - The parent's DOM element
+     */
+    static async insertChildWidgets(parentWidget, parentDiv) {
+        if (!parentWidget.props.children || !Array.isArray(parentWidget.props.children)) {
+            return;
+        }
+
+        console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", CabbageUtils.getChannelId(parentWidget.props, 0));
+
+        // Log parent container info
+        if (parentDiv) {
+            const parentStyle = window.getComputedStyle(parentDiv);
+            console.log(`Cabbage: Parent ${CabbageUtils.getChannelId(parentWidget.props, 0)} - position: ${parentStyle.position}, zIndex: ${parentStyle.zIndex}, display: ${parentStyle.display}, transform: ${parentStyle.transform}`);
+        }
+
+        for (const childProps of parentWidget.props.children) {
+            // Calculate absolute position based on parent's position + relative position
+            const absoluteBounds = {
+                ...childProps.bounds,
+                left: parentWidget.props.bounds.left + childProps.bounds.left,
+                top: parentWidget.props.bounds.top + childProps.bounds.top
+            };
+
+            const childWidgetProps = {
+                ...childProps,
+                bounds: absoluteBounds,
+                parentChannel: CabbageUtils.getChannelId(parentWidget.props, 0) // Mark as child
+            };
+
+            console.log(`Cabbage: Inserting child ${childProps.channel} (type: ${childProps.type}) at position (${absoluteBounds.left}, ${absoluteBounds.top})`);
+
+            // Insert the child widget
+            const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
+
+            // Ensure child widgets appear above their container
+            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childDiv = document.getElementById(childChannelId);
+            if (childDiv) {
+                const computedStyle = window.getComputedStyle(childDiv);
+                console.log(`Cabbage: Child ${CabbageUtils.getChannelId(childProps, 0)} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
+
+                // Explicitly set position and transform for child widgets
+                childDiv.style.position = 'absolute';
+                childDiv.style.top = '0px';
+                childDiv.style.left = '0px';
+                childDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
+                childDiv.style.width = childProps.bounds.width + 'px';
+                childDiv.style.height = childProps.bounds.height + 'px';
+
+                // Set z-index for child widgets - ensure they appear above their parent
+                const baseZIndex = 1000; // Base z-index higher than main form
+                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
+                const childIndex = typeof childProps?.index === 'number' ? childProps.index : 0;
+                // Children get higher z-index than parent (parent index + child index + 1)
+                childDiv.style.zIndex = (baseZIndex + parentIndex + childIndex + 1).toString();
+
+                childDiv.setAttribute('data-parent-channel', CabbageUtils.getChannelId(parentWidget.props, 0)); // Mark as child widget
+
+                // Set pointer events based on mode
+                if (cabbageMode === 'draggable') {
+                    childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
+                } else {
+                    childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
+                }
+
+                // Log final position after style application
+                const finalStyle = window.getComputedStyle(childDiv);
+                console.log(`Cabbage: Child ${childProps.channel} final position: ${finalStyle.position}, transform: ${finalStyle.transform}, zIndex: ${finalStyle.zIndex}, pointerEvents: ${finalStyle.pointerEvents}`);
+            } else {
+                console.error(`Cabbage: Child div for ${CabbageUtils.getChannelId(childProps, 0)} NOT FOUND!`);
+            }
+
+            // Ensure container has lower z-index than children (but still above main form)
+            if (parentDiv) {
+                const baseZIndex = 1000;
+                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
+                parentDiv.style.zIndex = (baseZIndex + parentIndex).toString();
+            }
+        }
+    } static handleRadioGroup(radioGroup, activeChannel) {
+        handleRadioGroup(radioGroup, activeChannel);
+    }
+    static updateWidgetStyles(widgetDiv, props) {
+        widgetDiv.style.position = 'absolute';
+        widgetDiv.style.top = '0px'; // Reset top position
+        widgetDiv.style.left = '0px'; // Reset left position
+
+        // Apply position and size based on widget properties
+        if (typeof props?.bounds === 'object' && props.bounds !== null) {
+            widgetDiv.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+            widgetDiv.style.width = props.bounds.width + 'px';
+            widgetDiv.style.height = props.bounds.height + 'px';
+
+            widgetDiv.setAttribute('data-x', props.bounds.left);
+            widgetDiv.setAttribute('data-y', props.bounds.top);
+        } else if (props && props.size && typeof props.size === 'object') {
+            widgetDiv.style.width = props.size.width + 'px';
+            widgetDiv.style.height = props.size.height + 'px';
+        }
+
+        // Set z-index based on widget index property, ensuring widgets appear above the main form (z-index: 0)
+        const baseZIndex = 1000; // Base z-index higher than main form
+        const widgetIndex = typeof props?.index === 'number' ? props.index : 0;
+        widgetDiv.style.zIndex = (baseZIndex + widgetIndex).toString();
+    }
+
+    /**
+    * Helper function to check if two channel values match
+    * Handles both string channels and object channels (for xyPad)
+    */
+    static channelsMatch(channel1, channel2) {
+        // If both are strings, do simple comparison
+        if (typeof channel1 === 'string' && typeof channel2 === 'string') {
+            return channel1 === channel2;
+        }
+
+        // If both are objects, compare their id fields (or x field as fallback)
+        if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'object' && channel2 !== null) {
+            const id1 = channel1.id || channel1.x;
+            const id2 = channel2.id || channel2.x;
+            console.log(`channelsMatch: comparing object channels: id1="${id1}" vs id2="${id2}" => ${id1 === id2}`);
+            return id1 === id2
+        }
+
+        // If one is string and one is object, check if string matches id, x, or y
+        if (typeof channel1 === 'string' && typeof channel2 === 'object' && channel2 !== null) {
+            return channel1 === channel2.id || channel1 === channel2.x || channel1 === channel2.y;
+        }
+        if (typeof channel1 === 'object' && channel1 !== null && typeof channel2 === 'string') {
+            return channel1.id === channel2 || channel1.x === channel2 || channel1.y === channel2;
+        }
+
+        return false;
+    }
+
+    /**
+    * This is called from the plugin and updates a corresponding widget.
+    * It searches for a widget based on its 'channel' property and updates its data and display.
+    * If the widget is not found, it attempts to create a new widget based on the provided data.
+    * @param {object} obj - JSON object pertaining to the widget that needs updating.
+    */
+    static async updateWidget(obj) {
+        if (!obj.id) {
+            console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
+            return;
+        }
+        //console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        // Extract channel ID for logging
+        const channelStr = obj.id;
+        //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
+        // Check if 'widgetJson' exists, otherwise use 'value'
+        const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
+        //console.log(`WidgetManager.updateWidget: Parsed data:`, data);
+
+        // Determine the channel to use for finding the widget
+        const channelToFind = data.id || (data.channels && data.channels.length > 0 && data.channels[0].id) || obj.id;
+        //console.log(`WidgetManager.updateWidget: Channel to find: ${channelToFind}`);
+
+        const widget = widgets.find(w => {
+            return WidgetManager.channelsMatch(w.props.channel, channelToFind) ||
+                (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
+                w.props.id === channelToFind;
+        });
+        //console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
+        let widgetFound = false;
+
+        // Check if this is a child widget
+        const isChildWidget = widget && widget.props.parentChannel;
+        if (isChildWidget) {
+            //console.log(`WidgetManager.updateWidget: ${channelStr} is a child of ${widget.props.parentChannel}`);
+        }
+
+        if (widget) {
+            const channelId = CabbageUtils.getChannelId(widget.props, 0);
+            // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
+            // widget.props.currentCsdFile = obj.currentCsdPath;
+            // WidgetManager.currentCsdPath = obj.currentCsdPath;
+            //if only updating value..
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
+                //console.log(`WidgetManager.updateWidget: Value-only update for ${widget.props.type}, value=${obj.value}`);
+                // Special handling for xyPad - determine which axis to update
+                if (widget.props.type === "xyPad") {
+                    //console.log(`WidgetManager.updateWidget: Handling xyPad update`);
+                    if (obj.value != null && !isNaN(obj.value)) {
+                        // Determine which axis by checking if obj.id matches x or y
+                        const channelStr = obj.id;
+                        const xChannelId = CabbageUtils.getChannelId(widget.props, 0);
+                        const yChannelId = CabbageUtils.getChannelId(widget.props, 1);
+                        const isXChannel = channelStr === xChannelId;
+                        const isYChannel = channelStr === yChannelId;
+                        //console.log(`WidgetManager.updateWidget: xyPad - channelStr=${channelStr}, xChannelId=${xChannelId}, yChannelId=${yChannelId}, isX=${isXChannel}, isY=${isYChannel}`);
+
+                        if (isXChannel || isYChannel) {
+                            widget.isUpdatingFromBackend = true;
+                            const axis = isXChannel ? 'x' : 'y';
+                            const range = CabbageUtils.getChannelRange(widget.props, isXChannel ? 0 : 1);
+                            //console.log(`WidgetManager.updateWidget: xyPad - axis=${axis}, range=`, range);
+
+                            // Normalize the value to [0,1] based on the range
+                            let normalizedValue;
+                            if (obj.value >= 0 && obj.value <= 1) {
+                                // Value is already normalized
+                                normalizedValue = obj.value;
+                            } else {
+                                // Convert from actual value to normalized [0,1]
+                                normalizedValue = (obj.value - range.min) / (range.max - range.min);
+                                normalizedValue = Math.max(0, Math.min(1, normalizedValue)); // Clamp to [0,1]
+                            }
+
+                            // Update the ball position
+                            if (isXChannel) {
+                                widget.ballX = normalizedValue;
+                            } else {
+                                widget.ballY = normalizedValue;
+                            }
+
+                            // Redraw the widget
+                            if (!widget.updateScheduled) {
+                                widget.updateScheduled = true;
+                                requestAnimationFrame(() => {
+                                    widget.updateScheduled = false;
+                                    const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                                    if (widgetDiv) {
+                                        widgetDiv.innerHTML = widget.getInnerHTML();
+                                    }
+                                    widget.isUpdatingFromBackend = false;
+                                });
+                            }
+                        }
+                    }
+                    return; // Early return for xyPad
+                }
+
+                // Don't update value for sliders that are currently being dragged
+                if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
+                    //console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
+                    if (obj.value != null) {
+                        // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
+                        // Set flag to indicate this is a programmatic update from backend
+                        widget.isUpdatingFromBackend = true;
+                        let newValue = obj.value;
+                        // For sliders, handle value conversion
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                            //console.log(`WidgetManager.updateWidget: Converting slider value ${obj.value}`);
+                            const range = CabbageUtils.getChannelRange(widget.props, 0);
+                            if (!isNaN(obj.value) && obj.value >= 0 && obj.value <= 1) {
+                                // Assume received value is linear normalized [0,1], convert to skewed
+                                const skewedNormalized = Math.pow(obj.value, range.skew);
+                                newValue = range.min + skewedNormalized * (range.max - range.min);
+                                console.log(`WidgetManager.updateWidget: Converted linear ${obj.value} to skewed ${newValue}`);
+                            } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
+                                // Assume received value is already skewed
+                                newValue = obj.value;
+                                //console.log(`WidgetManager.updateWidget: Value ${obj.value} assumed skewed`);
+                            } else {
+                                //console.log(`WidgetManager.updateWidget: Invalid value ${obj.value}, skipping`);
+                                return; // Skip update for invalid values
+                            }
+                        }
+                        // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
+                        widget.props.value = newValue; // Update the value property
+
+                        // Throttle DOM updates using requestAnimationFrame to prevent jitter during rapid updates
+                        if (!widget.updateScheduled) {
+                            widget.updateScheduled = true;
+                            requestAnimationFrame(() => {
+                                widget.updateScheduled = false;
+                                // Call getInnerHTML to refresh the widget's display
+                                const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                                if (widgetDiv) {
+                                    widgetDiv.innerHTML = widget.getInnerHTML();
+                                }
+                                // Clear the flag after update is complete
+                                widget.isUpdatingFromBackend = false;
+                            });
+                        }
+                    } else {
+                        console.log(`Skipping value update because obj.value is null/undefined: ${obj.value}`);
+                    }
+                } else {
+                    // console.log(`WidgetManager.updateWidget: skipping update for dragging ${widget.props.type}`);
+                }
+                return; // Early return
+            }
+
+            //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
+            // Save current value for sliders to prevent accidental null resets during visibility changes
+            let savedSliderValue;
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                savedSliderValue = widget.props.value;
+            }
+            // Update widget properties
+            //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
+            WidgetManager.deepMerge(widget.props, data);
+            // Restore value if accidentally set to null
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                if (widget.props.value === null && savedSliderValue !== null && savedSliderValue !== undefined) {
+                    widget.props.value = savedSliderValue;
+                    console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
+                }
+            }
+
+            // Ensure slider values are not null or NaN and handle value conversion
+            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
+                const range = CabbageUtils.getChannelRange(widget.props, 0);
+                if (widget.props.value === null || isNaN(widget.props.value)) {
+                    widget.props.value = range.defaultValue;
+                } else {
+                    if (!isNaN(widget.props.value) && widget.props.value >= 0 && widget.props.value <= 1) {
+                        // Convert linear normalized value to skewed value
+                        const skewedNormalized = Math.pow(widget.props.value, range.skew);
+                        widget.props.value = range.min + skewedNormalized * (range.max - range.min);
+                        //console.log(`WidgetManager.updateWidget: converted linear ${widget.props.value} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
+                    } else if (!isNaN(widget.props.value) && (widget.props.value < 0 || widget.props.value > 1)) {
+                        // Assume already skewed
+                        //console.log(`WidgetManager.updateWidget: value ${widget.props.value} assumed skewed for ${widget.props.type} in merge case`);
+                    }
+                }
+            }
+            widgetFound = true;
+            if (widget.props.type === "form") {
+                // Special handling for form widget
+                const form = document.getElementById('MainForm');
+                if (form) {
+                    form.style.width = widget.props.size.width + "px";
+                    form.style.height = widget.props.size.height + "px";
+
+                    // Ensure SVG is present and updated
+                    if (typeof widget.updateSVG === 'function') {
+                        widget.updateSVG();
+                    }
+                } else {
+                    console.error("MainForm not found");
+                }
+            }
+            else {
+                // Existing code for other widget types
+                const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                if (widgetDiv) {
+                    widgetDiv.innerHTML = widget.getInnerHTML();
+
+                    // Update widget position and size for non-form widgets using consistent styling
+                    // For child widgets, calculate absolute position
+                    let propsForStyling = widget.props;
+                    if (widget.props.parentChannel) {
+                        const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
+                        if (parentWidget) {
+                            const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
+                            const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
+                            propsForStyling = {
+                                ...widget.props,
+                                bounds: {
+                                    ...widget.props.bounds,
+                                    left: absoluteLeft,
+                                    top: absoluteTop
+                                }
+                            };
+                            console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                        }
+                    }
+                    WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
+
+                    // If this widget has children, update their positions
+                    if (widget.props.children && Array.isArray(widget.props.children)) {
+                        widget.props.children.forEach(childProps => {
+                            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+                            const childDiv = document.getElementById(childChannelId);
+                            if (childDiv) {
+                                const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
+                                const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
+                                // Update child widget styles consistently
+                                const childWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(childProps, 0));
+                                if (childWidget) {
+                                    WidgetManager.updateWidgetStyles(childDiv, {
+                                        ...childWidget.props,
+                                        bounds: {
+                                            ...childWidget.props.bounds,
+                                            left: absoluteLeft,
+                                            top: absoluteTop
+                                        }
+                                    });
+                                }
+                                console.log(`Cabbage: Updated child ${CabbageUtils.getChannelId(childProps, 0)} position to (${absoluteLeft}, ${absoluteTop})`);
+                            }
+                        });
+                    }
+
+                    if (widget.props.type === "genTable" || widget.props.type === "multiTableViewer") {
+                        // Guard call to updateCanvas in case the widget instance does not implement it
+                        if (widget && typeof widget.updateCanvas === 'function') {
+                            try {
+                                widget.updateCanvas();
+                            } catch (err) {
+                                console.error('Error calling updateCanvas on widget', err);
+                            }
+                        } else {
+                            const channelIdLog = channelId || CabbageUtils.getChannelId(widget.props, 0);
+                            console.warn(`WidgetManager: updateCanvas not available for widget ${channelIdLog}`);
+                        }
+                    }
+                } else {
+                    const channelStr = CabbageUtils.getChannelId(widget.props, 0);
+                    console.error(`Widget div for channel ${channelStr} not found`);
+                }
+            }
+        } else {
+            console.log(`WidgetManager.updateWidget: Widget not found in top-level array, checking for child widgets`);
+            // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
+            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0)));
+            console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
+            if (parentWithChild) {
+                console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
+                // console.log(`Cabbage: Found child widget ${obj.id} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
+                const childProps = parentWithChild.props.children.find(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0));
+                console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
+
+                // If data is an object (and not null/array) merge it, otherwise treat as a value update
+                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    console.log(`Child merge case: data =`, JSON.stringify(data, null, 2));
+                    // Convert absolute bounds back to relative bounds before merging
+                    if (data.bounds && parentWithChild.props.bounds) {
+                        const relativeBounds = {
+                            ...data.bounds,
+                            left: data.bounds.left - parentWithChild.props.bounds.left,
+                            top: data.bounds.top - parentWithChild.props.bounds.top
+                        };
+                        data = { ...data, bounds: relativeBounds };
+                    }
+                    WidgetManager.deepMerge(childProps, data);
+                } else {
+                    console.log(`Child value update: data = ${data} (type: ${typeof data})`);
+                    if (data != null) {
+                        childProps.value = data;
+                    } else {
+                        console.log(`Skipping child value update because data is null/undefined`);
+                    }
+                }
+
+                // Update child DOM / instance if present
+                const objChannelId = CabbageUtils.getChannelId({ channel: obj.id }, 0);
+                const childDiv = document.getElementById(objChannelId);
+                if (childDiv) {
+                    // Prefer canonical attached instance
+                    const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
+                    if (instance) {
+                        WidgetManager.deepMerge(instance.props, childProps);
+                        // Ensure slider values are not null or NaN
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
+                            if (instance.props.value === null || isNaN(instance.props.value)) {
+                                instance.props.value = instance.props.range.defaultValue;
+                            }
+                        }
+                        childDiv.innerHTML = instance.getInnerHTML();
+                        console.warn("Cabbage: Updated child widget instance", CabbageUtils.getChannelId({ channel: obj.id }, 0), instance.props.value);
+                    } else {
+                        // Fallback: create a temporary widget instance to render HTML
+                        const tempWidget = await WidgetManager.createWidget(childProps.type);
+                        WidgetManager.deepMerge(tempWidget.props, childProps);
+                        // Ensure slider values are not null
+                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
+                            if (tempWidget.props.value === null) {
+                                const range = CabbageUtils.getChannelRange(tempWidget.props, 0);
+                                tempWidget.props.value = range.defaultValue;
+                            }
+                        }
+                        childDiv.innerHTML = tempWidget.getInnerHTML();
+                        console.warn("Cabbage: Updated temporary child widget", CabbageUtils.getChannelId({ channel: obj.id }, 0));
+                    }
+                } else {
+                    console.warn(`Cabbage: child div for ${CabbageUtils.getChannelId({ channel: obj.id }, 0)} not found in DOM`);
+                }
+                widgetFound = true;
+            } else {
+                // obj.channel is often undefined in incoming messages; prefer using obj.id so the
+                // log shows the actual identifier sent from the backend. Use getChannelId with
+                // an object that contains `id` so the utility returns the canonical id when
+                // available (falls back to channels if needed).
+                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({ id: obj.id }, 0)} not found - going to create it now`);
+            }
+        }
+        // If the widget is not found, attempt to create a new widget from the provided data
+        if (!widgetFound) {
+            console.log(`WidgetManager.updateWidget: Widget not found, attempting to create new widget`);
+            // If this is a value-only update (no widgetJson field), we can't create a widget
+            if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
+                const channelStr = CabbageUtils.getChannelId({ channel: obj.id }, 0);
+                console.warn(`Cabbage: Cannot update value for non-existent widget "${channelStr}". Widget must be defined in the CSD file first.`);
                 return;
             }
 
-            const menuItem = document.createElement('div');
-            menuItem.textContent = item.label;
-            menuItem.style.cssText = `
-                padding: 6px 12px;
-                cursor: pointer;
-                transition: background-color 0.1s ease;
-            `;
+            try {
+                let p = typeof data === 'string' ? JSON.parse(data) : data;
+                console.log(`WidgetManager.updateWidget: Parsed props for new widget:`, p);
 
-            menuItem.addEventListener('mouseenter', () => {
-                menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
-            });
-
-            menuItem.addEventListener('mouseleave', () => {
-                menuItem.style.backgroundColor = 'transparent';
-            });
-
-            menuItem.addEventListener('click', () => {
-                if (item.action) {
-                    item.action();
+                // If the parsed data has a 'type' property, insert a new widget into the form
+                if (p.hasOwnProperty('type')) {
+                    console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
+                    await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                 }
-                this.hideCustomContextMenu();
-            });
-
-            contextMenu.appendChild(menuItem);
-        });
-
-        // Add to document
-        document.body.appendChild(contextMenu);
-
-        // Adjust position if menu would go off-screen
-        const rect = contextMenu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            contextMenu.style.left = (x - rect.width) + 'px';
-        }
-        if (rect.bottom > window.innerHeight) {
-            contextMenu.style.top = (y - rect.height) + 'px';
-        }
-    }
-
-    /**
-     * Hides the custom context menu.
-     */
-    hideCustomContextMenu() {
-        const existingMenu = document.getElementById('custom-context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-    }
-
-    /**
-     * Context menu action: Copy selected widgets
-     */
-    copySelectedWidgets() {
-        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Copy selected widgets:', selectedIds);
-        // Implement copy functionality here
-        this.updatePanelCallback(this.vscode, {
-            eventType: "copySelection",
-            selection: selectedIds,
-            bounds: {}
-        }, this.widgets);
-    }
-
-    /**
-     * Context menu action: Delete selected widgets
-     */
-    deleteSelectedWidgets() {
-        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Delete selected widgets:', selectedIds);
-        // Implement delete functionality here
-        this.updatePanelCallback(this.vscode, {
-            eventType: "deleteSelection",
-            selection: selectedIds,
-            bounds: {}
-        }, this.widgets);
-    }
-
-    /**
-     * Context menu action: Group selected widgets
-     */
-    groupSelectedWidgets() {
-        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Group selected widgets:', selectedIds);
-        // Implement group functionality here
-        this.updatePanelCallback(this.vscode, {
-            eventType: "groupSelection",
-            selection: selectedIds,
-            bounds: {}
-        }, this.widgets);
-    }
-
-    /**
-     * Context menu action: Align selected widgets
-     */
-    alignSelectedWidgets(alignment) {
-        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log(`Cabbage: Align selected widgets ${alignment}:`, selectedIds);
-        // Implement alignment functionality here
-        this.updatePanelCallback(this.vscode, {
-            eventType: "alignSelection",
-            selection: selectedIds,
-            alignment: alignment,
-            bounds: {}
-        }, this.widgets);
-    }
-
-    /**
-     * Context menu action: Distribute selected widgets
-     */
-    distributeSelectedWidgets(direction) {
-        const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log(`Cabbage: Distribute selected widgets ${direction}:`, selectedIds);
-        // Implement distribution functionality here
-        this.updatePanelCallback(this.vscode, {
-            eventType: "distributeSelection",
-            selection: selectedIds,
-            direction: direction,
-            bounds: {}
-        }, this.widgets);
-    }
-
-    /**
-     * Context menu action: Copy widget (legacy - keeping for single widget operations)
-     */
-    copyWidget(element) {
-        console.log('Cabbage: Copy widget:', element.id);
-        // Implement copy functionality here
-    }
-
-    /**
-     * Context menu action: Delete widget (legacy - now calls delete selection for single items)
-     */
-    deleteWidget(element) {
-        console.log('Cabbage: Delete widget:', element.id);
-        // Use the selection-based delete method
-        this.deleteSelectedWidgets();
-    }
-
-    /**
-     * Context menu action: Duplicate widget
-     */
-    duplicateWidget(element) {
-        console.log('Cabbage: Duplicate widget:', element.id);
-        // Implement duplicate functionality here
-    }
-
-    /**
-     * Context menu action: Bring to front
-     */
-    bringToFront(element) {
-        console.log('Cabbage: Bring to front:', element.id);
-        element.style.zIndex = '10000';
-    }
-
-    /**
-     * Context menu action: Send to back
-     */
-    sendToBack(element) {
-        console.log('Cabbage: Send to back:', element.id);
-        element.style.zIndex = '1';
-    }
-
-    /**
-     * Handles the drag movement of selected elements.
-     * @param {Object} event - The event object containing drag data.
-     */
-    dragMoveListener(event) {
-        // Ignore if Shift or Alt keys are pressed
-        if (event.shiftKey || event.altKey) {
-            return;
-        }
-        const { dx, dy } = event; // Get the change in position
-        this.selectedElements.forEach(element => {
-            // Slow down the movement by using a fraction of dx and dy
-            const slowFactor = 0.5; // Adjust this value to change the drag speed
-            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx * slowFactor;
-            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy * slowFactor;
-
-            element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-            element.setAttribute('data-x', x); // Update data-x attribute
-            element.setAttribute('data-y', y); // Update data-y attribute
-
-            // If this element has children (grouped widgets), move them too
-            this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
-        });
-    }
-
-    /**
-     * Handles the end of a drag event.
-     * @param {Object} event - The event object containing drag data.
-     */
-    dragEndListener(event) {
-        const { dx, dy } = event;
-
-        this.selectedElements.forEach(element => {
-            const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx;
-            const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy;
-
-            element.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-            element.setAttribute('data-x', x); // Update data-x attribute
-            element.setAttribute('data-y', y); // Update data-y attribute
-
-            // If this element has children (grouped widgets), move them too
-            this.moveChildWidgets(element, dx, dy);
-
-            this.updatePanelCallback(this.vscode, {
-                eventType: "move", // Event type for movement
-                name: element.id, // Name of the element moved
-                bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
-            }, this.widgets);
-
-            console.warn(`Cabbage: Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
-        });
-    }
-
-    /**
-     * Moves child widgets when their parent container is moved
-     * @param {HTMLElement} parentElement - The parent container element
-     * @param {number} deltaX - The change in X position
-     * @param {number} deltaY - The change in Y position
-     */
-    moveChildWidgets(parentElement, deltaX, deltaY) {
-        // Find the parent widget in the widgets array using the new channel schema
-        const parentWidget = this.widgets.find(w => {
-            const channelId = CabbageUtils.getChannelId(w.props, 0);
-            return channelId === parentElement.id;
-        });
-        if (!parentWidget || !parentWidget.props.children) {
-            return;
-        }
-
-        // Move each child widget
-        parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
-            const childElement = document.getElementById(childChannelId);
-            if (childElement) {
-                const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
-                const childY = (parseFloat(childElement.getAttribute('data-y')) || 0) + deltaY;
-
-                childElement.style.transform = `translate(${childX}px, ${childY}px)`;
-                childElement.setAttribute('data-x', childX);
-                childElement.setAttribute('data-y', childY);
-
-                console.log(`Cabbage: Moved child ${childChannelId} with parent ${parentElement.id}`);
-            }
-        });
-    }
-
-    /**
-     * Applies interact.js configuration to the draggable elements.
-     * @param {Object} restrictions - The restrictions for movement.
-     */
-    applyInteractConfig(restrictions) {
-
-        interact('.draggable').on('down', (event) => {
-            // Handle widget selection on click
-            let widgetId = null;
-
-            // Try to find the widget ID by traversing up the DOM tree
-            let element = event.target;
-            while (element && element !== document.body) {
-                if (element.id && element.classList.contains('draggable')) {
-                    widgetId = element.id;
-                    break;
+                else {
+                    console.error("No type property found in data", p);
                 }
-                element = element.parentElement;
+            } catch (error) {
+                console.error("Error parsing JSON widgetJson:", error, obj.widgetJson);
             }
-
-            if (widgetId) {
-                this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
-            }
-        }).resizable({
-            edges: { left: false, right: true, bottom: true, top: false }, // Resize edges configuration
-            listeners: {
-                move: (event) => {
-                    // Ignore if Shift or Alt keys are pressed
-                    if (event.shiftKey || event.altKey) {
-                        return;
-                    }
-                    const target = event.target;
-                    restrictions.restriction = (target.id === 'MainForm' ? 'none' : 'parent'); // Set restriction based on target
-
-                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
-                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
-
-                    target.style.width = event.rect.width + 'px'; // Update element width
-                    target.style.height = event.rect.height + 'px'; // Update element height
-
-                    x += event.deltaRect.left; // Adjust x position
-                    y += event.deltaRect.top; // Adjust y position
-
-                    // If this element has children (grouped widgets), resize them too
-                    this.resizeChildWidgets(target, event.rect.width, event.rect.height);
-
-                    this.updatePanelCallback(this.vscode, {
-                        eventType: "resize", // Event type for resizing
-                        name: event.target.id, // Name of the resized element
-                        bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
-                    }, this.widgets);
-
-                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-                    target.setAttribute('data-x', x); // Update data-x attribute
-                    target.setAttribute('data-y', y); // Update data-y attribute
-                }
-            },
-            modifiers: [
-                interact.modifiers.restrictRect(restrictions), // Apply restrictions to movement
-                interact.modifiers.snap({ // Snap to grid
-                    targets: [
-                        interact.snappers.grid({ x: this.snapSize, y: this.snapSize }) // Grid size
-                    ],
-                    range: Infinity, // Snap range
-                    relativePoints: [{ x: 0, y: 0 }] // Snap relative point
-                }),
-            ],
-            inertia: true // Enable inertia for smoother dragging
-        }).draggable({
-            startThreshold: 1, // Threshold for starting drag
-            listeners: {
-                start: (event) => {
-                    // Context: Starting drag operation
-                },
-                move: this.dragMoveListener, // Handle drag move
-                end: this.dragEndListener // Handle drag end
-            },
-            inertia: true, // Enable inertia for dragging
-            modifiers: [
-                interact.modifiers.snap({ // Snap to grid for dragging
-                    targets: [
-                        interact.snappers.grid({ x: this.snapSize, y: this.snapSize }) // Grid size
-                    ],
-                    range: Infinity, // Snap range
-                    relativePoints: [{ x: 0, y: 0 }] // Snap relative point
-                }),
-                interact.modifiers.restrictRect(restrictions), // Apply restrictions to movement
-            ]
-        });
-
-        // Main form specific configuration
-        interact('.resizeOnly').on('down', (event) => {
-            // Handle the down event for resize-only elements if necessary
-        }).draggable(false).resizable({
-            edges: { left: true, right: true, bottom: true, top: true }, // Enable resizing from all edges
-            listeners: {
-                move: (event) => {
-                    // Ignore if Shift or Alt keys are pressed
-                    if (event.shiftKey || event.altKey) {
-                        return;
-                    }
-                    const target = event.target;
-                    restrictions.restriction = (target.id === 'MainForm' ? 'none' : 'parent'); // Set restriction based on target
-
-                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
-                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
-
-                    target.style.width = event.rect.width + 'px'; // Update element width
-                    target.style.height = event.rect.height + 'px'; // Update element height
-
-                    x += event.deltaRect.left; // Adjust x position
-                    y += event.deltaRect.top; // Adjust y position
-
-                    this.updatePanelCallback(this.vscode, {
-                        eventType: "resize", // Event type for resizing
-                        name: event.target.id, // Name of the resized element
-                        bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
-                    }, this.widgets);
-
-                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-                    target.setAttribute('data-x', x); // Update data-x attribute
-                    target.setAttribute('data-y', y); // Update data-y attribute
-                }
-            },
-            inertia: true // Enable inertia for resizing
-        });
-    }
-
-    /**
-     * Resizes child widgets when their parent container is resized
-     * @param {HTMLElement} parentElement - The parent container element
-     * @param {number} newWidth - The new width of the parent
-     * @param {number} newHeight - The new height of the parent
-     */
-    resizeChildWidgets(parentElement, newWidth, newHeight) {
-        // Find the parent widget in the widgets array using the new channel schema
-        const parentWidget = this.widgets.find(w => {
-            const channelId = CabbageUtils.getChannelId(w.props, 0);
-            return channelId === parentElement.id;
-        });
-        if (!parentWidget || !parentWidget.props.children) {
-            return;
+        } else {
+            console.log(`WidgetManager.updateWidget: Widget was found and updated`);
         }
-
-        const oldWidth = parentWidget.props.bounds.width;
-        const oldHeight = parentWidget.props.bounds.height;
-
-        // Use the grouping-time base bounds if available so scaling always uses a stable reference
-        const groupBase = parentWidget.props.groupBaseBounds || { width: oldWidth, height: oldHeight };
-
-        // Calculate scale factors relative to the group's base size
-        const scaleX = newWidth / groupBase.width;
-        const scaleY = newHeight / groupBase.height;
-
-        console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY} (group base ${groupBase.width}x${groupBase.height})`);
-
-        // Update each child widget using original relative bounds when available
-        parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
-            const childElement = document.getElementById(childChannelId);
-            if (childElement) {
-                // Prefer stored original bounds (created at grouping time) to avoid compounded scaling
-                const base = childProps.origBounds || childProps.bounds;
-
-                // Compute new relative bounds from the base/original values
-                const newChildWidth = base.width * scaleX;
-                const newChildHeight = base.height * scaleY;
-                const newChildX = base.left * scaleX;
-                const newChildY = base.top * scaleY;
-
-                // Update the child's absolute position (relative to parent + parent's position)
-                const parentX = parseFloat(parentElement.getAttribute('data-x')) || 0;
-                const parentY = parseFloat(parentElement.getAttribute('data-y')) || 0;
-
-                const absoluteX = parentX + newChildX;
-                const absoluteY = parentY + newChildY;
-
-                // Update DOM
-                childElement.style.width = newChildWidth + 'px';
-                childElement.style.height = newChildHeight + 'px';
-                childElement.style.transform = `translate(${absoluteX}px, ${absoluteY}px)`;
-                childElement.setAttribute('data-x', absoluteX);
-                childElement.setAttribute('data-y', absoluteY);
-
-                // Update the relative bounds in the parent's children array (so next save uses latest)
-                childProps.bounds.width = newChildWidth;
-                childProps.bounds.height = newChildHeight;
-                childProps.bounds.left = newChildX;
-                childProps.bounds.top = newChildY;
-
-                console.log(`Cabbage: Resized child ${childChannelId} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
-            }
-        });
-
-        // Update parent's bounds
-        parentWidget.props.bounds.width = newWidth;
-        parentWidget.props.bounds.height = newHeight;
     }
 
-    /**
-     * Sets the snap size for grid snapping.
-     * @param {number} size - The new snap size.
-     */
-    setSnapSize(size) {
-        this.applyInteractConfig({
-            restriction: 'parent', // Apply parent restriction
-            endOnly: true // Only restrict at the end of the movement
-        });
-    }
 }
 
-/**
- * This is a simple panel that the main form sits on. 
- * It can be dragged around without restriction.
- */
-interact('.draggablePanel')
-    .draggable({
-        inertia: true, // Enable inertia for dragging
-        autoScroll: true, // Enable auto scrolling during drag
-        onmove: formDragMoveListener // Handle drag movement
-    });
 
-/**
- * Handles the movement of the draggable panel.
- * @param {Object} event - The event object containing drag data.
- */
-function formDragMoveListener(event) {
-    var target = event.target;
-    // Ignore if Shift or Alt keys are pressed
-    if (event.shiftKey || event.altKey) {
-        return;
-    }
-    // Keep the dragged position in the data-x/data-y attributes
-    var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx; // Update x position
-    var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy; // Update y position
 
-    // Translate the element
-    target.style.webkitTransform =
-        target.style.transform =
-        `translate(${x}px, ${y}px)`; // Apply the translation
-
-    // Update the position attributes
-    target.setAttribute('data-x', x); // Update data-x attribute
-    target.setAttribute('data-y', y); // Update data-y attribute
-}

@@ -85,10 +85,18 @@ export class WidgetManager {
         try {
             const WidgetClass = await widgetConstructors[type];
             const widget = new WidgetClass();
-            //special case for genTable..
-            if (type === "genTable") {
-                widget.createCanvas(); // Special logic for "gentable" widget
+            // special case for genTable: guard createCanvas in case the instance lacks it
+
+            if (widget && typeof widget.createCanvas === 'function') {
+                try {
+                    widget.createCanvas(); // Special logic for "gentable" widget
+                } catch (err) {
+                    console.error('WidgetManager: error calling createCanvas during createWidget', err);
+                }
+            } else {
+                console.warn(`WidgetManager: createCanvas not available for widget type ${type}`);
             }
+
             return widget;
         } catch (error) {
             console.error("Unknown widget type: " + type, error);
@@ -205,9 +213,19 @@ export class WidgetManager {
             }
             widgetDiv.innerHTML = html;
             WidgetManager.appendToMainForm(widgetDiv);
-            if (widget.props.type === "genTable") {
-                widget.updateTable(); // Special handling for "gentable" widgets
+
+            // Guard call to updateCanvas: some widget instances may not implement it
+            if (widget && typeof widget.updateCanvas === 'function') {
+                try {
+                    widget.updateCanvas(); // Special handling for "gentable" widgets
+                } catch (err) {
+                    console.error('WidgetManager: error calling updateCanvas during insertWidget', err);
+                }
+            } else {
+                const wid = CabbageUtils.getChannelId(widget.props, 0) || widget.props.id || '(unknown)';
+                console.warn(`WidgetManager: insertWidget - updateCanvas not available for widget ${wid}`);
             }
+
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
         }
@@ -730,6 +748,14 @@ export class WidgetManager {
                                 if (widgetDiv) {
                                     widgetDiv.innerHTML = widget.getInnerHTML();
                                 }
+                                // Call updateCanvas for widgets that use canvas rendering
+                                if (widget && typeof widget.updateCanvas === 'function') {
+                                    try {
+                                        widget.updateCanvas();
+                                    } catch (err) {
+                                        console.error('Error calling updateCanvas on widget during value update', err);
+                                    }
+                                }
                                 // Clear the flag after update is complete
                                 widget.isUpdatingFromBackend = false;
                             });
@@ -845,9 +871,18 @@ export class WidgetManager {
                         });
                     }
 
-                    if (widget.props.type === "genTable") {
-                        widget.updateTable();
+
+                    if (widget && typeof widget.updateCanvas === 'function') {
+                        try {
+                            widget.updateCanvas();
+                        } catch (err) {
+                            console.error('Error calling updateCanvas on widget', err);
+                        }
+                    } else {
+                        const channelIdLog = channelId || CabbageUtils.getChannelId(widget.props, 0);
+                        console.warn(`WidgetManager: updateCanvas not available for widget ${channelIdLog}`);
                     }
+
                 } else {
                     const channelStr = CabbageUtils.getChannelId(widget.props, 0);
                     console.error(`Widget div for channel ${channelStr} not found`);
