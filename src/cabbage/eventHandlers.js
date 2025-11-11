@@ -186,7 +186,7 @@ async function groupSelectedWidgets() {
         if (vscode) {
             vscode.postMessage({
                 command: 'widgetUpdate',
-                text: JSON.stringify(containerWidget.originalProps)
+                text: JSON.stringify(containerWidget)
             });
         }
 
@@ -661,7 +661,7 @@ export function setupFormHandlers() {
                             if (widget) {
                                 vscode.postMessage({
                                     command: 'widgetUpdate',
-                                    text: JSON.stringify(widget.originalProps)
+                                    text: JSON.stringify(widget)
                                 });
                             } else {
                                 console.error("Cabbage: Widget is undefined, cannot send to VS Code");
@@ -751,27 +751,8 @@ export function setupFormHandlers() {
                     }
                 }
 
-                // Deselect all if clicking on the form background (not on a widget)
-                let clickedOnWidget = false;
-                let element = event.target;
-                let iterations = 0;
-                const maxIterations = 20;
-
-                while (element && element !== form && iterations < maxIterations) {
-                    iterations++;
-                    if (element.classList && (
-                        element.classList.contains('draggable') ||
-                        element.classList.contains('nonDraggable') ||
-                        element.classList.contains('grouped-child') ||
-                        element.classList.contains('resizeOnly')
-                    )) {
-                        clickedOnWidget = true;
-                        break;
-                    }
-                    element = element.parentElement || element.parentNode;
-                }
-
-                if (!clickedOnWidget) {
+                // Deselect all if clicking on the form background
+                if (event.target.id === "MainForm") {
                     selectedElements.forEach(element => element.classList.remove('selected'));
                     selectedElements.clear();
                 }
@@ -795,7 +776,7 @@ export function setupFormHandlers() {
                 }
             }
             lastClickTime = currentTime;
-        }, { capture: true });
+        });
 
         // Handles pointer movement for selection and dragging
         document.addEventListener('pointermove', (event) => {

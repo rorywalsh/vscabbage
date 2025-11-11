@@ -85,8 +85,6 @@ export class WidgetManager {
         try {
             const WidgetClass = await widgetConstructors[type];
             const widget = new WidgetClass();
-            // Store raw defaults before proxy is applied
-            widget.rawDefaults = JSON.parse(JSON.stringify(widget.props));
             //special case for genTable..
             if (type === "genTable") {
                 widget.createCanvas(); // Special logic for "gentable" widget
@@ -162,8 +160,9 @@ export class WidgetManager {
 
         // Store the minimal original props for grouping/ungrouping
         try {
-            const defaultProps = widget.rawDefaults;
-            const minimalProps = { ...widget.props };
+            const WidgetClass = await widgetConstructors[type];
+            const defaultProps = new WidgetClass().props;
+            const minimalProps = { ...props };
             const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
             excludeFromJson.forEach(prop => delete minimalProps[prop]);
             for (let key in defaultProps) {
@@ -174,7 +173,7 @@ export class WidgetManager {
             widget.originalProps = JSON.parse(JSON.stringify(minimalProps));
         } catch (error) {
             console.error('Failed to minimize props:', error);
-            widget.originalProps = JSON.parse(JSON.stringify(widget.props));
+            widget.originalProps = JSON.parse(JSON.stringify(props));
         }
 
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {

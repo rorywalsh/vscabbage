@@ -187,6 +187,15 @@ export class Commands {
         this.websocket = ws;
         const config = vscode.workspace.getConfiguration("cabbage");
         switch (message.command) {
+            case 'defaultsResponse':
+                try {
+                    // Log for diagnostics
+                    try { this.vscodeOutputChannel.appendLine(`Extension: handling defaultsResponse for requestId=${message.requestId} type=${message.type}`); } catch (e) { }
+                    ExtensionUtils.handleDefaultsResponse(message.requestId, message.defaults, message.type);
+                } catch (err) {
+                    console.error('Failed to handle defaultsResponse', err);
+                }
+                break;
             case 'getMediaFiles':
                 try {
                     let editor = vscode.window.activeTextEditor?.document;

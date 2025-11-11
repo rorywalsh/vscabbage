@@ -12,6 +12,7 @@ try {
 }
 
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
+import { initialiseDefaultProps } from "./widgetTypes.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
@@ -268,7 +269,7 @@ window.addEventListener('message', async event => {
             console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
             CabbageUtils.hideOverlay(); // Hide the overlay
             setCabbageMode('draggable'); // Set the mode to draggable
-            
+
             // Clear any existing selection
             selectedElements.forEach(element => element.classList.remove('selected'));
             selectedElements.clear();

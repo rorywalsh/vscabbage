@@ -21,6 +21,74 @@ interface Widget { type: string; bounds?: { top: number; left: number; width: nu
 
 export class ExtensionUtils {
 
+    // Map of pending default requests from extension -> webview
+    private static pendingDefaultRequests: Map<string, { resolve: (v: any) => void, reject: (e: any) => void, timer?: NodeJS.Timeout }> = new Map();
+    // Cache of defaults per widget type to avoid repeated RPCs
+    private static defaultsCache: Map<string, any> = new Map();
+
+    private static generateRequestId(): string {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    /**
+     * Request default props for a widget type from the webview (RPC).
+     * Resolves to the defaults object or null on timeout/error.
+     */
+    static requestDefaults(panel: vscode.WebviewPanel | undefined, type: string, timeoutMs: number = 2000): Promise<any> {
+        // Return cached value if present
+        if (!panel) { return Promise.resolve(null); }
+        if (this.defaultsCache.has(type)) {
+            return Promise.resolve(this.defaultsCache.get(type));
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                const requestId = this.generateRequestId();
+                const timer = setTimeout(() => {
+                    // Timeout: cleanup and reject
+                    const entry = this.pendingDefaultRequests.get(requestId);
+                    if (entry) {
+                        entry.reject(new Error('timeout'));
+                        this.pendingDefaultRequests.delete(requestId);
+                    }
+                }, timeoutMs);
+
+                this.pendingDefaultRequests.set(requestId, { resolve, reject, timer });
+                // Debug log
+                try {
+                    Commands.getOutputChannel().appendLine(`Extension: requesting defaults for type='${type}' (id=${requestId})`);
+                } catch (e) { /* ignore */ }
+
+                panel.webview.postMessage({ command: 'requestDefaults', requestId, type });
+            } catch (err) {
+                try { Commands.getOutputChannel().appendLine(`Extension: requestDefaults failed to post message: ${err}`); } catch (e) { }
+                return resolve(null);
+            }
+        });
+    }
+
+    /**
+     * Internal: resolve a pending defaults request coming from the webview.
+     */
+    static handleDefaultsResponse(requestId: string, defaults: any, type?: string) {
+        const entry = this.pendingDefaultRequests.get(requestId);
+        if (!entry) { return; }
+        if (entry.timer) { clearTimeout(entry.timer); }
+        try {
+            Commands.getOutputChannel().appendLine(`Extension: received defaults response for requestId=${requestId} - ${defaults ? JSON.stringify(Object.keys(defaults)) : String(defaults)}`);
+        } catch (e) { /* ignore */ }
+        entry.resolve(defaults);
+        // cache defaults by provided type or by defaults.type if present
+        try {
+            const cacheKey = (typeof type === 'string' && type) ? type : (defaults && defaults.type ? defaults.type : null);
+            if (cacheKey) {
+                this.defaultsCache.set(cacheKey, defaults);
+            }
+        } catch (e) { /* ignore */ }
+        this.pendingDefaultRequests.delete(requestId);
+    }
+
+
     /**
      * Gets the warning comment for Cabbage sections based on user settings.
      * @returns The warning comment string if enabled, otherwise an empty string.
@@ -465,10 +533,39 @@ editor. -->\n`;
         }
 
         const originalText = document.getText();
+        // Ask webview for canonical default props for this widget type (used for filtering)
+        let defaultProps = {} as WidgetProps;
+        if (panel && props && typeof props.type === 'string') {
+            try {
+                // Try a few times because the webview may not have finished registering widget constructors yet
+                const maxAttempts = 3;
+                let attempt = 0;
+                let rsp: any = null;
+                while (attempt < maxAttempts) {
+                    attempt++;
+                    try {
+                        rsp = await ExtensionUtils.requestDefaults(panel, props.type);
+                    } catch (e) {
+                        rsp = null;
+                    }
+                    if (rsp && typeof rsp === 'object') {
+                        defaultProps = rsp as WidgetProps;
+                        break;
+                    }
+                    // small backoff
+                    await new Promise(res => setTimeout(res, 150));
+                }
+                if (!defaultProps || Object.keys(defaultProps).length === 0) {
+                    // final fallback - empty defaults
+                    defaultProps = {} as WidgetProps;
+                }
+            } catch (err) {
+                // ignore - fallback to empty defaults
+                console.warn('Failed to obtain defaults from webview:', err);
+            }
+        }
 
-        // Default props are only used for filtering - we don't need them in the extension
-        // The webview will handle actual widget defaults
-        const defaultProps = {} as WidgetProps;
+
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -668,6 +765,7 @@ ${JSON.stringify(props, null, 4)}
         }
         return formattedCabbageText;
     }
+
 
     static formatNonCabbageContent(lines: string[], indentString: string): string[] {
         let indents = 0; // Tracks current indentation level
