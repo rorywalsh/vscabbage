@@ -421,8 +421,8 @@ export class Settings {
     }
 
     /**
-     * Creates a new custom widget from the template, in the configured custom directory.
-     * If multiple custom directories are configured, prompts the user to choose one.
+     * Creates a new custom widget from the template, prompting the user to choose the save location.
+     * The custom widgets directory is used as the default location.
      * Fails with an error if no custom directory is configured.
      */
     static async createNewCustomWidget() {
@@ -448,23 +448,29 @@ export class Settings {
             return;
         }
 
-        // If multiple, ask user to choose
-        let targetDir = customDirs[0];
+        // If multiple, ask user to choose the default directory
+        let defaultDir = customDirs[0];
         if (customDirs.length > 1) {
-            const picked = await vscode.window.showQuickPick(customDirs, { placeHolder: 'Select a target directory for the new widget' });
+            const picked = await vscode.window.showQuickPick(customDirs, { placeHolder: 'Select the default directory for the new widget' });
             if (!picked) return;
-            targetDir = picked;
+            defaultDir = picked;
         }
 
-        // Custom widgets go in cabbage/widgets/ subdirectory
-        const widgetsDir = path.join(targetDir, 'cabbage', 'widgets');
+        // Default to the widgets subdirectory
+        const defaultWidgetsDir = path.join(defaultDir, 'cabbage', 'widgets');
+        const defaultUri = vscode.Uri.file(defaultWidgetsDir);
 
-        // Verify the directory structure exists
-        try {
-            await vscode.workspace.fs.stat(vscode.Uri.file(widgetsDir));
-        } catch {
-            vscode.window.showErrorMessage(`Cabbage: Widget directory not found at ${widgetsDir}. The custom widget folder structure may not have been set up correctly.`);
-            return;
+        // Prompt user to choose save location
+        const saveUri = await vscode.window.showSaveDialog({
+            defaultUri: defaultUri,
+            filters: {
+                'JavaScript files': ['js']
+            },
+            saveLabel: 'Create Custom Widget'
+        });
+
+        if (!saveUri) {
+            return; // User cancelled
         }
 
         // List of built-in widget types to prevent conflicts
@@ -494,8 +500,6 @@ export class Settings {
         });
         if (!widgetName) return;
 
-        const targetFile = path.join(widgetsDir, `${widgetName}.js`);
-
         try {
             // Read template
             const templateUri = vscode.Uri.file(templatePath);
@@ -514,25 +518,24 @@ export class Settings {
             // Replace channel id (e.g., "id": "customWidget" -> "id": "testButton")
             content = content.replace(/"id":\s*"customWidget"/g, `"id": "${widgetType}"`);
 
-            // Write file
-            const targetUri = vscode.Uri.file(targetFile);
-            // If exists, ask for overwrite
+            // Check if file exists and ask for overwrite
             try {
-                await vscode.workspace.fs.stat(targetUri);
-                const overwrite = await vscode.window.showQuickPick(['Overwrite', 'Cancel'], { placeHolder: `${widgetName}.js already exists. Overwrite?` });
+                await vscode.workspace.fs.stat(saveUri);
+                const overwrite = await vscode.window.showQuickPick(['Overwrite', 'Cancel'], { placeHolder: `${path.basename(saveUri.fsPath)} already exists. Overwrite?` });
                 if (overwrite !== 'Overwrite') return;
             } catch { /* file does not exist, continue */ }
 
-            await vscode.workspace.fs.writeFile(targetUri, new TextEncoder().encode(content));
+            // Write file
+            await vscode.workspace.fs.writeFile(saveUri, new TextEncoder().encode(content));
 
             // Open the new file in editor
-            const doc = await vscode.workspace.openTextDocument(targetUri);
+            const doc = await vscode.workspace.openTextDocument(saveUri);
             await vscode.window.showTextDocument(doc);
 
             // Trigger a rescan so the new widget appears in the context menu immediately
             await vscode.commands.executeCommand('cabbage.restartBackend');
 
-            vscode.window.showInformationMessage(`Cabbage: Created custom widget ${widgetName} at ${widgetsDir}`);
+            vscode.window.showInformationMessage(`Cabbage: Created custom widget ${widgetName} at ${saveUri.fsPath}`);
         } catch (err) {
             console.error('Cabbage: Failed to create custom widget', err);
             vscode.window.showErrorMessage(`Cabbage: Failed to create custom widget: ${String(err)}`);

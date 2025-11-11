@@ -338,6 +338,15 @@ export async function activate(context: vscode.ExtensionContext):
             await Commands.exportInstrument('VST3Synth');
         }));
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.createVanillaVST3Effect', async () => {
+            await Commands.createVanillaProject('VST3Effect');
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.createVanillaVST3Synth', async () => {
+            await Commands.createVanillaProject('VST3Synth');
+        }));
+
     if (os.platform() === 'darwin') {
         context.subscriptions.push(
             vscode.commands.registerCommand('cabbage.exportAUSynth', async () => {
