@@ -87,6 +87,14 @@
           "default": "",
           "description": "Path to Cabbage Javascript directory on MacOS. Leave empty to use default location\nor use command palette to browse for custom JS directory."
         },
+        "cabbage.customWidgetDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Custom widget directories. Each directory should contain a `cabbage` folder structure.\n\n**Recommended**: Use `Cabbage: Set Custom Widget Directory` command which automatically copies the required folder structure.\n\nManually added paths must contain: `cabbage/widgets/` subdirectory with all Cabbage framework files."
+        },
         "cabbage.pathToJsSourceLinux": {
           "type": "string",
           "default": "",
@@ -329,6 +337,11 @@
       {
         "command": "cabbage.setCabbageBinaryPath",
         "title": "Set path to the Cabbage binary",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setCustomWidgetDirectory",
+        "title": "Set Custom Widget Directory",
         "category": "Cabbage"
       },
       {
