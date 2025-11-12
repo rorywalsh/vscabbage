@@ -482,7 +482,6 @@ be lost when working with the UI editor. -->\n`;
         // defaultProps is supplied by the caller. Ensure we have an object to work with.
         defaultProps = defaultProps || ({} as WidgetProps);
 
-        const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
         const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
         let cabbageMatch = originalText.match(cabbageRegexWithWarning);
@@ -552,7 +551,18 @@ be lost when working with the UI editor. -->\n`;
                         }
                     } else {
                         const searchId = oldId || getChannelId(props);
-                        const existingIndex = cabbageJsonArray.findIndex((o: any) => getChannelId(o) === searchId);
+
+                        // Find an existing object by matching the searchId against
+                        // all reasonable identifier fields (id, channel, channels[0].id).
+                        const existingIndex = cabbageJsonArray.findIndex((o: any) => {
+                            if (!searchId) return false;
+                            if (o == null) return false;
+                            if (typeof o.id === 'string' && o.id === searchId) return true;
+                            if (typeof o.channel === 'string' && o.channel === searchId) return true;
+                            if (o.channels && Array.isArray(o.channels) && o.channels[0] && typeof o.channels[0].id === 'string' && o.channels[0].id === searchId) return true;
+                            return false;
+                        });
+
                         if (existingIndex !== -1) {
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
@@ -650,7 +660,7 @@ ${JSON.stringify(props, null, 4)}
         if (externalFile) {
             const externalEditor = await ExtensionUtils.openOrShowTextDocument(externalFile);
             if (externalEditor) {
-                await ExtensionUtils.updateExternalJsonFile(externalEditor, props, defaultProps);
+                await ExtensionUtils.updateExternalJsonFile(externalEditor, props, defaultProps, oldId);
             } else {
                 vscodeOutputChannel.append(`Failed to open the external JSON file: ${externalFile}`);
             }
@@ -1089,7 +1099,7 @@ ${JSON.stringify(props, null, 4)}
 
 
 
-    static async updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetProps, defaultProps: WidgetProps) {
+    static async updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetProps, defaultProps: WidgetProps, oldId?: string) {
         const document = editor.document;
         const jsonArray = JSON.parse(document.getText()) as WidgetProps[];
 
@@ -1130,8 +1140,15 @@ ${JSON.stringify(props, null, 4)}
                 jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
             }
         } else {
-            const searchId = getChannelId(props);
-            const existingIndex = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
+            const searchId = oldId || getChannelId(props);
+                const existingIndex = jsonArray.findIndex(obj => {
+                    if (!searchId) return false;
+                    if (obj == null) return false;
+                    if (typeof obj.id === 'string' && obj.id === searchId) return true;
+                    if (typeof obj.channel === 'string' && obj.channel === searchId) return true;
+                    if (obj.channels && Array.isArray(obj.channels) && obj.channels[0] && typeof obj.channels[0].id === 'string' && obj.channels[0].id === searchId) return true;
+                    return false;
+                });
             if (existingIndex !== -1) {
                 jsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[existingIndex], props));
             } else {
