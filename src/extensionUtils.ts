@@ -1141,14 +1141,14 @@ ${JSON.stringify(props, null, 4)}
             }
         } else {
             const searchId = oldId || getChannelId(props);
-                const existingIndex = jsonArray.findIndex(obj => {
-                    if (!searchId) return false;
-                    if (obj == null) return false;
-                    if (typeof obj.id === 'string' && obj.id === searchId) return true;
-                    if (typeof obj.channel === 'string' && obj.channel === searchId) return true;
-                    if (obj.channels && Array.isArray(obj.channels) && obj.channels[0] && typeof obj.channels[0].id === 'string' && obj.channels[0].id === searchId) return true;
-                    return false;
-                });
+            const existingIndex = jsonArray.findIndex(obj => {
+                if (!searchId) return false;
+                if (obj == null) return false;
+                if (typeof obj.id === 'string' && obj.id === searchId) return true;
+                if (typeof obj.channel === 'string' && obj.channel === searchId) return true;
+                if (obj.channels && Array.isArray(obj.channels) && obj.channels[0] && typeof obj.channels[0].id === 'string' && obj.channels[0].id === searchId) return true;
+                return false;
+            });
             if (existingIndex !== -1) {
                 jsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[existingIndex], props));
             } else {

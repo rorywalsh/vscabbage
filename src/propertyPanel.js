@@ -670,10 +670,38 @@ export class PropertyPanel {
                             this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
                         }
 
-                        // Rebuild the properties panel to reflect the ID change
-                        this.rebuildPropertiesPanel();
+                        // If the user pressed Tab we want to preserve tab order across the
+                        // rebuild. Capture the current tabbable elements index, rebuild,
+                        // then focus the next element.
+                        const isTab = evt.key === 'Tab';
+                        const isShift = evt.shiftKey === true;
+                        if (isTab) {
+                            const selectors = '.property-panel input, .property-panel select, .property-panel textarea, .property-panel button, .property-panel [tabindex]:not([tabindex="-1"])';
+                            const focusables = Array.from(document.querySelectorAll(selectors));
+                            let currIndex = focusables.indexOf(input);
+                            if (currIndex === -1) currIndex = 0;
 
-                        input.blur();
+                            // Rebuild the panel (this will recreate DOM nodes)
+                            this.rebuildPropertiesPanel();
+                            input.blur();
+
+                            // After rebuild, attempt to focus the next or previous element in order
+                            setTimeout(() => {
+                                const newFocusables = Array.from(document.querySelectorAll(selectors));
+                                if (newFocusables.length === 0) return;
+                                let targetIndex = isShift ? currIndex - 1 : currIndex + 1;
+                                if (targetIndex < 0) targetIndex = 0;
+                                if (targetIndex >= newFocusables.length) targetIndex = newFocusables.length - 1;
+                                const target = newFocusables[targetIndex] || newFocusables[0];
+                                if (target && typeof target.focus === 'function') {
+                                    try { target.focus(); } catch (e) { /* ignore focus errors */ }
+                                }
+                            }, 60);
+                        } else {
+                            // Default Enter behaviour: rebuild and blur the input
+                            this.rebuildPropertiesPanel();
+                            input.blur();
+                        }
                     }
                     else {
                         console.warn("Cabbage: Cabbage: widget doesn't exist in this context");
