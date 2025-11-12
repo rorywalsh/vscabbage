@@ -186,6 +186,13 @@ export class Commands {
     ) {
         this.websocket = ws;
         const config = vscode.workspace.getConfiguration("cabbage");
+
+        // Compatibility shim: accept legacy 'widgetUpdate' and 'updateWidgetText'
+        // and normalize them to 'updateWidgetProps'. This allows gradual
+        // migration of webview senders without breaking runtime.
+        if (message && (message.command === 'widgetUpdate' || message.command === 'updateWidgetText')) {
+            message.command = 'updateWidgetProps';
+        }
         switch (message.command) {
             case 'getMediaFiles':
                 try {
@@ -240,11 +247,22 @@ export class Commands {
                 }
                 break;
 
-            case 'widgetUpdate':
+            case 'updateWidgetProps':
+                // Webview panels post minimized/validated widget properties under
+                // 'updateWidgetProps'. The payload is provided in 'text' (JSON
+                // string) and may include an optional 'oldId' for channel remapping.
                 if (getCabbageMode() !== "play") {
-                    ExtensionUtils.updateText(message.text, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, 3, message.oldId);
+                    const rawText = message && message.text;
+                    if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
+                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, 3, message.oldId);
+                    }
                 }
                 break;
+
+            /* 'widgetUpdate' is deprecated in favor of 'updateWidgetText'.
+               PropertyPanel and other senders should use 'updateWidgetText' which
+               sends minimized/validated payloads. The old 'widgetUpdate' path
+               has been removed to avoid duplicate handling. */
 
             case 'removeWidget':
                 if (getCabbageMode() !== "play") {

@@ -9,6 +9,85 @@
 import { CabbageUtils } from "./cabbage/utils.js";
 import { WidgetManager } from "./cabbage/widgetManager.js";
 
+// Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
+// returns undefined, which can lead to the extension receiving an invalid payload.
+function safeSanitizeForPost(obj) {
+    try {
+        const sanitized = CabbageUtils.sanitizeForEditor(obj);
+        // Convert undefined -> {} so JSON.stringify always returns a string
+        return JSON.stringify(sanitized === undefined ? {} : sanitized);
+    } catch (e) {
+        console.error('PropertyPanel.safeSanitizeForPost failed:', e);
+        return '{}';
+    }
+}
+
+// Create a minimized copy of props by stripping any properties that exactly match
+// the widget's raw defaults (widget.rawDefaults). This runs on a deep clone so
+// it does not mutate the live widget instance.
+function minimizePropsForWidget(props, widget) {
+    try {
+        if (!props || !widget) return props;
+        const defaults = widget.rawDefaults || {};
+        // Deep clone the props to avoid mutating live state
+        const clone = JSON.parse(JSON.stringify(props));
+
+        const strip = (obj, defs) => {
+            if (!obj || !defs) return;
+            // Arrays
+            if (Array.isArray(obj) && Array.isArray(defs)) {
+                const defElem = defs[0];
+                if (defElem && typeof defElem === 'object') {
+                    for (let i = 0; i < obj.length; i++) {
+                        if (obj[i] && typeof obj[i] === 'object') strip(obj[i], defElem);
+                    }
+                } else {
+                    // Primitive arrays: remove if equal
+                    if (WidgetManager.deepEqual(obj, defs)) {
+                        return true; // signal to caller to remove
+                    }
+                }
+                return false;
+            }
+
+            if (typeof obj !== 'object' || typeof defs !== 'object') return false;
+
+            Object.keys(defs).forEach((k) => {
+                if (!(k in obj)) return;
+                const dv = defs[k];
+                const v = obj[k];
+                if (WidgetManager.deepEqual(v, dv)) {
+                    delete obj[k];
+                    return;
+                }
+                if (v && dv && typeof v === 'object' && typeof dv === 'object') {
+                    if (Array.isArray(v) && Array.isArray(dv)) {
+                        if (dv.length > 0 && typeof dv[0] === 'object') {
+                            for (let i = 0; i < v.length; i++) {
+                                if (v[i] && typeof v[i] === 'object') strip(v[i], dv[0]);
+                            }
+                        } else {
+                            if (WidgetManager.deepEqual(v, dv)) delete obj[k];
+                        }
+                    } else {
+                        strip(v, dv);
+                        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+                            delete obj[k];
+                        }
+                    }
+                }
+            });
+            return false;
+        };
+
+        strip(clone, defaults);
+        return clone;
+    } catch (e) {
+        console.error('PropertyPanel.minimizePropsForWidget failed:', e);
+        return props;
+    }
+}
+
 export class PropertyPanel {
     constructor(vscode, type, properties, widgets) {
         this.vscode = vscode;           // VSCode API instance
@@ -37,19 +116,20 @@ export class PropertyPanel {
     checkChannelUniqueness() {
         const allIds = new Set();
         this.widgets.forEach(widget => {
-            if (widget.props.channels) {
+            if (widget.props && Array.isArray(widget.props.channels)) {
                 widget.props.channels.forEach(channel => {
                     if (allIds.has(channel.id)) {
                         console.error(`Conflict detected: Widget channel '${channel.id}' must be unique!`);
                     } else {
                         allIds.add(channel.id);
                     }
-                });
-            }
-        });
-    }
-    /** 
-     * Creates the main property panel and its sections.
+                }); // end widget.props.channels.forEach
+            } // end if (widget.props.channels)
+        }); // end this.widgets.forEach
+    } // end checkChannelUniqueness
+
+    /**
+     * Creates or rebuilds the panel DOM and attaches listeners.
      */
     createPanel() {
         console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', CabbageUtils.getChannelId(this.properties, 0));
@@ -303,11 +383,18 @@ export class PropertyPanel {
             delete this.properties.id;
         }
         this.rebuildPropertiesPanel();
-        // Send update to vscode
-        this.vscode.postMessage({
-            command: 'widgetUpdate',
-            text: JSON.stringify(CabbageUtils.sanitizeForEditor(this.properties)),
-        });
+        // Send update to vscode (minimize props before sending)
+        try {
+            const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
+            const minimized = minimizePropsForWidget(this.properties, widget);
+            this.vscode.postMessage({
+                command: 'updateWidgetProps',
+                text: safeSanitizeForPost(minimized),
+            });
+        } catch (e) {
+            console.error('PropertyPanel: failed to post addChannel update', e);
+            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(this.properties) });
+        }
     }
 
     /**
@@ -321,10 +408,17 @@ export class PropertyPanel {
         }
         this.properties.channels.splice(index, 1);
         this.rebuildPropertiesPanel();
-        this.vscode.postMessage({
-            command: 'widgetUpdate',
-            text: JSON.stringify(CabbageUtils.sanitizeForEditor(this.properties)),
-        });
+        try {
+            const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
+            const minimized = minimizePropsForWidget(this.properties, widget);
+            this.vscode.postMessage({
+                command: 'updateWidgetProps',
+                text: safeSanitizeForPost(minimized),
+            });
+        } catch (e) {
+            console.error('PropertyPanel: failed to post removeChannel update', e);
+            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(this.properties) });
+        }
     }
 
     createSection(name, options = {}) {
@@ -523,11 +617,17 @@ export class PropertyPanel {
                         }
 
                         // Send update with old ID so extension can find and update the correct widget
-                        this.vscode.postMessage({
-                            command: 'widgetUpdate',
-                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
-                            oldId: originalChannel
-                        });
+                        try {
+                            const minimized = minimizePropsForWidget(widget.props, widget);
+                            this.vscode.postMessage({
+                                command: 'updateWidgetProps',
+                                text: safeSanitizeForPost(minimized),
+                                oldId: originalChannel
+                            });
+                        } catch (e) {
+                            console.error('PropertyPanel: failed to post id-change update', e);
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props), oldId: originalChannel });
+                        }
 
                         // Rebuild the properties panel to reflect the ID change
                         this.rebuildPropertiesPanel();
@@ -891,11 +991,17 @@ export class PropertyPanel {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 
-                console.log('PropertyPanel: sending widgetUpdate to VSCode');
-                this.vscode.postMessage({
-                    command: 'widgetUpdate',
-                    text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
-                });
+                console.log('PropertyPanel: sending updateWidgetProps to VSCode');
+                try {
+                    const minimized = minimizePropsForWidget(widget.props, widget);
+                    this.vscode.postMessage({
+                        command: 'updateWidgetProps',
+                        text: safeSanitizeForPost(minimized),
+                    });
+                } catch (e) {
+                    console.error('PropertyPanel: failed to post widgetUpdate', e);
+                    this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props) });
+                }
             }
         });
     }
@@ -1030,10 +1136,16 @@ export class PropertyPanel {
 
                     // Delay sending messages to VSCode to avoid slow responses
                     setTimeout(() => {
-                        this.vscode.postMessage({
-                            command: 'widgetUpdate',
-                            text: JSON.stringify(CabbageUtils.sanitizeForEditor(widget.props)),
-                        });
+                        try {
+                            const minimized = minimizePropsForWidget(widget.props, widget);
+                            this.vscode.postMessage({
+                                command: 'updateWidgetProps',
+                                text: safeSanitizeForPost(minimized),
+                            });
+                        } catch (e) {
+                            console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props) });
+                        }
                     }, (index + 1) * 150); // Delay increases with index
                 }
             });

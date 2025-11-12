@@ -15,12 +15,28 @@ import stringify from 'json-stringify-pretty-compact';
 import { Settings } from './settings';
 
 
-// Define an interface for the old-style widget structure
+/** 
+ *  Define an interface for the old-style widget structure
+*/
 interface WidgetChannel { id: string; event: string; range?: { min: number; max: number; defaultValue?: number; value?: number; increment?: number; skew?: number } }
 interface Widget { type: string; bounds?: { top: number; left: number; width: number; height: number }; channels?: WidgetChannel[]; size?: { width: number; height: number }; text?: string | string[]; tableNumber?: number }
 
 export class ExtensionUtils {
 
+    /**
+     * Cache of parsed default props keyed by widget type.
+     * Populated at activation by scanning JS source files.
+     */
+    static defaultPropsByType: Record<string, WidgetProps> = {};
+
+    /**
+     * Returns the cached default props for a widget type, or an empty object
+     * if none have been discovered.
+     */
+    static getDefaultPropsForType(type: string): WidgetProps {
+        if (!type) return {} as WidgetProps;
+        return ExtensionUtils.defaultPropsByType[type] || ({} as WidgetProps);
+    }
     /**
      * Gets the warning comment for Cabbage sections based on user settings.
      * @returns The warning comment string if enabled, otherwise an empty string.
@@ -31,10 +47,8 @@ export class ExtensionUtils {
         if (!showWarning) {
             return "";
         }
-        return `<!--⚠️ Warning: Although you can manually edit the Cabbage JSON code, it will
-also be rewritten by the Cabbage UI editor. This means any custom formatting 
-(indentation, spacing, or comments) may be lost when the file is saved through the 
-editor. -->\n`;
+        return `<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
+be lost when working with the UI editor. -->\n`;
     }
 
     /**
@@ -437,6 +451,18 @@ editor. -->\n`;
         // and then the relevant textEditor
         const textEditor = vscode.window.activeTextEditor;
 
+        // Defensive: ensure we have a valid JSON string before attempting to parse.
+        if (typeof jsonText !== 'string' || jsonText === '' || jsonText === 'undefined') {
+            console.error('ExtensionUtils.updateText: invalid jsonText received:', jsonText);
+            try {
+                vscodeOutputChannel.appendLine(`ExtensionUtils.updateText: invalid jsonText received: ${String(jsonText)}`);
+                vscodeOutputChannel.show(true);
+            } catch (e) {
+                // ignore logging errors
+            }
+            return;
+        }
+
         let props: WidgetProps;
         try {
             props = JSON.parse(jsonText);
@@ -468,7 +494,16 @@ editor. -->\n`;
 
         // Default props are only used for filtering - we don't need them in the extension
         // The webview will handle actual widget defaults
-        const defaultProps = {} as WidgetProps;
+        // Use any cached default props discovered at activation time.
+        let defaultProps = {} as WidgetProps;
+        try {
+            if (props && props.type) {
+                defaultProps = ExtensionUtils.getDefaultPropsForType(props.type) || ({} as WidgetProps);
+            }
+        } catch (err) {
+            // Fall back to empty defaults if cache lookup fails
+            defaultProps = {} as WidgetProps;
+        }
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -963,6 +998,66 @@ ${JSON.stringify(props, null, 4)}
             return newObj;
         };
 
+        // Helper: recursively strip properties from `obj` that are equal to `defaults`.
+        // This handles nested objects and arrays (arrays use the first element of defaults as a template).
+        const stripDefaults = (obj: any, defaults: any) => {
+            if (!obj || !defaults) return;
+            // If both are arrays and defaults has an element template, apply to each element
+            if (Array.isArray(obj) && Array.isArray(defaults)) {
+                const defElem = defaults[0];
+                if (defElem !== undefined && typeof defElem === 'object' && defElem !== null) {
+                    for (let i = 0; i < obj.length; i++) {
+                        if (typeof obj[i] === 'object' && obj[i] !== null) {
+                            stripDefaults(obj[i], defElem);
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (typeof obj !== 'object' || typeof defaults !== 'object') return;
+
+            Object.keys(defaults).forEach((k) => {
+                if (!(k in obj)) return;
+                const dv = defaults[k];
+                const v = obj[k];
+
+                // Exact match -> remove
+                if (ExtensionUtils.deepEqual(v, dv)) {
+                    delete obj[k];
+                    return;
+                }
+
+                // Recurse for objects/arrays
+                if (typeof v === 'object' && v !== null && typeof dv === 'object' && dv !== null) {
+                    if (Array.isArray(v) && Array.isArray(dv)) {
+                        // Use first element of dv as template for elements of v
+                        if (dv.length > 0 && typeof dv[0] === 'object') {
+                            for (let i = 0; i < v.length; i++) {
+                                if (typeof v[i] === 'object' && v[i] !== null) {
+                                    stripDefaults(v[i], dv[0]);
+                                    // If element became empty, keep it (IDs etc. may be required)
+                                }
+                            }
+                        } else {
+                            // Primitive arrays - if they match, remove
+                            if (ExtensionUtils.deepEqual(v, dv)) {
+                                delete obj[k];
+                            }
+                        }
+                    } else {
+                        stripDefaults(v, dv);
+                        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+                            delete obj[k];
+                        }
+                    }
+                }
+            });
+        };
+
+        // Legacy: do not enforce presence of props.type here. Accept the incoming
+        // payload as-is and allow callers to decide how to handle missing 'type'.
+
         // Check if the new object is of type 'form'
         if (props.type === 'form') {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
@@ -970,21 +1065,15 @@ ${JSON.stringify(props, null, 4)}
 
             if (formIndex !== -1) {
                 let newFormObject = deepMerge(jsonArray[formIndex], cleanedProps);
-                // Remove properties that match default values
-                for (let key in defaultProps) {
-                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
-                        delete newFormObject[key];
-                    }
-                }
+                // Preserve any existing behaviour: do not inject a 'type' here.
+                // Recursively remove properties that match defaults
+                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
                 jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject));
             } else {
                 let newFormObject = { ...cleanedProps };
-                // Remove properties that match default values
-                for (let key in defaultProps) {
-                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
-                        delete newFormObject[key];
-                    }
-                }
+                // Do not auto-insert 'type' for newly created forms; keep cleanedProps as-is.
+                // Recursively remove properties that match defaults
+                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
                 jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject)));
             }
             return jsonArray;
@@ -992,28 +1081,24 @@ ${JSON.stringify(props, null, 4)}
 
         // Use oldId if provided (for ID changes), otherwise use the current ID
         const searchId = oldId || getChannelId(props);
-        let existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
+
+        // Find existing object by channel/id
+        const existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
 
         if (existingObject) {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
             let newObject = deepMerge(existingObject, cleanedProps);
-            // Remove properties that match default values
-            for (let key in defaultProps) {
-                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                    delete newObject[key];
-                }
-            }
+            // Do not force a 'type' value here; keep merged object as-is.
+            // Recursively remove properties that match defaults
+            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
             const index = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
             let newObject = { ...cleanedProps };
-            // Remove properties that match default values
-            for (let key in defaultProps) {
-                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                    delete newObject[key];
-                }
-            }
+            // Do not inject 'type' into new objects; rely on upstream payloads.
+            // Recursively remove properties that match defaults
+            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
             jsonArray.push(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject)));
         }
 

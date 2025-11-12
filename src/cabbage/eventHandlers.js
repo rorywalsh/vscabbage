@@ -185,7 +185,7 @@ async function groupSelectedWidgets() {
         // Update the CSD file with the new container
         if (vscode) {
             vscode.postMessage({
-                command: 'widgetUpdate',
+                command: 'updateWidgetProps',
                 text: JSON.stringify(containerWidget.originalProps)
             });
         }
@@ -257,7 +257,7 @@ async function groupSelectedWidgets() {
     // Update the CSD file with the modified container (now with children)
     if (vscode) {
         vscode.postMessage({
-            command: 'widgetUpdate',
+            command: 'updateWidgetProps',
             text: JSON.stringify(containerWidget.props)
         });
     }
@@ -362,7 +362,7 @@ async function ungroupSelectedWidgets() {
         // Update the CSD file with the new top-level widget
         if (vscode) {
             vscode.postMessage({
-                command: 'widgetUpdate',
+                command: 'updateWidgetProps',
                 text: JSON.stringify(topLevelProps)
             });
         }
@@ -382,7 +382,7 @@ async function ungroupSelectedWidgets() {
     // Update the CSD file with the container (now without children)
     if (vscode) {
         vscode.postMessage({
-            command: 'widgetUpdate',
+            command: 'updateWidgetProps',
             text: JSON.stringify(containerWidget.props)
         });
     }
@@ -659,13 +659,13 @@ export function setupFormHandlers() {
                         console.warn("Cabbage: Inserted widget:", widget);
                         if (widgets) {
                             if (widget) {
-                                vscode.postMessage({
-                                    command: 'widgetUpdate',
-                                    text: JSON.stringify(widget.originalProps)
-                                });
-                            } else {
-                                console.error("Cabbage: Widget is undefined, cannot send to VS Code");
-                            }
+                                    vscode.postMessage({
+                                        command: 'updateWidgetProps',
+                                        text: JSON.stringify(widget.originalProps)
+                                    });
+                                } else {
+                                    console.error("Cabbage: Widget is undefined, cannot send to VS Code");
+                                }
                         }
                     });
                 }
