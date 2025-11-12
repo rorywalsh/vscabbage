@@ -10,7 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
-import WebSocket, { Server as WebSocketServer } from 'ws'; // Import WebSocket types
+// WebSocket support removed - communication now uses stdin/stdout pipes
 // @ts-ignore
 import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 import { Commands } from './commands';
@@ -98,9 +98,9 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
             position
         };
     }
-}// Setup websocket server
-let wss: WebSocketServer;
-let websocket: WebSocket | undefined;
+}
+// WebSocket server removed; communication happens over stdin/stdout pipes
+// (websocket variables and server were removed)
 let firstMessages: any[] = [];
 let warningDecoration: vscode.TextEditorDecorationType | undefined;
 
@@ -108,8 +108,8 @@ let warningDecoration: vscode.TextEditorDecorationType | undefined;
 /**
  * Activates the Cabbage extension, setting up commands, configuration change
  * listeners, and event handlers for saving documents, opening documents, and
- * changing tabs. Also sets up a status bar item and initializes the WebSocket
- * server. *
+ * changing tabs. Also sets up a status bar item and initializes backend
+ * communication.
  * @param context The extension context for managing VS Code subscriptions.
  */
 export async function activate(context: vscode.ExtensionContext):
@@ -228,7 +228,7 @@ export async function activate(context: vscode.ExtensionContext):
             await Commands.withServerRestart(() => Settings.selectAudioDevice('input'));
             // clear sound file config when selecting live audio input
             await context.globalState.update('soundFileInput', undefined);
-            Commands.sendFileToChannel(context, websocket, '', -1);
+            Commands.sendFileToChannel(context, '', -1);
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
@@ -402,22 +402,22 @@ export async function activate(context: vscode.ExtensionContext):
         }));
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.editMode', () => {
-            Commands.enterEditMode(websocket);
+            Commands.enterEditMode();
         }));
 
     // utility function to send text to Cabbage instrument overriding the current
     // realtime audio inputs
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.sendFileToChannel1and2', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, websocket, uri.fsPath, 12);
+            Commands.sendFileToChannel(context, uri.fsPath, 12);
         }));
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.sendFileToChannel1', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, websocket, uri.fsPath, 1);
+            Commands.sendFileToChannel(context, uri.fsPath, 1);
         }));
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.sendFileToChannel2', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, websocket, uri.fsPath, 2);
+            Commands.sendFileToChannel(context, uri.fsPath, 2);
         }));
 
     // Register the commands for creating new Cabbage files
@@ -530,10 +530,10 @@ export async function activate(context: vscode.ExtensionContext):
  * - Tries to save the file first as Cabbage/Csound will read the file from disk
  * - Checks if the saved document is a .csd file with Cabbage-specific tags.
  * - Sets Cabbage mode to "play" and ensures the Cabbage webview panel is open
- * - Waits for the WebSocket connection to be ready before handling any messages
- * from the webview.
- * - Listens for messages from the webview and processes them via WebSocket if
- * available.
+ * - Waits for the backend to be ready before handling any messages from the
+ * webview.
+ * - Listens for messages from the webview and processes them via the backend
+ * if available.
  *
  * @param editor The text editor containing the saved document.
  */
@@ -558,7 +558,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
     }
 
     // kill any other processes running
-    // websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+    // previously sent stopAudio via WebSocket; now use stdin/stdout pipes
+    // Commands.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
 
 
     if (editor) {
@@ -649,12 +650,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
             console.log('Cabbage: No panel found to send performance mode message');
         }
 
-        if (websocket) {
-            websocket.send(JSON.stringify({
-                command: "onFileChanged",
-                lastSavedFileName: editor.fileName
-            }));
-        }
+        // Notify backend via stdin/stdout pipes
+        Commands.sendMessageToCabbageApp({ command: "onFileChanged", lastSavedFileName: editor.fileName });
 
         const vscodeOutputChannel = Commands.getOutputChannel();
         if (config.get("clearConsoleOnCompile")) {
@@ -670,16 +667,14 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
                     vscode.window.showInformationMessage(
                         `Routing ${file} to channel ${channel}`);
                 }
-                Commands.sendFileToChannel(context, undefined, file, Number(channel));
+                Commands.sendFileToChannel(context, file, Number(channel));
             }
         }, 2000);
 
         const panel = Commands.getPanel();
         if (panel) {
             panel.webview.onDidReceiveMessage(message => {
-                Commands.handleWebviewMessage(
-                    message, undefined, firstMessages, vscode.window.activeTextEditor,
-                    context);
+                Commands.handleWebviewMessage(message, firstMessages, vscode.window.activeTextEditor, context);
             });
         } else {
             console.warn('Cabbage: Cabbage: No webview found');
@@ -787,22 +782,10 @@ function onUpdate(previousVersion: string, currentVersion: string) {
  */
 export function deactivate() {
     // Existing process cleanup
-    websocket?.send(JSON.stringify({ command: "stopAudio", text: "" }));
+    Commands.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });
-
-    // Add WebSocket server cleanup
-    if (wss) {
-        wss.close(() => {
-            console.log('Cabbage: WebSocket server closed');
-        });
-    }
-
-    // Add WebSocket client cleanup
-    if (websocket) {
-        websocket.close();
-    }
 }
 
 /**
@@ -829,122 +812,4 @@ export function deactivate() {
  * connections. The server is used to communicate between the Cabbage service
  * app and the Cabbage webview panel.
  */
-export async function setupWebSocketServer(freePort?: number): Promise<void> {
-    // Close existing server if it exists
-    if (wss) {
-        wss.close();
-    }
-
-    wss = new WebSocket.Server({ port: freePort });
-
-    // Create a promise to wait for the client connection
-    const clientConnectedPromise = new Promise((resolve) => {
-        wss.on('connection', (ws) => {
-            console.warn('Cabbage: Client connected');
-
-            // Flush the first messages received from Cabbage if any
-            firstMessages.forEach((msg) => {
-                const panel = Commands.getPanel();
-                if (panel) {
-                    let channel = msg['channel'];
-                    if (channel === null && msg['data']) {
-                        try {
-                            const parsed = JSON.parse(msg['data']);
-                            channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                        } catch (e) {
-                            console.error('Failed to parse data for channel:', e);
-                        }
-                    }
-                    panel.webview.postMessage({
-                        command: 'widgetUpdate',
-                        channel: channel,
-                        data: msg['data'],
-                        currentCsdPath: Commands.getCurrentFileName(),
-                    });
-                }
-            });
-            firstMessages = [];
-
-            websocket = ws;
-
-            // Add error handler for the websocket
-            ws.on('error', (error) => {
-                console.error('Cabbage: WebSocket error:', error);
-            });
-
-            // Listen for messages from the Cabbage service app
-            ws.on('message', (message) => {
-                const msg = JSON.parse(message.toString());
-
-                if (msg.hasOwnProperty('command')) {
-                    if (msg['command'] === 'widgetUpdate') {
-                        const panel = Commands.getPanel();
-                        if (panel) {
-                            if (msg.hasOwnProperty('data')) {
-                                let channel = msg['channel'];
-                                if (channel === null && msg['data']) {
-                                    try {
-                                        const parsed = JSON.parse(msg['data']);
-                                        channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                                    } catch (e) {
-                                        console.error('Failed to parse data for channel:', e);
-                                    }
-                                }
-                                panel.webview.postMessage({
-                                    command: 'widgetUpdate',
-                                    channel: channel,
-                                    data: msg['data'],
-                                    currentCsdPath: Commands.getCurrentFileName(),
-                                });
-                            } else if (msg.hasOwnProperty('value')) {
-                                panel.webview.postMessage({
-                                    command: 'widgetUpdate',
-                                    channel: msg['channel'],
-                                    value: msg['value'],
-                                    currentCsdPath: Commands.getCurrentFileName(),
-                                });
-                            }
-                        }
-                    }
-                    else if (msg['command'] === 'failedToCompile') {
-                        // Handle panel disposal
-                        let panel = Commands.getPanel();
-                        if (panel) {
-                            panel.dispose();
-                            panel = undefined;
-                        }
-                    }
-                }
-            });
-
-            ws.on('close', () => console.log('Cabbage: Client disconnected'));
-
-            // Resolve the promise to indicate a client connection
-            resolve(ws);
-        });
-    });
-
-
-    // Add an error event listener to check if the server encounters an issue
-    wss.on('error', (error) => {
-        const vscodeOutputChannel = Commands.getOutputChannel();
-        if ((error as any).code === 'EADDRINUSE') {
-            console.error('Cabbage: Port 9991 is already in use.');
-            vscodeOutputChannel.appendLine('Port 9991 is already in use.');
-        } else {
-            console.error('Cabbage: Failed to initialize WebSocket server:', error);
-            vscodeOutputChannel.appendLine('Failed to initialize WebSocket server:');
-        }
-        // Optional: shut down the server if initialization failed
-        wss.close();
-    });
-
-    // Add a listening event to confirm the server started successfully
-    wss.on('listening', () => {
-        console.log(
-            `Cabbage: WebSocket server successfully started on port ${freePort} - listening for connection`);
-    });
-
-    // Wait for the client to connect before returning
-    await clientConnectedPromise;
-}
+// WebSocket server setup removed — communication now uses stdin/stdout pipes

@@ -9,86 +9,124 @@
 import { CabbageUtils } from "./cabbage/utils.js";
 import { WidgetManager } from "./cabbage/widgetManager.js";
 
-// Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
-// returns undefined, which can lead to the extension receiving an invalid payload.
-function safeSanitizeForPost(obj) {
-    try {
-        const sanitized = CabbageUtils.sanitizeForEditor(obj);
-        // Convert undefined -> {} so JSON.stringify always returns a string
-        return JSON.stringify(sanitized === undefined ? {} : sanitized);
-    } catch (e) {
-        console.error('PropertyPanel.safeSanitizeForPost failed:', e);
-        return '{}';
-    }
-}
-
-// Create a minimized copy of props by stripping any properties that exactly match
-// the widget's raw defaults (widget.rawDefaults). This runs on a deep clone so
-// it does not mutate the live widget instance.
-function minimizePropsForWidget(props, widget) {
-    try {
-        if (!props || !widget) return props;
-        const defaults = widget.rawDefaults || {};
-        // Deep clone the props to avoid mutating live state
-        const clone = JSON.parse(JSON.stringify(props));
-
-        const strip = (obj, defs) => {
-            if (!obj || !defs) return;
-            // Arrays
-            if (Array.isArray(obj) && Array.isArray(defs)) {
-                const defElem = defs[0];
-                if (defElem && typeof defElem === 'object') {
-                    for (let i = 0; i < obj.length; i++) {
-                        if (obj[i] && typeof obj[i] === 'object') strip(obj[i], defElem);
-                    }
-                } else {
-                    // Primitive arrays: remove if equal
-                    if (WidgetManager.deepEqual(obj, defs)) {
-                        return true; // signal to caller to remove
-                    }
-                }
-                return false;
-            }
-
-            if (typeof obj !== 'object' || typeof defs !== 'object') return false;
-
-            Object.keys(defs).forEach((k) => {
-                if (!(k in obj)) return;
-                const dv = defs[k];
-                const v = obj[k];
-                if (WidgetManager.deepEqual(v, dv)) {
-                    delete obj[k];
-                    return;
-                }
-                if (v && dv && typeof v === 'object' && typeof dv === 'object') {
-                    if (Array.isArray(v) && Array.isArray(dv)) {
-                        if (dv.length > 0 && typeof dv[0] === 'object') {
-                            for (let i = 0; i < v.length; i++) {
-                                if (v[i] && typeof v[i] === 'object') strip(v[i], dv[0]);
-                            }
-                        } else {
-                            if (WidgetManager.deepEqual(v, dv)) delete obj[k];
-                        }
-                    } else {
-                        strip(v, dv);
-                        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
-                            delete obj[k];
-                        }
-                    }
-                }
-            });
-            return false;
-        };
-
-        strip(clone, defaults);
-        return clone;
-    } catch (e) {
-        console.error('PropertyPanel.minimizePropsForWidget failed:', e);
-        return props;
-    }
-}
 
 export class PropertyPanel {
+    /**
+     * Default keys to always exclude when sending minimized props to VSCode.
+     * These are internal-only properties that should never be serialized to the
+     * extension when sending minimized updates.
+     * @type {string[]}
+     */
+    static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value'];
+
+    /**
+     * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
+     * returns undefined, which can lead to the extension receiving an invalid payload.
+     * Uses CabbageUtils.sanitizeForEditor then ensures JSON.stringify returns a string.
+     * @param {*} obj
+     * @returns {string} JSON string safe to send in postMessage
+     */
+    static safeSanitizeForPost(obj) {
+        try {
+            const sanitized = CabbageUtils.sanitizeForEditor(obj);
+            // Convert undefined -> {} so JSON.stringify always returns a string
+            return JSON.stringify(sanitized === undefined ? {} : sanitized);
+        } catch (e) {
+            console.error('PropertyPanel.safeSanitizeForPost failed:', e);
+            return '{}';
+        }
+    }
+
+    /**
+     * Remove any keys (in `keys`) from `obj`. This mutates the object and
+     * returns it for convenience. Safely handles non-object inputs.
+     * @param {Object|any} obj
+     * @param {string[]} keys
+     * @returns {Object|any}
+     */
+    static applyExcludes(obj, keys) {
+        try {
+            if (!obj || typeof obj !== 'object') return obj;
+            keys.forEach(k => {
+                if (k in obj) delete obj[k];
+            });
+        } catch (e) {
+            console.error('PropertyPanel.applyExcludes failed:', e);
+        }
+        return obj;
+    }
+
+    /**
+     * Create a minimized copy of `props` by stripping any properties that exactly
+     * match the widget's `rawDefaults`. Works on a deep clone so it does not
+     * mutate the live widget instance.
+     * @param {Object} props
+     * @param {Object} widget
+     * @returns {Object}
+     */
+    static minimizePropsForWidget(props, widget) {
+        try {
+            if (!props || !widget) return props;
+            const defaults = widget.rawDefaults || {};
+            // Deep clone the props to avoid mutating live state
+            const clone = JSON.parse(JSON.stringify(props));
+
+            const strip = (obj, defs) => {
+                if (!obj || !defs) return;
+                // Arrays
+                if (Array.isArray(obj) && Array.isArray(defs)) {
+                    const defElem = defs[0];
+                    if (defElem && typeof defElem === 'object') {
+                        for (let i = 0; i < obj.length; i++) {
+                            if (obj[i] && typeof obj[i] === 'object') strip(obj[i], defElem);
+                        }
+                    } else {
+                        // Primitive arrays: remove if equal
+                        if (WidgetManager.deepEqual(obj, defs)) {
+                            return true; // signal to caller to remove
+                        }
+                    }
+                    return false;
+                }
+
+                if (typeof obj !== 'object' || typeof defs !== 'object') return false;
+
+                Object.keys(defs).forEach((k) => {
+                    if (!(k in obj)) return;
+                    const dv = defs[k];
+                    const v = obj[k];
+                    if (WidgetManager.deepEqual(v, dv)) {
+                        delete obj[k];
+                        return;
+                    }
+                    if (v && dv && typeof v === 'object' && typeof dv === 'object') {
+                        if (Array.isArray(v) && Array.isArray(dv)) {
+                            if (dv.length > 0 && typeof dv[0] === 'object') {
+                                for (let i = 0; i < v.length; i++) {
+                                    if (v[i] && typeof v[i] === 'object') strip(v[i], dv[0]);
+                                }
+                            } else {
+                                if (WidgetManager.deepEqual(v, dv)) delete obj[k];
+                            }
+                        } else {
+                            strip(v, dv);
+                            if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+                                delete obj[k];
+                            }
+                        }
+                    }
+                });
+                return false;
+            };
+
+            strip(clone, defaults);
+            return clone;
+        } catch (e) {
+            console.error('PropertyPanel.minimizePropsForWidget failed:', e);
+            return props;
+        }
+    }
+
     constructor(vscode, type, properties, widgets) {
         this.vscode = vscode;           // VSCode API instance
         this.type = type;               // Type of the widget
@@ -386,10 +424,11 @@ export class PropertyPanel {
         // Send update to vscode (minimize props before sending)
         try {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
-            const minimized = minimizePropsForWidget(this.properties, widget);
+            let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
+            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: safeSanitizeForPost(minimized),
+                text: PropertyPanel.safeSanitizeForPost(minimized),
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post addChannel update', e);
@@ -410,10 +449,11 @@ export class PropertyPanel {
         this.rebuildPropertiesPanel();
         try {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
-            const minimized = minimizePropsForWidget(this.properties, widget);
+            let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
+            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: safeSanitizeForPost(minimized),
+                text: PropertyPanel.safeSanitizeForPost(minimized),
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post removeChannel update', e);
@@ -618,15 +658,16 @@ export class PropertyPanel {
 
                         // Send update with old ID so extension can find and update the correct widget
                         try {
-                            const minimized = minimizePropsForWidget(widget.props, widget);
+                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
                             this.vscode.postMessage({
                                 command: 'updateWidgetProps',
-                                text: safeSanitizeForPost(minimized),
+                                text: PropertyPanel.safeSanitizeForPost(minimized),
                                 oldId: originalChannel
                             });
                         } catch (e) {
                             console.error('PropertyPanel: failed to post id-change update', e);
-                            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props), oldId: originalChannel });
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
                         }
 
                         // Rebuild the properties panel to reflect the ID change
@@ -993,14 +1034,15 @@ export class PropertyPanel {
 
                 console.log('PropertyPanel: sending updateWidgetProps to VSCode');
                 try {
-                    const minimized = minimizePropsForWidget(widget.props, widget);
+                    let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                    minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
                     this.vscode.postMessage({
                         command: 'updateWidgetProps',
-                        text: safeSanitizeForPost(minimized),
+                        text: PropertyPanel.safeSanitizeForPost(minimized),
                     });
                 } catch (e) {
                     console.error('PropertyPanel: failed to post widgetUpdate', e);
-                    this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props) });
+                    this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
                 }
             }
         });
@@ -1137,14 +1179,15 @@ export class PropertyPanel {
                     // Delay sending messages to VSCode to avoid slow responses
                     setTimeout(() => {
                         try {
-                            const minimized = minimizePropsForWidget(widget.props, widget);
+                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
                             this.vscode.postMessage({
                                 command: 'updateWidgetProps',
-                                text: safeSanitizeForPost(minimized),
+                                text: PropertyPanel.safeSanitizeForPost(minimized),
                             });
                         } catch (e) {
                             console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
-                            this.vscode.postMessage({ command: 'updateWidgetProps', text: safeSanitizeForPost(widget.props) });
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
                         }
                     }, (index + 1) * 150); // Delay increases with index
                 }

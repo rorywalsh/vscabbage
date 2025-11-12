@@ -3,6 +3,7 @@
 // See the LICENSE file for details.
 
 import { CabbageUtils } from './cabbage/utils.js';
+import { getCabbageMode } from './cabbage/sharedState.js';
 
 // At the beginning of the file
 let interactPromise;
@@ -70,6 +71,14 @@ export class WidgetWrapper {
 
         // Handle right-click context menu for selected widgets
         document.addEventListener('contextmenu', (event) => {
+            // Only allow the custom selection context menu when in draggable/edit mode
+            try {
+                if (getCabbageMode() !== 'draggable') {
+                    return; // suppress context menu when not editable
+                }
+            } catch (ex) {
+                // If shared state isn't available, silently continue
+            }
             const draggableElement = event.target.closest('.draggable');
             if (draggableElement) {
                 console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);

@@ -10,7 +10,6 @@ import os from 'os';
 import fs from 'fs';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
-import WebSocket from 'ws';
 import stringify from 'json-stringify-pretty-compact';
 import { Settings } from './settings';
 
@@ -23,20 +22,8 @@ interface Widget { type: string; bounds?: { top: number; left: number; width: nu
 
 export class ExtensionUtils {
 
-    /**
-     * Cache of parsed default props keyed by widget type.
-     * Populated at activation by scanning JS source files.
-     */
-    static defaultPropsByType: Record<string, WidgetProps> = {};
-
-    /**
-     * Returns the cached default props for a widget type, or an empty object
-     * if none have been discovered.
-     */
-    static getDefaultPropsForType(type: string): WidgetProps {
-        if (!type) return {} as WidgetProps;
-        return ExtensionUtils.defaultPropsByType[type] || ({} as WidgetProps);
-    }
+    // Note: default props cache and lookup removed. Default prop resolution
+    // should be performed by callers and passed into updateText when needed.
     /**
      * Gets the warning comment for Cabbage sections based on user settings.
      * @returns The warning comment string if enabled, otherwise an empty string.
@@ -141,7 +128,7 @@ be lost when working with the UI editor. -->\n`;
      * @param {boolean} force - Whether to force kill (`SIGKILL` on Unix/macOS, `/F` on Windows).
      * Not good to forcedly kill the process as the CabbageApp might not clean.
      */
-    static terminateProcess(pid: number | ChildProcess | undefined, websocket: WebSocket | undefined, force = false) {
+    static terminateProcess(pid: number | ChildProcess | undefined, force = false) {
 
 
         // Handle case where pid is undefined or invalid
@@ -442,7 +429,7 @@ be lost when working with the UI editor. -->\n`;
      * Updates JSON text in the document based on the current mode, highlight, and properties.
      * Handles both external file references and in-line JSON updates within `<Cabbage>` tags.
      */
-    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, retryCount: number = 3, oldId?: string): Promise<void> {
+    static async updateText(jsonText: string, cabbageMode: string, vscodeOutputChannel: vscode.OutputChannel, highlightDecorationType: vscode.TextEditorDecorationType, lastSavedFileName: string | undefined, panel: vscode.WebviewPanel | undefined, defaultProps: WidgetProps | undefined, retryCount: number = 3, oldId?: string): Promise<void> {
         if (cabbageMode === "play") {
             return;
         }
@@ -492,18 +479,8 @@ be lost when working with the UI editor. -->\n`;
 
         const originalText = document.getText();
 
-        // Default props are only used for filtering - we don't need them in the extension
-        // The webview will handle actual widget defaults
-        // Use any cached default props discovered at activation time.
-        let defaultProps = {} as WidgetProps;
-        try {
-            if (props && props.type) {
-                defaultProps = ExtensionUtils.getDefaultPropsForType(props.type) || ({} as WidgetProps);
-            }
-        } catch (err) {
-            // Fall back to empty defaults if cache lookup fails
-            defaultProps = {} as WidgetProps;
-        }
+        // defaultProps is supplied by the caller. Ensure we have an object to work with.
+        defaultProps = defaultProps || ({} as WidgetProps);
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -528,18 +505,74 @@ be lost when working with the UI editor. -->\n`;
                 }
 
                 if (!externalFile) {
-                    const updatedJsonArray = ExtensionUtils.updateJsonArray(cabbageJsonArray, props, defaultProps, oldId);
+                    // The property panel now sends a minimized props object. Rather than
+                    // performing deep merge/strip-defaults here we replace or shallow-merge
+                    // the incoming props into the existing array. This is intentionally
+                    // simpler than the old `updateJsonArray` behaviour.
+                    const getChannelId = (obj: any): string => {
+                        if (obj?.id) return obj.id;
+                        if (obj?.channels) {
+                            if (Array.isArray(obj.channels) && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
+                            if (typeof obj.channels === 'object' && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
+                        }
+                        return obj?.channel || '';
+                    };
+
+                    // Find where to put/replace the incoming props. Use deep merge so
+                    // that updates to nested properties are merged rather than
+                    // replacing entire nested objects/arrays.
+                    const deepMerge = (target: any, source: any): any => {
+                        if (source === undefined) return target;
+                        if (Array.isArray(source)) {
+                            // prefer source arrays (property panel should send full arrays when needed)
+                            return source;
+                        }
+                        if (typeof target !== 'object' || target === null) return source;
+                        const out: any = Array.isArray(target) ? [...target] : { ...target };
+                        Object.keys(source).forEach(key => {
+                            const sv = source[key];
+                            if (sv === undefined) return;
+                            if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
+                                out[key] = deepMerge(out[key], sv);
+                            } else {
+                                out[key] = sv;
+                            }
+                        });
+                        return out;
+                    };
+
+                    // Helper to get channel id
+                    if (props.type === 'form') {
+                        const formIndex = cabbageJsonArray.findIndex((o: any) => o.type === 'form');
+                        if (formIndex !== -1) {
+                            const merged = deepMerge(cabbageJsonArray[formIndex], props);
+                            cabbageJsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(merged);
+                        } else {
+                            cabbageJsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
+                        }
+                    } else {
+                        const searchId = oldId || getChannelId(props);
+                        const existingIndex = cabbageJsonArray.findIndex((o: any) => getChannelId(o) === searchId);
+                        if (existingIndex !== -1) {
+                            // deep-merge: preserve nested values that aren't overwritten by the minimized props
+                            const merged = deepMerge(cabbageJsonArray[existingIndex], props);
+                            cabbageJsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(merged);
+                        } else {
+                            cabbageJsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
+                        }
+                    }
+
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
 
                     let formattedArray: string;
                     if (isSingleLine) {
-                        formattedArray = ExtensionUtils.formatJsonObjects(updatedJsonArray, '    ');
+                        formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
                     } else {
                         // Use the same stringify function and config as the format command
                         const indentSpaces = config.get("jsonIndentSpaces", 4);
                         const maxLength = config.get("jsonMaxLength", 120);
-                        formattedArray = stringify(updatedJsonArray, { maxLength: maxLength, indent: indentSpaces });
+                        formattedArray = stringify(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
                     }
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
@@ -560,7 +593,7 @@ be lost when working with the UI editor. -->\n`;
                     if (!success && retryCount > 0) {
                         // If the edit failed, wait a bit and try again
                         await new Promise(resolve => setTimeout(resolve, 100));
-                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, retryCount - 1);
+                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1);
                     }
 
                     // Attempt to highlight the updated object
@@ -911,199 +944,7 @@ ${JSON.stringify(props, null, 4)}
         vscode.workspace.applyEdit(edit);
     }
 
-    /**
-     * Updates a JSON array with new properties while removing defaults.
-     * Merges incoming properties (from the props object) into an existing JSON array,
-     * while removing any properties that match the default values defined in the defaultProps object.
-     * @param jsonArray - The array of existing widget properties.
-     * @param props - The new properties to merge into the array.
-     * @param defaultProps - The default properties to compare against.
-     * @returns The updated JSON array with merged properties.
-     */
-    static updateJsonArray(jsonArray: WidgetProps[], props: WidgetProps, defaultProps: WidgetProps, oldId?: string): WidgetProps[] {
-        // Define properties to exclude from JSON output (internal-only fields)
-        const excludeFromJson = ['samples', 'currentCsdFile', 'groupBaseBounds', 'origBounds', 'originalProps', 'channel', 'value', 'parameterIndex']; // Add any properties you want to exclude
 
-        // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
-        const getChannelId = (obj: WidgetProps): string => {
-            if (obj.id) {
-                return obj.id;
-            }
-            if (obj.channels) {
-                if (Array.isArray(obj.channels) && obj.channels[0]) {
-                    return obj.channels[0].id;
-                } else if (typeof obj.channels === 'object' && obj.channels[0]) {
-                    return obj.channels[0].id;
-                }
-            }
-            return obj.channel || '';
-        };
-
-        // Recursively clone and remove excluded properties from an object
-        function cleanForEditor(obj: any): any {
-            if (obj === null || obj === undefined) return obj;
-            if (Array.isArray(obj)) return obj.map(cleanForEditor);
-            if (typeof obj === 'object') {
-                const out: any = {};
-                Object.keys(obj).forEach((k) => {
-                    if (excludeFromJson.includes(k)) return; // skip excluded keys
-                    const v = obj[k];
-                    out[k] = cleanForEditor(v);
-                });
-                return out;
-            }
-            return obj;
-        }
-
-        // Helper function to deep merge objects
-        const deepMerge = (target: any, source: any): any => {
-            if (Array.isArray(source)) {
-                // If source is an array, merge each element
-                if (Array.isArray(target)) {
-                    return source.map((item, index) => {
-                        if (index < target.length) {
-                            return deepMerge(target[index], item);
-                        } else {
-                            return item;
-                        }
-                    });
-                } else {
-                    return source;
-                }
-            } else if (typeof source === 'object' && source !== null) {
-                const output = Array.isArray(target) ? [] : { ...target };
-                Object.keys(source).forEach(key => {
-                    if (typeof source[key] === 'object' && source[key] !== null) {
-                        if (!(key in output)) {
-                            output[key] = source[key];
-                        } else {
-                            output[key] = deepMerge(output[key], source[key]);
-                        }
-                    } else {
-                        output[key] = source[key];
-                    }
-                });
-                return output;
-            } else {
-                return source;
-            }
-        };
-
-        // Helper function to remove excluded properties from an object
-        const removeExcludedProps = (obj: any) => {
-            const newObj = { ...obj };
-            excludeFromJson.forEach(prop => {
-                delete newObj[prop];
-            });
-            return newObj;
-        };
-
-        // Helper: recursively strip properties from `obj` that are equal to `defaults`.
-        // This handles nested objects and arrays (arrays use the first element of defaults as a template).
-        const stripDefaults = (obj: any, defaults: any) => {
-            if (!obj || !defaults) return;
-            // If both are arrays and defaults has an element template, apply to each element
-            if (Array.isArray(obj) && Array.isArray(defaults)) {
-                const defElem = defaults[0];
-                if (defElem !== undefined && typeof defElem === 'object' && defElem !== null) {
-                    for (let i = 0; i < obj.length; i++) {
-                        if (typeof obj[i] === 'object' && obj[i] !== null) {
-                            stripDefaults(obj[i], defElem);
-                        }
-                    }
-                }
-                return;
-            }
-
-            if (typeof obj !== 'object' || typeof defaults !== 'object') return;
-
-            Object.keys(defaults).forEach((k) => {
-                if (!(k in obj)) return;
-                const dv = defaults[k];
-                const v = obj[k];
-
-                // Exact match -> remove
-                if (ExtensionUtils.deepEqual(v, dv)) {
-                    delete obj[k];
-                    return;
-                }
-
-                // Recurse for objects/arrays
-                if (typeof v === 'object' && v !== null && typeof dv === 'object' && dv !== null) {
-                    if (Array.isArray(v) && Array.isArray(dv)) {
-                        // Use first element of dv as template for elements of v
-                        if (dv.length > 0 && typeof dv[0] === 'object') {
-                            for (let i = 0; i < v.length; i++) {
-                                if (typeof v[i] === 'object' && v[i] !== null) {
-                                    stripDefaults(v[i], dv[0]);
-                                    // If element became empty, keep it (IDs etc. may be required)
-                                }
-                            }
-                        } else {
-                            // Primitive arrays - if they match, remove
-                            if (ExtensionUtils.deepEqual(v, dv)) {
-                                delete obj[k];
-                            }
-                        }
-                    } else {
-                        stripDefaults(v, dv);
-                        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
-                            delete obj[k];
-                        }
-                    }
-                }
-            });
-        };
-
-        // Legacy: do not enforce presence of props.type here. Accept the incoming
-        // payload as-is and allow callers to decide how to handle missing 'type'.
-
-        // Check if the new object is of type 'form'
-        if (props.type === 'form') {
-            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
-            const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
-
-            if (formIndex !== -1) {
-                let newFormObject = deepMerge(jsonArray[formIndex], cleanedProps);
-                // Preserve any existing behaviour: do not inject a 'type' here.
-                // Recursively remove properties that match defaults
-                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
-                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject));
-            } else {
-                let newFormObject = { ...cleanedProps };
-                // Do not auto-insert 'type' for newly created forms; keep cleanedProps as-is.
-                // Recursively remove properties that match defaults
-                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
-                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject)));
-            }
-            return jsonArray;
-        }
-
-        // Use oldId if provided (for ID changes), otherwise use the current ID
-        const searchId = oldId || getChannelId(props);
-
-        // Find existing object by channel/id
-        const existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
-
-        if (existingObject) {
-            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
-            let newObject = deepMerge(existingObject, cleanedProps);
-            // Do not force a 'type' value here; keep merged object as-is.
-            // Recursively remove properties that match defaults
-            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
-            const index = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
-            jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
-        } else {
-            const cleanedProps = cleanForEditor(props as any) as WidgetProps;
-            let newObject = { ...cleanedProps };
-            // Do not inject 'type' into new objects; rely on upstream payloads.
-            // Recursively remove properties that match defaults
-            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
-            jsonArray.push(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject)));
-        }
-
-        return jsonArray;
-    }
 
     /**
     * Returns html text to use in webview - various scripts get passed as vscode.Uri's
@@ -1252,8 +1093,53 @@ ${JSON.stringify(props, null, 4)}
         const document = editor.document;
         const jsonArray = JSON.parse(document.getText()) as WidgetProps[];
 
-        const updatedArray = ExtensionUtils.updateJsonArray(jsonArray, props, defaultProps);
-        const updatedContent = JSON.stringify(updatedArray, null, 2);
+        // The property panel now sends minimized props; perform a deep-merge
+        // into the external JSON array so nested updates don't clobber defaults.
+        const getChannelId = (obj: any): string => {
+            if (obj?.id) return obj.id;
+            if (obj?.channels) {
+                if (Array.isArray(obj.channels) && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
+                if (typeof obj.channels === 'object' && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
+            }
+            return obj?.channel || '';
+        };
+        const deepMerge = (target: any, source: any): any => {
+            if (source === undefined) return target;
+            if (Array.isArray(source)) {
+                return source;
+            }
+            if (typeof target !== 'object' || target === null) return source;
+            const out: any = Array.isArray(target) ? [...target] : { ...target };
+            Object.keys(source).forEach(key => {
+                const sv = source[key];
+                if (sv === undefined) return;
+                if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
+                    out[key] = deepMerge(out[key], sv);
+                } else {
+                    out[key] = sv;
+                }
+            });
+            return out;
+        };
+
+        if (props.type === 'form') {
+            const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
+            if (formIndex !== -1) {
+                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[formIndex], props));
+            } else {
+                jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
+            }
+        } else {
+            const searchId = getChannelId(props);
+            const existingIndex = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
+            if (existingIndex !== -1) {
+                jsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[existingIndex], props));
+            } else {
+                jsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
+            }
+        }
+
+        const updatedContent = JSON.stringify(jsonArray, null, 2);
 
         await editor.edit(editBuilder => {
             const entireRange = new vscode.Range(

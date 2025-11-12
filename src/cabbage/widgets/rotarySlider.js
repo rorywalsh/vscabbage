@@ -55,7 +55,7 @@ export class RotarySlider {
         "track": {
           "width": "auto",
           "fillColor": "#93d200",
-          "backgroundColor": "#393939ff"
+          "backgroundColor": "#393939"
         },
 
         "label": {

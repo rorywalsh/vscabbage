@@ -108,6 +108,11 @@ export function updateSelectedElements(widgetDiv) {
  * Groups the currently selected widgets into a container widget
  */
 async function groupSelectedWidgets() {
+    // Do not allow grouping while in play/performance mode
+    if (cabbageMode === 'play') {
+        console.warn('Cabbage: groupSelectedWidgets prevented while in play mode');
+        return;
+    }
     if (selectedElements.size < 2) {
         console.warn("Cabbage: Need at least 2 widgets to group");
         return;
@@ -520,6 +525,15 @@ export function setupFormHandlers() {
                 e.stopImmediatePropagation();
                 e.stopPropagation();
 
+                // If we're in play/performance mode, don't show any editing menus
+                if (cabbageMode === 'play') {
+                    console.log('Cabbage: In play mode - suppressing context menu');
+                    // Ensure menus are hidden
+                    try { contextMenu.style.visibility = 'hidden'; } catch (ex) { }
+                    try { groupContextMenu.style.visibility = 'hidden'; } catch (ex) { }
+                    return;
+                }
+
                 // Calculate correct context menu position
                 let x = e.clientX, y = e.clientY,
                     winWidth = window.innerWidth,
@@ -617,9 +631,10 @@ export function setupFormHandlers() {
                         contextMenu.style.visibility = "visible";
                     }
                 } else {
-                    console.log("Cabbage: Not in draggable mode, showing widget insertion menu");
-                    // In edit mode, always show the widget insertion menu
-                    contextMenu.style.visibility = "visible";
+                    console.log("Cabbage: Not in draggable mode - suppressing insertion menu");
+                    // Do not show insertion or group menus when not in draggable/edit mode
+                    try { contextMenu.style.visibility = 'hidden'; } catch (_) { }
+                    try { groupContextMenu.style.visibility = 'hidden'; } catch (_) { }
                 }
 
                 // Wait for PropertyPanel to be loaded before using it
@@ -648,6 +663,13 @@ export function setupFormHandlers() {
                     menuItems[i].addEventListener("pointerdown", async (e) => {
                         e.stopImmediatePropagation();
                         e.stopPropagation();
+
+                        // Only allow inserting widgets while in draggable/edit mode
+                        if (cabbageMode !== 'draggable') {
+                            console.warn('Cabbage: Insert widget prevented when not in draggable mode');
+                            return;
+                        }
+
                         const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig, ''); // Clean up HTML
                         console.warn("Cabbage: Adding widget of type:", type);
                         contextMenu.style.visibility = "hidden";

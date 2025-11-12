@@ -4,7 +4,6 @@
 
 import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
-import WebSocket from 'ws';
 import * as cp from "child_process";
 import { Settings } from './settings';
 import stringify from 'json-stringify-pretty-compact';
@@ -19,7 +18,7 @@ import os from 'os';
 
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
- * managing WebSocket communications, document manipulations, UI interactions,
+ * managing backend communications, document manipulations, UI interactions,
  * and processes related to the Cabbage extension.
  */
 export class Commands {
@@ -29,7 +28,7 @@ export class Commands {
     private static lastSavedFileName: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
-    private static websocket: WebSocket | undefined;
+    // websocket communication removed; use stdin/stdout pipes via sendMessageToCabbageApp
     private static cabbageServerStarted: boolean | false;
     private static diagnosticCollection: vscode.DiagnosticCollection;
     private static diagnosticCollectionCsound: vscode.DiagnosticCollection;
@@ -60,7 +59,7 @@ export class Commands {
     }
 
     /**
-     * Sends a message to CabbageApp via stdin (replaces WebSocket send)
+    * Sends a message to CabbageApp via stdin (replaces previous WebSocket-based send)
      * @param message The message object to send
      */
     static sendMessageToCabbageApp(message: any) {
@@ -84,11 +83,10 @@ export class Commands {
  * Sends a message to the Cabbage backend to set the specified file as the input channel.
  * Updates the global state with the new file assignment.
  * @param context The extension context provided by VSCode.
- * @param websocket The WebSocket connection to the Cabbage backend (deprecated, pass undefined).
  * @param file The file to set as the input channel.
  * @param channel The channel to set the file as input for.
  */
-    static async sendFileToChannel(context: vscode.ExtensionContext, websocket: WebSocket | undefined, file: string, channel: number) {
+    static async sendFileToChannel(context: vscode.ExtensionContext, file: string, channel: number) {
         // Construct the message to send via stdin
         const m = {
             fileName: file,
@@ -153,14 +151,12 @@ export class Commands {
 
 
     /**
-     * Activates edit mode by setting Cabbage mode to "draggable", terminating
-     * active processes, and notifying the webview panel.
-     * @param websocket The WebSocket connection to the Cabbage backend (deprecated, kept for compatibility).
+    * Activates edit mode by setting Cabbage mode to "draggable", terminating
+    * active processes, and notifying the webview panel.
      */
-    static enterEditMode(ws: WebSocket | undefined) {
+    static enterEditMode() {
         setCabbageMode("draggable");
 
-        this.websocket = ws;
         this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
 
         if (this.panel) {
@@ -169,22 +165,19 @@ export class Commands {
     }
 
     /**
-     * Handles incoming messages from the webview and performs actions based
-     * on the message type.
-     * @param message The message from the webview.
-     * @param websocket The WebSocket connection to the Cabbage backend.
-     * @param firstMessages A queue of initial messages to be sent after connection.
-     * @param textEditor The active text editor in VSCode.
-     * @param context The extension context provided by VSCode.
+    * Handles incoming messages from the webview and performs actions based
+    * on the message type.
+    * @param message The message from the webview.
+    * @param firstMessages A queue of initial messages to be sent after connection.
+    * @param textEditor The active text editor in VSCode.
+    * @param context The extension context provided by VSCode.
      */
     static async handleWebviewMessage(
         message: any,
-        ws: WebSocket | undefined,
         firstMessages: any[],
         textEditor: vscode.TextEditor | undefined,
         context: vscode.ExtensionContext
     ) {
-        this.websocket = ws;
         const config = vscode.workspace.getConfiguration("cabbage");
 
         // Compatibility shim: accept legacy 'widgetUpdate' and 'updateWidgetText'
@@ -254,7 +247,8 @@ export class Commands {
                 if (getCabbageMode() !== "play") {
                     const rawText = message && message.text;
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, 3, message.oldId);
+                        // Previously we looked up default props here; that logic has been removed.
+                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
                     }
                 }
                 break;
@@ -687,7 +681,7 @@ export class Commands {
 
         } else {
             this.processes.forEach((p) => {
-                return ExtensionUtils.terminateProcess(p, this.websocket);
+                return ExtensionUtils.terminateProcess(p);
             });
 
             cabbageStatusBarItem.text = `$(mute) Run Cabbage`;

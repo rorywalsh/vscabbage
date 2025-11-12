@@ -162,6 +162,9 @@ export class WidgetManager {
         try {
             const WidgetClass = await widgetConstructors[type];
             const defaultProps = new WidgetClass().props;
+            // Store the raw defaults on the instance so other components (e.g. PropertyPanel)
+            // can compare and strip default-valued properties when minimizing props.
+            widget.rawDefaults = defaultProps;
             const minimalProps = { ...props };
             const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
             excludeFromJson.forEach(prop => delete minimalProps[prop]);
