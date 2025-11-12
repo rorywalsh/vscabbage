@@ -15,80 +15,28 @@ import stringify from 'json-stringify-pretty-compact';
 import { Settings } from './settings';
 
 
-// Define an interface for the old-style widget structure
+/** 
+ *  Define an interface for the old-style widget structure
+*/
 interface WidgetChannel { id: string; event: string; range?: { min: number; max: number; defaultValue?: number; value?: number; increment?: number; skew?: number } }
 interface Widget { type: string; bounds?: { top: number; left: number; width: number; height: number }; channels?: WidgetChannel[]; size?: { width: number; height: number }; text?: string | string[]; tableNumber?: number }
 
 export class ExtensionUtils {
 
-    // Map of pending default requests from extension -> webview
-    private static pendingDefaultRequests: Map<string, { resolve: (v: any) => void, reject: (e: any) => void, timer?: NodeJS.Timeout }> = new Map();
-    // Cache of defaults per widget type to avoid repeated RPCs
-    private static defaultsCache: Map<string, any> = new Map();
-
-    private static generateRequestId(): string {
-        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-    }
+    /**
+     * Cache of parsed default props keyed by widget type.
+     * Populated at activation by scanning JS source files.
+     */
+    static defaultPropsByType: Record<string, WidgetProps> = {};
 
     /**
-     * Request default props for a widget type from the webview (RPC).
-     * Resolves to the defaults object or null on timeout/error.
+     * Returns the cached default props for a widget type, or an empty object
+     * if none have been discovered.
      */
-    static requestDefaults(panel: vscode.WebviewPanel | undefined, type: string, timeoutMs: number = 2000): Promise<any> {
-        // Return cached value if present
-        if (!panel) { return Promise.resolve(null); }
-        if (this.defaultsCache.has(type)) {
-            return Promise.resolve(this.defaultsCache.get(type));
-        }
-
-        return new Promise((resolve, reject) => {
-            try {
-                const requestId = this.generateRequestId();
-                const timer = setTimeout(() => {
-                    // Timeout: cleanup and reject
-                    const entry = this.pendingDefaultRequests.get(requestId);
-                    if (entry) {
-                        entry.reject(new Error('timeout'));
-                        this.pendingDefaultRequests.delete(requestId);
-                    }
-                }, timeoutMs);
-
-                this.pendingDefaultRequests.set(requestId, { resolve, reject, timer });
-                // Debug log
-                try {
-                    Commands.getOutputChannel().appendLine(`Extension: requesting defaults for type='${type}' (id=${requestId})`);
-                } catch (e) { /* ignore */ }
-
-                panel.webview.postMessage({ command: 'requestDefaults', requestId, type });
-            } catch (err) {
-                try { Commands.getOutputChannel().appendLine(`Extension: requestDefaults failed to post message: ${err}`); } catch (e) { }
-                return resolve(null);
-            }
-        });
+    static getDefaultPropsForType(type: string): WidgetProps {
+        if (!type) return {} as WidgetProps;
+        return ExtensionUtils.defaultPropsByType[type] || ({} as WidgetProps);
     }
-
-    /**
-     * Internal: resolve a pending defaults request coming from the webview.
-     */
-    static handleDefaultsResponse(requestId: string, defaults: any, type?: string) {
-        const entry = this.pendingDefaultRequests.get(requestId);
-        if (!entry) { return; }
-        if (entry.timer) { clearTimeout(entry.timer); }
-        try {
-            Commands.getOutputChannel().appendLine(`Extension: received defaults response for requestId=${requestId} - ${defaults ? JSON.stringify(Object.keys(defaults)) : String(defaults)}`);
-        } catch (e) { /* ignore */ }
-        entry.resolve(defaults);
-        // cache defaults by provided type or by defaults.type if present
-        try {
-            const cacheKey = (typeof type === 'string' && type) ? type : (defaults && defaults.type ? defaults.type : null);
-            if (cacheKey) {
-                this.defaultsCache.set(cacheKey, defaults);
-            }
-        } catch (e) { /* ignore */ }
-        this.pendingDefaultRequests.delete(requestId);
-    }
-
-
     /**
      * Gets the warning comment for Cabbage sections based on user settings.
      * @returns The warning comment string if enabled, otherwise an empty string.
@@ -99,10 +47,8 @@ export class ExtensionUtils {
         if (!showWarning) {
             return "";
         }
-        return `<!--⚠️ Warning: Although you can manually edit the Cabbage JSON code, it will
-also be rewritten by the Cabbage UI editor. This means any custom formatting 
-(indentation, spacing, or comments) may be lost when the file is saved through the 
-editor. -->\n`;
+        return `<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
+be lost when working with the UI editor. -->\n`;
     }
 
     /**
@@ -505,6 +451,18 @@ editor. -->\n`;
         // and then the relevant textEditor
         const textEditor = vscode.window.activeTextEditor;
 
+        // Defensive: ensure we have a valid JSON string before attempting to parse.
+        if (typeof jsonText !== 'string' || jsonText === '' || jsonText === 'undefined') {
+            console.error('ExtensionUtils.updateText: invalid jsonText received:', jsonText);
+            try {
+                vscodeOutputChannel.appendLine(`ExtensionUtils.updateText: invalid jsonText received: ${String(jsonText)}`);
+                vscodeOutputChannel.show(true);
+            } catch (e) {
+                // ignore logging errors
+            }
+            return;
+        }
+
         let props: WidgetProps;
         try {
             props = JSON.parse(jsonText);
@@ -533,39 +491,19 @@ editor. -->\n`;
         }
 
         const originalText = document.getText();
-        // Ask webview for canonical default props for this widget type (used for filtering)
+
+        // Default props are only used for filtering - we don't need them in the extension
+        // The webview will handle actual widget defaults
+        // Use any cached default props discovered at activation time.
         let defaultProps = {} as WidgetProps;
-        if (panel && props && typeof props.type === 'string') {
-            try {
-                // Try a few times because the webview may not have finished registering widget constructors yet
-                const maxAttempts = 3;
-                let attempt = 0;
-                let rsp: any = null;
-                while (attempt < maxAttempts) {
-                    attempt++;
-                    try {
-                        rsp = await ExtensionUtils.requestDefaults(panel, props.type);
-                    } catch (e) {
-                        rsp = null;
-                    }
-                    if (rsp && typeof rsp === 'object') {
-                        defaultProps = rsp as WidgetProps;
-                        break;
-                    }
-                    // small backoff
-                    await new Promise(res => setTimeout(res, 150));
-                }
-                if (!defaultProps || Object.keys(defaultProps).length === 0) {
-                    // final fallback - empty defaults
-                    defaultProps = {} as WidgetProps;
-                }
-            } catch (err) {
-                // ignore - fallback to empty defaults
-                console.warn('Failed to obtain defaults from webview:', err);
+        try {
+            if (props && props.type) {
+                defaultProps = ExtensionUtils.getDefaultPropsForType(props.type) || ({} as WidgetProps);
             }
+        } catch (err) {
+            // Fall back to empty defaults if cache lookup fails
+            defaultProps = {} as WidgetProps;
         }
-
-
 
         const cleanedText = ExtensionUtils.removeWarningComment(originalText);
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -765,7 +703,6 @@ ${JSON.stringify(props, null, 4)}
         }
         return formattedCabbageText;
     }
-
 
     static formatNonCabbageContent(lines: string[], indentString: string): string[] {
         let indents = 0; // Tracks current indentation level
@@ -1061,6 +998,66 @@ ${JSON.stringify(props, null, 4)}
             return newObj;
         };
 
+        // Helper: recursively strip properties from `obj` that are equal to `defaults`.
+        // This handles nested objects and arrays (arrays use the first element of defaults as a template).
+        const stripDefaults = (obj: any, defaults: any) => {
+            if (!obj || !defaults) return;
+            // If both are arrays and defaults has an element template, apply to each element
+            if (Array.isArray(obj) && Array.isArray(defaults)) {
+                const defElem = defaults[0];
+                if (defElem !== undefined && typeof defElem === 'object' && defElem !== null) {
+                    for (let i = 0; i < obj.length; i++) {
+                        if (typeof obj[i] === 'object' && obj[i] !== null) {
+                            stripDefaults(obj[i], defElem);
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (typeof obj !== 'object' || typeof defaults !== 'object') return;
+
+            Object.keys(defaults).forEach((k) => {
+                if (!(k in obj)) return;
+                const dv = defaults[k];
+                const v = obj[k];
+
+                // Exact match -> remove
+                if (ExtensionUtils.deepEqual(v, dv)) {
+                    delete obj[k];
+                    return;
+                }
+
+                // Recurse for objects/arrays
+                if (typeof v === 'object' && v !== null && typeof dv === 'object' && dv !== null) {
+                    if (Array.isArray(v) && Array.isArray(dv)) {
+                        // Use first element of dv as template for elements of v
+                        if (dv.length > 0 && typeof dv[0] === 'object') {
+                            for (let i = 0; i < v.length; i++) {
+                                if (typeof v[i] === 'object' && v[i] !== null) {
+                                    stripDefaults(v[i], dv[0]);
+                                    // If element became empty, keep it (IDs etc. may be required)
+                                }
+                            }
+                        } else {
+                            // Primitive arrays - if they match, remove
+                            if (ExtensionUtils.deepEqual(v, dv)) {
+                                delete obj[k];
+                            }
+                        }
+                    } else {
+                        stripDefaults(v, dv);
+                        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+                            delete obj[k];
+                        }
+                    }
+                }
+            });
+        };
+
+        // Legacy: do not enforce presence of props.type here. Accept the incoming
+        // payload as-is and allow callers to decide how to handle missing 'type'.
+
         // Check if the new object is of type 'form'
         if (props.type === 'form') {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
@@ -1068,21 +1065,15 @@ ${JSON.stringify(props, null, 4)}
 
             if (formIndex !== -1) {
                 let newFormObject = deepMerge(jsonArray[formIndex], cleanedProps);
-                // Remove properties that match default values
-                for (let key in defaultProps) {
-                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
-                        delete newFormObject[key];
-                    }
-                }
+                // Preserve any existing behaviour: do not inject a 'type' here.
+                // Recursively remove properties that match defaults
+                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
                 jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject));
             } else {
                 let newFormObject = { ...cleanedProps };
-                // Remove properties that match default values
-                for (let key in defaultProps) {
-                    if (ExtensionUtils.deepEqual(newFormObject[key], defaultProps[key]) && key !== 'type') {
-                        delete newFormObject[key];
-                    }
-                }
+                // Do not auto-insert 'type' for newly created forms; keep cleanedProps as-is.
+                // Recursively remove properties that match defaults
+                try { stripDefaults(newFormObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
                 jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newFormObject)));
             }
             return jsonArray;
@@ -1090,28 +1081,24 @@ ${JSON.stringify(props, null, 4)}
 
         // Use oldId if provided (for ID changes), otherwise use the current ID
         const searchId = oldId || getChannelId(props);
-        let existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
+
+        // Find existing object by channel/id
+        const existingObject = jsonArray.find(obj => getChannelId(obj) === searchId);
 
         if (existingObject) {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
             let newObject = deepMerge(existingObject, cleanedProps);
-            // Remove properties that match default values
-            for (let key in defaultProps) {
-                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                    delete newObject[key];
-                }
-            }
+            // Do not force a 'type' value here; keep merged object as-is.
+            // Recursively remove properties that match defaults
+            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
             const index = jsonArray.findIndex(obj => getChannelId(obj) === searchId);
             jsonArray[index] = ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject));
         } else {
             const cleanedProps = cleanForEditor(props as any) as WidgetProps;
             let newObject = { ...cleanedProps };
-            // Remove properties that match default values
-            for (let key in defaultProps) {
-                if (ExtensionUtils.deepEqual(newObject[key], defaultProps[key]) && key !== 'type') {
-                    delete newObject[key];
-                }
-            }
+            // Do not inject 'type' into new objects; rely on upstream payloads.
+            // Recursively remove properties that match defaults
+            try { stripDefaults(newObject, defaultProps); } catch (e) { console.error('Cabbage: stripDefaults error', e); }
             jsonArray.push(ExtensionUtils.sortOrderOfProperties(removeExcludedProps(newObject)));
         }
 

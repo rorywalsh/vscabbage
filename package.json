@@ -350,6 +350,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.setCustomWidgetDirectory",
+        "title": "Set Custom Widget Directory",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.setCsoundIncludeDir",
         "title": "Set path to the Csound include driectory (for Daisy)",
         "category": "Cabbage"

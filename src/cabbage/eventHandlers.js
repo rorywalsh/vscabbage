@@ -185,8 +185,8 @@ async function groupSelectedWidgets() {
         // Update the CSD file with the new container
         if (vscode) {
             vscode.postMessage({
-                command: 'widgetUpdate',
-                text: JSON.stringify(containerWidget)
+                command: 'updateWidgetProps',
+                text: JSON.stringify(containerWidget.originalProps)
             });
         }
 
@@ -257,7 +257,7 @@ async function groupSelectedWidgets() {
     // Update the CSD file with the modified container (now with children)
     if (vscode) {
         vscode.postMessage({
-            command: 'widgetUpdate',
+            command: 'updateWidgetProps',
             text: JSON.stringify(containerWidget.props)
         });
     }
@@ -362,7 +362,7 @@ async function ungroupSelectedWidgets() {
         // Update the CSD file with the new top-level widget
         if (vscode) {
             vscode.postMessage({
-                command: 'widgetUpdate',
+                command: 'updateWidgetProps',
                 text: JSON.stringify(topLevelProps)
             });
         }
@@ -382,7 +382,7 @@ async function ungroupSelectedWidgets() {
     // Update the CSD file with the container (now without children)
     if (vscode) {
         vscode.postMessage({
-            command: 'widgetUpdate',
+            command: 'updateWidgetProps',
             text: JSON.stringify(containerWidget.props)
         });
     }
@@ -660,8 +660,8 @@ export function setupFormHandlers() {
                         if (widgets) {
                             if (widget) {
                                 vscode.postMessage({
-                                    command: 'widgetUpdate',
-                                    text: JSON.stringify(widget)
+                                    command: 'updateWidgetProps',
+                                    text: JSON.stringify(widget.originalProps)
                                 });
                             } else {
                                 console.error("Cabbage: Widget is undefined, cannot send to VS Code");
@@ -751,8 +751,27 @@ export function setupFormHandlers() {
                     }
                 }
 
-                // Deselect all if clicking on the form background
-                if (event.target.id === "MainForm") {
+                // Deselect all if clicking on the form background (not on a widget)
+                let clickedOnWidget = false;
+                let element = event.target;
+                let iterations = 0;
+                const maxIterations = 20;
+
+                while (element && element !== form && iterations < maxIterations) {
+                    iterations++;
+                    if (element.classList && (
+                        element.classList.contains('draggable') ||
+                        element.classList.contains('nonDraggable') ||
+                        element.classList.contains('grouped-child') ||
+                        element.classList.contains('resizeOnly')
+                    )) {
+                        clickedOnWidget = true;
+                        break;
+                    }
+                    element = element.parentElement || element.parentNode;
+                }
+
+                if (!clickedOnWidget) {
                     selectedElements.forEach(element => element.classList.remove('selected'));
                     selectedElements.clear();
                 }
@@ -776,7 +795,7 @@ export function setupFormHandlers() {
                 }
             }
             lastClickTime = currentTime;
-        });
+        }, { capture: true });
 
         // Handles pointer movement for selection and dragging
         document.addEventListener('pointermove', (event) => {
