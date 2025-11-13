@@ -73,22 +73,23 @@ export async function handlePointerDown(e, widgetDiv) {
     }
 
     // Wait for PropertyPanel to be loaded before using it
-
-    if (PropertyPanel && cabbageMode === 'draggable') {
-        try {
+    try {
+        const foundId = CabbageUtils.findValidId(e);
+        console.log('Cabbage: handlePointerDown - cabbageMode:', cabbageMode, 'PropertyPanel loaded?', !!PropertyPanel, 'foundId:', foundId, 'widgetDiv.id:', widgetDiv?.id);
+        if (PropertyPanel && cabbageMode === 'draggable') {
             const PP = await loadPropertyPanel();
             if (PP && typeof PP.updatePanel === 'function') {
                 await PP.updatePanel(vscode, {
                     eventType: "click",
-                    name: CabbageUtils.findValidId(e),
+                    name: foundId,
                     bounds: {}
                 }, widgets);
             } else {
                 console.error("PropertyPanel.updatePanel is not available");
             }
-        } catch (error) {
-            console.error("Error while using PropertyPanel:", error);
         }
+    } catch (error) {
+        console.error("Error while using PropertyPanel in handlePointerDown:", error);
     }
 }
 

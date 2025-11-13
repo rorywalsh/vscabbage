@@ -18,6 +18,7 @@ export class NumberSlider {
             "channels": [
                 {
                     "id": "numberSlider",
+                    "range": { "defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1 },
                     "event": "valueChanged"
                 }
             ],
@@ -58,9 +59,9 @@ export class NumberSlider {
         this.vscode = null;
         this.decimalPlaces = CabbageUtils.getDecimalPlaces(CabbageUtils.getChannelRange(this.props, 0, 'drag').increment);
 
-    // Use centralized reactive props helper to manage visible/active toggling and cleanup
-    // Pass explicit opts so we take advantage of the new per-key/watch-mode API defaults.
-    this.props = CabbageUtils.createReactiveProps(this, this.props, { lazyPath: true, mode: 'change' });
+        // Use centralized reactive props helper to manage visible/active toggling and cleanup
+        // Pass explicit opts so we take advantage of the new per-key/watch-mode API defaults.
+        this.props = CabbageUtils.createReactiveProps(this, this.props, { lazyPath: true, mode: 'change' });
     }
 
     addVsCodeEventListeners(widgetDiv, vs) {

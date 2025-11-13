@@ -19,7 +19,10 @@ export class RotarySlider {
         "height": 80
       },
       "channels": [
-        { "id": "rotarySlider", "event": "valueChanged" }
+        {
+          "id": "rotarySlider", "event": "valueChanged",
+          "range": { "defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1 }
+        }
       ],
       "value": null,
       "index": 0,
