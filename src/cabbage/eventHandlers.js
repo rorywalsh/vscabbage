@@ -678,7 +678,7 @@ export function setupFormHandlers() {
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
                         console.log("Cabbage: Inserting widget with uniqueId:", uniqueId);
                         const widget = await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
-                        console.warn("Cabbage: Inserted widget:", widget);
+                        console.warn("Cabbage: Form handlers - Inserted widget:", widget);
                         if (widgets) {
                             if (widget) {
                                 vscode.postMessage({

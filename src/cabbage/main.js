@@ -4,15 +4,9 @@
 
 console.log('Cabbage: main.js START - top of file');
 
-try {
-    console.log('Cabbage: About to import modules...');
-    throw new Error('Test error before imports');
-} catch (e) {
-    console.error('Cabbage: Caught test error:', e);
-}
 
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
-import { initialiseDefaultProps } from "./widgetTypes.js";
+// import { initialiseDefaultProps } from "./widgetTypes.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";

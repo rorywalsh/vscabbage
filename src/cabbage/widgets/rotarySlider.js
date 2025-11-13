@@ -103,14 +103,16 @@ export class RotarySlider {
 
   }
 
-  onPropertyChange(path, key, newValue, oldValue) {
+  onPropertyChange(change) {
+    let { path, key, value, oldValue } = change || {};
+    let newValue = value;
     if (typeof oldValue === 'object') {
-      oldValue = JSON.stringify(oldValue);
-      newValue = JSON.stringify(newValue);
+      try { oldValue = JSON.stringify(oldValue); } catch (e) { oldValue = String(oldValue); }
+      try { newValue = JSON.stringify(newValue); } catch (e) { newValue = String(newValue); }
     }
 
     // console.error(`Path ${path}, key ${key}, changed from ${oldValue} to ${newValue}`);
-    if (path.includes('filmStrip') || path.includes('currentCsdFile') || key.includes('currentCsdFile')) {
+    if ((path && path.includes('filmStrip')) || (path && path.includes('currentCsdFile')) || (key && key.includes('currentCsdFile'))) {
       console.log(`Changed ${key} from ${oldValue} to ${newValue}`);
       this.loadFilmStripImage();
     }

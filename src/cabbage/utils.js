@@ -170,7 +170,17 @@ export class CabbageUtils {
    * @returns {Proxy} proxied props object
    */
   static createReactiveProps(widget, props, opts = {}) {
-    const onPropertyChange = typeof opts.onPropertyChange === 'function' ? opts.onPropertyChange : null;
+    // New: per-key watch API
+    // opts: {
+    //   onPropertyChange: function(change) {},
+    //   watchKeys: null | Array<string|RegExp>, // null => watch all; string may end with '*' for prefix
+    //   mode: 'set'|'change'|'both', // 'change' (default) will only notify when !Object.is(old, new)
+    //   lazyPath: true|false (default true) // compute path only when notifying
+    // }
+    const handler = typeof opts.onPropertyChange === 'function' ? opts.onPropertyChange : null;
+    const watchKeys = Array.isArray(opts.watchKeys) ? opts.watchKeys : null;
+    const mode = opts.mode || 'change';
+    const lazyPath = typeof opts.lazyPath === 'boolean' ? opts.lazyPath : true;
 
     // Pre-bind common listeners if the widget exposes the methods (defensive)
     if (!widget.boundPointerMove && typeof widget.pointerMove === 'function') {
@@ -180,14 +190,28 @@ export class CabbageUtils {
       widget.boundPointerUp = widget.pointerUp.bind(widget);
     }
 
+    function keyMatchesWatchList(k) {
+      if (!watchKeys) return true; // watch all
+      for (const pattern of watchKeys) {
+        if (pattern instanceof RegExp) {
+          if (pattern.test(k)) return true;
+        } else if (typeof pattern === 'string') {
+          if (pattern.endsWith('*')) {
+            const prefix = pattern.slice(0, -1);
+            if (k.startsWith(prefix)) return true;
+          } else {
+            if (k === pattern) return true;
+          }
+        }
+      }
+      return false;
+    }
+
     return new Proxy(props, {
       set: (target, key, value) => {
         const oldValue = target[key];
         // assign the new value
         target[key] = value;
-
-        // compute a path for change notifications (useful for deep updates)
-        const path = CabbageUtils.getPath(target, key);
 
         // Toggle pointer-events when visible/active change. Use combined state
         // so pointer-events is only enabled when both visible and active are true.
@@ -231,9 +255,20 @@ export class CabbageUtils {
           } catch (e) { }
         }
 
-        // Call optional custom handler provided by the caller
-        if (onPropertyChange) {
-          try { onPropertyChange.call(widget, path, key, value, oldValue); } catch (e) { console.error('onPropertyChange handler threw', e); }
+        // Decide whether to notify
+        if (handler && keyMatchesWatchList(String(key))) {
+          // mode='change' should only notify when values actually differ
+          if (mode === 'change' && Object.is(oldValue, value)) {
+            // unchanged => skip
+          } else {
+            // compute path lazily (only when needed)
+            const path = lazyPath ? CabbageUtils.getPath(target, key) : '';
+            try {
+              handler.call(widget, { path, key, value, oldValue, widget });
+            } catch (e) {
+              console.error('onPropertyChange handler threw', e);
+            }
+          }
         }
 
         return true;
@@ -608,35 +643,40 @@ export class CabbageUtils {
     // Handle both string channels and object channels (for xyPad)
     const channelId = CabbageUtils.getChannelId(props, 0);
     const element = document.getElementById(channelId);
-    if (element && props.bounds) {
-      switch (identifier) {
-        case 'bounds.left':
-          // Use transform instead of left to avoid adding to existing transform positioning
-          element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-          element.setAttribute('data-x', props.bounds.left);
-          element.setAttribute('data-y', props.bounds.top);
-          console.log('Cabbage: Updated left to:', props.bounds.left);
-          break;
-        case 'bounds.top':
-          // Use transform instead of top to avoid adding to existing transform positioning
-          element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
-          element.setAttribute('data-x', props.bounds.left);
-          element.setAttribute('data-y', props.bounds.top);
-          console.log('Cabbage: Updated top to:', props.bounds.top);
-          break;
-        case 'bounds.width':
-          element.style.width = props.bounds.width + "px";
-          console.log('Cabbage: Updated width to:', props.bounds.width);
-          break;
-        case 'bounds.height':
-          element.style.height = props.bounds.height + "px";
-          console.log('Cabbage: Updated height to:', props.bounds.height);
-          break;
-        default:
-          break;
-      }
-    } else {
-      console.log('Cabbage: Element or bounds not found:', channelId, props.bounds);
+
+    if (!element) {
+      console.log('Cabbage: Element not found for channel:', channelId);
+      return;
+    }
+
+    if (!props || !props.bounds) {
+      console.log('Cabbage: Widget has no bounds; skipping updateBounds for channel:', channelId);
+      return;
+    }
+
+    switch (identifier) {
+      case 'bounds.left':
+        element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+        element.setAttribute('data-x', props.bounds.left);
+        element.setAttribute('data-y', props.bounds.top);
+        console.log('Cabbage: Updated left to:', props.bounds.left);
+        break;
+      case 'bounds.top':
+        element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
+        element.setAttribute('data-x', props.bounds.left);
+        element.setAttribute('data-y', props.bounds.top);
+        console.log('Cabbage: Updated top to:', props.bounds.top);
+        break;
+      case 'bounds.width':
+        element.style.width = props.bounds.width + "px";
+        console.log('Cabbage: Updated width to:', props.bounds.width);
+        break;
+      case 'bounds.height':
+        element.style.height = props.bounds.height + "px";
+        console.log('Cabbage: Updated height to:', props.bounds.height);
+        break;
+      default:
+        break;
     }
   }
 

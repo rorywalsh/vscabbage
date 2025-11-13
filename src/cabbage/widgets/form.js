@@ -13,7 +13,7 @@ export class Form {
         "height": 300
       },
       "channels": [
-        { "id": "", "event": "valueChanged" }
+        { "id": "checkbox", "event": "valueChanged" }
       ],
       "type": "form",
 
