@@ -246,6 +246,7 @@ export class Commands {
                 // string) and may include an optional 'oldId' for channel remapping.
                 if (getCabbageMode() !== "play") {
                     const rawText = message && message.text;
+                    console.log('Extension: Received updateWidgetProps from webview:', message && (message.oldId ? `(oldId:${message.oldId}) ` : '') + String(rawText).slice(0, 200));
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
                         // Previously we looked up default props here; that logic has been removed.
                         ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);

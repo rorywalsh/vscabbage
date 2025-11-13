@@ -9,7 +9,7 @@ console.log("Cabbage: loading eventHandlers.js");
 // - cabbageMode: Determines if widgets are draggable.
 // - vscode: Reference to the VSCode API, null in plugin mode.
 // - widgets: Array holding all the widgets in the current form.
-import { cabbageMode, vscode, widgets } from "./sharedState.js";
+import { cabbageMode, vscode, widgets, postMessageToVSCode } from "./sharedState.js";
 
 // Imports utility and property panel modules
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
@@ -185,16 +185,36 @@ async function groupSelectedWidgets() {
             index: 0
         };
 
-        // Insert the new container widget
-        containerWidget = await WidgetManager.insertWidget("groupBox", containerProps, WidgetManager.getCurrentCsdPath());
-
+        // Insert the new container widget. insertWidget currently returns
+        // the widget props; the actual widget instance is pushed into the
+        // shared `widgets` array. Find the instance there so we can access
+        // its `originalProps` reliably (guard against undefined).
+        await WidgetManager.insertWidget("groupBox", containerProps, WidgetManager.getCurrentCsdPath());
+        // Attempt to locate the newly inserted widget instance
+        const createdContainer = widgets.find(w => w.props && (w.props.id === containerId || (w.props.channels && w.props.channels[0] && w.props.channels[0].id === containerId)));
+        // Prefer sending the minimized `originalProps` (deltas) so the
+        // extension can deep-merge defaults. However, ensure essential
+        // identity fields are present (id, type, channels) so the
+        // persisted JSON isn't missing identifying information.
+        const containerPayload = (() => {
+            const src = createdContainer ? (createdContainer.originalProps || createdContainer.props) : containerProps;
+            // Clone to avoid mutating instance data
+            const out = JSON.parse(JSON.stringify(src || {}));
+            if (createdContainer && createdContainer.props) {
+                if (!out.id && createdContainer.props.id) out.id = createdContainer.props.id;
+                if (!out.type && createdContainer.props.type) out.type = createdContainer.props.type;
+                if ((!out.channels || out.channels.length === 0) && Array.isArray(createdContainer.props.channels) && createdContainer.props.channels.length > 0) {
+                    // Include only the channel ids by default to keep payload small
+                    out.channels = createdContainer.props.channels.map(c => ({ id: c.id }));
+                }
+            }
+            return out;
+        })();
         // Update the CSD file with the new container
-        if (vscode) {
-            vscode.postMessage({
-                command: 'updateWidgetProps',
-                text: JSON.stringify(containerWidget.originalProps)
-            });
-        }
+        postMessageToVSCode({
+            command: 'updateWidgetProps',
+            text: JSON.stringify(containerPayload)
+        });
 
         console.log("Cabbage: Created new container:", containerId);
     } else {
@@ -261,12 +281,10 @@ async function groupSelectedWidgets() {
     }
 
     // Update the CSD file with the modified container (now with children)
-    if (vscode) {
-        vscode.postMessage({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(containerWidget.props)
-        });
-    }
+    postMessageToVSCode({
+        command: 'updateWidgetProps',
+        text: JSON.stringify(containerWidget.props)
+    });
 
     // Clear selection
     selectedElements.forEach(element => element.classList.remove('selected'));
@@ -366,12 +384,10 @@ async function ungroupSelectedWidgets() {
         }
 
         // Update the CSD file with the new top-level widget
-        if (vscode) {
-            vscode.postMessage({
-                command: 'updateWidgetProps',
-                text: JSON.stringify(topLevelProps)
-            });
-        }
+        postMessageToVSCode({
+            command: 'updateWidgetProps',
+            text: JSON.stringify(topLevelProps)
+        });
 
         return topLevelProps;
     });
@@ -386,12 +402,10 @@ async function ungroupSelectedWidgets() {
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
 
     // Update the CSD file with the container (now without children)
-    if (vscode) {
-        vscode.postMessage({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(containerWidget.props)
-        });
-    }
+    postMessageToVSCode({
+        command: 'updateWidgetProps',
+        text: JSON.stringify(containerWidget.props)
+    });
 
     console.log("Cabbage: Container", containerChannelId, "now has no children and remains as a top-level widget");
 
@@ -678,17 +692,37 @@ export function setupFormHandlers() {
                         // Insert new widget and update the editor
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
                         console.log("Cabbage: Inserting widget with uniqueId:", uniqueId);
-                        const widget = await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
-                        console.warn("Cabbage: Form handlers - Inserted widget:", widget);
-                        if (widgets) {
-                            if (widget) {
-                                vscode.postMessage({
-                                    command: 'updateWidgetProps',
-                                    text: JSON.stringify(widget.originalProps)
-                                });
-                            } else {
-                                console.error("Cabbage: Widget is undefined, cannot send to VS Code");
+                        await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
+                        // insertWidget pushes the widget instance into the shared
+                        // `widgets` array. Locate the instance so we can access
+                        // `originalProps`. Fall back to the inserted props if
+                        // originalProps isn't available.
+                        const inserted = widgets.find(w => w.props && (w.props.id === uniqueId || (Array.isArray(w.props.channels) && w.props.channels[0] && w.props.channels[0].id === uniqueId)));
+                        console.warn("Cabbage: Form handlers - Inserted widget:", inserted || uniqueId);
+                        if (inserted) {
+                            // When a widget is first inserted we want to send the
+                            // complete merged props so the extension can persist
+                            // all identifying fields (type, channels, etc.). The
+                            // `originalProps` value may have been minimized and
+                            // omit defaults, producing a payload with only the id.
+                            // Prefer the minimized originalProps but ensure minimal
+                            // identity fields are present so the extension can
+                            // properly merge the update into the document.
+                            const src = inserted.originalProps || inserted.props || {};
+                            const payload = JSON.parse(JSON.stringify(src));
+                            if (inserted.props) {
+                                if (!payload.id && inserted.props.id) payload.id = inserted.props.id;
+                                if (!payload.type && inserted.props.type) payload.type = inserted.props.type;
+                                if ((!payload.channels || payload.channels.length === 0) && Array.isArray(inserted.props.channels) && inserted.props.channels.length > 0) {
+                                    payload.channels = inserted.props.channels.map(c => ({ id: c.id }));
+                                }
                             }
+                            const msg = { command: 'updateWidgetProps', text: JSON.stringify(payload) };
+                            postMessageToVSCode(msg);
+                            // Retry once shortly after to guard against ordering races
+                            setTimeout(() => postMessageToVSCode(msg), 200);
+                        } else {
+                            console.error("Cabbage: Unable to find inserted widget instance in widgets[] - cannot send update to VS Code");
                         }
                     });
                 }
@@ -718,7 +752,7 @@ export function setupFormHandlers() {
             // Check if the time since the last click is within the double-click threshold
             if (currentTime - lastClickTime <= doubleClickThreshold) {
                 console.error("Cabbage: Double click detected", event);
-                vscode.postMessage({
+                postMessageToVSCode({
                     command: 'jumpToWidget',
                     text: CabbageUtils.findValidId(event)
                 });

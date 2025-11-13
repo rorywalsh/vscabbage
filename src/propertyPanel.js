@@ -503,9 +503,11 @@ export class PropertyPanel {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
             let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
             minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+            console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: PropertyPanel.safeSanitizeForPost(minimized),
+                text: textPayload,
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post addChannel update', e);
@@ -528,9 +530,11 @@ export class PropertyPanel {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
             let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
             minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+            console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: PropertyPanel.safeSanitizeForPost(minimized),
+                text: textPayload,
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post removeChannel update', e);
@@ -1152,13 +1156,17 @@ export class PropertyPanel {
                 try {
                     let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
                     minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                    const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                    console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
                     this.vscode.postMessage({
                         command: 'updateWidgetProps',
-                        text: PropertyPanel.safeSanitizeForPost(minimized),
+                        text: textPayload,
                     });
                 } catch (e) {
                     console.error('PropertyPanel: failed to post widgetUpdate', e);
-                    this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
+                    const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                    console.log('PropertyPanel: posting fallback updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                    this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
                 }
             }
         });
@@ -1301,13 +1309,17 @@ export class PropertyPanel {
                             try {
                                 let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
                                 minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                                console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
                                 this.vscode.postMessage({
                                     command: 'updateWidgetProps',
-                                    text: PropertyPanel.safeSanitizeForPost(minimized),
+                                    text: textPayload,
                                 });
                             } catch (e) {
                                 console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
-                                this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
+                                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                                console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
                             }
                         }, (index + 1) * 150); // Delay increases with index
                     } else {
