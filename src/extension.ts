@@ -445,6 +445,33 @@ export async function activate(context: vscode.ExtensionContext):
             await Commands.startCabbageServer(false);
         }));
 
+    // Provide a public command to restart the backend. Some helper code
+    // elsewhere (e.g. Settings) calls this command by id. Ensure it's
+    // registered so executeCommand doesn't fail.
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.restartBackend', async () => {
+            try {
+                if (Commands.hasCabbageServerStarted && Commands.hasCabbageServerStarted()) {
+                    // Stop then start the server to force a rescan
+                    await Commands.startCabbageServer(false);
+                    // Small delay to let settings settle
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await Commands.startCabbageServer(true);
+                } else {
+                    // If server isn't running, try to notify the webview to
+                    // rescan custom widgets (if panel exists). This is a
+                    // lightweight fallback used when restarting the native
+                    // backend isn't appropriate.
+                    const panel = Commands.getPanel();
+                    if (panel) {
+                        panel.webview.postMessage({ command: 'rescanCustomWidgets' });
+                    }
+                }
+            } catch (err) {
+                console.warn('Cabbage: Error while restarting backend:', err);
+            }
+        }));
+
     // Register command for jumping to widget definition
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.jumpToWidgetObject', () => {

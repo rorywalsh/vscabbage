@@ -341,6 +341,57 @@ export class Settings {
             settings['currentConfig']['jsSourceDir'] = newPath ? [newPath] : [];
             await Settings.setCabbageSettings(settings);
         }
+
+        // If the user changed or reset the list of custom widget directories in
+        // VS Code settings, update our external Cabbage settings file so the
+        // backend (and extension) stay in sync. This handles the case where the
+        // user resets the VS Code setting (removing their custom paths) and
+        // expects those locations to be removed from the Cabbage settings file
+        // as well.
+        if (event.affectsConfiguration('cabbage.customWidgetDirectories')) {
+            try {
+                // Read the VS Code setting (may be undefined/null if reset)
+                const customDirs = config.get<string[]>('customWidgetDirectories') || [];
+
+                const defPath = Settings.getPathJsSourceDir();
+
+                // Normalize existing jsSourceDir into an array
+                const current = settings['currentConfig']['jsSourceDir'];
+                let dirs: string[] = [];
+                if (Array.isArray(current)) {
+                    dirs = current as string[];
+                } else if (typeof current === 'string' && current.length > 0) {
+                    dirs = [current as string];
+                } else {
+                    dirs = [];
+                }
+
+                // Build the new list: ensure default path is present, then append
+                // all custom dirs from the VS Code setting (in that order).
+                const newDirs: string[] = [];
+                if (defPath && !newDirs.includes(defPath)) newDirs.push(defPath);
+                for (const d of customDirs) {
+                    if (d && !newDirs.includes(d)) newDirs.push(d);
+                }
+
+                // If the VS Code setting was reset to empty, this will result in
+                // only the default path being kept. Persist the new settings.
+                settings['currentConfig']['jsSourceDir'] = newDirs;
+                await Settings.setCabbageSettings(settings);
+
+                // Trigger a backend rescan so the change takes effect immediately
+                // (restartBackend command is already used elsewhere in the
+                // extension).
+                try {
+                    await vscode.commands.executeCommand('cabbage.restartBackend');
+                } catch (cmdErr) {
+                    // Non-fatal; command might not be registered at the moment.
+                    console.warn('Cabbage: Failed to execute restartBackend command:', cmdErr);
+                }
+            } catch (err) {
+                console.error('Cabbage: Error syncing customWidgetDirectories to settings file:', err);
+            }
+        }
     }
 
     /**

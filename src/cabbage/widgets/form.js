@@ -15,7 +15,7 @@ export class Form {
       "channels": [
         {
           "id": "formChannel", "event": "valueChanged",
-          "range": { "defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0 }
+          "range": { "defaultValue": 0, "increment":1, "max": 1, "min": 0, "skew": 1, "value": 0 }
         }
       ],
       "type": "form",
