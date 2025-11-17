@@ -15,7 +15,11 @@ export class ComboBox {
                 "height": 30
             },
             "channels": [
-                { "id": "comboBox", "event": "valueChanged" }
+                {
+                    "id": "comboBox",
+                    "event": "valueChanged",
+                    "range": { "defaultValue": 0, "increment": 1, "max": 2, "min": 0, "skew": 1 }
+                }
             ],
             "value": null,
             "index": 0,

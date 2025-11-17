@@ -1531,60 +1531,60 @@ f0 z
         const widgets: Array<{ filename: string, className: string, widgetType: string }> = [];
 
         // List of built-in widget types to skip (these shouldn't be registered as custom widgets)
-        const builtInWidgets = [
+        const builtInWidgets = new Set([
             'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider', 'numberSlider',
             'keyboard', 'form', 'button', 'fileButton', 'infoButton', 'optionButton',
             'genTable', 'label', 'image', 'listBox', 'comboBox', 'groupBox', 'checkBox',
             'csoundOutput', 'textEditor', 'xyPad'
-        ];
+        ]);
 
         try {
-            if (!fs.existsSync(directory)) {
-                return widgets;
-            }
+            // Non-blocking check for existence
+            const stat = await fs.promises.stat(directory).catch(() => null);
+            if (!stat || !stat.isDirectory()) return widgets;
 
-            const files = fs.readdirSync(directory);
+            const dirents = await fs.promises.readdir(directory, { withFileTypes: true });
 
-            for (const file of files) {
-                // Only process .js files, skip template and test files
-                if (!file.endsWith('.js') ||
-                    file.includes('Template') ||
-                    file.includes('test') ||
-                    file.startsWith('.')) {
-                    continue;
-                }
+            // Filter candidate files (no templates, tests or hidden files)
+            const candidates = dirents
+                .filter(d => d.isFile() && d.name.endsWith('.js') && !d.name.startsWith('.') && !d.name.includes('Template') && !d.name.includes('test'))
+                .map(d => d.name);
 
-                const filePath = path.join(directory, file);
-                const stats = fs.statSync(filePath);
+            // Concurrency limit for reading file headers
+            const CONCURRENCY = 6;
+            let idx = 0;
 
-                if (!stats.isFile()) {
-                    continue;
-                }
-
+            const readHeader = async (fileName: string) => {
+                const filePath = path.join(directory, fileName);
                 try {
-                    const content = fs.readFileSync(filePath, 'utf8');
+                    const fh = await fs.promises.open(filePath, 'r');
+                    // read up to 16KB - usually enough to find export/class/type
+                    const buf = new Uint8Array(16 * 1024);
+                    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+                    await fh.close();
+                    const content = new TextDecoder('utf-8').decode(buf.subarray(0, bytesRead)).replace(/\0/g, '');
                     const widgetInfo = this.extractWidgetInfoFromFile(content);
-
-                    if (widgetInfo) {
-                        // Skip built-in widgets - only register actual custom widgets
-                        if (builtInWidgets.includes(widgetInfo.widgetType)) {
-                            console.log(`Cabbage: Skipping built-in widget: ${widgetInfo.widgetType} in ${file}`);
-                            continue;
-                        }
-
-                        widgets.push({
-                            filename: file,
-                            className: widgetInfo.className,
-                            widgetType: widgetInfo.widgetType
-                        });
-                        console.log(`Cabbage: Found custom widget: ${widgetInfo.widgetType} in ${file}`);
+                    if (widgetInfo && !builtInWidgets.has(widgetInfo.widgetType)) {
+                        widgets.push({ filename: fileName, className: widgetInfo.className, widgetType: widgetInfo.widgetType });
+                        console.log(`Cabbage: Found custom widget: ${widgetInfo.widgetType} in ${fileName}`);
                     }
-                } catch (error) {
-                    console.error(`Cabbage: Error reading widget file ${file}:`, error);
+                } catch (err) {
+                    // keep silent for read errors to avoid spamming extension host logs
+                    // but keep debug output available
+                    console.debug && console.debug(`Cabbage: scan read error ${fileName}:`, (err as any)?.message || err);
                 }
-            }
+            };
+
+            const workers = new Array(Math.min(CONCURRENCY, candidates.length)).fill(0).map(async () => {
+                while (idx < candidates.length) {
+                    const file = candidates[idx++];
+                    await readHeader(file);
+                }
+            });
+
+            await Promise.all(workers);
         } catch (error) {
-            console.error(`Cabbage: Error scanning directory ${directory}:`, error);
+            console.error(`Cabbage: Error scanning directory ${directory}:`, (error as any)?.message || error);
         }
 
         return widgets;

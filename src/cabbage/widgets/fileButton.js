@@ -19,7 +19,11 @@ export class FileButton extends Button {
         "width": 80,
         "height": 30
       },
-      "channels": [{ "id": "fileButton", "event": "valueChanged" }],
+      "channels": [
+        {
+          "id": "fileButton",
+          "event": "valueChanged"
+        }],
       "value": null,
       "index": 0,
       "visible": true,

@@ -19,7 +19,11 @@ export class HorizontalSlider {
         "height": 40
       },
       "channels": [
-        { "id": "hslider", "event": "valueChanged" }
+        {
+          "id": "hslider",
+          "range": { "defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1 },
+          "event": "valueChanged"
+        }
       ],
       "value": null,
       "index": 0,

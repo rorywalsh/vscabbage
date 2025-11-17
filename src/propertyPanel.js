@@ -120,6 +120,69 @@ export class PropertyPanel {
             };
 
             strip(clone, defaults);
+            // Ensure critical identity fields aren't stripped completely.
+            // If the widget had a type or id originally, ensure they remain in the
+            // minimized payload so the extension can correctly identify the object.
+            try {
+                // If channels are present but they exactly match the widget defaults,
+                // remove them from the minimized payload. This avoids sending a
+                // default channel entry (which can cause malformed insertions
+                // when the receiver expects only non-default changes).
+
+                // Only omit default-matching channels for form widgets. Other
+                // widget types may use channels differently and should not have
+                // their channels stripped by this shortcut.
+                const isFormWidget = (props && props.type === 'form') || (widget && widget.props && widget.props.type === 'form');
+                if (isFormWidget && clone.channels && defaults.channels && Array.isArray(clone.channels) && Array.isArray(defaults.channels)) {
+                    try {
+                        // Consider channels equal if their contents other than `id` match the defaults.
+                        // Some widget instances may have different ids (e.g. MainForm vs generated ids)
+                        // so we normalise the default channel ids to the current channel ids before comparing.
+                        const normaliseChannels = (arr, idsToUse) => {
+                            return arr.map((c, i) => {
+                                try {
+                                    const copy = JSON.parse(JSON.stringify(c));
+                                    if (idsToUse && typeof idsToUse[i] !== 'undefined') copy.id = idsToUse[i];
+                                    return copy;
+                                } catch (e) {
+                                    return c;
+                                }
+                            });
+                        };
+
+                        const currentIds = clone.channels.map(c => (c && c.id) ? c.id : null);
+                        const normDefaults = normaliseChannels(defaults.channels, currentIds);
+
+                        const arraysEqual = WidgetManager.deepEqual(clone.channels, normDefaults);
+                        const firstElemEqual = (clone.channels.length === 1 && normDefaults.length === 1 && WidgetManager.deepEqual(clone.channels[0], normDefaults[0]));
+                        if (arraysEqual || firstElemEqual) {
+                            delete clone.channels;
+                            console.log('PropertyPanel.minimizePropsForWidget: stripped default-matching channels from minimized props');
+                        }
+                    } catch (e) {
+                        // ignore deepEqual failures for channels
+                        console.error('PropertyPanel.minimizePropsForWidget: channel compare failed', e);
+                    }
+                }
+
+                if ((!clone.type || clone.type === '') && props && props.type) {
+                    clone.type = props.type;
+                }
+                if ((!clone.id || clone.id === '') && props && props.id) {
+                    clone.id = props.id;
+                }
+
+                // Defensive: if after minimization we have neither a type nor an id,
+                // that's an invalid payload to send — return the full props so the
+                // extension receives a complete object (and can validate/err).
+                if ((!clone.type || clone.type === '') && (!clone.id || clone.id === '')) {
+                    console.error('PropertyPanel.minimizePropsForWidget: minimized object has no type or id — returning full props to avoid invalid payload');
+                    return props;
+                }
+            } catch (e) {
+                console.error('PropertyPanel.minimizePropsForWidget post-strip checks failed:', e);
+            }
+
             return clone;
         } catch (e) {
             console.error('PropertyPanel.minimizePropsForWidget failed:', e);
@@ -175,6 +238,10 @@ export class PropertyPanel {
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
 
+        // Suppress input events while we build the panel to avoid firing
+        // handleInputChange from initialization side-effects (color pickers, style updates, etc.)
+        this._suppressEvents = true;
+
         // Prevent scroll events from bubbling to the main webview
         if (!panel.hasAttribute('data-scroll-handler-attached')) {
             panel.addEventListener('wheel', (e) => {
@@ -204,6 +271,16 @@ export class PropertyPanel {
         // Create sections based on the properties object
         this.createSections(this.properties, panel);
         this.createMiscSection(this.properties, panel);
+
+        // Mark inputs as initialized after a short delay and re-enable events.
+        // This allows any component initialization (like color pickers) to complete
+        // without triggering genuine change handlers.
+        setTimeout(() => {
+            this._suppressEvents = false;
+            const initables = document.querySelectorAll('.property-panel input, .property-panel select, .property-panel textarea');
+            initables.forEach(i => i.dataset.initialized = 'true');
+            console.log('PropertyPanel: inputs initialized, event suppression lifted');
+        }, 60);
     }
 
     /** 
@@ -426,9 +503,11 @@ export class PropertyPanel {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
             let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
             minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+            console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: PropertyPanel.safeSanitizeForPost(minimized),
+                text: textPayload,
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post addChannel update', e);
@@ -451,9 +530,11 @@ export class PropertyPanel {
             const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(this.properties, 0));
             let minimized = PropertyPanel.minimizePropsForWidget(this.properties, widget);
             minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+            console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
-                text: PropertyPanel.safeSanitizeForPost(minimized),
+                text: textPayload,
             });
         } catch (e) {
             console.error('PropertyPanel: failed to post removeChannel update', e);
@@ -972,7 +1053,18 @@ export class PropertyPanel {
             input = innerInput;
         }
 
+        // Ignore events for inputs that are flagged to skip the handler
         if (input.dataset.skipInputHandler === 'true') {
+            return;
+        }
+
+        // Ignore events fired during panel initialization. Inputs are marked
+        // as initialized shortly after createPanel finishes. Some UI
+        // components (colour pickers, selects, etc.) may emit synthetic
+        // input/change events while being constructed — we don't want those
+        // to be treated as user edits.
+        if (this._suppressEvents || input.dataset.initialized !== 'true') {
+            console.log('PropertyPanel: ignoring initialization input event for', input && input.id);
             return;
         }
 
@@ -1064,13 +1156,17 @@ export class PropertyPanel {
                 try {
                     let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
                     minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                    const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                    console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
                     this.vscode.postMessage({
                         command: 'updateWidgetProps',
-                        text: PropertyPanel.safeSanitizeForPost(minimized),
+                        text: textPayload,
                     });
                 } catch (e) {
                     console.error('PropertyPanel: failed to post widgetUpdate', e);
-                    this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
+                    const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                    console.log('PropertyPanel: posting fallback updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                    this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
                 }
             }
         });
@@ -1204,20 +1300,31 @@ export class PropertyPanel {
                         console.error("not valid");
                     }
 
-                    // Delay sending messages to VSCode to avoid slow responses
-                    setTimeout(() => {
-                        try {
-                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                            this.vscode.postMessage({
-                                command: 'updateWidgetProps',
-                                text: PropertyPanel.safeSanitizeForPost(minimized),
-                            });
-                        } catch (e) {
-                            console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
-                            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props) });
-                        }
-                    }, (index + 1) * 150); // Delay increases with index
+                    // Only send an update to VSCode when this is a real property change
+                    // (not just a click to open the panel). Clicks should open the panel
+                    // without triggering an update that could insert default channel objects.
+                    if (eventType !== 'click') {
+                        // Delay sending messages to VSCode to avoid slow responses
+                        setTimeout(() => {
+                            try {
+                                let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                                minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                                console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
+                                this.vscode.postMessage({
+                                    command: 'updateWidgetProps',
+                                    text: textPayload,
+                                });
+                            } catch (e) {
+                                console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
+                                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                                console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
+                            }
+                        }, (index + 1) * 150); // Delay increases with index
+                    } else {
+                        console.log('PropertyPanel: click event - not sending update to VSCode');
+                    }
                 }
             });
         });

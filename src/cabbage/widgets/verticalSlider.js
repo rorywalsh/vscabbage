@@ -16,7 +16,11 @@ export class VerticalSlider {
         "height": 120
       },
       "channels": [
-        { "id": "vslider", "event": "valueChanged" }
+        {
+          "id": "vslider",
+          "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1 },
+          "event": "valueChanged"
+        }
       ],
       "value": null,
       "index": 0,

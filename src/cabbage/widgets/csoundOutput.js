@@ -17,7 +17,11 @@ export class CsoundOutput {
                 "height": 300
             },
             "channels": [
-                { "id": "checkbox", "event": "valueChanged" }
+                {
+                    "id": "checkbox",
+                    "event": "valueChanged",
+                    "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1 }
+                }
             ],
             "visible": true,
             "active": true,

@@ -15,7 +15,11 @@ export class Label {
                 "width": 100,
                 "height": 30
             },
-            "channels": [{ "id": "label", "event": "valueChanged" }],
+            "channels": [{
+                "id": "label",
+                "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1 },
+                "event": "valueChanged"
+            }],
             "index": 0,
             "visible": true,
             "active": true,

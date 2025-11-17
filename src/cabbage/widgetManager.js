@@ -166,6 +166,11 @@ export class WidgetManager {
             // can compare and strip default-valued properties when minimizing props.
             widget.rawDefaults = defaultProps;
             const minimalProps = { ...props };
+            // If insert used top/left which were moved into widget.props.bounds and removed from props,
+            // inject bounds from the instance so minimization preserves position for newly-inserted widgets.
+            if ((!minimalProps.bounds || Object.keys(minimalProps.bounds).length === 0) && widget.props && widget.props.bounds) {
+                minimalProps.bounds = { ...widget.props.bounds };
+            }
             const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
             excludeFromJson.forEach(prop => delete minimalProps[prop]);
             for (let key in defaultProps) {

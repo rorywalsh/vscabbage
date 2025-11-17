@@ -17,7 +17,7 @@ export class OptionButton {
         "width": 80,
         "height": 30
       },
-      "channels": [{ "id": "optionButton", "event": "valueChanged", "range": { "min": 0, "max": 3, "defaultValue": 0, "skew": 1, "increment": 1 } }],
+      "channels": [{ "id": "optionButton", "event": "valueChanged", "range": { "min": 0, "max": 2, "defaultValue": 0, "skew": 1, "increment": 1 } }],
       "value": null,
       "index": 0,
       "visible": true,
