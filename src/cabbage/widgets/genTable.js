@@ -45,7 +45,8 @@ export class GenTable {
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
-                "textAlign": "left"
+                "textAlign": "left",
+                "logarithmic": false
             },
             "label": { "text": "" },
             "range": {
@@ -223,7 +224,25 @@ export class GenTable {
 
         // Calculate the sample position
         const normalizedX = pixelX / Number(this.props.bounds.width);
-        const sampleIndex = Math.floor(rangeStart + (normalizedX * rangeLength));
+        let sampleIndex;
+
+        // If logarithmic view is enabled, map pixels to samples using a
+        // logarithmic scale so low-index samples get more horizontal space.
+        const useLog = (this.props.style && this.props.style.logarithmic);
+        if (useLog) {
+            // Avoid zero/negative values by offsetting by 1
+            const safeLength = Math.max(1, rangeLength);
+            const logMax = Math.log10(safeLength + 1);
+            const value = Math.pow(10, normalizedX * logMax) - 1;
+            sampleIndex = Math.floor(rangeStart + value);
+        } else {
+            // Linear mapping — guard against zero-length ranges
+            if (rangeLength <= 0) {
+                sampleIndex = rangeStart;
+            } else {
+                sampleIndex = Math.floor(rangeStart + (normalizedX * rangeLength));
+            }
+        }
 
         // Clamp to valid range
         return Math.max(rangeStart, Math.min(sampleIndex, rangeEnd - 1));
@@ -244,7 +263,23 @@ export class GenTable {
         const rangeEnd = this.props.range.x.end === -1 ? totalSamples : this.props.range.x.end;
         const rangeLength = rangeEnd - rangeStart;
 
-        const normalized = (sampleIndex - rangeStart) / rangeLength;
+        let normalized;
+        const useLog2 = (this.props.style && this.props.style.logarithmic);
+        if (useLog2) {
+            // Logarithmic mapping: map sample index to [0,1] using log scale
+            const safeLength = Math.max(1, rangeLength);
+            const logMax = Math.log10(safeLength + 1);
+            const value = (sampleIndex - rangeStart);
+            const safeValue = Math.max(0, value);
+            normalized = Math.log10(safeValue + 1) / logMax;
+        } else {
+            // Linear mapping — guard against zero-length ranges
+            if (rangeLength <= 0) {
+                normalized = 0;
+            } else {
+                normalized = (sampleIndex - rangeStart) / rangeLength;
+            }
+        }
         return normalized * Number(this.props.bounds.width);
     }
 
@@ -302,6 +337,55 @@ export class GenTable {
         // Render the waveform to the offscreen canvas (this is the expensive operation)
         this.renderWaveformToCache();
 
+        // Runtime debug: log a few mappings when logarithmic mode is enabled so we can
+        // verify that pixel->sample mapping is actually non-linear at runtime.
+        try {
+            const useLog = (this.props.style && this.props.style.logarithmic);
+            if (useLog && !this._gentableLogged) {
+                const w = Number(this.props.bounds.width) || 1;
+                const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
+                const map = (x) => this.pixelToSample(x);
+                console.info(`Cabbage: GenTable[${this.props.id || CabbageUtils.getChannelId(this.props, 0)}] log-mode=ON width=${w} samples=${totalSamples}`);
+                console.info(`Cabbage:   pixel->sample: x=0 -> ${map(0)}, x=${Math.floor(w / 2)} -> ${map(Math.floor(w / 2))}, x=${Math.max(0, w - 1)} -> ${map(Math.max(0, w - 1))}`);
+                // mark as logged for a short period to avoid noisy output
+                this._gentableLogged = true;
+                setTimeout(() => { this._gentableLogged = false; }, 3000);
+            }
+            // One-time props dump to help diagnose whether style.logarithmic
+            // is actually present on the widget props at render time. This
+            // is guarded so it only prints briefly and won't spam the console.
+            if (!this._gentablePropsLogged) {
+                try {
+                    console.info('Cabbage: GenTable props dump:', this.props);
+                } catch (e) {
+                    console.warn('Cabbage: Failed to log GenTable props', e);
+                }
+                this._gentablePropsLogged = true;
+                // Allow a single reprint after a short delay (in case props update)
+                setTimeout(() => { this._gentablePropsLogged = false; }, 5000);
+            }
+            // Targeted mapping output: print whether logarithmic mode is enabled
+            // and a few pixel->sample mappings so we can verify the mapping math
+            // at runtime even when the props object prints as a Proxy.
+            if (!this._gentableMapLogged) {
+                try {
+                    const w = Number(this.props.bounds.width) || 1;
+                    const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
+                    const rangeStart = (this.props.range && this.props.range.x) ? (this.props.range.x.start || 0) : 0;
+                    const rangeEnd = (this.props.range && this.props.range.x && this.props.range.x.end !== -1) ? this.props.range.x.end : totalSamples;
+                    const positions = [0, Math.floor(w / 4), Math.floor(w / 2), Math.floor(3 * w / 4), Math.max(0, w - 1)];
+                    const mappings = positions.map(px => `${px}->${this.pixelToSample(px)}`);
+                    console.info('Cabbage: GenTable mapping:', { logarithmic: !!(this.props.style && this.props.style.logarithmic), width: w, totalSamples, rangeStart, rangeEnd, mappings });
+                } catch (e) {
+                    console.warn('Cabbage: GenTable mapping log failed', e);
+                }
+                this._gentableMapLogged = true;
+                setTimeout(() => { this._gentableMapLogged = false; }, 3000);
+            }
+        } catch (e) {
+            console.warn('Cabbage: GenTable debug logging failed', e);
+        }
+
         // Draw the cached waveform to the main canvas
         this.ctx.clearRect(0, 0, Number(this.props.bounds.width), Number(this.props.bounds.height));
         this.ctx.drawImage(this.waveformCanvas, 0, 0);
@@ -326,7 +410,7 @@ export class GenTable {
             // Add event listeners
             this.addEventListeners(widgetElement);
         } else {
-            console.log(`Element: ${channelId} not found.`);
+            console.log(`Cabbage: Element: ${channelId} not found.`);
         }
     }
 
@@ -346,12 +430,21 @@ export class GenTable {
         // Clear canvas
         ctx.clearRect(0, 0, Number(this.props.bounds.width), Number(this.props.bounds.height));
 
-        // Set the global alpha for the canvas context
-        ctx.globalAlpha = Number(this.props.opacity); // Apply opacity
+        // Set the global alpha for the canvas context (style.opacity is the canonical place)
+        ctx.globalAlpha = Number((this.props.style && typeof this.props.style.opacity !== 'undefined') ? this.props.style.opacity : 1);
 
-        // Determine the Y-axis range for waveform display
-        const yMin = this.props.range.y.min;
-        const yMax = this.props.range.y.max;
+        // Prepare range and sample metrics with safe defaults so this function can
+        // tolerate missing or partially-specified `range` objects coming from the
+        // backend JSON. This also fixes the ReferenceError where `rangeLength` was
+        // referenced but not defined in this scope.
+        const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
+        const rangeStart = (this.props.range && this.props.range.x) ? (typeof this.props.range.x.start !== 'undefined' ? this.props.range.x.start : 0) : 0;
+        const rangeEnd = (this.props.range && this.props.range.x && typeof this.props.range.x.end !== 'undefined' && this.props.range.x.end !== -1) ? this.props.range.x.end : totalSamples;
+        const rangeLength = Math.max(0, rangeEnd - rangeStart);
+
+        // Determine the Y-axis range for waveform display (use sensible defaults)
+        const yMin = (this.props.range && this.props.range.y && typeof this.props.range.y.min !== 'undefined') ? this.props.range.y.min : -1.0;
+        const yMax = (this.props.range && this.props.range.y && typeof this.props.range.y.max !== 'undefined') ? this.props.range.y.max : 1.0;
 
         // Draw background with rounded corners
         ctx.fillStyle = this.props.style.background;
@@ -371,19 +464,72 @@ export class GenTable {
             return;
         }
 
-        // Calculate how many samples per pixel
-        // Note: samples array is already decimated by C++ code to roughly match widget width
-        // So we need to scale from samples.length to bounds.width
+        // Calculate how many samples per pixel for linear mode. For logarithmic
+        // mode we will map pixels to sample indices individually using
+        // sampleToPixel/pixelToSample helpers.
         const samplesPerPixel = this.props.samples.length / this.props.bounds.width;
         const centerY = this.props.bounds.height / 2;
+        // Y-axis logarithmic support (optional): enable by setting style.logarithmicY = true
+        // Enable logarithmic Y if either explicit logarithmicY is set, or the
+        // general `logarithmic` flag is true (so `logarithmic:true` toggles both axes).
+        const useLogY = (this.props.style && ((this.props.style.logarithmicY) || (this.props.style.logarithmic)));
+
+        // Helper to map a value to a pixel Y position. Uses linear mapping by default
+        // and a symmetric, magnitude-preserving logarithmic mapping when useLogY is true.
+        const valueToPixel = (val) => {
+            const height = Number(this.props.bounds.height);
+            // Linear mapping when log Y isn't requested
+            if (!useLogY) return CabbageUtils.map(val, yMin, yMax, height, 0);
+
+            // Easing helper: log-like ease from 0..1 -> 0..1
+            const easeLog = (x) => Math.log10(1 + 9 * Math.min(1, Math.max(0, x)));
+
+            // Positive-only range (e.g. [0..1]) -> map val so higher values go toward the top
+            if (isFinite(yMin) && isFinite(yMax) && yMin >= 0) {
+                const range = yMax - yMin;
+                if (!isFinite(range) || range <= 0) return height; // fallback to bottom
+                const norm = (val - yMin) / range; // 0..1
+                const t = easeLog(norm);
+                // pixel: 0 at top, height at bottom. Higher value -> smaller pixel (toward top)
+                return (1 - t) * height;
+            }
+
+            // Negative-only range (e.g. [-1..0]) -> treat similarly so larger (less negative) values go toward top
+            if (isFinite(yMin) && isFinite(yMax) && yMax <= 0) {
+                const range = yMax - yMin;
+                if (!isFinite(range) || range <= 0) return height / 2;
+                const norm = (val - yMin) / range; // 0..1
+                const t = easeLog(norm);
+                return (1 - t) * height;
+            }
+
+            // Mixed-sign range: preserve symmetric behavior around centerValue
+            const cY = height / 2;
+            const centerValue = (yMin + yMax) / 2;
+            let delta = val - centerValue;
+            if (delta === 0) return cY;
+            const positive = delta > 0;
+            const maxDelta = positive ? (yMax - centerValue) : (centerValue - yMin);
+            if (!isFinite(maxDelta) || maxDelta <= 0) return cY;
+            const norm = Math.min(1, Math.abs(delta) / maxDelta);
+            const t = easeLog(norm);
+            return positive ? (cY - t * cY) : (cY + t * cY);
+        };
 
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
             // Draw filled waveform from center line to amplitudes
             ctx.fillStyle = this.props.style.fill;
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
-                const startIdx = Math.floor(x * samplesPerPixel);
-                const endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
+                let startIdx, endIdx;
+                const useLog3 = (this.props.style && this.props.style.logarithmic);
+                if (useLog3) {
+                    startIdx = Math.floor(this.pixelToSample(x));
+                    endIdx = Math.min(Math.ceil(this.pixelToSample(x + 1)), this.props.samples.length);
+                } else {
+                    startIdx = Math.floor(x * samplesPerPixel);
+                    endIdx = Math.min(Math.ceil((x + 1) * samplesPerPixel), this.props.samples.length);
+                }
 
                 // Find max and min values in this pixel's sample range
                 let maxVal = 0; // Default to center (0) if no samples
@@ -401,9 +547,8 @@ export class GenTable {
                 }
 
                 // For filled waveform, fill from center to the amplitude extremes
-                const centerY = this.props.bounds.height / 2;
-                const maxY = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
-                const minY = CabbageUtils.map(minVal, yMin, yMax, this.props.bounds.height, 0);
+                const maxY = valueToPixel(maxVal);
+                const minY = valueToPixel(minVal);
                 const topFill = Math.min(centerY, maxY, minY);
                 const bottomFill = Math.max(centerY, maxY, minY);
                 const fillHeight = Math.max(1, bottomFill - topFill);
@@ -418,8 +563,15 @@ export class GenTable {
             ctx.beginPath();
 
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
-                const startIdx = Math.floor(x * samplesPerPixel);
-                const endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
+                let startIdx, endIdx;
+                const useLog4 = (this.props.style && this.props.style.logarithmic);
+                if (useLog4) {
+                    startIdx = Math.floor(this.pixelToSample(x));
+                    endIdx = Math.min(Math.ceil(this.pixelToSample(x + 1)), this.props.samples.length);
+                } else {
+                    startIdx = Math.floor(x * samplesPerPixel);
+                    endIdx = Math.min(startIdx + samplesPerPixel, this.props.samples.length);
+                }
 
                 // Find max value for outline
                 let maxVal = 0; // Default to center (0) if no samples
@@ -430,7 +582,7 @@ export class GenTable {
                     }
                 }
 
-                const y = CabbageUtils.map(maxVal, yMin, yMax, this.props.bounds.height, 0);
+                const y = valueToPixel(maxVal);
 
                 if (x === 0) {
                     ctx.moveTo(x, y);
@@ -441,6 +593,9 @@ export class GenTable {
 
             ctx.stroke();
         }
+
+        // Note: red diagnostic tick lines removed — enable visual diagnostics
+        // via console mapping logs if needed.
 
         // Draw text on top of everything
         this.drawText(ctx);

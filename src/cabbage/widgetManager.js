@@ -715,7 +715,7 @@ export class WidgetManager {
                                 // Assume received value is linear normalized [0,1], convert to skewed
                                 const skewedNormalized = Math.pow(obj.value, range.skew);
                                 newValue = range.min + skewedNormalized * (range.max - range.min);
-                                console.log(`WidgetManager.updateWidget: Converted linear ${obj.value} to skewed ${newValue}`);
+                                // console.log(`WidgetManager.updateWidget: Converted linear ${obj.value} to skewed ${newValue}`);
                             } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
                                 // Assume received value is already skewed
                                 newValue = obj.value;
@@ -764,7 +764,7 @@ export class WidgetManager {
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 if (widget.props.value === null && savedSliderValue !== null && savedSliderValue !== undefined) {
                     widget.props.value = savedSliderValue;
-                    console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
+                    // console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
                 }
             }
 
@@ -862,15 +862,15 @@ export class WidgetManager {
                 }
             }
         } else {
-            console.log(`WidgetManager.updateWidget: Widget not found in top-level array, checking for child widgets`);
+            // console.log(`WidgetManager.updateWidget: Widget not found in top-level array, checking for child widgets`);
             // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
             const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0)));
-            console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
+            // console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
             if (parentWithChild) {
                 console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
                 // console.log(`Cabbage: Found child widget ${obj.id} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
                 const childProps = parentWithChild.props.children.find(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0));
-                console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
+                // console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
 
                 // If data is an object (and not null/array) merge it, otherwise treat as a value update
                 if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -962,7 +962,7 @@ export class WidgetManager {
                 console.error("Error parsing JSON widgetJson:", error, obj.widgetJson);
             }
         } else {
-            console.log(`WidgetManager.updateWidget: Widget was found and updated`);
+            // console.log(`WidgetManager.updateWidget: Widget was found and updated`);
         }
     }
 
