@@ -171,7 +171,7 @@ export class GenTable {
 
 
             // Redraw to remove the selection overlay
-            this.updateTable();
+            this.updateCanvas();
             return;
         }
 
@@ -202,7 +202,7 @@ export class GenTable {
 
 
         // Redraw to show final selection
-        this.updateTable();
+        this.updateCanvas();
     }
 
     /**
@@ -327,7 +327,7 @@ export class GenTable {
         return `<div id="${channelId}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
-    updateTable() {
+    updateCanvas() {
         // Resize both canvases
         this.canvas.width = Number(this.props.bounds.width);
         this.canvas.height = Number(this.props.bounds.height);

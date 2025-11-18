@@ -85,9 +85,9 @@ export class WidgetManager {
         try {
             const WidgetClass = await widgetConstructors[type];
             const widget = new WidgetClass();
-            //special case for genTable..
-            if (type === "genTable") {
-                widget.createCanvas(); // Special logic for "gentable" widget
+            // If the widget has a createCanvas hook (canvas-backed widgets), call it
+            if (typeof widget.createCanvas === 'function') {
+                try { widget.createCanvas(); } catch (e) { console.error('Cabbage: widget.createCanvas() threw', e); }
             }
             return widget;
         } catch (error) {
@@ -213,8 +213,9 @@ export class WidgetManager {
             }
             widgetDiv.innerHTML = html;
             WidgetManager.appendToMainForm(widgetDiv);
-            if (widget.props.type === "genTable") {
-                widget.updateTable(); // Special handling for "gentable" widgets
+            // If the widget manages its own canvas, call its update method if present
+            if (typeof widget.updateCanvas === 'function') {
+                try { widget.updateCanvas(); } catch (e) { console.error('Cabbage: widget.updateCanvas() threw', e); }
             }
         } else if (widget.props.type === "form") {
             WidgetManager.setupFormWidget(widget); // Special handling for "form" widgets
@@ -805,56 +806,125 @@ export class WidgetManager {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                 if (widgetDiv) {
-                    widgetDiv.innerHTML = widget.getInnerHTML();
-
-                    // Update widget position and size for non-form widgets using consistent styling
-                    // For child widgets, calculate absolute position
-                    let propsForStyling = widget.props;
-                    if (widget.props.parentChannel) {
-                        const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
-                        if (parentWidget) {
-                            const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
-                            const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
-                            propsForStyling = {
-                                ...widget.props,
-                                bounds: {
-                                    ...widget.props.bounds,
-                                    left: absoluteLeft,
-                                    top: absoluteTop
-                                }
-                            };
-                            console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
-                        }
-                    }
-                    WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
-
-                    // If this widget has children, update their positions
-                    if (widget.props.children && Array.isArray(widget.props.children)) {
-                        widget.props.children.forEach(childProps => {
-                            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
-                            const childDiv = document.getElementById(childChannelId);
-                            if (childDiv) {
-                                const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
-                                const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
-                                // Update child widget styles consistently
-                                const childWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(childProps, 0));
-                                if (childWidget) {
-                                    WidgetManager.updateWidgetStyles(childDiv, {
-                                        ...childWidget.props,
-                                        bounds: {
-                                            ...childWidget.props.bounds,
-                                            left: absoluteLeft,
-                                            top: absoluteTop
-                                        }
-                                    });
-                                }
-                                console.log(`Cabbage: Updated child ${CabbageUtils.getChannelId(childProps, 0)} position to (${absoluteLeft}, ${absoluteTop})`);
-                            }
-                        });
-                    }
-
+                    // Special-case genTable: do not clobber the inner DOM if the widget
+                    // manages its own canvas. Ensure the inner placeholder exists and
+                    // then call the widget's updateTable which will reuse/append the canvas.
                     if (widget.props.type === "genTable") {
-                        widget.updateTable();
+                        const innerId = CabbageUtils.getChannelId(widget.props, 0);
+                        let inner = document.getElementById(innerId);
+                        // If the inner placeholder is missing or not a child of the wrapper,
+                        // create it by applying the canonical inner HTML once.
+                        if (!inner || !widgetDiv.contains(inner)) {
+                            widgetDiv.innerHTML = widget.getInnerHTML();
+                            inner = document.getElementById(innerId);
+                        }
+
+                        // Ensure the wrapper is positioned so inner absolute coords resolve to it
+                        try { widgetDiv.style.position = widgetDiv.style.position || 'relative'; } catch (e) { }
+
+                        // Ensure the inner placeholder is positioned so the widget's
+                        // canvas (which is appended inside it) aligns to the wrapper.
+                        if (inner) {
+                            try {
+                                // Make inner a positioned container relative to wrapper
+                                inner.style.position = inner.style.position || 'relative';
+                                inner.style.left = '0px';
+                                inner.style.top = '0px';
+                                inner.style.width = Number(widget.props.bounds.width) + 'px';
+                                inner.style.height = Number(widget.props.bounds.height) + 'px';
+                            } catch (e) {
+                                // defensive: ignore failures in exotic environments
+                            }
+                        }
+
+                        // Ensure the widget's canvas (if already created) is absolutely positioned
+                        try {
+                            if (widget.canvas && widget.canvas.style) {
+                                widget.canvas.style.position = 'absolute';
+                                widget.canvas.style.left = '0px';
+                                widget.canvas.style.top = '0px';
+                                widget.canvas.style.width = inner ? inner.style.width : (Number(widget.props.bounds.width) + 'px');
+                                widget.canvas.style.height = inner ? inner.style.height : (Number(widget.props.bounds.height) + 'px');
+                            }
+                        } catch (e) {
+                            // ignore
+                        }
+
+                        // Update wrapper styles then let the widget update its canvas
+                        let propsForStyling = widget.props;
+                        if (widget.props.parentChannel) {
+                            const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
+                            if (parentWidget) {
+                                const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
+                                const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
+                                propsForStyling = {
+                                    ...widget.props,
+                                    bounds: {
+                                        ...widget.props.bounds,
+                                        left: absoluteLeft,
+                                        top: absoluteTop
+                                    }
+                                };
+                                console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                            }
+                        }
+                        WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
+
+                        try {
+                            if (typeof widget.updateCanvas === 'function') {
+                                widget.updateCanvas();
+                            }
+                        } catch (e) {
+                            console.error('Cabbage: widget.updateCanvas() threw', e);
+                        }
+                    } else {
+                        // Default behavior for widgets that render their HTML via getInnerHTML
+                        widgetDiv.innerHTML = widget.getInnerHTML();
+
+                        // Update wrapper styles (respect parent-relative positioning)
+                        let propsForStyling = widget.props;
+                        if (widget.props.parentChannel) {
+                            const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
+                            if (parentWidget) {
+                                const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
+                                const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
+                                propsForStyling = {
+                                    ...widget.props,
+                                    bounds: {
+                                        ...widget.props.bounds,
+                                        left: absoluteLeft,
+                                        top: absoluteTop
+                                    }
+                                };
+                                console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                            }
+                        }
+                        WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
+
+                        // If this widget has children, update their positions
+                        if (widget.props.children && Array.isArray(widget.props.children)) {
+                            widget.props.children.forEach(childProps => {
+                                const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+                                const childDiv = document.getElementById(childChannelId);
+                                if (childDiv) {
+                                    const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
+                                    const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
+                                    // Update child widget styles consistently
+                                    const childWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(childProps, 0));
+                                    if (childWidget) {
+                                        WidgetManager.updateWidgetStyles(childDiv, {
+                                            ...childWidget.props,
+                                            bounds: {
+                                                ...childWidget.props.bounds,
+                                                left: absoluteLeft,
+                                                top: absoluteTop
+                                            }
+                                        });
+                                    }
+                                    console.log(`Cabbage: Updated child ${CabbageUtils.getChannelId(childProps, 0)} position to (${absoluteLeft}, ${absoluteTop})`);
+                                }
+                            });
+                        }
                     }
                 } else {
                     const channelStr = CabbageUtils.getChannelId(widget.props, 0);
