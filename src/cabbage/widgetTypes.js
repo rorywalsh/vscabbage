@@ -141,6 +141,38 @@ async function getWidget(type) {
 
 	// Widget type not found in registry - try auto-discovery (for plugin mode)
 	console.log(`Cabbage: Widget type "${type}" not registered, attempting auto-discovery...`);
+	// If the extension/webview is still populating the custom widget registry
+	// there may be a short window where the registry is empty. Wait a small
+	// amount of time for any late registrations to arrive before falling back
+	// to auto-discovery. This reduces races when the extension replies late.
+	async function waitForRegistryEntry(widgetType, timeout = 3000) {
+		const start = Date.now();
+		const interval = 150;
+		while (!(widgetType in CUSTOM_WIDGET_REGISTRY) && (Date.now() - start) < timeout) {
+			await new Promise(r => setTimeout(r, interval));
+		}
+		return widgetType in CUSTOM_WIDGET_REGISTRY;
+	}
+
+	// Wait up to 3s (configurable) for a late registry entry
+	const registryFound = await waitForRegistryEntry(type, 3000);
+	if (registryFound) {
+		// If it appeared in the registry, attempt to load it the same way as
+		// the earlier custom-widget branch did.
+		try {
+			const widgetInfo = CUSTOM_WIDGET_REGISTRY[type];
+			const modulePath = `${widgetInfo.file}?t=${Date.now()}`;
+			console.log(`Cabbage: Loading late-registered custom widget "${type}" from:`, modulePath);
+			const module = await import(modulePath);
+			const WidgetClass = module[widgetInfo.class];
+			if (!WidgetClass) throw new Error(`Class "${widgetInfo.class}" not found in custom widget ${widgetInfo.file}`);
+			customWidgetCache[type] = WidgetClass;
+			return WidgetClass;
+		} catch (err) {
+			console.error(`Cabbage: Failed to load late-registered widget "${type}":`, err);
+			// fall through to auto-discovery below
+		}
+	}
 
 	try {
 		// Try to dynamically import based on widget type name

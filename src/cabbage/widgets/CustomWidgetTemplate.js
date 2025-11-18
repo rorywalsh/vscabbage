@@ -74,7 +74,7 @@ export class CustomWidgetTemplate {
                 "opacity": 1,
                 "borderRadius": 4,
                 "backgroundColor": "#cccccc"
-            },
+            }
         };
         this.vscode = null;
 
@@ -84,6 +84,78 @@ export class CustomWidgetTemplate {
         // Wrap props with reactive proxy to unify visible/active handling
         this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
+
+
+    /**
+     * Uncomment the createCanvas() and updateCanvas() functions if your widget 
+     * requires a canvas for custom drawing. If you prefer to use SVG or simple HTML,
+     * you can leave these methods commented out.
+     */
+
+    /*
+    * Create the main canvas and drawing context.
+    * This simplified template only creates a single onscreen canvas.
+    * Keep the canvas element and 2D context on the instance for
+    * simple custom drawing in `updateCanvas()`.
+    *
+    * No heavy caching or waveform-specific code is included in the
+    * template to keep it lightweight and easy to adapt.
+    *
+    * @private
+    */
+    // createCanvas() {
+    //     this.canvas = document.createElement('canvas');
+    //     this.canvas.width = Number(this.props.bounds.width);
+    //     this.canvas.height = Number(this.props.bounds.height);
+    //     this.ctx = this.canvas.getContext('2d');
+    // }
+
+    /**
+     * Resize the canvas to match `props.bounds` and redraw a simple
+     * background based on `props.style`. This keeps the template fast
+     * and easy to understand. Consumers can override or extend this
+     * method for more advanced rendering.
+     *
+     * The method also ensures the canvas is attached to the widget
+     * DOM element (id from `CabbageUtils.getChannelId`) and that
+     * pointer events and visibility are preserved.
+     *
+     * @public
+     */
+    // updateCanvas() {
+    //     const width = Number(this.props.bounds.width);
+    //     const height = Number(this.props.bounds.height);
+
+    //     // Resize canvas
+    //     this.canvas.width = width;
+    //     this.canvas.height = height;
+
+    //     // Simple clear + fill (single rect) for template simplicity
+    //     const ctx = this.ctx;
+    //     ctx.clearRect(0, 0, width, height);
+    //     ctx.globalAlpha = Number(this.props.style.opacity || 1);
+    //     ctx.fillStyle = this.props.style.backgroundColor || '#cccccc';
+    //     ctx.fillRect(0, 0, width, height);
+
+    //     // Update DOM with the canvas (lightweight: clear and append)
+    //     const channelId = CabbageUtils.getChannelId(this.props, 0);
+    //     const widgetElement = document.getElementById(channelId);
+    //     if (widgetElement) {
+    //         widgetElement.style.left = '0px';
+    //         widgetElement.style.top = '0px';
+    //         widgetElement.style.padding = '0';
+    //         widgetElement.style.margin = '0';
+    //         widgetElement.innerHTML = ''; // Clear existing content
+    //         this.canvas.style.display = this.props.visible ? 'block' : 'none';
+    //         widgetElement.appendChild(this.canvas);
+
+    //         // Attach minimal event wiring
+    //         this.addEventListeners(widgetElement);
+    //     } else {
+    //         // Keep this log for debugging during template development
+    //         console.log(`Element: ${channelId} not found.`);
+    //     }
+    // }
 
     /**
      * Adds VS Code-specific event listeners to the widget.

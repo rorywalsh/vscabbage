@@ -1099,15 +1099,35 @@ export class Commands {
                                     }
                                 }
                                 console.log(`Cabbage: Processing line: "${line}"`);
-                                // Parse Csound errors for diagnostics - simplified detection
+                                // Parse Csound errors for diagnostics - handle multi-line error messages
                                 if (line.toLowerCase().includes('error')) {
                                     console.log(`Cabbage: DETECTED ERROR LINE: "${line}"`);
                                     this.compilationFailed = true;
                                     console.log(`Cabbage: Setting compilationFailed=true`);
                                     this.lastCsoundErrorMessage = line;
 
+                                    // Some Csound outputs split the error and the "Line N" onto
+                                    // two separate lines. If the current line contains an error
+                                    // but no explicit line number, peek at the next buffered
+                                    // line and, if it contains a line number, combine them so
+                                    // the diagnostic extractor can pick up the correct line.
+                                    let diagnosticLine = line;
+                                    if (!/line\s+\d+/i.test(line)) {
+                                        const nextNewlineIndex = stdoutBuffer.indexOf('\n');
+                                        const nextLine = nextNewlineIndex !== -1 ? stdoutBuffer.substring(0, nextNewlineIndex).trim() : stdoutBuffer.trim();
+                                        if (/^\s*line\s*\d+\s*$/i.test(nextLine) || /line\s+\d+/i.test(nextLine)) {
+                                            diagnosticLine = `${line} ${nextLine}`;
+                                            // Consume the next line from the buffer so it isn't processed twice
+                                            if (nextNewlineIndex !== -1) {
+                                                stdoutBuffer = stdoutBuffer.substring(nextNewlineIndex + 1);
+                                            } else {
+                                                stdoutBuffer = '';
+                                            }
+                                        }
+                                    }
+
                                     // Create diagnostic to highlight error in editor
-                                    this.createCsoundErrorDiagnostic(line, this.lastSavedFileName);
+                                    this.createCsoundErrorDiagnostic(diagnosticLine, this.lastSavedFileName);
 
                                     // If panel is already open and we detect an error, dispose of it
                                     if (this.panel) {
