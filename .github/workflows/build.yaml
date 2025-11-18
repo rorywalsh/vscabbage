@@ -3,7 +3,7 @@ name: Build and Package Extensions
 on:
   push:
     branches:
-      - '**' # Trigger on pushes to all branches
+      - 'main' # Trigger on pushes to all branches
   pull_request:
     branches:
       - develop # Trigger on pull requests to develop branch
