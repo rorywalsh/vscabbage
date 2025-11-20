@@ -1066,6 +1066,7 @@ export class Commands {
                                         } else if (msg.hasOwnProperty('value')) {
                                             panel.webview.postMessage({
                                                 command: 'widgetUpdate',
+                                                id: msg['id'],
                                                 channel: msg['channel'],
                                                 value: msg['value'],
                                                 currentCsdPath: Commands.getCurrentFileName(),
@@ -1085,8 +1086,8 @@ export class Commands {
                             }
                         } catch (e) {
                             // Failed to parse JSON - log the error
-                            this.vscodeOutputChannel.appendLine(`Error parsing JSON message: ${e}`);
-                            this.vscodeOutputChannel.appendLine(`Raw message: ${jsonString}`);
+                            // this.vscodeOutputChannel.appendLine(`Error parsing JSON message: ${e}`);
+                            // this.vscodeOutputChannel.appendLine(`Raw message: ${jsonString}`);
                         }
                     } else {
                         // Not a JSON message - treat as regular log output
@@ -1109,7 +1110,8 @@ export class Commands {
                                         this.panel = undefined;
                                     }
                                 }
-                                console.log(`Cabbage: Processing line: "${line}"`);
+                                // This is for debugging
+                                // console.log(`Cabbage: Processing line: "${line}"`);
                                 // If the line begins with a warning or deprecation message,
                                 // ignore it for error diagnostics. This avoids confusing
                                 // earlier warning lines with later, real errors.
@@ -2838,7 +2840,7 @@ i2 5 z
             const execAsync = promisify(exec);
 
             // Update CFBundleExecutable to match the renamed binary
-            await execAsync(`plutil -replace CFBundleExecutable -string "${pluginName}" "${plistPath}"`);
+            await execAsync(`plutil -replace CFBundleExecutable -string "${pluginName}" "${plistPath} "`);
 
             // Update CFBundleName
             await execAsync(`plutil -replace CFBundleName -string "${pluginName}" "${plistPath}"`);
