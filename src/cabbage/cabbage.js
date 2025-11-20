@@ -49,13 +49,11 @@ export class Cabbage {
       value: message.value,
       channelType: message.channelType || "number"
     };
-    console.log("Cabbage.sendParameterUpdate:", message, "vscode:", vscode, "msg:", msg);
+
     if (vscode !== null) {
-      console.log("Sending via vscode.postMessage");
       vscode.postMessage(msg);
     }
     else {
-      console.log("Sending via window.sendMessageFromUI");
       window.sendMessageFromUI(msg);
     }
   }
@@ -65,7 +63,7 @@ export class Cabbage {
       command: command,
       text: JSON.stringify({})
     };
-    console.log("Cabbage: sending custom command from UI", msg);
+
     if (vscode !== null) {
       vscode.postMessage(msg);
     }
@@ -75,7 +73,6 @@ export class Cabbage {
   }
 
   static sendWidgetUpdate(widget, vscode = null) {
-    console.log("Cabbage: sending widget update from UI", widget.props);
     const msg = {
       command: "widgetStateUpdate",
       obj: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
@@ -100,7 +97,6 @@ export class Cabbage {
       obj: JSON.stringify(message)
     };
 
-    console.log("Cabbage: sending midi message from UI", message);
     if (vscode !== null) {
       vscode.postMessage(msg);
     }

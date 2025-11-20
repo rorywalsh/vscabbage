@@ -286,7 +286,7 @@ export class CabbageUtils {
     // Iterate over each widget in the array
     for (const widget of widgets) {
       // Check if the widget's type is one of the specified types
-      if (widget.props.automatable === 1) {
+      if (widget.props.automatable === 1 || widget.props.automatable === true) {
         // Increment by number of channels; default to 1 if channels not present
         const channels = CabbageUtils.getChannels(widget.props);
         count += Math.max(1, channels.length || 0);

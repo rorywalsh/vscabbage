@@ -19,6 +19,12 @@ export class WidgetManager {
     static currentCsdPath = '';
 
     /**
+     * Map to track pending widget insertions to prevent race conditions.
+     * Key: widget ID, Value: Promise that resolves when insertion is complete.
+     */
+    static pendingWidgets = new Map();
+
+    /**
      * Deep equal function to compare objects.
      */
     static deepEqual(obj1, obj2) {
@@ -736,8 +742,13 @@ export class WidgetManager {
                                 widget.updateScheduled = false;
                                 // Call getInnerHTML to refresh the widget's display
                                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
-                                if (widgetDiv) {
+                                // If the widget manages its own canvas, do not overwrite innerHTML.
+                                // Canvas widgets (like genTable, eqController) handle their own rendering.
+                                if (widgetDiv && typeof widget.createCanvas !== 'function') {
                                     widgetDiv.innerHTML = widget.getInnerHTML();
+                                } else if (widgetDiv && typeof widget.updateCanvas === 'function') {
+                                    // Canvas widget - call its update method to redraw with new value
+                                    widget.updateCanvas();
                                 }
                                 // Clear the flag after update is complete
                                 widget.isUpdatingFromBackend = false;
@@ -769,22 +780,13 @@ export class WidgetManager {
                 }
             }
 
-            // Ensure slider values are not null or NaN and handle value conversion
+            // Ensure slider values are not null or NaN
             if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
                 const range = CabbageUtils.getChannelRange(widget.props, 0);
                 if (widget.props.value === null || isNaN(widget.props.value)) {
                     widget.props.value = range.defaultValue;
-                } else {
-                    if (!isNaN(widget.props.value) && widget.props.value >= 0 && widget.props.value <= 1) {
-                        // Convert linear normalized value to skewed value
-                        const skewedNormalized = Math.pow(widget.props.value, range.skew);
-                        widget.props.value = range.min + skewedNormalized * (range.max - range.min);
-                        //console.log(`WidgetManager.updateWidget: converted linear ${widget.props.value} to skewed ${widget.props.value} for ${widget.props.type} in merge case`);
-                    } else if (!isNaN(widget.props.value) && (widget.props.value < 0 || widget.props.value > 1)) {
-                        // Assume already skewed
-                        //console.log(`WidgetManager.updateWidget: value ${widget.props.value} assumed skewed for ${widget.props.type} in merge case`);
-                    }
                 }
+                // Note: Values from backend are already in full range, no normalization needed
             }
             widgetFound = true;
             if (widget.props.type === "form") {
@@ -806,10 +808,10 @@ export class WidgetManager {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                 if (widgetDiv) {
-                    // Special-case genTable: do not clobber the inner DOM if the widget
-                    // manages its own canvas. Ensure the inner placeholder exists and
-                    // then call the widget's updateTable which will reuse/append the canvas.
-                    if (widget.props.type === "genTable") {
+                    // Special-case for widgets that manage their own canvas (e.g. genTable, eqController).
+                    // Do not clobber the inner DOM. Ensure the inner placeholder exists and
+                    // then call the widget's update method which will reuse/append the canvas.
+                    if (typeof widget.createCanvas === 'function') {
                         const innerId = CabbageUtils.getChannelId(widget.props, 0);
                         let inner = document.getElementById(innerId);
                         // If the inner placeholder is missing or not a child of the wrapper,
@@ -1022,8 +1024,37 @@ export class WidgetManager {
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
+                    const widgetId = p.id || (p.channels && p.channels.length > 0 && p.channels[0].id);
+                    console.log(`WidgetManager.updateWidget: Parsed props for new widget. Type: ${p.type}, ID: ${widgetId}`);
+                    console.log(`WidgetManager.updateWidget: Pending widgets map size: ${WidgetManager.pendingWidgets.size}`);
+
+                    // Check for pending insertion to prevent race conditions
+                    if (widgetId && WidgetManager.pendingWidgets.has(widgetId)) {
+                        console.warn(`WidgetManager.updateWidget: RACE CONDITION DETECTED! Widget ${widgetId} is already being inserted. Waiting for promise...`);
+                        await WidgetManager.pendingWidgets.get(widgetId);
+                        console.log(`WidgetManager.updateWidget: Widget ${widgetId} insertion promise resolved. Skipping duplicate insertion.`);
+                        return;
+                    }
+
                     console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
-                    await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
+
+                    if (widgetId) {
+                        let resolveInsertion;
+                        const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
+                        WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
+                        console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+
+                        try {
+                            await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
+                        } finally {
+                            resolveInsertion();
+                            WidgetManager.pendingWidgets.delete(widgetId);
+                            console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                        }
+                    } else {
+                        console.warn('WidgetManager.updateWidget: No widgetId found, cannot track pending insertion.');
+                        await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
+                    }
                 }
                 else {
                     console.error("No type property found in data", p);

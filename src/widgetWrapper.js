@@ -551,6 +551,11 @@ export class WidgetWrapper {
             edges: { left: true, right: true, bottom: true, top: true }, // Enable resizing from all edges
             listeners: {
                 move: (event) => {
+                    // Only allow resizing in draggable/edit mode
+                    if (getCabbageMode() !== 'draggable') {
+                        return;
+                    }
+
                     // Ignore if Shift or Alt keys are pressed
                     if (event.shiftKey || event.altKey) {
                         return;
