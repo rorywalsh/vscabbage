@@ -690,17 +690,11 @@ export class WidgetManager {
                             }
 
                             // Redraw the widget
-                            if (!widget.updateScheduled) {
-                                widget.updateScheduled = true;
-                                requestAnimationFrame(() => {
-                                    widget.updateScheduled = false;
-                                    const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
-                                    if (widgetDiv) {
-                                        widgetDiv.innerHTML = widget.getInnerHTML();
-                                    }
-                                    widget.isUpdatingFromBackend = false;
-                                });
+                            const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                            if (widgetDiv) {
+                                widgetDiv.innerHTML = widget.getInnerHTML();
                             }
+                            widget.isUpdatingFromBackend = false;
                         }
                     }
                     return; // Early return for xyPad
@@ -735,25 +729,18 @@ export class WidgetManager {
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
                         widget.props.value = newValue; // Update the value property
 
-                        // Throttle DOM updates using requestAnimationFrame to prevent jitter during rapid updates
-                        if (!widget.updateScheduled) {
-                            widget.updateScheduled = true;
-                            requestAnimationFrame(() => {
-                                widget.updateScheduled = false;
-                                // Call getInnerHTML to refresh the widget's display
-                                const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
-                                // If the widget manages its own canvas, do not overwrite innerHTML.
-                                // Canvas widgets (like genTable, eqController) handle their own rendering.
-                                if (widgetDiv && typeof widget.createCanvas !== 'function') {
-                                    widgetDiv.innerHTML = widget.getInnerHTML();
-                                } else if (widgetDiv && typeof widget.updateCanvas === 'function') {
-                                    // Canvas widget - call its update method to redraw with new value
-                                    widget.updateCanvas();
-                                }
-                                // Clear the flag after update is complete
-                                widget.isUpdatingFromBackend = false;
-                            });
+                        // Call getInnerHTML to refresh the widget's display
+                        const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                        // If the widget manages its own canvas, do not overwrite innerHTML.
+                        // Canvas widgets (like genTable, eqController) handle their own rendering.
+                        if (widgetDiv && typeof widget.createCanvas !== 'function') {
+                            widgetDiv.innerHTML = widget.getInnerHTML();
+                        } else if (widgetDiv && typeof widget.updateCanvas === 'function') {
+                            // Canvas widget - call its update method to redraw with new value
+                            widget.updateCanvas();
                         }
+                        // Clear the flag after update is complete
+                        widget.isUpdatingFromBackend = false;
                     } else {
                         console.log(`Skipping value update because obj.value is null/undefined: ${obj.value}`);
                     }

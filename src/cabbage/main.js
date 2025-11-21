@@ -102,230 +102,222 @@ Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
  * This function is also called whenever a widget is updated through Csound, or the host DAW.
  * @param {Event} event - The event containing message data from the webview panel.
  */
-// Create a promise chain to serialize message processing
-let messageQueue = Promise.resolve();
+window.addEventListener('message', async (event) => {
+    let message = event.data; // Extract the message data from the event
 
-window.addEventListener('message', (event) => {
-    // Chain the new message processing to the end of the queue
-    messageQueue = messageQueue.then(async () => {
-        let message = event.data; // Extract the message data from the event
-
-        // Handle both object messages (VSCode extension) and string messages (plugin)
-        if (typeof message === 'string') {
-            try {
-                message = JSON.parse(message);
-            } catch (e) {
-                console.error('Cabbage: Failed to parse message string:', message);
-                return;
-            }
+    // Handle both object messages (VSCode extension) and string messages (plugin)
+    if (typeof message === 'string') {
+        try {
+            message = JSON.parse(message);
+        } catch (e) {
+            console.error('Cabbage: Failed to parse message string:', message);
+            return;
         }
+    }
 
-        // console.log('Cabbage: main.js: received message:', message.command, message);
-        const mainForm = document.getElementById('MainForm'); // Get the MainForm element
+    // console.log('Cabbage: main.js: received message:', message.command, message);
+    const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
-        // Set up MutationObserver to watch for changes to MainForm
-        if (mainForm && !mainForm._mutationObserver) {
-            console.log('Cabbage: Setting up MutationObserver on MainForm');
-            // Add a unique identifier to track if MainForm gets replaced
-            mainForm.setAttribute('data-instance-id', Date.now().toString());
-            console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
-            mainForm._mutationObserver = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList') {
-                        console.log('Cabbage: MainForm childList mutation detected!');
-                        console.trace('Mutation trace:');
-                        console.log('Added nodes:', mutation.addedNodes.length);
-                        mutation.addedNodes.forEach((node, index) => {
-                            console.log(`Added node ${index}: ${node.tagName} id=${node.id}`);
-                        });
-                        console.log('Removed nodes:', mutation.removedNodes.length);
-                        mutation.removedNodes.forEach((node, index) => {
-                            console.log(`Removed node ${index}: ${node.tagName} id=${node.id}`);
-                        });
-                    } else if (mutation.type === 'attributes') {
-                        console.log('Cabbage: MainForm attribute mutation:', mutation.attributeName);
-                    }
-                });
-            });
-            mainForm._mutationObserver.observe(mainForm, {
-                childList: true,
-                attributes: true,
-                subtree: false
-            });
-        }
-
-        // Handle different commands based on the message received
-        switch (message.command) {
-
-            // When users change the snapToSize settings
-            case 'snapToSize':
-                widgetWrappers.setSnapSize(parseInt(message.text)); // Update snap size
-                break;
-
-            // Called by the host (Cabbage plugin or VS-Code) to update each widget
-            // This happens on startup and each time a widget is updated
-            case 'widgetUpdate':
-                // console.log("Cabbage - case 'widgetUpdate':", message);
-                CabbageUtils.hideOverlay(); // Hide the overlay before updating
-                const updateMsg = message;
-                // Parse widgetJson to extract id if not present
-                if (!updateMsg.id && updateMsg.widgetJson) {
-                    try {
-                        const parsedData = JSON.parse(updateMsg.widgetJson);
-                        updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
-                    } catch (e) {
-                        console.error("Failed to parse widgetJson for id:", e);
-                    }
-                }
-                const channelId = typeof updateMsg.channel === 'object' && updateMsg.channel !== null
-                    ? (updateMsg.channel.id || updateMsg.channel.x)
-                    : updateMsg.channel;
-                // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
-                await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
-
-                // Add a 5-second delay to check DOM structure after widget creation
-                // setTimeout(() => {
-                //     console.log('Cabbage: DOM structure after 5 seconds:');
-                //     // ... (logging code commented out)
-                // }, 5000);
-
-                break;
-
-            // Called when the host triggers a parameter change in the UI
-            case 'parameterChange':
-                const parameterMessage = message;
-                console.log(`main.js parameterChange: paramIdx=${parameterMessage.paramIdx}, value=${parameterMessage.value}`);
-                // {command: "parameterChange", paramIdx: 0, value: 35}
-
-                // Find the widget and channel that matches this paramIdx
-                for (const widget of widgets) {
-                    const channels = CabbageUtils.getChannels(widget.props);
-                    for (let i = 0; i < channels.length; i++) {
-                        const channel = channels[i];
-                        if (channel.parameterIndex === parameterMessage.paramIdx) {
-                            console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
-                            const updateMsg = {
-                                id: channel.id,
-                                channel: channel.id,
-                                value: parameterMessage.value
-                            };
-                            await WidgetManager.updateWidget(updateMsg);
-                            break; // Found the matching channel, no need to continue
-                        }
-                    }
-                }
-                break;
-
-            // Called when a user saves a file. Clears the widget array and the MainForm element.
-            case 'onFileChanged':
-                console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
-                setCabbageMode('nonDraggable'); // Set the mode to non-draggable
-                if (mainForm) {
-                    mainForm.remove(); // Remove the MainForm element from the DOM
-                } else {
-                    console.error("MainForm not found");
-                }
-                widgets.length = 0; // Clear the widgets array
-                // currentFileName = message.lastSavedFileName; // Update the current file name
-
-                // Update child widget pointer events for performance mode
-                updateChildWidgetPointerEvents('nonDraggable');
-                break;
-
-            // Called when a file is selected from the file dialog
-            case 'fileOpenFromVSCode':
-                const fileData = JSON.parse(message.text);
-                const fileButtonWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === fileData.channel);
-                if (fileButtonWidget) {
-                    // Toggle the button value for visual feedback
-                    fileButtonWidget.props.value = fileButtonWidget.props.value === 1 ? 0 : 1;
-                    // Update the button's visual state
-                    CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
-                    // Send the filename string to Csound via the channel
-                    Cabbage.sendChannelData(fileData.channel, fileData.fileName, vscode);
-                    console.log(`Cabbage: FileButton ${fileData.channel} selected file: ${fileData.fileName}`);
-                }
-                break;
-
-            // Called when entering edit mode. Converts existing widgets to draggable mode.
-            case 'onEnterEditMode':
-                console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
-                CabbageUtils.hideOverlay(); // Hide the overlay
-                setCabbageMode('draggable'); // Set the mode to draggable
-
-                // Clear any existing selection
-                selectedElements.forEach(element => element.classList.remove('selected'));
-                selectedElements.clear();
-
-                const widgetUpdatesMessages = [];
-                widgets.forEach(widget => {
-                    // Save current state of widgets (sanitized)
-                    const sanitized = CabbageUtils.sanitizeForEditor(widget);
-                    widgetUpdatesMessages.push({
-                        command: "widgetUpdate",
-                        id: sanitized.id || CabbageUtils.getChannelId(widget.props, 0),
-                        channel: CabbageUtils.getChannelId(widget.props, 0),
-                        widgetJson: JSON.stringify(sanitized)
+    // Set up MutationObserver to watch for changes to MainForm
+    if (mainForm && !mainForm._mutationObserver) {
+        console.log('Cabbage: Setting up MutationObserver on MainForm');
+        // Add a unique identifier to track if MainForm gets replaced
+        mainForm.setAttribute('data-instance-id', Date.now().toString());
+        console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
+        mainForm._mutationObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    console.log('Cabbage: MainForm childList mutation detected!');
+                    console.trace('Mutation trace:');
+                    console.log('Added nodes:', mutation.addedNodes.length);
+                    mutation.addedNodes.forEach((node, index) => {
+                        console.log(`Added node ${index}: ${node.tagName} id=${node.id}`);
                     });
-                });
-
-                // Remove the MainForm element and clear the widget array
-                if (mainForm) {
-                    mainForm.remove();
-                } else {
-                    console.error("MainForm not found");
+                    console.log('Removed nodes:', mutation.removedNodes.length);
+                    mutation.removedNodes.forEach((node, index) => {
+                        console.log(`Removed node ${index}: ${node.tagName} id=${node.id}`);
+                    });
+                } else if (mutation.type === 'attributes') {
+                    console.log('Cabbage: MainForm attribute mutation:', mutation.attributeName);
                 }
+            });
+        });
+        mainForm._mutationObserver.observe(mainForm, {
+            childList: true,
+            attributes: true,
+            subtree: false
+        });
+    }
 
-                //now clear all widgets
-                widgets.length = 0;
+    // Handle different commands based on the message received
+    switch (message.command) {
 
-                // Update each widget after clearing the form
-                widgetUpdatesMessages.forEach(msg => WidgetManager.updateWidget(msg));
+        // When users change the snapToSize settings
+        case 'snapToSize':
+            widgetWrappers.setSnapSize(parseInt(message.text)); // Update snap size
+            break;
 
-                // Update child widget pointer events for draggable mode
-                updateChildWidgetPointerEvents('draggable');
-                break;
-
-            // Called when entering performance mode
-            case 'onEnterPerformanceMode':
-                console.log('Cabbage: Received onEnterPerformanceMode message, setting mode to nonDraggable');
-                setCabbageMode('nonDraggable'); // Set the mode to nonDraggable for performance mode
-                // Update child widget pointer events for performance mode
-                updateChildWidgetPointerEvents('nonDraggable');
-                console.log('Cabbage: Mode set to nonDraggable, mouse tracking should be active');
-
-                // Hide the property panel when entering performance mode
-                const propertyPanel = document.querySelector('.property-panel');
-                if (propertyPanel) {
-                    console.log('PropertyPanel: hiding panel due to performance mode');
-                    propertyPanel.style.visibility = 'hidden';
+        // Called by the host (Cabbage plugin or VS-Code) to update each widget
+        // This happens on startup and each time a widget is updated
+        case 'widgetUpdate':
+            // console.log("Cabbage - case 'widgetUpdate':", message);
+            CabbageUtils.hideOverlay(); // Hide the overlay before updating
+            const updateMsg = message;
+            // Parse widgetJson to extract id if not present
+            if (!updateMsg.id && updateMsg.widgetJson) {
+                try {
+                    const parsedData = JSON.parse(updateMsg.widgetJson);
+                    updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
+                } catch (e) {
+                    console.error("Failed to parse widgetJson for id:", e);
                 }
-                break;
+            }
+            const channelId = typeof updateMsg.channel === 'object' && updateMsg.channel !== null
+                ? (updateMsg.channel.id || updateMsg.channel.x)
+                : updateMsg.channel;
+            // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
+            await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
 
-            // Called when there are new Csound console messages to display
-            case 'csoundOutputUpdate':
-                // Find the csoundOutput widget by its channel
-                let csoundOutput = widgets.find(widget => CabbageUtils.getChannelId(widget.props, 0) === 'csoundoutput');
-                if (csoundOutput) {
-                    // Update the HTML content of the widget's div
-                    const csoundOutputDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(csoundOutput.props, 0));
-                    if (csoundOutputDiv) {
-                        csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
-                        csoundOutput.appendText(message.text); // Append new console message
+            // Add a 5-second delay to check DOM structure after widget creation
+            // setTimeout(() => {
+            //     console.log('Cabbage: DOM structure after 5 seconds:');
+            //     // ... (logging code commented out)
+            // }, 5000);
+
+            break;
+
+        // Called when the host triggers a parameter change in the UI
+        case 'parameterChange':
+            const parameterMessage = message;
+            console.log(`main.js parameterChange: paramIdx=${parameterMessage.paramIdx}, value=${parameterMessage.value}`);
+            // {command: "parameterChange", paramIdx: 0, value: 35}
+
+            // Find the widget and channel that matches this paramIdx
+            for (const widget of widgets) {
+                const channels = CabbageUtils.getChannels(widget.props);
+                for (let i = 0; i < channels.length; i++) {
+                    const channel = channels[i];
+                    if (channel.parameterIndex === parameterMessage.paramIdx) {
+                        console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
+                        const updateMsg = {
+                            id: channel.id,
+                            channel: channel.id,
+                            value: parameterMessage.value
+                        };
+                        await WidgetManager.updateWidget(updateMsg);
+                        break; // Found the matching channel, no need to continue
                     }
                 }
-                break;
+            }
+            break;
 
-            case 'saveFromUIEditor':
-                Cabbage.sendCustomCommand('saveFromUIEditor', vscode, { lastSavedFileName: message.lastSavedFileName });
-                break;
+        // Called when a user saves a file. Clears the widget array and the MainForm element.
+        case 'onFileChanged':
+            console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
+            setCabbageMode('nonDraggable'); // Set the mode to non-draggable
+            if (mainForm) {
+                mainForm.remove(); // Remove the MainForm element from the DOM
+            } else {
+                console.error("MainForm not found");
+            }
+            widgets.length = 0; // Clear the widgets array
+            // currentFileName = message.lastSavedFileName; // Update the current file name
 
-            default:
-                return; // If the command is not recognized, do nothing
-        }
-    }).catch(err => {
-        console.error("Cabbage: Error processing message:", err);
-    });
+            // Update child widget pointer events for performance mode
+            updateChildWidgetPointerEvents('nonDraggable');
+            break;
+
+        // Called when a file is selected from the file dialog
+        case 'fileOpenFromVSCode':
+            const fileData = JSON.parse(message.text);
+            const fileButtonWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === fileData.channel);
+            if (fileButtonWidget) {
+                // Toggle the button value for visual feedback
+                fileButtonWidget.props.value = fileButtonWidget.props.value === 1 ? 0 : 1;
+                // Update the button's visual state
+                CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
+                // Send the filename string to Csound via the channel
+                Cabbage.sendChannelData(fileData.channel, fileData.fileName, vscode);
+                console.log(`Cabbage: FileButton ${fileData.channel} selected file: ${fileData.fileName}`);
+            }
+            break;
+
+        // Called when entering edit mode. Converts existing widgets to draggable mode.
+        case 'onEnterEditMode':
+            console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
+            CabbageUtils.hideOverlay(); // Hide the overlay
+            setCabbageMode('draggable'); // Set the mode to draggable
+
+            // Clear any existing selection
+            selectedElements.forEach(element => element.classList.remove('selected'));
+            selectedElements.clear();
+
+            const widgetUpdatesMessages = [];
+            widgets.forEach(widget => {
+                // Save current state of widgets (sanitized)
+                const sanitized = CabbageUtils.sanitizeForEditor(widget);
+                widgetUpdatesMessages.push({
+                    command: "widgetUpdate",
+                    id: sanitized.id || CabbageUtils.getChannelId(widget.props, 0),
+                    channel: CabbageUtils.getChannelId(widget.props, 0),
+                    widgetJson: JSON.stringify(sanitized)
+                });
+            });
+
+            // Remove the MainForm element and clear the widget array
+            if (mainForm) {
+                mainForm.remove();
+            } else {
+                console.error("MainForm not found");
+            }
+
+            //now clear all widgets
+            widgets.length = 0;
+
+            // Update each widget after clearing the form
+            widgetUpdatesMessages.forEach(msg => WidgetManager.updateWidget(msg));
+
+            // Update child widget pointer events for draggable mode
+            updateChildWidgetPointerEvents('draggable');
+            break;
+
+        // Called when entering performance mode
+        case 'onEnterPerformanceMode':
+            console.log('Cabbage: Received onEnterPerformanceMode message, setting mode to nonDraggable');
+            setCabbageMode('nonDraggable'); // Set the mode to nonDraggable for performance mode
+            // Update child widget pointer events for performance mode
+            updateChildWidgetPointerEvents('nonDraggable');
+            console.log('Cabbage: Mode set to nonDraggable, mouse tracking should be active');
+
+            // Hide the property panel when entering performance mode
+            const propertyPanel = document.querySelector('.property-panel');
+            if (propertyPanel) {
+                console.log('PropertyPanel: hiding panel due to performance mode');
+                propertyPanel.style.visibility = 'hidden';
+            }
+            break;
+
+        // Called when there are new Csound console messages to display
+        case 'csoundOutputUpdate':
+            // Find the csoundOutput widget by its channel
+            let csoundOutput = widgets.find(widget => CabbageUtils.getChannelId(widget.props, 0) === 'csoundoutput');
+            if (csoundOutput) {
+                // Update the HTML content of the widget's div
+                const csoundOutputDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(csoundOutput.props, 0));
+                if (csoundOutputDiv) {
+                    csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
+                    csoundOutput.appendText(message.text); // Append new console message
+                }
+            }
+            break;
+
+        case 'saveFromUIEditor':
+            Cabbage.sendCustomCommand('saveFromUIEditor', vscode, { lastSavedFileName: message.lastSavedFileName });
+            break;
+
+        default:
+            return; // If the command is not recognized, do nothing
+    }
 });
 
 /**
