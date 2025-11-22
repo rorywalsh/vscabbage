@@ -915,6 +915,28 @@ export class Commands {
     }
 
     /**
+     * Filters large JSON payloads from log output to prevent performance issues.
+     * If the message is a large JSON object/array, returns a summary instead.
+     * @param message The message to potentially filter
+     * @param source Optional source identifier for debugging
+     * @returns The original message or a summary if it's a large JSON payload
+     */
+    private static filterLargeJson(message: string, source?: string): string {
+        const MAX_LOG_LENGTH = 500; // characters
+        if (message.length > MAX_LOG_LENGTH) {
+            const trimmed = message.trim();
+            // Check if it looks like JSON
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                const sourceInfo = source ? ` from ${source}` : '';
+                const preview = trimmed.substring(0, 100).replace(/\n/g, ' ');
+                return `[Large JSON payload suppressed${sourceInfo}: ${message.length} bytes]\nPreview: ${preview}...`;
+            }
+        }
+        return message;
+    }
+
+    /**
      * Start Cabbage Server as a background process
      * Uses stdin/stdout pipes for communication instead of WebSocket
      * @returns 
@@ -1014,7 +1036,7 @@ export class Commands {
             this.processes.push(process);
 
             // Handle stdout - parse JSON messages from CabbageApp
-            process.stdout.on("data", (data: Buffer) => {
+            process.stdout.on("data", async (data: Buffer) => {
                 const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
                 const dataString = data.toString();
 
@@ -1118,158 +1140,82 @@ export class Commands {
                                 // ignore it for error diagnostics. This avoids confusing
                                 // earlier warning lines with later, real errors.
                                 if (/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
-                                    this.vscodeOutputChannel.appendLine(line);
+                                    this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-warning'));
                                     continue;
                                 }
-                                // Parse Csound errors for diagnostics - collect a small block of
-                                // following lines (up to a few) because Csound formats vary.
+
+                                // Simple error detection: if line contains "error" or "unable to find opcode"
                                 if (line.toLowerCase().includes('error') || /unable to find opcode/i.test(line)) {
-                                    console.log(`Cabbage: DETECTED ERROR LINE: "${line}"`);
                                     this.compilationFailed = true;
-                                    console.log(`Cabbage: Setting compilationFailed=true`);
                                     this.lastCsoundErrorMessage = line;
 
-                                    // Collect up to N subsequent lines from the buffer to assemble
-                                    // a diagnostic block. This helps for cases where useful
-                                    // information (line number, file path) appears before or
-                                    // after the main error line.
-                                    const MAX_FOLLOW = 6;
-                                    // Start with the current line and include some prior
-                                    // context we collected earlier.
-                                    const prevContext = recentLines.join(' ');
-                                    let collected = [line];
-                                    let consumedChars = 0;
-                                    let tempBuf = stdoutBuffer;
-                                    for (let i = 0; i < MAX_FOLLOW; i++) {
-                                        const nl = tempBuf.indexOf('\n');
-                                        if (nl === -1) break;
-                                        const nextLine = tempBuf.substring(0, nl).trim();
-                                        if (!nextLine) {
-                                            // stop on an empty line
-                                            break;
-                                        }
-                                        // If this next line begins with a warning/deprecation,
-                                        // consume it but don't include it in the diagnostic block.
-                                        if (/^\s*(deprecated|warning)\b[:]?/i.test(nextLine)) {
-                                            consumedChars += nl + 1;
+                                    // Look for line number in two places:
+                                    // 1. In the current error line itself: "error: message, line 71"
+                                    // 2. On the next line: "line 512:"
+                                    let lineNumber: number | undefined;
+                                    let errorMessage = line;
+
+                                    // First check if the error line itself contains ", line XXX"
+                                    const inlineMatch = line.match(/,\s*line\s+(\d+)/i);
+                                    if (inlineMatch) {
+                                        lineNumber = parseInt(inlineMatch[1], 10);
+                                        errorMessage = line; // Already contains the line number
+                                    } else {
+                                        // Check the next few lines for "line XXX:" pattern
+                                        let tempBuf = stdoutBuffer;
+                                        for (let i = 0; i < 5; i++) {
+                                            const nl = tempBuf.indexOf('\n');
+                                            if (nl === -1) break;
+                                            const nextLine = tempBuf.substring(0, nl).trim();
                                             tempBuf = tempBuf.substring(nl + 1);
-                                            continue;
-                                        }
-                                        collected.push(nextLine);
-                                        // advance
-                                        consumedChars += nl + 1;
-                                        tempBuf = tempBuf.substring(nl + 1);
-                                        // If this next line contains a line number, we can stop early
-                                        if (/\bline\b\s*[:]??\s*\d+/i.test(nextLine) || /^Line[:]??\s*\d+/i.test(nextLine) || /from file\s+/i.test(nextLine)) {
-                                            break;
-                                        }
-                                    }
 
-                                    // If we consumed some lines, drop them from the main buffer
-                                    if (consumedChars > 0) {
-                                        stdoutBuffer = stdoutBuffer.substring(consumedChars);
-                                    }
-
-                                    const diagnosticBlock = (prevContext ? prevContext + ' ' : '') + collected.join(' ');
-
-                                    // If the assembled block looks like a deprecation/warning-only
-                                    // message (contains 'warning' or 'deprecated' but no 'error'
-                                    // or opcode failure indicators), skip creating an error
-                                    // diagnostic — these should not produce red squiggles.
-                                    const containsWarning = /\b(deprecated|warning)\b/i.test(diagnosticBlock);
-                                    const containsErrorWord = /\berror\b/i.test(diagnosticBlock);
-                                    const containsOpcodeFailure = /unable to find opcode|Unable to find opcode entry|opcode.*not found/i.test(diagnosticBlock);
-                                    if (containsWarning && !containsErrorWord && !containsOpcodeFailure) {
-                                        // Log and skip diagnostic creation for warning-only blocks
-                                        this.vscodeOutputChannel.appendLine('Csound warning block (skipping diagnostic): ' + diagnosticBlock);
-                                        // If we consumed some lines, they are already removed from stdoutBuffer
-                                        // Continue processing without creating a diagnostic
-                                        continue;
-                                    }
-
-                                    // Try to extract a line number. There may be multiple
-                                    // "line N" occurrences (warnings and errors). Collect
-                                    // all matches and prefer one whose surrounding context
-                                    // contains error indicators (error, SEMERR, Variable, etc.).
-                                    let matchedLine: number | undefined;
-                                    const allLineMatches: Array<{ num: number; index: number; context: string }> = [];
-                                    const lineGlobal = /(?:line\s*[:]?|Line\s*[:]?|at line\s*)(\d+)/ig;
-                                    let lm: RegExpExecArray | null;
-                                    while ((lm = lineGlobal.exec(diagnosticBlock)) !== null) {
-                                        const num = parseInt(lm[1], 10);
-                                        const idx = lm.index;
-                                        const ctxStart = Math.max(0, idx - 80);
-                                        const ctxEnd = Math.min(diagnosticBlock.length, idx + 80);
-                                        const ctx = diagnosticBlock.substring(ctxStart, ctxEnd);
-                                        allLineMatches.push({ num, index: idx, context: ctx });
-                                    }
-
-                                    if (allLineMatches.length > 0) {
-                                        // Prefer matches whose nearby context contains clear error tokens.
-                                        // If multiple matches show error context, prefer the one that
-                                        // appears latest in the block (most likely the real error).
-                                        const errorCandidates = allLineMatches.filter(x => /\berror\b|SEMERR|get_arg_type2|Variable type|Variable\s+'?/i.test(x.context));
-                                        if (errorCandidates.length > 0) {
-                                            // choose the candidate with the largest index (latest in text)
-                                            errorCandidates.sort((a, b) => b.index - a.index);
-                                            matchedLine = errorCandidates[0].num;
-                                        } else {
-                                            // Otherwise prefer a non-warning match (not part of deprecation/warning)
-                                            const nonWarning = allLineMatches.filter(x => !/\bdeprecated\b|\bwarning\b/i.test(x.context));
-                                            if (nonWarning.length > 0) {
-                                                // pick the last non-warning match
-                                                nonWarning.sort((a, b) => b.index - a.index);
-                                                matchedLine = nonWarning[0].num;
-                                            } else {
-                                                // As fallback pick the last match found
-                                                allLineMatches.sort((a, b) => b.index - a.index);
-                                                matchedLine = allLineMatches[0].num;
+                                            // Look for "line 512:" pattern or "line 512" at end of line
+                                            const lineMatch = nextLine.match(/^line\s*(\d+)\s*:?/i) || nextLine.match(/,\s*line\s+(\d+)/i);
+                                            if (lineMatch) {
+                                                lineNumber = parseInt(lineMatch[1], 10);
+                                                errorMessage += ` (line ${lineNumber})`;
+                                                break;
                                             }
                                         }
                                     }
 
-                                    // Try to extract a file path like "from file /path/to/file (1)" or
-                                    // earlier context such as "Reading CSD file: /path/to/file".
-                                    let matchedFile: string | undefined;
-                                    const fileMatch = diagnosticBlock.match(/from file\s+([^\s]+(?:\s[^\(\n]+)?)/i);
-                                    if (fileMatch) {
-                                        // Clean trailing parentheses or counts
-                                        matchedFile = fileMatch[1].replace(/\s*\(.*$/, '').trim();
-                                    }
-
-                                    // If no "from file" was present, try to find a recent "Reading CSD file: <path>" line
-                                    if (!matchedFile && prevContext) {
-                                        const readMatch = prevContext.match(/Reading CSD file:\s*([^\n\r\s]+)/i);
-                                        if (readMatch) {
-                                            matchedFile = readMatch[1].trim();
-                                        }
-                                    }
-
-                                    let diagnosticLine = diagnosticBlock;
-                                    // Prefer an explicit matched file, then fall back to lastSavedFileName
-                                    // (the file we most recently saved/compiled), then undefined.
-                                    let targetDoc = matchedFile || this.lastSavedFileName;
-
-                                    // If we found a line number, append it to the diagnostic text
-                                    if (matchedLine !== undefined) {
-                                        diagnosticLine = `${diagnosticBlock} Line ${matchedLine}`;
-                                    }
-
-                                    // Create diagnostic to highlight error in editor
+                                    // Create diagnostic
                                     try {
-                                        this.createCsoundErrorDiagnostic(diagnosticLine, targetDoc);
+                                        if (lineNumber !== undefined) {
+                                            // We found a line number - create diagnostic on that line
+                                            const targetDoc = this.lastSavedFileName;
+                                            if (targetDoc) {
+                                                const uri = vscode.Uri.file(targetDoc);
+                                                let document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === targetDoc);
+                                                if (!document) {
+                                                    document = await vscode.workspace.openTextDocument(uri);
+                                                }
+
+                                                // Convert to 0-based and clamp to document bounds
+                                                const lineIdx = Math.min(Math.max(lineNumber - 1, 0), document.lineCount - 1);
+                                                const lineObj = document.lineAt(lineIdx);
+                                                const range = new vscode.Range(lineIdx, 0, lineIdx, lineObj.text.length);
+
+                                                const diagnostic = new vscode.Diagnostic(
+                                                    range,
+                                                    errorMessage,
+                                                    vscode.DiagnosticSeverity.Error
+                                                );
+
+                                                this.diagnosticCollectionCsound.set(uri, [diagnostic]);
+                                            }
+                                        }
                                     } catch (err) {
-                                        console.log('Cabbage: Error creating Csound diagnostic:', err);
+                                        console.log('Cabbage: Error creating diagnostic:', err);
                                     }
 
-                                    // If panel is already open and we detect an error, dispose of it
+                                    // Dispose panel on error
                                     if (this.panel) {
-                                        console.log('Cabbage: Disposing panel due to runtime error');
                                         this.panel.dispose();
                                         this.panel = undefined;
                                     }
                                 }
-                                this.vscodeOutputChannel.appendLine(line);
+                                this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-error'));
                             }
                         }
                     }
@@ -1295,8 +1241,8 @@ export class Commands {
                     }
                 }
 
-                // Show stderr output (errors, warnings)
-                this.vscodeOutputChannel.appendLine(dataString);
+                // Show stderr output (errors, warnings) - filter large JSON
+                this.vscodeOutputChannel.appendLine(this.filterLargeJson(dataString, 'stderr'));
             });
             this.cabbageServerStarted = true;
         }
@@ -1701,9 +1647,11 @@ export class Commands {
         }
 
         // Try to extract line number from error message first
-        // Csound errors typically look like: "error: message at line X"
-        const lineMatch = errorLine.match(/line\s+(\d+)/i);
+        // Csound errors typically look like: "error: message at line X" or "line 512:"
+        console.log(`Cabbage: Creating diagnostic for error: "${errorLine}"`);
+        const lineMatch = errorLine.match(/line\s*:?\s*(\d+)/i);
         if (lineMatch) {
+            console.log(`Cabbage: Extracted line number: ${lineMatch[1]}`);
             // Csound reports line numbers as 1-based. Convert to 0-based for
             // VS Code by subtracting 1.
             const reportedLine = parseInt(lineMatch[1], 10);
