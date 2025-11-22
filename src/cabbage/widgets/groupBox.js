@@ -121,6 +121,10 @@ export class GroupBox {
                             color: ${this.props.style.fontColor};
                             line-height: ${textSize}px;
                             padding: 0 ${padding}px;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            max-width: ${width - (padding * 4)}px;
                             z-index: 1;">
                     ${this.props.label.text}
                 </div>
