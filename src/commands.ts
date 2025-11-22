@@ -620,6 +620,8 @@ export class Commands {
         this.panel.onDidDispose(async () => {
             this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
             this.panel = undefined;
+            // Note: stdout handlers already check if panel exists before posting messages,
+            // so no additional cleanup is needed. The Csound process continues running.
         }, null, context.subscriptions);
 
         vscode.commands.executeCommand('workbench.action.focusNextGroup');
@@ -1276,6 +1278,23 @@ export class Commands {
 
             process.stderr.on("data", (data: { toString: () => string; }) => {
                 const dataString = data.toString();
+
+                // Filter out large JSON messages to prevent output window spam
+                // (e.g., waveform arrays being sent to stderr for debugging)
+                const MAX_LOG_LENGTH = 500; // characters
+                if (dataString.length > MAX_LOG_LENGTH) {
+                    // Check if it looks like JSON
+                    const trimmed = dataString.trim();
+                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                        // It's likely a large JSON payload - log a summary instead
+                        this.vscodeOutputChannel.appendLine(
+                            `[Large JSON payload suppressed: ${dataString.length} bytes]`
+                        );
+                        return;
+                    }
+                }
+
                 // Show stderr output (errors, warnings)
                 this.vscodeOutputChannel.appendLine(dataString);
             });
