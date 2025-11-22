@@ -532,24 +532,24 @@ export class Settings {
             'csoundOutput', 'textEditor', 'xyPad'
         ];
 
-        // Ask for widget name
-        const widgetName = await vscode.window.showInputBox({
-            prompt: 'Enter a name for your custom widget class (e.g., MyWidget, TestButton)',
-            validateInput: (val: string) => {
-                if (!val || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) {
-                    return 'Please enter a valid JavaScript class name';
-                }
 
-                // Check if the camelCase version conflicts with built-in widgets
-                const widgetType = val.charAt(0).toLowerCase() + val.slice(1);
-                if (builtInWidgets.includes(widgetType)) {
-                    return `Widget type "${widgetType}" conflicts with a built-in widget. Please choose a different name.`;
-                }
+        // Extract class name from filename (remove .js extension)
+        const fileName = path.basename(saveUri.fsPath, '.js');
 
-                return null;
-            }
-        });
-        if (!widgetName) return;
+        // Validate that the filename is a valid JavaScript class name
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(fileName)) {
+            vscode.window.showErrorMessage('Cabbage: Filename must be a valid JavaScript class name (e.g., MyWidget, TestButton)');
+            return;
+        }
+
+        // Check if the camelCase version conflicts with built-in widgets
+        const widgetType = fileName.charAt(0).toLowerCase() + fileName.slice(1);
+        if (builtInWidgets.includes(widgetType)) {
+            vscode.window.showErrorMessage(`Cabbage: Widget type "${widgetType}" conflicts with a built-in widget. Please choose a different filename.`);
+            return;
+        }
+
+        const widgetName = fileName;
 
         try {
             // Read template

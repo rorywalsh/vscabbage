@@ -208,7 +208,7 @@ export class WidgetManager {
         // Add the widget to the global widgets array
         console.log("Cabbage: Pushing widget to widgets array", widget, `parentChannel: ${widget.props.parentChannel || 'none'}`);
         widgets.push(widget);
-        widget.parameterIndex = CabbageUtils.getNumberOfPluginParameters(widgets) - 1;
+
 
         // Append widget to the form
         if (widget.props.type !== "form") {

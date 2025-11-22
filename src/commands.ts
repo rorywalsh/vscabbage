@@ -552,8 +552,29 @@ export class Commands {
      */
     static async setupWebViewPanel(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration("cabbage");
-        const launchInNewColumn = config.get("launchInNewColumn");
-        const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+        const launchInNewColumn = config.get<string>("launchInNewColumn") || "Active";
+
+        // Map the setting value to VS Code ViewColumn
+        let viewColumn: vscode.ViewColumn;
+        switch (launchInNewColumn) {
+            case "One":
+                viewColumn = vscode.ViewColumn.One;
+                break;
+            case "Two":
+                viewColumn = vscode.ViewColumn.Two;
+                break;
+            case "Three":
+                viewColumn = vscode.ViewColumn.Three;
+                break;
+            case "Beside":
+                viewColumn = vscode.ViewColumn.Beside;
+                break;
+            case "Active":
+            default:
+                viewColumn = vscode.ViewColumn.Active;
+                break;
+        }
+
         setVSCode(vscode);
         // Extract the directory path
         const fullPath = vscode.window.activeTextEditor?.document.uri.fsPath;
@@ -942,317 +963,312 @@ export class Commands {
      * @returns 
      */
     static async startCabbageProcess() {
-        const config = vscode.workspace.getConfiguration("cabbage");
-        const runInDebugMode = config.get("runInDebugMode");
+        const command = Settings.getCabbageBinaryPath('CabbageApp');
 
-        if (!runInDebugMode) {
-            const command = Settings.getCabbageBinaryPath('CabbageApp');
+        // Spawn CabbageApp without port number - it will use stdin/stdout pipes
+        const process = cp.spawn(command, [], {
+            stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+        });
 
-            // Spawn CabbageApp without port number - it will use stdin/stdout pipes
-            const process = cp.spawn(command, [], {
-                stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
-            });
+        // Store stdout buffer for JSON line parsing
+        let stdoutBuffer = '';
+        // Keep a small recent-lines buffer so we can inspect context that
+        // appeared before an error line (Csound sometimes emits the useful
+        // info in prior lines).
+        let recentLines: string[] = [];
+        const MAX_RECENT = 12;
 
-            // Store stdout buffer for JSON line parsing
-            let stdoutBuffer = '';
-            // Keep a small recent-lines buffer so we can inspect context that
-            // appeared before an error line (Csound sometimes emits the useful
-            // info in prior lines).
-            let recentLines: string[] = [];
-            const MAX_RECENT = 12;
+        // this.vscodeOutputChannel.clear();
+        process.on('error', (err) => {
+            this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS ERROR ===');
+            this.vscodeOutputChannel.appendLine(`Error name: ${err.name}`);
+            this.vscodeOutputChannel.appendLine(`Error message: ${err.message}`);
+            this.vscodeOutputChannel.appendLine(`Error code: ${(err as any).code || 'unknown'}`);
+            this.vscodeOutputChannel.appendLine(`Error errno: ${(err as any).errno || 'unknown'}`);
+            this.vscodeOutputChannel.appendLine(`Error syscall: ${(err as any).syscall || 'unknown'}`);
+            this.vscodeOutputChannel.appendLine(`Command: ${command}`);
+            this.vscodeOutputChannel.appendLine(`Arguments: --startTestServer=false`);
+            if (err.stack) {
+                this.vscodeOutputChannel.appendLine('Error stack:');
+                this.vscodeOutputChannel.appendLine(err.stack);
+            }
+            this.vscodeOutputChannel.appendLine('=== END ERROR ===');
+            this.vscodeOutputChannel.show(true);
+            const index = this.processes.indexOf(process);
+            if (index > -1) {
+                this.processes.splice(index, 1);
+            }
+        });
 
-            // this.vscodeOutputChannel.clear();
-            process.on('error', (err) => {
-                this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS ERROR ===');
-                this.vscodeOutputChannel.appendLine(`Error name: ${err.name}`);
-                this.vscodeOutputChannel.appendLine(`Error message: ${err.message}`);
-                this.vscodeOutputChannel.appendLine(`Error code: ${(err as any).code || 'unknown'}`);
-                this.vscodeOutputChannel.appendLine(`Error errno: ${(err as any).errno || 'unknown'}`);
-                this.vscodeOutputChannel.appendLine(`Error syscall: ${(err as any).syscall || 'unknown'}`);
-                this.vscodeOutputChannel.appendLine(`Command: ${command}`);
-                this.vscodeOutputChannel.appendLine(`Arguments: --startTestServer=false`);
-                if (err.stack) {
-                    this.vscodeOutputChannel.appendLine('Error stack:');
-                    this.vscodeOutputChannel.appendLine(err.stack);
+        process.on('exit', (code, signal) => {
+            const index = this.processes.indexOf(process);
+            if (index > -1) {
+                this.processes.splice(index, 1);
+            }
+
+            this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
+            this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
+            this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
+            this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
+            this.vscodeOutputChannel.appendLine(`Command: ${command}`);
+
+            if (signal) {
+                this.vscodeOutputChannel.appendLine(`Signal details:`);
+                switch (signal) {
+                    case 'SIGTERM':
+                        this.vscodeOutputChannel.appendLine('  - SIGTERM (15): Process was asked to terminate gracefully');
+                        break;
+                    case 'SIGKILL':
+                        this.vscodeOutputChannel.appendLine('  - SIGKILL (9): Process was forcefully killed');
+                        break;
+                    case 'SIGPIPE':
+                        this.vscodeOutputChannel.appendLine('  - SIGPIPE (13): Broken pipe - likely trying to write to closed connection');
+                        this.vscodeOutputChannel.appendLine('  - This often indicates pipe communication issues or invalid widget configurations');
+                        break;
+                    case 'SIGABRT':
+                        this.vscodeOutputChannel.appendLine('  - SIGABRT (6): Process aborted - likely due to assertion failure or critical error');
+                        break;
+                    case 'SIGSEGV':
+                        this.vscodeOutputChannel.appendLine('  - SIGSEGV (11): Segmentation fault - memory access violation');
+                        break;
+                    default:
+                        this.vscodeOutputChannel.appendLine(`  - Signal ${signal}: Check system documentation for details`);
                 }
-                this.vscodeOutputChannel.appendLine('=== END ERROR ===');
-                this.vscodeOutputChannel.show(true);
-                const index = this.processes.indexOf(process);
-                if (index > -1) {
-                    this.processes.splice(index, 1);
+            }
+
+            if (code !== null) {
+                if (code === 0) {
+                    this.vscodeOutputChannel.appendLine('Cabbage server terminated successfully.');
+                } else if (code === 3221225785) {
+                    this.vscodeOutputChannel.appendLine('Exit code indicates missing or incompatible library - is Csound installed?');
+                } else {
+                    this.vscodeOutputChannel.appendLine(`Cabbage server terminated with non-zero exit code: ${code}`);
                 }
-            });
+            }
 
-            process.on('exit', (code, signal) => {
-                const index = this.processes.indexOf(process);
-                if (index > -1) {
-                    this.processes.splice(index, 1);
-                }
+            this.vscodeOutputChannel.appendLine('=== END EXIT ===');
+            this.vscodeOutputChannel.show(true);
+        });
 
-                this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
-                this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
-                this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
-                this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
-                this.vscodeOutputChannel.appendLine(`Command: ${command}`);
+        this.processes.push(process);
 
-                if (signal) {
-                    this.vscodeOutputChannel.appendLine(`Signal details:`);
-                    switch (signal) {
-                        case 'SIGTERM':
-                            this.vscodeOutputChannel.appendLine('  - SIGTERM (15): Process was asked to terminate gracefully');
-                            break;
-                        case 'SIGKILL':
-                            this.vscodeOutputChannel.appendLine('  - SIGKILL (9): Process was forcefully killed');
-                            break;
-                        case 'SIGPIPE':
-                            this.vscodeOutputChannel.appendLine('  - SIGPIPE (13): Broken pipe - likely trying to write to closed connection');
-                            this.vscodeOutputChannel.appendLine('  - This often indicates pipe communication issues or invalid widget configurations');
-                            break;
-                        case 'SIGABRT':
-                            this.vscodeOutputChannel.appendLine('  - SIGABRT (6): Process aborted - likely due to assertion failure or critical error');
-                            break;
-                        case 'SIGSEGV':
-                            this.vscodeOutputChannel.appendLine('  - SIGSEGV (11): Segmentation fault - memory access violation');
-                            break;
-                        default:
-                            this.vscodeOutputChannel.appendLine(`  - Signal ${signal}: Check system documentation for details`);
-                    }
+        // Handle stdout - parse JSON messages from CabbageApp
+        process.stdout.on("data", async (data: Buffer) => {
+            const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
+            const dataString = data.toString();
+
+            // Add to buffer
+            stdoutBuffer += dataString;
+
+            // Process complete JSON lines
+            let newlineIndex;
+            while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
+                const line = stdoutBuffer.substring(0, newlineIndex).trim();
+                stdoutBuffer = stdoutBuffer.substring(newlineIndex + 1);
+
+                // Track recent non-warning lines for richer context when parsing errors
+                if (!/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
+                    recentLines.push(line);
+                    if (recentLines.length > MAX_RECENT) recentLines.shift();
                 }
 
-                if (code !== null) {
-                    if (code === 0) {
-                        this.vscodeOutputChannel.appendLine('Cabbage server terminated successfully.');
-                    } else if (code === 3221225785) {
-                        this.vscodeOutputChannel.appendLine('Exit code indicates missing or incompatible library - is Csound installed?');
-                    } else {
-                        this.vscodeOutputChannel.appendLine(`Cabbage server terminated with non-zero exit code: ${code}`);
-                    }
+                if (!line) {
+                    continue;
                 }
 
-                this.vscodeOutputChannel.appendLine('=== END EXIT ===');
-                this.vscodeOutputChannel.show(true);
-            });
+                // Check if this is a JSON message from CabbageApp
+                if (line.startsWith('CABBAGE_JSON:')) {
+                    // Extract the JSON part after the prefix
+                    const jsonString = line.substring('CABBAGE_JSON:'.length);
+                    try {
+                        const msg = JSON.parse(jsonString);
 
-            this.processes.push(process);
-
-            // Handle stdout - parse JSON messages from CabbageApp
-            process.stdout.on("data", async (data: Buffer) => {
-                const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
-                const dataString = data.toString();
-
-                // Add to buffer
-                stdoutBuffer += dataString;
-
-                // Process complete JSON lines
-                let newlineIndex;
-                while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
-                    const line = stdoutBuffer.substring(0, newlineIndex).trim();
-                    stdoutBuffer = stdoutBuffer.substring(newlineIndex + 1);
-
-                    // Track recent non-warning lines for richer context when parsing errors
-                    if (!/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
-                        recentLines.push(line);
-                        if (recentLines.length > MAX_RECENT) recentLines.shift();
-                    }
-
-                    if (!line) {
-                        continue;
-                    }
-
-                    // Check if this is a JSON message from CabbageApp
-                    if (line.startsWith('CABBAGE_JSON:')) {
-                        // Extract the JSON part after the prefix
-                        const jsonString = line.substring('CABBAGE_JSON:'.length);
-                        try {
-                            const msg = JSON.parse(jsonString);
-
-                            // Handle widget update messages
-                            if (msg.hasOwnProperty('command')) {
-                                if (msg['command'] === 'widgetUpdate') {
-                                    const panel = Commands.getPanel();
-                                    if (panel) {
-                                        if (msg.hasOwnProperty('data')) {
-                                            let channel = msg['channel'];
-                                            if (channel === null && msg['data']) {
-                                                try {
-                                                    const parsed = JSON.parse(msg['data']);
-                                                    channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                                                } catch (e) {
-                                                    console.error('Failed to parse data for channel:', e);
-                                                }
+                        // Handle widget update messages
+                        if (msg.hasOwnProperty('command')) {
+                            if (msg['command'] === 'widgetUpdate') {
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    if (msg.hasOwnProperty('data')) {
+                                        let channel = msg['channel'];
+                                        if (channel === null && msg['data']) {
+                                            try {
+                                                const parsed = JSON.parse(msg['data']);
+                                                channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                            } catch (e) {
+                                                console.error('Failed to parse data for channel:', e);
                                             }
-                                            panel.webview.postMessage({
-                                                command: 'widgetUpdate',
-                                                channel: channel,
-                                                widgetJson: msg['data'],
-                                                currentCsdPath: Commands.getCurrentFileName(),
-                                            });
-                                        } else if (msg.hasOwnProperty('value')) {
-                                            panel.webview.postMessage({
-                                                command: 'widgetUpdate',
-                                                id: msg['id'],
-                                                channel: msg['channel'],
-                                                value: msg['value'],
-                                                currentCsdPath: Commands.getCurrentFileName(),
-                                            });
                                         }
-                                    }
-                                }
-                                else if (msg['command'] === 'failedToCompile') {
-                                    console.log("Extension: Received failedToCompile from backend");
-                                    // Handle panel disposal
-                                    let panel = Commands.getPanel();
-                                    if (panel) {
-                                        panel.dispose();
-                                        panel = undefined;
+                                        panel.webview.postMessage({
+                                            command: 'widgetUpdate',
+                                            channel: channel,
+                                            widgetJson: msg['data'],
+                                            currentCsdPath: Commands.getCurrentFileName(),
+                                        });
+                                    } else if (msg.hasOwnProperty('value')) {
+                                        panel.webview.postMessage({
+                                            command: 'widgetUpdate',
+                                            id: msg['id'],
+                                            channel: msg['channel'],
+                                            value: msg['value'],
+                                            currentCsdPath: Commands.getCurrentFileName(),
+                                        });
                                     }
                                 }
                             }
-                        } catch (e) {
-                            // Failed to parse JSON - log the error
-                            // this.vscodeOutputChannel.appendLine(`Error parsing JSON message: ${e}`);
-                            // this.vscodeOutputChannel.appendLine(`Raw message: ${jsonString}`);
-                        }
-                    } else {
-                        // Not a JSON message - treat as regular log output
-                        if (!ignoredTokens.some(token => line.startsWith(token))) {
-                            if (line.startsWith('DEBUG:')) {
-                                // Only show DEBUG lines if verbose logging is enabled
-                                if (config.get("logVerbose")) {
-                                    this.vscodeOutputChannel.appendLine(line);
+                            else if (msg['command'] === 'failedToCompile') {
+                                console.log("Extension: Received failedToCompile from backend");
+                                // Handle panel disposal
+                                let panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.dispose();
+                                    panel = undefined;
                                 }
-                            } else if (line.startsWith('INFO:')) {
-                                // Show INFO lines with the INFO: prefix removed
-                                const msg = line.replace('INFO:', '').trim();
-                                this.vscodeOutputChannel.appendLine(msg);
-                            } else {
-                                // Show other messages as-is (Csound output, etc.)
-                                // Check for parsing failure and close panel if needed
-                                if (line.includes('Parsing failed due to syntax errors')) {
-                                    if (this.panel) {
-                                        this.panel.dispose();
-                                        this.panel = undefined;
-                                    }
-                                }
-                                // This is for debugging
-                                // console.log(`Cabbage: Processing line: "${line}"`);
-                                // If the line begins with a warning or deprecation message,
-                                // ignore it for error diagnostics. This avoids confusing
-                                // earlier warning lines with later, real errors.
-                                if (/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
-                                    this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-warning'));
-                                    continue;
-                                }
-
-                                // Simple error detection: if line contains "error" or "unable to find opcode"
-                                if (line.toLowerCase().includes('error') || /unable to find opcode/i.test(line)) {
-                                    this.compilationFailed = true;
-                                    this.lastCsoundErrorMessage = line;
-
-                                    // Look for line number in two places:
-                                    // 1. In the current error line itself: "error: message, line 71"
-                                    // 2. On the next line: "line 512:"
-                                    let lineNumber: number | undefined;
-                                    let errorMessage = line;
-
-                                    // First check if the error line itself contains ", line XXX"
-                                    const inlineMatch = line.match(/,\s*line\s+(\d+)/i);
-                                    if (inlineMatch) {
-                                        lineNumber = parseInt(inlineMatch[1], 10);
-                                        errorMessage = line; // Already contains the line number
-                                    } else {
-                                        // Check the next few lines for "line XXX:" pattern
-                                        let tempBuf = stdoutBuffer;
-                                        for (let i = 0; i < 5; i++) {
-                                            const nl = tempBuf.indexOf('\n');
-                                            if (nl === -1) break;
-                                            const nextLine = tempBuf.substring(0, nl).trim();
-                                            tempBuf = tempBuf.substring(nl + 1);
-
-                                            // Look for "line 512:" pattern or "line 512" at end of line
-                                            const lineMatch = nextLine.match(/^line\s*(\d+)\s*:?/i) || nextLine.match(/,\s*line\s+(\d+)/i);
-                                            if (lineMatch) {
-                                                lineNumber = parseInt(lineMatch[1], 10);
-                                                errorMessage += ` (line ${lineNumber})`;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    // Create diagnostic
-                                    try {
-                                        if (lineNumber !== undefined) {
-                                            // We found a line number - create diagnostic on that line
-                                            const targetDoc = this.lastSavedFileName;
-                                            if (targetDoc) {
-                                                const uri = vscode.Uri.file(targetDoc);
-                                                let document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === targetDoc);
-                                                if (!document) {
-                                                    document = await vscode.workspace.openTextDocument(uri);
-                                                }
-
-                                                // Convert to 0-based and clamp to document bounds
-                                                const lineIdx = Math.min(Math.max(lineNumber - 1, 0), document.lineCount - 1);
-                                                const lineObj = document.lineAt(lineIdx);
-                                                const range = new vscode.Range(lineIdx, 0, lineIdx, lineObj.text.length);
-
-                                                const diagnostic = new vscode.Diagnostic(
-                                                    range,
-                                                    errorMessage,
-                                                    vscode.DiagnosticSeverity.Error
-                                                );
-
-                                                this.diagnosticCollectionCsound.set(uri, [diagnostic]);
-                                            }
-                                        }
-                                    } catch (err) {
-                                        console.log('Cabbage: Error creating diagnostic:', err);
-                                    }
-
-                                    // Dispose panel on error
-                                    if (this.panel) {
-                                        this.panel.dispose();
-                                        this.panel = undefined;
-                                    }
-                                }
-                                this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-error'));
                             }
                         }
+                    } catch (e) {
+                        // Failed to parse JSON - log the error
+                        // this.vscodeOutputChannel.appendLine(`Error parsing JSON message: ${e}`);
+                        // this.vscodeOutputChannel.appendLine(`Raw message: ${jsonString}`);
+                    }
+                } else {
+                    // Not a JSON message - treat as regular log output
+                    if (!ignoredTokens.some(token => line.startsWith(token))) {
+                        if (line.startsWith('DEBUG:')) {
+                            // Only show DEBUG lines if verbose logging is enabled
+                            if (vscode.workspace.getConfiguration("cabbage").get("logVerbose")) {
+                                this.vscodeOutputChannel.appendLine(line);
+                            }
+                        } else if (line.startsWith('INFO:')) {
+                            // Show INFO lines with the INFO: prefix removed
+                            const msg = line.replace('INFO:', '').trim();
+                            this.vscodeOutputChannel.appendLine(msg);
+                        } else {
+                            // Show other messages as-is (Csound output, etc.)
+                            // Check for parsing failure and close panel if needed
+                            if (line.includes('Parsing failed due to syntax errors')) {
+                                if (this.panel) {
+                                    this.panel.dispose();
+                                    this.panel = undefined;
+                                }
+                            }
+                            // This is for debugging
+                            // console.log(`Cabbage: Processing line: "${line}"`);
+                            // If the line begins with a warning or deprecation message,
+                            // ignore it for error diagnostics. This avoids confusing
+                            // earlier warning lines with later, real errors.
+                            if (/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
+                                this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-warning'));
+                                continue;
+                            }
+
+                            // Simple error detection: if line contains "error" or "unable to find opcode"
+                            if (line.toLowerCase().includes('error') || /unable to find opcode/i.test(line)) {
+                                this.compilationFailed = true;
+                                this.lastCsoundErrorMessage = line;
+
+                                // Look for line number in two places:
+                                // 1. In the current error line itself: "error: message, line 71"
+                                // 2. On the next line: "line 512:"
+                                let lineNumber: number | undefined;
+                                let errorMessage = line;
+
+                                // First check if the error line itself contains ", line XXX"
+                                const inlineMatch = line.match(/,\s*line\s+(\d+)/i);
+                                if (inlineMatch) {
+                                    lineNumber = parseInt(inlineMatch[1], 10);
+                                    errorMessage = line; // Already contains the line number
+                                } else {
+                                    // Check the next few lines for "line XXX:" pattern
+                                    let tempBuf = stdoutBuffer;
+                                    for (let i = 0; i < 5; i++) {
+                                        const nl = tempBuf.indexOf('\n');
+                                        if (nl === -1) break;
+                                        const nextLine = tempBuf.substring(0, nl).trim();
+                                        tempBuf = tempBuf.substring(nl + 1);
+
+                                        // Look for "line 512:" pattern or "line 512" at end of line
+                                        const lineMatch = nextLine.match(/^line\s*(\d+)\s*:?/i) || nextLine.match(/,\s*line\s+(\d+)/i);
+                                        if (lineMatch) {
+                                            lineNumber = parseInt(lineMatch[1], 10);
+                                            errorMessage += ` (line ${lineNumber})`;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Create diagnostic
+                                try {
+                                    if (lineNumber !== undefined) {
+                                        // We found a line number - create diagnostic on that line
+                                        const targetDoc = this.lastSavedFileName;
+                                        if (targetDoc) {
+                                            const uri = vscode.Uri.file(targetDoc);
+                                            let document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === targetDoc);
+                                            if (!document) {
+                                                document = await vscode.workspace.openTextDocument(uri);
+                                            }
+
+                                            // Convert to 0-based and clamp to document bounds
+                                            const lineIdx = Math.min(Math.max(lineNumber - 1, 0), document.lineCount - 1);
+                                            const lineObj = document.lineAt(lineIdx);
+                                            const range = new vscode.Range(lineIdx, 0, lineIdx, lineObj.text.length);
+
+                                            const diagnostic = new vscode.Diagnostic(
+                                                range,
+                                                errorMessage,
+                                                vscode.DiagnosticSeverity.Error
+                                            );
+
+                                            this.diagnosticCollectionCsound.set(uri, [diagnostic]);
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.log('Cabbage: Error creating diagnostic:', err);
+                                }
+
+                                // Dispose panel on error
+                                if (this.panel) {
+                                    this.panel.dispose();
+                                    this.panel = undefined;
+                                }
+                            }
+                            this.vscodeOutputChannel.appendLine(this.filterLargeJson(line, 'stdout-error'));
+                        }
                     }
                 }
-            });
+            }
+        });
 
-            process.stderr.on("data", (data: { toString: () => string; }) => {
-                const dataString = data.toString();
+        process.stderr.on("data", (data: { toString: () => string; }) => {
+            const dataString = data.toString();
 
-                // Filter out large JSON messages to prevent output window spam
-                // (e.g., waveform arrays being sent to stderr for debugging)
-                const MAX_LOG_LENGTH = 500; // characters
-                if (dataString.length > MAX_LOG_LENGTH) {
-                    // Check if it looks like JSON
-                    const trimmed = dataString.trim();
-                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-                        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-                        // It's likely a large JSON payload - log a summary instead
-                        this.vscodeOutputChannel.appendLine(
-                            `[Large JSON payload suppressed: ${dataString.length} bytes]`
-                        );
-                        return;
-                    }
+            // Filter out large JSON messages to prevent output window spam
+            // (e.g., waveform arrays being sent to stderr for debugging)
+            const MAX_LOG_LENGTH = 500; // characters
+            if (dataString.length > MAX_LOG_LENGTH) {
+                // Check if it looks like JSON
+                const trimmed = dataString.trim();
+                if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                    (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                    // It's likely a large JSON payload - log a summary instead
+                    this.vscodeOutputChannel.appendLine(
+                        `[Large JSON payload suppressed: ${dataString.length} bytes]`
+                    );
+                    return;
                 }
+            }
 
-                // Show stderr output (errors, warnings) - filter large JSON
-                this.vscodeOutputChannel.appendLine(this.filterLargeJson(dataString, 'stderr'));
-            });
-            this.cabbageServerStarted = true;
-        }
+            // Show stderr output (errors, warnings) - filter large JSON
+            this.vscodeOutputChannel.appendLine(this.filterLargeJson(dataString, 'stderr'));
+        });
+        this.cabbageServerStarted = true;
 
         // No longer need setupWebSocketServer - we're using pipes now
         // Send initial message to CabbageApp via stdin to initialize
-        const process = this.processes[this.processes.length - 1];
-        if (process && process.stdin) {
+        const lastProcess = this.processes[this.processes.length - 1];
+        if (lastProcess && lastProcess.stdin) {
             const initMsg = { command: 'initialiseWidgets' };
-            process.stdin.write(JSON.stringify(initMsg) + '\n');
+            lastProcess.stdin.write(JSON.stringify(initMsg) + '\n');
         }
     }
     /**

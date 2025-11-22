@@ -174,10 +174,24 @@
           "default": true,
           "description": "Enable automatic saving of external JSON when compiling .csd file."
         },
-        "cabbage.runInDebugMode": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable to allow run-time debugging of Cabbage server."
+        "cabbage.launchInNewColumn": {
+          "type": "string",
+          "default": "Active",
+          "enum": [
+            "Active",
+            "One",
+            "Two",
+            "Three",
+            "Beside"
+          ],
+          "enumDescriptions": [
+            "Open in the currently active column",
+            "Always open in the first column",
+            "Always open in the second column",
+            "Always open in the third column",
+            "Open in a new column beside the active one"
+          ],
+          "description": "Choose which column to launch the instrument UI in."
         },
         "cabbage.defaultJsonFormatting": {
           "type": "string",
