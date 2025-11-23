@@ -1927,6 +1927,224 @@ include $(SYSTEM_FILES_DIR)/Makefile
     }
 
     /**
+     * Generates a custom index.html with only the specified widget imports
+     * @param usedWidgets Set of widget types to include in the imports
+     * @returns HTML string with only the used widget script tags
+     */
+    private static generateIndexHtmlForWidgets(usedWidgets: Set<string>): string {
+        // Generate script tags only for used widgets
+        const widgetScripts = Array.from(usedWidgets)
+            .map(widgetType => `<script type="module" src="cabbage/widgets/${widgetType}.js"></script>`)
+            .join('\n');
+
+        return `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to Cabbage</title>
+<link rel="stylesheet" href="cabbage.css">
+<style>
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        cursor: default;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    *,
+    *::before,
+    *::after {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        cursor: inherit;
+    }
+
+    input,
+    textarea {
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        cursor: text;
+    }
+</style>
+</head>
+<body>
+${widgetScripts}
+<script type="module" src="cabbage/utils.js"></script>
+<script type="module" src="cabbage/cabbage.js"></script>
+<script type="module" src="cabbage/main.js"></script>
+
+<span class="popup" id="popupValue">50</span>
+</body>
+</html>`;
+    }
+
+    /**
+     * Extracts the set of widget types used in a CSD file by parsing the Cabbage JSON section
+     * @param csdContent The content of the CSD file
+     * @returns Set of widget type names (e.g., 'rotarySlider', 'button', etc.)
+     */
+    private static extractUsedWidgets(csdContent: string): Set<string> {
+        const widgetTypes = new Set<string>();
+
+        try {
+            // Extract Cabbage JSON section using regex (same pattern as getCabbageContent)
+            const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/i;
+            const match = csdContent.match(cabbageRegex);
+
+            if (!match || !match[1]) {
+                Commands.vscodeOutputChannel.appendLine('Export: No Cabbage section found in CSD file');
+                return widgetTypes;
+            }
+
+            const cabbageCode = match[1].trim();
+            const widgets = JSON.parse(cabbageCode);
+
+            if (Array.isArray(widgets)) {
+                for (const widget of widgets) {
+                    if (widget.type) {
+                        widgetTypes.add(widget.type);
+                    }
+                }
+            }
+
+            Commands.vscodeOutputChannel.appendLine(`Export: Found ${widgetTypes.size} widget types: ${Array.from(widgetTypes).join(', ')}`);
+        } catch (e) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Error parsing Cabbage JSON: ${e}`);
+        }
+
+        return widgetTypes;
+    }
+
+    /**
+     * Copies widgets for plugin export
+     * - Copies ALL built-in widgets (required by widgetTypes.js static imports)
+     * - Copies ONLY used custom widgets (selective)
+     * @param usedWidgets Set of widget type names used in the CSD
+     * @param allJsSourceDirs All JS source directories from Cabbage settings
+     * @param destDir Destination cabbage directory
+     */
+    private static async copyUsedWidgets(
+        usedWidgets: Set<string>,
+        allJsSourceDirs: string[],
+        destDir: string
+    ): Promise<void> {
+        const widgetsDestDir = path.join(destDir, 'widgets');
+        await fs.promises.mkdir(widgetsDestDir, { recursive: true });
+
+        // List of all built-in widgets (must match widgetTypes.js static imports)
+        const builtInWidgets = [
+            'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider',
+            'numberSlider', 'keyboard', 'form', 'button', 'fileButton', 'infoButton',
+            'optionButton', 'genTable', 'label', 'image', 'listBox', 'comboBox',
+            'groupBox', 'checkBox', 'csoundOutput', 'textEditor', 'xyPad'
+        ];
+
+        // Find the built-in source directory (the one containing vscabbage/src)
+        const builtInSourceDir = allJsSourceDirs.find(dir => dir.includes('vscabbage/src'));
+
+        if (!builtInSourceDir) {
+            Commands.vscodeOutputChannel.appendLine('Export: WARNING - Could not find built-in widget directory');
+            return;
+        }
+
+        // Copy ALL built-in widgets (required by widgetTypes.js)
+        Commands.vscodeOutputChannel.appendLine(`Export: Copying all ${builtInWidgets.length} built-in widgets...`);
+        for (const widgetType of builtInWidgets) {
+            const widgetFileName = `${widgetType}.js`;
+            const widgetPath = path.join(builtInSourceDir, 'cabbage', 'widgets', widgetFileName);
+
+            if (fs.existsSync(widgetPath)) {
+                await fs.promises.copyFile(
+                    widgetPath,
+                    path.join(widgetsDestDir, widgetFileName)
+                );
+                Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (built-in)`);
+            } else {
+                Commands.vscodeOutputChannel.appendLine(`Export:   ✗ ${widgetType} (built-in not found)`);
+            }
+        }
+
+        // Copy ONLY used custom widgets
+        const customWidgets = Array.from(usedWidgets).filter(w => !builtInWidgets.includes(w));
+
+        if (customWidgets.length > 0) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Copying ${customWidgets.length} custom widgets...`);
+
+            for (const widgetType of customWidgets) {
+                const widgetFileName = `${widgetType}.js`;
+                let copied = false;
+
+                // Check custom directories (skip the built-in directory)
+                for (const jsSourceDir of allJsSourceDirs) {
+                    if (jsSourceDir === builtInSourceDir) continue; // Skip built-in
+
+                    const widgetPath = path.join(jsSourceDir, 'cabbage', 'widgets', widgetFileName);
+
+                    if (fs.existsSync(widgetPath)) {
+                        await fs.promises.copyFile(
+                            widgetPath,
+                            path.join(widgetsDestDir, widgetFileName)
+                        );
+                        Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (custom) from ${jsSourceDir}`);
+                        copied = true;
+                        break;
+                    }
+                }
+
+                if (!copied) {
+                    Commands.vscodeOutputChannel.appendLine(`Export:   ✗ ${widgetType} (custom widget not found)`);
+                }
+            }
+        } else {
+            Commands.vscodeOutputChannel.appendLine('Export: No custom widgets to copy');
+        }
+    }
+
+    /**
+     * Copies core cabbage files (excluding widgets directory)
+     * @param sourceDir Source cabbage directory
+     * @param destDir Destination cabbage directory
+     */
+    private static async copyCabbageCore(sourceDir: string, destDir: string): Promise<void> {
+        await fs.promises.mkdir(destDir, { recursive: true });
+
+        const items = await fs.promises.readdir(sourceDir, { withFileTypes: true });
+
+        for (const item of items) {
+            // Skip widgets directory - we'll copy selectively
+            if (item.name === 'widgets') {
+                continue;
+            }
+
+            const sourcePath = path.join(sourceDir, item.name);
+            const destPath = path.join(destDir, item.name);
+
+            if (item.isDirectory()) {
+                await Commands.copyDirectory(sourcePath, destPath);
+            } else {
+                await fs.promises.copyFile(sourcePath, destPath);
+            }
+        }
+
+        Commands.vscodeOutputChannel.appendLine('Export: Copied core cabbage framework files');
+    }
+
+    /**
      * Sets up the project resources directory with JS sources, CSS, index.html, and CSD file
      */
     private static async setupProjectResources(resourcesDir: string, indexHtmlContent: string, csdContent: string, projectName: string): Promise<void> {
@@ -1934,10 +2152,29 @@ include $(SYSTEM_FILES_DIR)/Makefile
         await fs.promises.mkdir(resourcesDir, { recursive: true });
         console.log('Cabbage: Created resources directory:', resourcesDir);
 
-        // Copy JS source files
+        // Extract used widgets from CSD content
+        const usedWidgets = Commands.extractUsedWidgets(csdContent);
+        console.log(`Cabbage: Found ${usedWidgets.size} used widgets:`, Array.from(usedWidgets));
+
+        // Generate custom index.html with only used widgets
+        const customIndexHtml = Commands.generateIndexHtmlForWidgets(usedWidgets);
+        Commands.vscodeOutputChannel.appendLine(`Export: Generated custom index.html with ${usedWidgets.size} widget imports`);
+
+        // Get paths
         const jsSourcePath = Commands.getJsSourcePath();
-        await Commands.copyDirectory(jsSourcePath, path.join(resourcesDir, 'cabbage'));
-        console.log('Cabbage: Copied JS source files');
+        const cabbageDestDir = path.join(resourcesDir, 'cabbage');
+        // Get custom widget directory from global Cabbage settings (not VS Code config)
+        const settings = await Settings.getCabbageSettings();
+        const jsSourceDirs = settings['currentConfig']?.['jsSourceDir'] || [];
+        const customWidgetDirs: string[] = Array.isArray(jsSourceDirs) ? jsSourceDirs : [];
+
+        Commands.vscodeOutputChannel.appendLine(`Export: Checking ${customWidgetDirs.length} widget directories: ${JSON.stringify(customWidgetDirs)}`);
+
+        // Copy core cabbage files (excluding widgets directory)
+        await Commands.copyCabbageCore(jsSourcePath, cabbageDestDir);
+
+        // Copy only used widgets (checks all jsSourceDir directories)
+        await Commands.copyUsedWidgets(usedWidgets, customWidgetDirs, cabbageDestDir);
 
         // Copy CSS file
         const cssPath = Commands.getCabbageCssPath();
@@ -1946,10 +2183,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
         await fs.promises.copyFile(cssPath, cssDestPath);
         console.log('Cabbage: Copied CSS file');
 
-        // Create index.html
+        // Create index.html with custom widget imports
         const indexHtmlPath = path.join(resourcesDir, 'index.html');
-        await fs.promises.writeFile(indexHtmlPath, indexHtmlContent);
-        console.log('Cabbage: Created index.html');
+        await fs.promises.writeFile(indexHtmlPath, customIndexHtml);
+        console.log('Cabbage: Created custom index.html');
 
         // Create CSD file
         const csdPath = path.join(resourcesDir, `${projectName}.csd`);
@@ -2405,18 +2642,23 @@ i2 5 z
         }
 
         try {
-            // Setup project resources (JS, CSS, index.html, CSD)
-            const indexDotHtml = ExtensionUtils.getIndexHtml();
-            await Commands.setupProjectResources(resourcesDir, indexDotHtml, '', pluginName);
+            this.vscodeOutputChannel.appendLine('');
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
+            this.vscodeOutputChannel.appendLine(`Export: Starting plugin export - ${pluginName}`);
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
 
-            // Rename and update the .csd file
-            const newCsdPath = path.join(resourcesDir, `${pluginName}.csd`);
-
+            // Read CSD content first so we can extract used widgets
+            let csdContent = '';
             if (editor) {
-                const newContent = await fs.promises.readFile(editor.document.fileName, 'utf8');
-                await fs.promises.writeFile(newCsdPath, newContent);
-                console.log('Cabbage: CSD file updated and renamed');
+                csdContent = await fs.promises.readFile(editor.document.fileName, 'utf8');
+                this.vscodeOutputChannel.appendLine(`Export: Read CSD file (${csdContent.length} bytes)`);
             }
+
+            // Setup project resources (JS, CSS, index.html, CSD) with actual CSD content
+            const indexDotHtml = ExtensionUtils.getIndexHtml();
+            await Commands.setupProjectResources(resourcesDir, indexDotHtml, csdContent, pluginName);
+
+            this.vscodeOutputChannel.appendLine('Export: Plugin resources setup complete');
 
             // Copy the plugin
             if (os.platform() === 'darwin') {
@@ -2606,6 +2848,10 @@ i2 5 z
                 console.log('Cabbage: newFilePath:', newFilePath);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
+
+                this.vscodeOutputChannel.appendLine('='.repeat(60));
+                this.vscodeOutputChannel.appendLine(`Export: Plugin successfully exported to: ${destinationPath}`);
+                this.vscodeOutputChannel.appendLine('='.repeat(60));
                 Commands.getOutputChannel().appendLine("Plugin successfully copied to:" + destinationPath);
             }
 
@@ -2823,7 +3069,7 @@ i2 5 z
             const execAsync = promisify(exec);
 
             // Update CFBundleExecutable to match the renamed binary
-            await execAsync(`plutil -replace CFBundleExecutable -string "${pluginName}" "${plistPath} "`);
+            await execAsync(`plutil -replace CFBundleExecutable -string "${pluginName}" "${plistPath}"`);
 
             // Update CFBundleName
             await execAsync(`plutil -replace CFBundleName -string "${pluginName}" "${plistPath}"`);

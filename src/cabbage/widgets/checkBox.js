@@ -25,7 +25,7 @@ export class Checkbox {
         }
       ],
       "value": null,
-      "index": 0,
+      "z-index": 0,
       "visible": true,
       "active": true,
       "automatable": true,

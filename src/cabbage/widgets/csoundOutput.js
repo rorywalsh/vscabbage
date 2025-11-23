@@ -27,6 +27,7 @@ export class CsoundOutput {
             "active": true,
             "automatable": false,
             "type": "csoundOutput",
+            "z-index": 0,
 
             "style": {
                 "opacity": 1,

@@ -524,8 +524,8 @@ export class WidgetManager {
 
                 // Set z-index for child widgets - ensure they appear above their parent
                 const baseZIndex = 1000; // Base z-index higher than main form
-                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
-                const childIndex = typeof childProps?.index === 'number' ? childProps.index : 0;
+                const parentIndex = typeof parentWidget.props?.['z-index'] === 'number' ? parentWidget.props['z-index'] : 0;
+                const childIndex = typeof childProps?.['z-index'] === 'number' ? childProps['z-index'] : 0;
                 // Children get higher z-index than parent (parent index + child index + 1)
                 childDiv.style.zIndex = (baseZIndex + parentIndex + childIndex + 1).toString();
 
@@ -548,7 +548,7 @@ export class WidgetManager {
             // Ensure container has lower z-index than children (but still above main form)
             if (parentDiv) {
                 const baseZIndex = 1000;
-                const parentIndex = typeof parentWidget.props?.index === 'number' ? parentWidget.props.index : 0;
+                const parentIndex = typeof parentWidget.props?.['z-index'] === 'number' ? parentWidget.props['z-index'] : 0;
                 parentDiv.style.zIndex = (baseZIndex + parentIndex).toString();
             }
         }
@@ -575,7 +575,7 @@ export class WidgetManager {
 
         // Set z-index based on widget index property, ensuring widgets appear above the main form (z-index: 0)
         const baseZIndex = 1000; // Base z-index higher than main form
-        const widgetIndex = typeof props?.index === 'number' ? props.index : 0;
+        const widgetIndex = typeof props?.['z-index'] === 'number' ? props['z-index'] : 0;
         widgetDiv.style.zIndex = (baseZIndex + widgetIndex).toString();
     }
 

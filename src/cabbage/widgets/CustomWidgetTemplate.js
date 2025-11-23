@@ -64,7 +64,7 @@ export class CustomWidgetTemplate {
                 "height": 30
             },
             "channels": [{ "id": "customWidget", "event": "valueChanged" }],
-            "index": 0,
+            "z-index": 0,
             "visible": true,
             "active": true,
             "automatable": false,

@@ -20,7 +20,7 @@ export class Label {
                 "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1 },
                 "event": "valueChanged"
             }],
-            "index": 0,
+            "z-index": 0,
             "visible": true,
             "active": true,
             "automatable": false,

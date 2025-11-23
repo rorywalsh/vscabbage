@@ -19,7 +19,7 @@ export class GroupBox {
             "channels": [
                 { "id": "groupbox", "event": "valueChanged" }
             ],
-            "index": 0,
+            "z-index": 0,
             "visible": true,
             "active": true,
             "automatable": false,

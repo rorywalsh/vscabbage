@@ -24,6 +24,7 @@ export class TextEditor {
             "active": true,
             "automatable": false,
             "type": "textEditor",
+            "z-index": 0,
 
             "style": {
                 "opacity": 1,

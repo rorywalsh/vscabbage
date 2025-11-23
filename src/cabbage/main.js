@@ -279,6 +279,17 @@ window.addEventListener('message', async (event) => {
 
             // Update child widget pointer events for draggable mode
             updateChildWidgetPointerEvents('draggable');
+
+            // Ensure property panel is visible in draggable mode
+            const propPanel = document.querySelector('.property-panel');
+            if (propPanel) {
+                propPanel.style.display = 'block';
+            }
+
+            const rPanel = document.getElementById('RightPanel');
+            if (rPanel) {
+                rPanel.style.display = 'block';
+            }
             break;
 
         // Called when entering performance mode
@@ -293,7 +304,13 @@ window.addEventListener('message', async (event) => {
             const propertyPanel = document.querySelector('.property-panel');
             if (propertyPanel) {
                 console.log('PropertyPanel: hiding panel due to performance mode');
-                propertyPanel.style.visibility = 'hidden';
+                propertyPanel.style.display = 'none';
+            }
+
+            const rightPanel = document.getElementById('RightPanel');
+            if (rightPanel) {
+                console.log('RightPanel: hiding panel due to performance mode');
+                rightPanel.style.display = 'none';
             }
             break;
 

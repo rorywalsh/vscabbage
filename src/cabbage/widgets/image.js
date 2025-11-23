@@ -25,7 +25,7 @@ export class Image {
                 }
             ],
             "value": 0,
-            "index": 0,
+            "z-index": 0,
             "visible": true,
             "active": true,
             "automatable": false,

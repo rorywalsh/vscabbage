@@ -25,7 +25,7 @@ export class RotarySlider {
         }
       ],
       "value": null,
-      "index": 0,
+      "z-index": 0,
       "type": "rotarySlider",
       "velocity": 0,
       "popup": false,

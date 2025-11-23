@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
-import { vscode, currentCsdPath } from "./sharedState.js";
+import { vscode, currentCsdPath, getCabbageMode } from "./sharedState.js";
 import { Cabbage } from "./cabbage.js";
 
 export class CabbageUtils {
@@ -319,7 +319,11 @@ export class CabbageUtils {
       const leftPanel = document.getElementById('LeftPanel');
       const rightPanel = document.getElementById('RightPanel');
       leftPanel.style.display = 'flex';
-      rightPanel.style.display = 'flex';
+
+      // Only show RightPanel if NOT in performance mode (nonDraggable)
+      if (getCabbageMode() !== 'nonDraggable') {
+        rightPanel.style.display = 'flex';
+      }
     }
   }
 

@@ -15,10 +15,11 @@ export class Form {
       "channels": [
         {
           "id": "formChannel", "event": "valueChanged",
-          "range": { "defaultValue": 0, "increment":1, "max": 1, "min": 0, "skew": 1, "value": 0 }
+          "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1, "value": 0 }
         }
       ],
       "type": "form",
+      "z-index": 0,
 
       "style": {
         "backgroundColor": "#004c6b",
