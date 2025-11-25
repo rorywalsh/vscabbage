@@ -149,7 +149,7 @@ export class HorizontalRangeSlider {
 
       this.props.value = Math.round(this.props.value / range.increment) * range.increment;
       this.startValue = this.props.value;
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
     }
   }
 
@@ -250,7 +250,7 @@ export class HorizontalRangeSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth;
 
     // Get the bounding rectangle of the slider
-    const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
+    const sliderRect = CabbageUtils.getWidgetDiv(this.props).getBoundingClientRect();
 
     // Respect active flag
     if (!this.props.active) return '';
@@ -269,7 +269,7 @@ export class HorizontalRangeSlider {
     this.props.value = newValue;
 
     // Update the slider appearance
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
 
     // Send denormalized value directly to backend
     const valueToSend = this.props.value;
@@ -293,7 +293,7 @@ export class HorizontalRangeSlider {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         this.props.value = inputValue;
-        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+        CabbageUtils.updateInnerHTML(this.props, this);
         widgetDiv.querySelector('input').focus();
       }
     }
@@ -355,7 +355,7 @@ export class HorizontalRangeSlider {
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
         style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? this.props.style.valueText.fontSize : fontSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0;"
-        onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
+        onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';
 

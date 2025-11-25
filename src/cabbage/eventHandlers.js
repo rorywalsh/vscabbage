@@ -256,7 +256,7 @@ async function groupSelectedWidgets() {
         }
 
         // Remove from DOM
-        const widgetDiv = document.getElementById(widget.props.id || CabbageUtils.getChannelId(widget.props, 0));
+        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
         if (widgetDiv) {
             widgetDiv.remove();
         }

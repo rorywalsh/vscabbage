@@ -480,12 +480,12 @@ export class WidgetManager {
             return;
         }
 
-        console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", CabbageUtils.getChannelId(parentWidget.props, 0));
+        console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", CabbageUtils.getWidgetDivId(parentWidget.props));
 
         // Log parent container info
         if (parentDiv) {
             const parentStyle = window.getComputedStyle(parentDiv);
-            console.log(`Cabbage: Parent ${CabbageUtils.getChannelId(parentWidget.props, 0)} - position: ${parentStyle.position}, zIndex: ${parentStyle.zIndex}, display: ${parentStyle.display}, transform: ${parentStyle.transform}`);
+            console.log(`Cabbage: Parent ${CabbageUtils.getWidgetDivId(parentWidget.props)} - position: ${parentStyle.position}, zIndex: ${parentStyle.zIndex}, display: ${parentStyle.display}, transform: ${parentStyle.transform}`);
         }
 
         for (const childProps of parentWidget.props.children) {
@@ -499,7 +499,7 @@ export class WidgetManager {
             const childWidgetProps = {
                 ...childProps,
                 bounds: absoluteBounds,
-                parentChannel: CabbageUtils.getChannelId(parentWidget.props, 0) // Mark as child
+                parentChannel: CabbageUtils.getWidgetDivId(parentWidget.props) // Mark as child
             };
 
             console.log(`Cabbage: Inserting child ${childProps.channel} (type: ${childProps.type}) at position (${absoluteBounds.left}, ${absoluteBounds.top})`);
@@ -508,11 +508,11 @@ export class WidgetManager {
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
 
             // Ensure child widgets appear above their container
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
             const childDiv = document.getElementById(childChannelId);
             if (childDiv) {
                 const computedStyle = window.getComputedStyle(childDiv);
-                console.log(`Cabbage: Child ${CabbageUtils.getChannelId(childProps, 0)} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
+                console.log(`Cabbage: Child ${CabbageUtils.getWidgetDivId(childProps)} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
 
                 // Explicitly set position and transform for child widgets
                 childDiv.style.position = 'absolute';
@@ -529,7 +529,7 @@ export class WidgetManager {
                 // Children get higher z-index than parent (parent index + child index + 1)
                 childDiv.style.zIndex = (baseZIndex + parentIndex + childIndex + 1).toString();
 
-                childDiv.setAttribute('data-parent-channel', CabbageUtils.getChannelId(parentWidget.props, 0)); // Mark as child widget
+                childDiv.setAttribute('data-parent-channel', CabbageUtils.getWidgetDivId(parentWidget.props)); // Mark as child widget
 
                 // Set pointer events based on mode
                 if (cabbageMode === 'draggable') {
@@ -542,7 +542,7 @@ export class WidgetManager {
                 const finalStyle = window.getComputedStyle(childDiv);
                 console.log(`Cabbage: Child ${childProps.channel} final position: ${finalStyle.position}, transform: ${finalStyle.transform}, zIndex: ${finalStyle.zIndex}, pointerEvents: ${finalStyle.pointerEvents}`);
             } else {
-                console.error(`Cabbage: Child div for ${CabbageUtils.getChannelId(childProps, 0)} NOT FOUND!`);
+                console.error(`Cabbage: Child div for ${CabbageUtils.getWidgetDivId(childProps)} NOT FOUND!`);
             }
 
             // Ensure container has lower z-index than children (but still above main form)
@@ -628,7 +628,10 @@ export class WidgetManager {
         //console.log(`WidgetManager.updateWidget: Parsed data:`, data);
 
         // Determine the channel to use for finding the widget
-        const channelToFind = data.id || (data.channels && data.channels.length > 0 && data.channels[0].id) || obj.id;
+        // If data is a primitive (number, string), use obj.id directly
+        const channelToFind = (typeof data === 'object' && data !== null)
+            ? (data.id || (data.channels && data.channels.length > 0 && data.channels[0].id) || obj.id)
+            : obj.id;
         //console.log(`WidgetManager.updateWidget: Channel to find: ${channelToFind}`);
 
         const widget = widgets.find(w => {
@@ -646,7 +649,7 @@ export class WidgetManager {
         }
 
         if (widget) {
-            const channelId = CabbageUtils.getChannelId(widget.props, 0);
+            const channelId = CabbageUtils.getWidgetDivId(widget.props, 0);
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
             // WidgetManager.currentCsdPath = obj.currentCsdPath;
@@ -727,7 +730,22 @@ export class WidgetManager {
                             }
                         }
                         // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
-                        widget.props.value = newValue; // Update the value property
+
+                        // For multi-channel widgets, find which channel to update
+                        if (widget.props.channels && Array.isArray(widget.props.channels) && widget.props.channels.length > 1) {
+                            // Find the channel index that matches obj.id
+                            const channelIndex = widget.props.channels.findIndex(c => WidgetManager.channelsMatch(c, channelToFind));
+                            if (channelIndex !== -1) {
+                                // Update the specific channel's value
+                                widget.props.channels[channelIndex].range.value = newValue;
+                                console.log(`WidgetManager: Updated multi-channel widget ${widget.props.type} channel[${channelIndex}] (${channelToFind}) to ${newValue}`);
+                            } else {
+                                console.warn(`WidgetManager: Could not find channel index for ${channelToFind} in widget ${widget.props.type}`);
+                            }
+                        } else {
+                            // Single-channel widget - update widget.props.value
+                            widget.props.value = newValue;
+                        }
 
                         // Call getInnerHTML to refresh the widget's display
                         const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
@@ -799,7 +817,7 @@ export class WidgetManager {
                     // Do not clobber the inner DOM. Ensure the inner placeholder exists and
                     // then call the widget's update method which will reuse/append the canvas.
                     if (typeof widget.createCanvas === 'function') {
-                        const innerId = CabbageUtils.getChannelId(widget.props, 0);
+                        const innerId = CabbageUtils.getWidgetDivId(widget.props);
                         let inner = document.getElementById(innerId);
                         // If the inner placeholder is missing or not a child of the wrapper,
                         // create it by applying the canonical inner HTML once.
@@ -842,7 +860,7 @@ export class WidgetManager {
                         // Update wrapper styles then let the widget update its canvas
                         let propsForStyling = widget.props;
                         if (widget.props.parentChannel) {
-                            const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
+                            const parentWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === widget.props.parentChannel);
                             if (parentWidget) {
                                 const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
                                 const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
@@ -854,7 +872,7 @@ export class WidgetManager {
                                         top: absoluteTop
                                     }
                                 };
-                                console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                                console.log(`Cabbage: Child widget ${CabbageUtils.getWidgetDivId(widget.props)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
                             }
                         }
                         WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
@@ -873,7 +891,7 @@ export class WidgetManager {
                         // Update wrapper styles (respect parent-relative positioning)
                         let propsForStyling = widget.props;
                         if (widget.props.parentChannel) {
-                            const parentWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === widget.props.parentChannel);
+                            const parentWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === widget.props.parentChannel);
                             if (parentWidget) {
                                 const absoluteLeft = parentWidget.props.bounds.left + widget.props.bounds.left;
                                 const absoluteTop = parentWidget.props.bounds.top + widget.props.bounds.top;
@@ -885,7 +903,7 @@ export class WidgetManager {
                                         top: absoluteTop
                                     }
                                 };
-                                console.log(`Cabbage: Child widget ${CabbageUtils.getChannelId(widget.props, 0)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
+                                console.log(`Cabbage: Child widget ${CabbageUtils.getWidgetDivId(widget.props)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
                             }
                         }
                         WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
@@ -893,13 +911,13 @@ export class WidgetManager {
                         // If this widget has children, update their positions
                         if (widget.props.children && Array.isArray(widget.props.children)) {
                             widget.props.children.forEach(childProps => {
-                                const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+                                const childChannelId = CabbageUtils.getWidgetDivId(childProps);
                                 const childDiv = document.getElementById(childChannelId);
                                 if (childDiv) {
                                     const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
                                     const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
                                     // Update child widget styles consistently
-                                    const childWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(childProps, 0));
+                                    const childWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === CabbageUtils.getWidgetDivId(childProps));
                                     if (childWidget) {
                                         WidgetManager.updateWidgetStyles(childDiv, {
                                             ...childWidget.props,
@@ -910,25 +928,25 @@ export class WidgetManager {
                                             }
                                         });
                                     }
-                                    console.log(`Cabbage: Updated child ${CabbageUtils.getChannelId(childProps, 0)} position to (${absoluteLeft}, ${absoluteTop})`);
+                                    console.log(`Cabbage: Updated child ${CabbageUtils.getWidgetDivId(childProps)} position to (${absoluteLeft}, ${absoluteTop})`);
                                 }
                             });
                         }
                     }
                 } else {
-                    const channelStr = CabbageUtils.getChannelId(widget.props, 0);
+                    const channelStr = CabbageUtils.getWidgetDivId(widget.props, 0);
                     console.error(`Widget div for channel ${channelStr} not found`);
                 }
             }
         } else {
             // console.log(`WidgetManager.updateWidget: Widget not found in top-level array, checking for child widgets`);
             // Widget not found in top-level array. Check if it's a child of any container widget (group/image)
-            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0)));
+            const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getWidgetDivId(c) === obj.id));
             // console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
             if (parentWithChild) {
                 console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
                 // console.log(`Cabbage: Found child widget ${obj.id} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
-                const childProps = parentWithChild.props.children.find(c => CabbageUtils.getChannelId(c, 0) === CabbageUtils.getChannelId({ channel: obj.id }, 0));
+                const childProps = parentWithChild.props.children.find(c => CabbageUtils.getWidgetDivId(c) === obj.id);
                 // console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
 
                 // If data is an object (and not null/array) merge it, otherwise treat as a value update
@@ -954,7 +972,7 @@ export class WidgetManager {
                 }
 
                 // Update child DOM / instance if present
-                const objChannelId = CabbageUtils.getChannelId({ channel: obj.id }, 0);
+                const objChannelId = obj.id;
                 const childDiv = document.getElementById(objChannelId);
                 if (childDiv) {
                     // Prefer canonical attached instance
@@ -968,7 +986,7 @@ export class WidgetManager {
                             }
                         }
                         childDiv.innerHTML = instance.getInnerHTML();
-                        console.warn("Cabbage: Updated child widget instance", CabbageUtils.getChannelId({ channel: obj.id }, 0), instance.props.value);
+                        console.warn("Cabbage: Updated child widget instance", obj.id, instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
                         const tempWidget = await WidgetManager.createWidget(childProps.type);
@@ -981,18 +999,15 @@ export class WidgetManager {
                             }
                         }
                         childDiv.innerHTML = tempWidget.getInnerHTML();
-                        console.warn("Cabbage: Updated temporary child widget", CabbageUtils.getChannelId({ channel: obj.id }, 0));
+                        console.warn("Cabbage: Updated temporary child widget", obj.id);
                     }
                 } else {
-                    console.warn(`Cabbage: child div for ${CabbageUtils.getChannelId({ channel: obj.id }, 0)} not found in DOM`);
+                    console.warn(`Cabbage: child div for ${obj.id} not found in DOM`);
                 }
                 widgetFound = true;
             } else {
-                // obj.channel is often undefined in incoming messages; prefer using obj.id so the
-                // log shows the actual identifier sent from the backend. Use getChannelId with
-                // an object that contains `id` so the utility returns the canonical id when
-                // available (falls back to channels if needed).
-                console.log(`Cabbage: Widget with channel ${CabbageUtils.getChannelId({ id: obj.id }, 0)} not found - going to create it now`);
+                // obj.id contains the identifier sent from the backend
+                console.log(`Cabbage: Widget with channel ${obj.id} not found - going to create it now`);
             }
         }
         // If the widget is not found, attempt to create a new widget from the provided data
@@ -1000,7 +1015,7 @@ export class WidgetManager {
             console.log(`WidgetManager.updateWidget: Widget not found, attempting to create new widget`);
             // If this is a value-only update (no widgetJson field), we can't create a widget
             if (obj.hasOwnProperty('value') && !obj.hasOwnProperty('widgetJson')) {
-                const channelStr = CabbageUtils.getChannelId({ channel: obj.id }, 0);
+                const channelStr = obj.id;
                 console.warn(`Cabbage: Cannot update value for non-existent widget "${channelStr}". Widget must be defined in the CSD file first.`);
                 return;
             }

@@ -148,7 +148,7 @@ export class VerticalSlider {
       if (!this.boundPointerUp) this.boundPointerUp = upHandler;
       window.addEventListener("pointermove", this.boundPointerMove);
       window.addEventListener("pointerup", this.boundPointerUp);
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
 
       console.log('VerticalSlider pointerDown: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
       console.log('VerticalSlider pointerMove: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
@@ -252,9 +252,12 @@ export class VerticalSlider {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         this.props.value = inputValue;
-        const widgetDiv = document.getElementById(this.props.channel);
-        widgetDiv.innerHTML = this.getInnerHTML();
-        widgetDiv.querySelector('input').focus();
+        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
+        if (widgetDiv) {
+          widgetDiv.innerHTML = this.getInnerHTML();
+          const input = widgetDiv.querySelector('input');
+          if (input) input.focus();
+        }
       }
     }
   }
@@ -284,7 +287,7 @@ export class VerticalSlider {
     }
 
     // Get the bounding rectangle of the slider
-    const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
+    const sliderRect = CabbageUtils.getWidgetDiv(this.props).getBoundingClientRect();
 
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetY = sliderRect.bottom - clientY - textHeight;
@@ -309,7 +312,7 @@ export class VerticalSlider {
     this.props.value = skewedValue;
 
     // Update the slider appearance
-    const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+    const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send denormalized value directly to backend
@@ -387,7 +390,7 @@ export class VerticalSlider {
     <foreignObject x="0" y="${this.props.bounds.height - valueTextBoxHeight * 1.2}" width="${this.props.bounds.width}" height="${valueTextBoxHeight * 1.2}">
       <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
       style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? this.props.style.valueText.fontSize : fontSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0;"
-      onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
+      onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').VerticalSliderInstance.handleInputChange(event)"/>
     </foreignObject>
     ` : '';
 

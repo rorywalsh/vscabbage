@@ -324,7 +324,7 @@ export class GenTable {
     }
 
     getInnerHTML() {
-        const channelId = CabbageUtils.getChannelId(this.props, 0);
+        const channelId = CabbageUtils.getWidgetDivId(this.props);
         return `<div id="${channelId}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
@@ -346,8 +346,6 @@ export class GenTable {
                 const w = Number(this.props.bounds.width) || 1;
                 const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
                 const map = (x) => this.pixelToSample(x);
-                console.info(`Cabbage: GenTable[${this.props.id || CabbageUtils.getChannelId(this.props, 0)}] log-mode=ON width=${w} samples=${totalSamples}`);
-                console.info(`Cabbage:   pixel->sample: x=0 -> ${map(0)}, x=${Math.floor(w / 2)} -> ${map(Math.floor(w / 2))}, x=${Math.max(0, w - 1)} -> ${map(Math.max(0, w - 1))}`);
                 // mark as logged for a short period to avoid noisy output
                 this._gentableLogged = true;
                 setTimeout(() => { this._gentableLogged = false; }, 3000);
@@ -357,7 +355,7 @@ export class GenTable {
             // is guarded so it only prints briefly and won't spam the console.
             if (!this._gentablePropsLogged) {
                 try {
-                    console.info('Cabbage: GenTable props dump:', this.props);
+
                 } catch (e) {
                     console.warn('Cabbage: Failed to log GenTable props', e);
                 }
@@ -376,7 +374,7 @@ export class GenTable {
                     const rangeEnd = (this.props.range && this.props.range.x && this.props.range.x.end !== -1) ? this.props.range.x.end : totalSamples;
                     const positions = [0, Math.floor(w / 4), Math.floor(w / 2), Math.floor(3 * w / 4), Math.max(0, w - 1)];
                     const mappings = positions.map(px => `${px}->${this.pixelToSample(px)}`);
-                    console.info('Cabbage: GenTable mapping:', { logarithmic: !!(this.props.style && this.props.style.logarithmic), width: w, totalSamples, rangeStart, rangeEnd, mappings });
+
                 } catch (e) {
                     console.warn('Cabbage: GenTable mapping log failed', e);
                 }
@@ -397,8 +395,7 @@ export class GenTable {
         }
 
         // Update DOM with the canvas
-        const channelId = CabbageUtils.getChannelId(this.props, 0);
-        const widgetElement = document.getElementById(channelId);
+        const widgetElement = CabbageUtils.getWidgetDiv(this.props);
         if (widgetElement) {
             widgetElement.style.left = '0px';
             widgetElement.style.top = '0px';

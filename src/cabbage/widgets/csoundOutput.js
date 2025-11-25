@@ -10,6 +10,7 @@ import { CabbageUtils } from "../utils.js";
 export class CsoundOutput {
     constructor() {
         this.props = {
+            "id": "csoundOutput",
             "bounds": {
                 "top": 0,
                 "left": 0,
@@ -18,7 +19,7 @@ export class CsoundOutput {
             },
             "channels": [
                 {
-                    "id": "checkbox",
+                    "id": "csoundOutput",
                     "event": "valueChanged",
                     "range": { "defaultValue": 0, "increment": 1, "max": 1, "min": 0, "skew": 1 }
                 }

@@ -94,7 +94,7 @@ export class InfoButton extends Button {
             console.warn("Cabbage: InfoButton has no url or file property set");
         }
 
-        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+        CabbageUtils.updateInnerHTML(this.props, this);
     }
 
 }

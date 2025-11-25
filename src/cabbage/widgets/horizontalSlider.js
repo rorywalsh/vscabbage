@@ -175,7 +175,7 @@ export class HorizontalSlider {
       window.addEventListener("pointerup", this.boundPointerUp);
 
       this.startValue = this.props.value;
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
 
       // Send denormalized value directly to backend
       const valueToSend = skewedValue;
@@ -299,7 +299,7 @@ export class HorizontalSlider {
     textWidth += padding;
 
     // Get the bounding rectangle of the slider
-    const sliderRect = document.getElementById(CabbageUtils.getChannelId(this.props)).getBoundingClientRect();
+    const sliderRect = CabbageUtils.getWidgetDiv(this.props).getBoundingClientRect();
 
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetX = clientX - sliderRect.left - textWidth;
@@ -326,7 +326,7 @@ export class HorizontalSlider {
     console.log(`pointerMove: offsetX=${offsetX}, linearNormalized=${linearNormalized}, skewedValue=${skewedValue}`);
 
     // Update the slider appearance
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
 
     // Send denormalized value directly to backend
     const valueToSend = skewedValue;
@@ -354,8 +354,8 @@ export class HorizontalSlider {
         const linearValue = this.getLinearValue(inputValue);
         const linearNormalized = (linearValue - range.min) / (range.max - range.min);
 
-        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
-        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        CabbageUtils.updateInnerHTML(this.props, this);
+        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
         widgetDiv.querySelector('input').focus();
 
         // Send denormalized value directly to backend
@@ -437,7 +437,7 @@ export class HorizontalSlider {
       <foreignObject x="${textWidth + sliderWidth}" y="0" width="${valueTextBoxWidth}" height="${this.props.bounds.height}">
         <input type="text" value="${currentValue.toFixed(CabbageUtils.getDecimalPlaces(range.increment))}"
         style="width:100%; outline: none; height:100%; text-align:center; font-size:${this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? this.props.style.valueText.fontSize : fontSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0;"
-        onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
+        onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').HorizontalSliderInstance.handleInputChange(event)"/>
       </foreignObject>
     ` : '';
 

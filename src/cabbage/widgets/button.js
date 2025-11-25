@@ -37,6 +37,7 @@ export class Button {
         "opacity": 1,
         "borderRadius": 4,
         "borderWidth": 0,
+        "fontSize": "auto",
         "borderColor": "#dddddd",
 
         "on": {
@@ -71,6 +72,7 @@ export class Button {
     this.parameterIndex = 0;
     // Wrap props with reactive proxy to unify visible/active handling
     this.props = CabbageUtils.createReactiveProps(this, this.props);
+
   }
 
   pointerUp() {
@@ -78,7 +80,7 @@ export class Button {
       return '';
     }
     this.isMouseDown = false;
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   pointerDown() {
@@ -102,7 +104,7 @@ export class Button {
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (this.props.value === range.min) {
         this.props.value = range.max;
-        handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
+        handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
@@ -110,7 +112,7 @@ export class Button {
       this.props.value = (this.props.value === range.min ? range.max : range.min);
     }
 
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
     console.log(msg);
 
@@ -123,7 +125,7 @@ export class Button {
       return '';
     }
     this.isMouseOver = true;
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   pointerLeave() {
@@ -131,7 +133,7 @@ export class Button {
       return '';
     }
     this.isMouseOver = false;
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   handleMouseMove(evt) {
@@ -145,7 +147,7 @@ export class Button {
 
     if (this.isMouseInside !== isInside) {
       this.isMouseInside = isInside;
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
     }
   }
 
@@ -163,7 +165,7 @@ export class Button {
     widgetDiv.addEventListener("mousemove", this.handleMouseMove.bind(this));
     widgetDiv.addEventListener("mouseleave", () => {
       this.isMouseInside = false;
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
     });
   }
 

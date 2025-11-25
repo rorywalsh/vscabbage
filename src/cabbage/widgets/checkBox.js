@@ -84,7 +84,7 @@ export class Checkbox {
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (currentValue === range.min) {
         this.props.value = range.max;
-        handleRadioGroup(this.props.radioGroup, CabbageUtils.getChannelId(this.props));
+        handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
@@ -92,7 +92,7 @@ export class Checkbox {
       this.props.value = (currentValue === range.max) ? range.min : range.max;
     }
 
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);

@@ -92,21 +92,21 @@ export class FileButton extends Button {
 
     if (this.vscode !== null) {
       // VS Code mode - use VS Code's file dialog
-      Cabbage.triggerFileOpenDialog(this.vscode, CabbageUtils.getChannelId(this.props), {
+      Cabbage.triggerFileOpenDialog(this.vscode, CabbageUtils.getWidgetDivId(this.props), {
         directory: this.props.directory,
         filters: this.props.filters,
         openAtLastKnownLocation: this.props.openAtLastKnownLocation
       });
     } else {
       // Plugin mode - send command to backend to open native file dialog
-      Cabbage.triggerFileOpenDialog(null, CabbageUtils.getChannelId(this.props), {
+      Cabbage.triggerFileOpenDialog(null, CabbageUtils.getWidgetDivId(this.props), {
         directory: this.props.directory,
         filters: this.props.filters,
         openAtLastKnownLocation: this.props.openAtLastKnownLocation
       });
     }
 
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   openNativeFileDialog() {

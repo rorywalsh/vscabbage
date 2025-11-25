@@ -215,7 +215,7 @@ export class XyPad {
     pointerMove(evt) {
         if (!this.isMouseDown && !this.isRightDragging) return;
 
-        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const padDiv = CabbageUtils.getWidgetDiv(this.props);
         if (!padDiv) return;
 
         const rect = padDiv.getBoundingClientRect();
@@ -258,7 +258,7 @@ export class XyPad {
     }
 
     updateBallPosition() {
-        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const padDiv = CabbageUtils.getWidgetDiv(this.props);
         if (!padDiv) return;
 
         const ball = padDiv.querySelector('.xypad-ball');
@@ -594,7 +594,7 @@ export class XyPad {
     }
 
     updateTrajectoryLine() {
-        const padDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const padDiv = CabbageUtils.getWidgetDiv(this.props);
         if (!padDiv) return;
 
         const padArea = padDiv.querySelector('div[style*="cursor: crosshair"]');

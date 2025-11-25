@@ -143,7 +143,7 @@ export class RotarySlider {
         this.imageHeight = img.height;
         this.isImageLoaded = true;
         console.log("Cabbage: Loaded film strip image dimensions:", img.width, img.height);
-        CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+        CabbageUtils.updateInnerHTML(this.props, this);
       };
 
       img.onerror = (error) => {
@@ -362,7 +362,7 @@ export class RotarySlider {
     this.props.linearValue = newLinearValue; // For positioning
 
     // Update the widget display
-    const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+    const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send denormalized value directly to backend
@@ -449,7 +449,7 @@ export class RotarySlider {
         this.props.linearValue = linearValue;
 
         // Update the display
-        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
         widgetDiv.innerHTML = this.getInnerHTML();
         widgetDiv.querySelector('input').focus();
 
@@ -466,7 +466,7 @@ export class RotarySlider {
         }
       }
     } else if (evt.key === 'Escape') {
-      const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+      const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
       widgetDiv.querySelector('input').blur();
     }
   }
@@ -646,7 +646,7 @@ export class RotarySlider {
         <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
             style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
-            onKeyDown="document.getElementById('${CabbageUtils.getChannelId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
+            onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
         </svg>

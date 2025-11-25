@@ -56,12 +56,46 @@ export class CabbageUtils {
   }
 
   /**
-   * Returns the id string of the nth channel.
+   * Returns the id string of the nth channel from the channels array.
+   * Throws an error if the channel or its id is not set.
    */
   static getChannelId(props, index = 0) {
-    if (props.id) return props.id;
     const ch = CabbageUtils.getChannel(props, index);
+    if (!ch || !ch.id) {
+      console.error(`Cabbage: CabbageUtils.getChannelId: No channel ID found for widget at index ${index}`, props);
+      throw new Error(`Widget channel[${index}].id is required but not found`);
+    }
+    return ch.id;
+  }
+
+  /**
+   * Returns the DOM ID for the widget div element.
+   * Prioritizes props.id, then falls back to channels[0].id.
+   * This is explicitly for DOM queries like document.getElementById().
+   * 
+   * @param {Object} props - Widget props
+   * @returns {string} The widget div's DOM ID
+   */
+  static getWidgetDivId(props) {
+    if (props.id) return props.id;
+    const ch = CabbageUtils.getChannel(props, 0);
     return ch?.id || '';
+  }
+
+  /**
+   * Returns the actual DOM element for the widget div.
+   * Accepts either a props object or a channel/div id string for compatibility.
+   *
+   * @param {Object|string} channelOrProps - Widget props or a string div id
+   * @returns {HTMLElement|null} The widget div element, or null if not found
+   */
+  static getWidgetDiv(channelOrProps) {
+    // If a string is provided assume it's already a div id
+    if (typeof channelOrProps === 'string') {
+      return document.getElementById(channelOrProps);
+    }
+    const divId = CabbageUtils.getWidgetDivId(channelOrProps);
+    return divId ? document.getElementById(divId) : null;
   }
 
   /**
@@ -94,14 +128,43 @@ export class CabbageUtils {
     }
     return undefined;
   }
-  static updateInnerHTML(channel, instance, element = null) {
-    // If an element is provided, use it directly
-    // Otherwise fall back to finding by ID
-    const targetElement = element || document.getElementById(channel);
-    if (targetElement && targetElement.id === channel) {  // Extra check to ensure ID matches
-      targetElement.innerHTML = instance.getInnerHTML();
+  static updateInnerHTML(channelOrProps, instance, element = null) {
+    // If an element is provided, use it directly (preserve existing behaviour)
+    if (element) {
+      try {
+        element.innerHTML = instance.getInnerHTML();
+      } catch (e) {
+        console.error('updateInnerHTML: failed to update provided element', e);
+      }
+      return;
+    }
+
+    // Determine the target element:
+    // - If channelOrProps is an object, treat it as `props` and resolve via getWidgetDiv(props)
+    // - If it's a string, treat it as an element id/channel and use document.getElementById(id)
+    let targetElement = null;
+    let expectedId = null;
+    if (channelOrProps && typeof channelOrProps === 'object') {
+      expectedId = CabbageUtils.getWidgetDivId(channelOrProps);
+      targetElement = CabbageUtils.getWidgetDiv(channelOrProps);
     } else {
-      console.log('Element mismatch or not found:', channel, 'Element:', targetElement);
+      expectedId = channelOrProps;
+      targetElement = document.getElementById(channelOrProps);
+    }
+
+    if (targetElement) {
+      // If we have an expected id (string), optionally verify it matches the found element's id.
+      if (!expectedId || targetElement.id === expectedId) {
+        try {
+          targetElement.innerHTML = instance.getInnerHTML();
+        } catch (e) {
+          console.error('updateInnerHTML: failed to update innerHTML', e);
+        }
+      } else {
+        console.log('Element id mismatch in updateInnerHTML: expected', expectedId, 'found', targetElement.id);
+      }
+    } else {
+      console.log('Element not found for updateInnerHTML:', channelOrProps);
     }
   }
 
@@ -703,12 +766,22 @@ export class CabbageUtils {
       const dragY = CabbageUtils.getChannelByEvent(props, 'mouseDragY', 'drag');
       if (dragX) {
         const scaledValue = nx * (dragX.range.max - dragX.range.min) + dragX.range.min;
-        const msgX = { paramIdx: parameterIndex, channel: dragX.id, value: scaledValue, channelType: "number" };
+        // Channel must have parameterIndex set by backend
+        if (dragX.parameterIndex === undefined) {
+          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragX);
+          return;
+        }
+        const msgX = { paramIdx: dragX.parameterIndex, channel: dragX.id, value: scaledValue, channelType: "number" };
         Cabbage.sendChannelUpdate(msgX, vscode, automatable);
       }
       if (dragY) {
         const scaledValue = ny * (dragY.range.max - dragY.range.min) + dragY.range.min;
-        const msgY = { paramIdx: parameterIndex, channel: dragY.id, value: scaledValue, channelType: "number" };
+        // Channel must have parameterIndex set by backend
+        if (dragY.parameterIndex === undefined) {
+          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragY);
+          return;
+        }
+        const msgY = { paramIdx: dragY.parameterIndex, channel: dragY.id, value: scaledValue, channelType: "number" };
         Cabbage.sendChannelUpdate(msgY, vscode, automatable);
       }
     } else {
@@ -717,12 +790,22 @@ export class CabbageUtils {
       const moveY = CabbageUtils.getChannelByEvent(props, 'mouseMoveY', 'mouse');
       if (moveX) {
         const scaledValue = nx * (moveX.range.max - moveX.range.min) + moveX.range.min;
-        const msgX = { paramIdx: parameterIndex, channel: moveX.id, value: scaledValue, channelType: "number" };
+        // Channel must have parameterIndex set by backend
+        if (moveX.parameterIndex === undefined) {
+          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveX);
+          return;
+        }
+        const msgX = { paramIdx: moveX.parameterIndex, channel: moveX.id, value: scaledValue, channelType: "number" };
         Cabbage.sendChannelUpdate(msgX, vscode, automatable);
       }
       if (moveY) {
         const scaledValue = ny * (moveY.range.max - moveY.range.min) + moveY.range.min;
-        const msgY = { paramIdx: parameterIndex, channel: moveY.id, value: scaledValue, channelType: "number" };
+        // Channel must have parameterIndex set by backend
+        if (moveY.parameterIndex === undefined) {
+          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveY);
+          return;
+        }
+        const msgY = { paramIdx: moveY.parameterIndex, channel: moveY.id, value: scaledValue, channelType: "number" };
         Cabbage.sendChannelUpdate(msgY, vscode, automatable);
       }
     }
@@ -741,22 +824,37 @@ export class CabbageUtils {
     // Left press
     const pressCh = CabbageUtils.getChannelByEvent(props, 'mousePressLeft', 'click');
     if (pressCh) {
-      const msg = { paramIdx: parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
+      // Channel must have parameterIndex set by backend
+      if (pressCh.parameterIndex === undefined) {
+        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', pressCh);
+        return;
+      }
+      const msg = { paramIdx: pressCh.parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
       Cabbage.sendChannelUpdate(msg, vscode, automatable);
     }
     // Click shorthand
-    const clickCh = CabbageUtils.getChannelByEvent(props, 'mouseClickLeft', 'click');
+    const clickCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'click');
     if (clickCh) {
-      const msg = { paramIdx: parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
+      // Channel must have parameterIndex set by backend
+      if (clickCh.parameterIndex === undefined) {
+        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', clickCh);
+        return;
+      }
+      const msg = { paramIdx: clickCh.parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
       Cabbage.sendChannelUpdate(msg, vscode, automatable);
-      const msgOff = { paramIdx: parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
+      const msgOff = { paramIdx: clickCh.parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
       Cabbage.sendChannelUpdate(msgOff, vscode, automatable);
     }
     // Value changed toggle
     const valueCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'valueChanged');
     if (valueCh) {
       props.value = props.value === 0 ? 1 : 0;
-      const msg = { paramIdx: parameterIndex, channel: valueCh.id, value: props.value, channelType: "number" };
+      // Channel must have parameterIndex set by backend
+      if (valueCh.parameterIndex === undefined) {
+        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', valueCh);
+        return;
+      }
+      const msg = { paramIdx: valueCh.parameterIndex, channel: valueCh.id, value: props.value, channelType: "number" };
       Cabbage.sendChannelUpdate(msg, vscode, automatable);
     }
 

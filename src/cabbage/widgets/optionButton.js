@@ -56,7 +56,7 @@ export class OptionButton {
       return '';
     }
     this.isMouseDown = false;
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   pointerDown(evt) {
@@ -72,7 +72,7 @@ export class OptionButton {
     this.currentIndex = (this.currentIndex + 1) % itemsLength;
     this.props.value = this.currentIndex;
 
-    CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this, evt.currentTarget);
+    CabbageUtils.updateInnerHTML(this.props, this, evt.currentTarget);
 
     // Send normalized value (0-1) to maintain consistency with parameter system
     const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
@@ -147,7 +147,7 @@ export class OptionButton {
     widgetDiv.addEventListener("mouseleave", () => {
       this.isMouseInside = false;
       widgetDiv.style.cursor = "default"; // Reset cursor to default
-      CabbageUtils.updateInnerHTML(CabbageUtils.getChannelId(this.props), this);
+      CabbageUtils.updateInnerHTML(this.props, this);
     });
   }
 

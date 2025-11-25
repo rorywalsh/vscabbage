@@ -227,7 +227,7 @@ export class NumberSlider {
     }
 
     updateSliderValue() {
-        const widgetDiv = document.getElementById(CabbageUtils.getChannelId(this.props));
+        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
         if (widgetDiv) {
             widgetDiv.innerHTML = this.getInnerHTML();
         }
@@ -236,7 +236,7 @@ export class NumberSlider {
     getInnerHTML() {
         // console.log(`NumberSlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
         const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 12 : this.props.style.fontSize;
-        const channelId = CabbageUtils.getChannelId(this.props);
+        const channelId = CabbageUtils.getWidgetDivId(this.props);
         const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
         const alignMap = {
             'left': 'flex-start',

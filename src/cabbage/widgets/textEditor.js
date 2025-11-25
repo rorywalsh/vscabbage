@@ -37,9 +37,7 @@ export class TextEditor {
             },
             "label": {
                 "text": ""
-            },
-
-
+            }
         };
         this.vscode = null;
         this.props = CabbageUtils.createReactiveProps(this, this.props);

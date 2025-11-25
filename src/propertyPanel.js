@@ -1139,7 +1139,7 @@ export class PropertyPanel {
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
-                const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(widget.props, 0));
+                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
                 } else {

@@ -188,7 +188,9 @@ window.addEventListener('message', async (event) => {
 
         // Called when the host triggers a parameter change in the UI
         case 'parameterChange':
-            const parameterMessage = message;
+            // The CLAP plugin wraps paramIdx and value in a 'data' object
+            // Unwrap it if present, otherwise use message directly
+            const parameterMessage = message.data || message;
             console.log(`main.js parameterChange: paramIdx=${parameterMessage.paramIdx}, value=${parameterMessage.value}`);
             // {command: "parameterChange", paramIdx: 0, value: 35}
 
@@ -197,6 +199,10 @@ window.addEventListener('message', async (event) => {
                 const channels = CabbageUtils.getChannels(widget.props);
                 for (let i = 0; i < channels.length; i++) {
                     const channel = channels[i];
+                    // Skip channels without parameterIndex (non-automatable widgets)
+                    if (channel.parameterIndex === undefined) {
+                        continue;
+                    }
                     if (channel.parameterIndex === parameterMessage.paramIdx) {
                         console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
                         const updateMsg = {
@@ -317,10 +323,10 @@ window.addEventListener('message', async (event) => {
         // Called when there are new Csound console messages to display
         case 'csoundOutputUpdate':
             // Find the csoundOutput widget by its channel
-            let csoundOutput = widgets.find(widget => CabbageUtils.getChannelId(widget.props, 0) === 'csoundoutput');
+            let csoundOutput = widgets.find(widget => CabbageUtils.getWidgetDivId(widget.props) === 'csoundoutput');
             if (csoundOutput) {
                 // Update the HTML content of the widget's div
-                const csoundOutputDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(csoundOutput.props, 0));
+                const csoundOutputDiv = CabbageUtils.getWidgetDiv(csoundOutput.props);
                 if (csoundOutputDiv) {
                     csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
                     csoundOutput.appendText(message.text); // Append new console message
