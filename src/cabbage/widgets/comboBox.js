@@ -22,7 +22,7 @@ export class ComboBox {
                 }
             ],
             "value": null,
-            "z-index": 0,
+            "zIndex": 0,
             "visible": true,
             "active": true,
             "automatable": true,

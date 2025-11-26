@@ -19,7 +19,7 @@ export class OptionButton {
       },
       "channels": [{ "id": "optionButton", "event": "valueChanged", "range": { "min": 0, "max": 2, "defaultValue": 0, "skew": 1, "increment": 1 } }],
       "value": null,
-      "z-index": 0,
+      "zIndex": 0,
       "visible": true,
       "active": true,
       "automatable": true,

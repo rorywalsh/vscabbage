@@ -21,7 +21,7 @@ export class HorizontalRangeSlider {
         { "id": "hrslider", "event": "valueChanged" }
       ],
       "value": null,
-      "z-index": 0,
+      "zIndex": 0,
       "type": "horizontalRangeSlider",
       "velocity": 0,
       "popup": false,

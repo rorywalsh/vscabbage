@@ -34,7 +34,7 @@ export class GenTable {
             "active": true,
             "automatable": false,
             "type": "genTable",
-            "z-index": 0,
+            "zIndex": 0,
 
             "style": {
                 "opacity": 1,

@@ -28,7 +28,7 @@ export class XyPad {
             "automatable": true,
             "presetIgnore": false,
             "type": "xyPad",
-            "z-index": 0,
+            "zIndex": 0,
 
             "style": {
                 "opacity": 1,

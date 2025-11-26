@@ -23,7 +23,7 @@ export class VerticalSlider {
         }
       ],
       "value": null,
-      "z-index": 0,
+      "zIndex": 0,
       "type": "verticalSlider",
       "velocity": 0,
       "visible": true,

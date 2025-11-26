@@ -26,7 +26,7 @@ export class HorizontalSlider {
         }
       ],
       "value": null,
-      "z-index": 0,
+      "zIndex": 0,
       "type": "horizontalSlider",
       "visible": true,
       "popup": false,

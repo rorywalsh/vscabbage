@@ -21,7 +21,7 @@ export class InfoButton extends Button {
             },
             "channels": [{ "id": "infoButton", "event": "valueChanged" }],
             "value": null,
-            "z-index": 0,
+            "zIndex": 0,
             "visible": true,
             "active": true,
             "automatable": false,

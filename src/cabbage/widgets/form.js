@@ -19,7 +19,7 @@ export class Form {
         }
       ],
       "type": "form",
-      "z-index": 0,
+      "zIndex": 0,
 
       "style": {
         "backgroundColor": "#004c6b",

@@ -32,7 +32,7 @@ export class MidiKeyboard {
         "textAlign": "center"
       },
       "type": "keyboard",
-      "z-index": 0,
+      "zIndex": 0,
 
       "label": {},
 
