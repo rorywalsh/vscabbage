@@ -814,8 +814,27 @@ export class Commands {
                 return; // Don't send to webview if JSON is invalid
             }
 
-            const launchInNewColumn = config.get("launchInNewColumn");
-            const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+            // Map the setting value to VS Code ViewColumn
+            const launchInNewColumn = config.get<string>("launchInNewColumn") || "Active";
+            let viewColumn: vscode.ViewColumn;
+            switch (launchInNewColumn) {
+                case "One":
+                    viewColumn = vscode.ViewColumn.One;
+                    break;
+                case "Two":
+                    viewColumn = vscode.ViewColumn.Two;
+                    break;
+                case "Three":
+                    viewColumn = vscode.ViewColumn.Three;
+                    break;
+                case "Beside":
+                    viewColumn = vscode.ViewColumn.Beside;
+                    break;
+                case "Active":
+                default:
+                    viewColumn = vscode.ViewColumn.Active;
+                    break;
+            }
 
             // Clear previous Csound diagnostics before compilation
             this.diagnosticCollectionCsound.clear();
@@ -890,8 +909,27 @@ export class Commands {
             // Get the panel reference after setup (TypeScript doesn't know setupWebViewPanel sets this.panel)
             const panel = this.panel as unknown as vscode.WebviewPanel;
             if (panel) {
-                const launchInNewColumn = config.get("launchInNewColumn");
-                const viewColumn = launchInNewColumn ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
+                // Map the setting value to VS Code ViewColumn
+                const launchInNewColumn = config.get<string>("launchInNewColumn") || "Active";
+                let viewColumn: vscode.ViewColumn;
+                switch (launchInNewColumn) {
+                    case "One":
+                        viewColumn = vscode.ViewColumn.One;
+                        break;
+                    case "Two":
+                        viewColumn = vscode.ViewColumn.Two;
+                        break;
+                    case "Three":
+                        viewColumn = vscode.ViewColumn.Three;
+                        break;
+                    case "Beside":
+                        viewColumn = vscode.ViewColumn.Beside;
+                        break;
+                    case "Active":
+                    default:
+                        viewColumn = vscode.ViewColumn.Active;
+                        break;
+                }
 
                 // Clear previous Csound diagnostics before compilation
                 this.diagnosticCollectionCsound.clear();
