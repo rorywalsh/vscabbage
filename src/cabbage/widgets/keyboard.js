@@ -53,7 +53,14 @@ export class MidiKeyboard {
     this.vscode = null;
 
     // Wrap props with reactive proxy to unify visible/active handling
-    this.props = CabbageUtils.createReactiveProps(this, this.props);
+    this.props = CabbageUtils.createReactiveProps(this, this.props, {
+      onPropertyChange: (prop, value) => {
+        // Re-render when bounds change to recalculate octaves
+        if (prop === 'bounds' && this.widgetDiv) {
+          CabbageUtils.updateInnerHTML(this.props, this);
+        }
+      }
+    });
 
     // Define an array of note names
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -162,11 +169,17 @@ export class MidiKeyboard {
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     this.addEventListeners(widgetDiv);
+
+    // Re-render after a short delay to ensure the div has its width CSS applied
+    // This fixes the issue where octaves are calculated before the div width is set
+    requestAnimationFrame(() => {
+      CabbageUtils.updateInnerHTML(this.props, this);
+    });
   }
 
   addEventListeners(widgetDiv) {
     this.addListeners(widgetDiv);
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   midiMessageListener(event) {

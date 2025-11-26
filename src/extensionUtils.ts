@@ -1198,54 +1198,75 @@ ${JSON.stringify(props, null, 4)}
     static getNewCabbageFile(type: string) {
         if (type === 'effect') {
             return `
-<Cabbage>[
-{"type":"form","caption":"Effect","size":{"width":580,"height":300},"pluginId":"def1"},
-{"type":"rotarySlider","channel":"gain","bounds":{"left":500,"top":200,"width":80,"height":80}, "text":"Gain", "range":{"min":0,"max":1,"defaultValue":0.5,"skew":1,"increment":0.01}}
-]</Cabbage>
+<Cabbage>
+[
+    {"type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+    {
+        "type": "rotarySlider",
+        "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
+        "channels": [{"id": "gain"}],
+        "text": "Gain"
+    }
+]
+</Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
 -n -d
 </CsOptions>
 <CsInstruments>
-; Initialize the global variables. 
+; Initialize the global variables.
 ksmps = 32
 nchnls = 2
 0dbfs = 1
 
-instr 1
-    a1 inch 1
-    kGain cabbageGetValue "gain"
 
-    outs a1*kGain, a1*kGain
+instr 1
+    input:a = inch(1)
+    gain:k = cabbageGetValue("gain")
+    out(input*gain, input*gain)
 endin
 
 </CsInstruments>
 <CsScore>
-;causes Csound to run for about 7000 years...
+;causes instr 1 to run for about 7000 years...
 i1 0 z
 </CsScore>
 </CsoundSynthesizer>`;
         }
         else if (type === 'synth') {
             return `
-<Cabbage>[
-{"type":"form","caption":"Synth","size":{"width":580,"height":300},"pluginId":"def1"},
-{"type":"keyboard", "bounds":{"left":10,"top":100,"width":500,"height":100}}
-]</Cabbage>
+<Cabbage>
+[
+    {"type": "form", "caption": "Synth", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+    {
+        "type": "keyboard",
+        "id": "keyboard",
+        "bounds": {"left": 14, "top": 181, "width": 554, "height": 107},
+        "channels": [
+            {
+                "id": "keyboard",
+                "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0}
+            }
+        ]
+    }
+]
+</Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 --midi-key-cps=4 --midi-velocity-amp=5
 </CsOptions>
 <CsInstruments>
-; Initialize the global variables. 
+; Initialize the global variables.
 ksmps = 32
 nchnls = 2
 0dbfs = 1
 
-
+; Instrument will be triggerd by MIDI keyboard
 instr 1
-    vco:a = vco(p4, p4)
-    outa(voc, vco)
+    env:k = madsr(0.001, 0.2, 0.7, 0.6)
+    vco:a = vco2(p5*env, p4)
+    lpf:a = moogladder(vco, 5000*env, 0.7)
+    out(lpf, lpf)
 endin
 
 </CsInstruments>
