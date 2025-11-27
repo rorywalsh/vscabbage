@@ -39,10 +39,11 @@ export class RotarySlider {
       },
 
       "valueText": {
-        "visible": true,
+        "visible": false,
         "width": "auto",
         "prefix": "",
-        "postfix": ""
+        "postfix": "",
+        "offsetY": 0
       },
 
       "style": {
@@ -72,6 +73,13 @@ export class RotarySlider {
           "fontFamily": "Verdana",
           "fontSize": "auto",
           "fontColor": "#aaaaaa"
+        },
+
+        "shadow": {
+          "offsetX": 4,
+          "offsetY": 4,
+          "blur": 4,
+          "color": "rgba(0, 0, 0, 0.8)"
         }
       },
 
@@ -230,6 +238,11 @@ export class RotarySlider {
   }
 
   mouseEnter(evt) {
+    // If mouse button is down (dragging) and we're not the one being dragged, ignore
+    if (evt.buttons !== 0 && !this.isMouseDown) {
+      return;
+    }
+
     if (!this.props.visible) {
       return '';
     }
@@ -605,8 +618,6 @@ export class RotarySlider {
 
     // Render with value text visible
     if (this.props.valueText.visible) {
-      scale = 0.7;
-      const moveY = 5;
       const centerX = this.props.bounds.width / 2;
       const centerY = this.props.bounds.height / 2;
 
@@ -630,20 +641,31 @@ export class RotarySlider {
       // Create label text
       const labelText = this.props.label.text;
 
+      // Create shadow filter if color is specified (not empty or "none")
+      const hasShadow = this.props.style.shadow.color && this.props.style.shadow.color !== "none";
+      const shadowFilter = hasShadow ? `
+        <defs>
+          <filter id="thumbShadow-${CabbageUtils.getWidgetDivId(this.props)}" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="${this.props.style.shadow.offsetX}" dy="${this.props.style.shadow.offsetY}" stdDeviation="${this.props.style.shadow.blur}" flood-color="${this.props.style.shadow.color}"/>
+          </filter>
+        </defs>
+      ` : '';
+
+      const thumbFilter = hasShadow ? `filter="url(#thumbShadow-${CabbageUtils.getWidgetDivId(this.props)})"` : '';
+
       return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
-        <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
+        ${shadowFilter}
+        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
+        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
+        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
+  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} ${thumbFilter} />
+        <foreignObject x="0" y="${this.props.label.offsetY}" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
           <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
             ${labelText}
           </div>
         </foreignObject>
-        <g transform="translate(${centerX}, ${centerY + moveY}) scale(${scale}) translate(${-centerX}, ${-centerY})">
-        <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
-        <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
-        <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
-  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} />
-        </g>
-        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
+        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18) + this.props.valueText.offsetY}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
             style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
             onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
@@ -654,12 +676,25 @@ export class RotarySlider {
     }
 
     // Render without value text (label only)
+    // Create shadow filter if color is specified (not empty or "none")
+    const hasShadow = this.props.style.shadow.color && this.props.style.shadow.color !== "none";
+    const shadowFilter = hasShadow ? `
+      <defs>
+        <filter id="thumbShadow-${CabbageUtils.getWidgetDivId(this.props)}" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="${this.props.style.shadow.offsetX}" dy="${this.props.style.shadow.offsetY}" stdDeviation="${this.props.style.shadow.blur}" flood-color="${this.props.style.shadow.color}"/>
+        </filter>
+      </defs>
+    ` : '';
+
+    const thumbFilter = hasShadow ? `filter="url(#thumbShadow-${CabbageUtils.getWidgetDivId(this.props)})"` : '';
+
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+      ${shadowFilter}
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
-  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} />
+  <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} ${thumbFilter} />
       <foreignObject x="0" y="${labelY - labelFontSize}" width="${this.props.bounds.width}" height="${labelFontSize * 1.2}">
         <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:${labelFontSize}px; font-family:${this.props.style.label.fontFamily}; color:${this.props.style.label.fontColor}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
           ${this.props.label.text}

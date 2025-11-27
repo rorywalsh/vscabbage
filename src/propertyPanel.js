@@ -1260,7 +1260,11 @@ export class PropertyPanel {
             widgets.forEach((widget, index) => {
                 const widgetChannelId = CabbageUtils.getChannelId(widget.props, 0);
                 console.log(`PropertyPanel: checking widget ${index}: channelId=${widgetChannelId}, name=${name}, match=${widgetChannelId === name}`);
-                if (widgetChannelId === name) {
+
+                // Check for match by ID, or special case for MainForm by type
+                const isMatch = widgetChannelId === name || (name === 'MainForm' && widget.props.type === 'form');
+
+                if (isMatch) {
                     console.log('PropertyPanel: found matching widget, updating...');
                     // Update widget size based on bounds if available
                     if (typeof widget.props?.size === 'object' && widget.props.size !== null) {

@@ -95,9 +95,9 @@ export class VerticalSlider {
     popup.classList.remove('show');
 
     // Release pointer capture
-    if (this.activePointerId !== undefined && evt.target) {
+    if (this.activePointerId !== undefined && this.widgetDiv) {
       try {
-        evt.target.releasePointerCapture(this.activePointerId);
+        this.widgetDiv.releasePointerCapture(this.activePointerId);
       } catch (e) {
         // Ignore errors if pointer was already released
       }
@@ -138,6 +138,11 @@ export class VerticalSlider {
 
     if (evt.offsetY >= sliderTop && evt.offsetY <= sliderTop + sliderHeight) {
       this.isMouseDown = true;
+
+      // Capture pointer to ensure we receive pointerup even if pointer leaves element
+      this.widgetDiv.setPointerCapture(evt.pointerId);
+      this.activePointerId = evt.pointerId;
+
       this.startY = evt.offsetY - sliderTop;
       this.props.value = CabbageUtils.map(this.startY, 5, sliderHeight, range.max, range.min);
       this.props.value = Math.round(this.props.value / range.increment) * range.increment;
@@ -166,6 +171,11 @@ export class VerticalSlider {
   }
 
   mouseEnter(evt) {
+    // If mouse button is down (dragging) and we're not the one being dragged, ignore
+    if (evt.buttons !== 0 && !this.isMouseDown) {
+      return;
+    }
+
     if (!this.props.visible) {
       return '';
     }

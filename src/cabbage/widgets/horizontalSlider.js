@@ -97,9 +97,9 @@ export class HorizontalSlider {
     popup.classList.remove('show');
 
     // Release pointer capture
-    if (this.activePointerId !== undefined && evt.target) {
+    if (this.activePointerId !== undefined && this.widgetDiv) {
       try {
-        evt.target.releasePointerCapture(this.activePointerId);
+        this.widgetDiv.releasePointerCapture(this.activePointerId);
       } catch (e) {
         // Ignore errors if pointer was already released
       }
@@ -164,7 +164,7 @@ export class HorizontalSlider {
       this.props.value = skewedValue;
 
       // Capture pointer to ensure we receive pointerup even if pointer leaves element
-      evt.target.setPointerCapture(evt.pointerId);
+      this.widgetDiv.setPointerCapture(evt.pointerId);
       this.activePointerId = evt.pointerId;
 
       const moveHandler = this.boundPointerMove || this.moveListener;
@@ -190,6 +190,11 @@ export class HorizontalSlider {
   }
 
   mouseEnter(evt) {
+    // If mouse button is down (dragging) and we're not the one being dragged, ignore
+    if (evt.buttons !== 0 && !this.isMouseDown) {
+      return;
+    }
+
     if (!this.props.visible) {
       return '';
     }
