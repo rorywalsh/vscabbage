@@ -838,9 +838,17 @@ export function setupFormHandlers() {
                     try {
                         const PP = await loadPropertyPanel();
                         if (PP && typeof PP.updatePanel === 'function') {
+                            let targetId = CabbageUtils.findValidId(event);
+
+                            // If no valid ID found (e.g. clicking on form background) and we are not on a widget, 
+                            // default to MainForm so the property panel shows form properties instead of hiding.
+                            if (!targetId && !clickedOnWidget) {
+                                targetId = "MainForm";
+                            }
+
                             await PP.updatePanel(vscode, {
                                 eventType: "click",
-                                name: CabbageUtils.findValidId(event),
+                                name: targetId,
                                 bounds: {}
                             }, widgets);
                         } else {
