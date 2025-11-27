@@ -856,7 +856,7 @@ export class Commands {
                 console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
                 if (this.panel && !this.compilationFailed) {
                     console.log('Cabbage: No errors detected, revealing panel');
-                    this.panel.reveal(viewColumn, true);
+                    this.panel.reveal(viewColumn, false);
 
                     // Also send onEnterPerformanceMode message
                     setTimeout(() => {
@@ -951,7 +951,7 @@ export class Commands {
                     console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
                     if (this.panel && !this.compilationFailed) {
                         console.log('Cabbage: No errors detected, revealing panel');
-                        this.panel.reveal(viewColumn, true);
+                        this.panel.reveal(viewColumn, false);
 
                         // Also send onEnterPerformanceMode message
                         setTimeout(() => {

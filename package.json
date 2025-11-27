@@ -224,6 +224,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show a warning above format and code overwrites in the <Cabbage> section when the extension writes JSON into the document."
+        },
+        "cabbage.customCommentDecorationColor": {
+          "type": "string",
+          "default": "#666666",
+          "description": "Color for '//' comment properties in Cabbage JSON sections. Use 'Cabbage: Set Custom Comment Decoration Color' command to pick a color."
         }
       }
     },
@@ -441,6 +446,11 @@
       {
         "command": "cabbage.resetCabbageAppSettingsFiles",
         "title": "Reset CabbageApp (not vscode) settings file",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setCustomCommentDecorationColor",
+        "title": "Set Custom Comment Decoration Color",
         "category": "Cabbage"
       }
     ]

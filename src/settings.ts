@@ -6,10 +6,11 @@ import * as vscode from 'vscode';
 import { Commands } from './commands';
 import os from 'os';
 import path from 'path';
+import fs from 'fs';
 
 export class Settings {
 
-    private static async copyDirectoryRecursive(source: string, target: string) {
+    private static async copyDirectoryRecursive(source: string, target: string, shouldCopyFile?: (sourcePath: string, name: string, type: vscode.FileType) => boolean) {
         const sourceUri = vscode.Uri.file(source);
         const targetUri = vscode.Uri.file(target);
 
@@ -27,9 +28,14 @@ export class Settings {
             const sourcePath = path.join(source, name);
             const targetPath = path.join(target, name);
 
+            // Check if we should copy this file/directory
+            if (shouldCopyFile && !shouldCopyFile(sourcePath, name, type)) {
+                continue; // Skip this file/directory
+            }
+
             if (type === vscode.FileType.Directory) {
                 // Recursively copy subdirectory
-                await Settings.copyDirectoryRecursive(sourcePath, targetPath);
+                await Settings.copyDirectoryRecursive(sourcePath, targetPath, shouldCopyFile);
             } else {
                 // Copy file
                 const sourceFileUri = vscode.Uri.file(sourcePath);
@@ -424,10 +430,45 @@ export class Settings {
         const sourceCabbageDir = path.join(extension.extensionPath, 'src', 'cabbage');
         const targetCabbageDir = path.join(folderPath, 'cabbage');
 
+        // List of built-in widget files to exclude from copying
+        const builtInWidgetFiles = [
+            'button.js', 'checkBox.js', 'comboBox.js', 'csoundOutput.js',
+            'fileButton.js', 'form.js', 'genTable.js', 'groupBox.js',
+            'horizontalRangeSlider.js', 'horizontalSlider.js', 'image.js',
+            'infoButton.js', 'keyboard.js', 'label.js', 'listBox.js',
+            'numberSlider.js', 'optionButton.js', 'rotarySlider.js',
+            'textEditor.js', 'verticalSlider.js', 'xyPad.js'
+        ];
+
         try {
-            // Copy the entire cabbage directory recursively
-            await Settings.copyDirectoryRecursive(sourceCabbageDir, targetCabbageDir);
-            Commands.getOutputChannel().appendLine(`Cabbage: Copied cabbage folder structure to ${targetCabbageDir}`);
+            // Copy the entire cabbage directory recursively, excluding internal widget files
+            await Settings.copyDirectoryRecursive(sourceCabbageDir, targetCabbageDir, (sourcePath, name, type) => {
+                // If this is a file in the widgets directory, check if it's a built-in widget
+                if (type === vscode.FileType.File && sourcePath.includes(path.join('cabbage', 'widgets'))) {
+                    // Skip built-in widget files
+                    if (builtInWidgetFiles.includes(name)) {
+                        Commands.getOutputChannel().appendLine(`Cabbage: Skipping internal widget file: ${name}`);
+                        return false; // Don't copy this file
+                    }
+
+                    // Also skip any existing files in the widgets folder to preserve custom widgets
+                    // (except CustomWidgetTemplate.js which should be updated)
+                    if (name !== 'CustomWidgetTemplate.js') {
+                        const targetFilePath = sourcePath.replace(sourceCabbageDir, targetCabbageDir);
+                        try {
+                            // Check if file exists to preserve custom widgets
+                            if (fs.existsSync(targetFilePath)) {
+                                Commands.getOutputChannel().appendLine(`Cabbage: Preserving existing custom widget: ${name}`);
+                                return false; // Don't overwrite existing custom widget
+                            }
+                        } catch (err) {
+                            // File doesn't exist, proceed with copy
+                        }
+                    }
+                }
+                return true; // Copy everything else (and overwrite infrastructure files)
+            });
+            Commands.getOutputChannel().appendLine(`Cabbage: Copied cabbage folder structure to ${targetCabbageDir} (excluding internal widget files)`);
         } catch (err) {
             console.error('Cabbage: Failed to copy cabbage folder', err);
             vscode.window.showErrorMessage(`Cabbage: Failed to copy cabbage folder: ${String(err)}`);
