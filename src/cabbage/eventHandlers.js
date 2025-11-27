@@ -417,6 +417,133 @@ async function ungroupSelectedWidgets() {
 }
 
 /**
+ * Aligns or distributes selected widgets based on the specified type.
+ * @param {string} type - The type of alignment ('left', 'right', 'top', 'bottom', 'distributeHorizontally', 'distributeVertically').
+ */
+async function alignSelectedWidgets(type) {
+    if (selectedElements.size < 2) return;
+    if ((type === 'distributeHorizontally' || type === 'distributeVertically') && selectedElements.size < 3) {
+        console.warn("Cabbage: Need at least 3 widgets to distribute");
+        return;
+    }
+
+    const selectedWidgets = [];
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) selectedWidgets.push({ widget, element: el });
+    });
+
+    if (selectedWidgets.length === 0) return;
+
+    // Calculate bounds of the selection
+    let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+    selectedWidgets.forEach(({ widget }) => {
+        const b = widget.props.bounds;
+        if (b.left < minLeft) minLeft = b.left;
+        if (b.top < minTop) minTop = b.top;
+        if (b.left + b.width > maxRight) maxRight = b.left + b.width;
+        if (b.top + b.height > maxBottom) maxBottom = b.top + b.height;
+    });
+
+    const updates = [];
+
+    if (type === 'left') {
+        selectedWidgets.forEach(item => {
+            if (item.widget.props.bounds.left !== minLeft) {
+                item.widget.props.bounds.left = minLeft;
+                updates.push(item);
+            }
+        });
+    } else if (type === 'right') {
+        selectedWidgets.forEach(item => {
+            const newLeft = maxRight - item.widget.props.bounds.width;
+            if (item.widget.props.bounds.left !== newLeft) {
+                item.widget.props.bounds.left = newLeft;
+                updates.push(item);
+            }
+        });
+    } else if (type === 'top') {
+        selectedWidgets.forEach(item => {
+            if (item.widget.props.bounds.top !== minTop) {
+                item.widget.props.bounds.top = minTop;
+                updates.push(item);
+            }
+        });
+    } else if (type === 'bottom') {
+        selectedWidgets.forEach(item => {
+            const newTop = maxBottom - item.widget.props.bounds.height;
+            if (item.widget.props.bounds.top !== newTop) {
+                item.widget.props.bounds.top = newTop;
+                updates.push(item);
+            }
+        });
+    } else if (type === 'distributeHorizontally') {
+        // Sort by left position
+        selectedWidgets.sort((a, b) => a.widget.props.bounds.left - b.widget.props.bounds.left);
+
+        const totalSpan = maxRight - minLeft;
+        const totalWidgetWidth = selectedWidgets.reduce((sum, item) => sum + item.widget.props.bounds.width, 0);
+        const totalGap = totalSpan - totalWidgetWidth;
+        const gap = totalGap / (selectedWidgets.length - 1);
+
+        let currentLeft = minLeft;
+        selectedWidgets.forEach((item, index) => {
+            if (index === 0) {
+                currentLeft += item.widget.props.bounds.width + gap;
+                return;
+            }
+            // Skip last one to avoid rounding errors moving it slightly
+            if (index === selectedWidgets.length - 1) return;
+
+            if (Math.abs(item.widget.props.bounds.left - currentLeft) > 0.1) {
+                item.widget.props.bounds.left = currentLeft;
+                updates.push(item);
+            }
+            currentLeft += item.widget.props.bounds.width + gap;
+        });
+    } else if (type === 'distributeVertically') {
+        // Sort by top position
+        selectedWidgets.sort((a, b) => a.widget.props.bounds.top - b.widget.props.bounds.top);
+
+        const totalSpan = maxBottom - minTop;
+        const totalWidgetHeight = selectedWidgets.reduce((sum, item) => sum + item.widget.props.bounds.height, 0);
+        const totalGap = totalSpan - totalWidgetHeight;
+        const gap = totalGap / (selectedWidgets.length - 1);
+
+        let currentTop = minTop;
+        selectedWidgets.forEach((item, index) => {
+            if (index === 0) {
+                currentTop += item.widget.props.bounds.height + gap;
+                return;
+            }
+            if (index === selectedWidgets.length - 1) return;
+
+            if (Math.abs(item.widget.props.bounds.top - currentTop) > 0.1) {
+                item.widget.props.bounds.top = currentTop;
+                updates.push(item);
+            }
+            currentTop += item.widget.props.bounds.height + gap;
+        });
+    }
+
+    // Apply updates
+    updates.forEach(item => {
+        // Update DOM
+        item.element.style.transform = `translate(${item.widget.props.bounds.left}px, ${item.widget.props.bounds.top}px)`;
+        item.element.setAttribute('data-x', item.widget.props.bounds.left);
+        item.element.setAttribute('data-y', item.widget.props.bounds.top);
+
+        // Send to VS Code
+        postMessageToVSCode({
+            command: 'updateWidgetProps',
+            text: JSON.stringify(item.widget.props)
+        });
+    });
+
+    console.log(`Cabbage: Aligned ${updates.length} widgets (${type})`);
+}
+
+/**
  * Sets up the form's context menu and various event handlers to handle widget grouping, 
  * dragging, and selection of multiple widgets.
  */
@@ -434,78 +561,75 @@ export function setupFormHandlers() {
     groupContextMenu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
     groupContextMenu.style.zIndex = 10001; // Higher than other elements
     groupContextMenu.style.borderRadius = "4px";
-    groupContextMenu.style.minWidth = "120px";
+    groupContextMenu.style.minWidth = "160px";
+    groupContextMenu.style.display = "flex";
+    groupContextMenu.style.flexDirection = "column";
 
-    // Create and style context menu options (Group/Ungroup)
-    const groupOption = document.createElement("div");
-    groupOption.innerText = "Group";
-    groupOption.style.padding = "8px 12px";
-    groupOption.style.cursor = "pointer";
-    groupOption.style.color = "#000";
-    groupOption.style.backgroundColor = "#fff";
-    groupOption.style.border = "none";
-    groupOption.style.textAlign = "left";
-    groupOption.style.fontSize = "14px";
-    groupOption.style.fontFamily = "Arial, sans-serif";
-    groupOption.addEventListener("mouseenter", () => {
-        groupOption.style.backgroundColor = "#f0f0f0";
-    });
-    groupOption.addEventListener("mouseleave", () => {
-        groupOption.style.backgroundColor = "#fff";
-    });
-
-    const unGroupOption = document.createElement("div");
-    unGroupOption.innerText = "Ungroup";
-    unGroupOption.style.padding = "8px 12px";
-    unGroupOption.style.cursor = "pointer";
-    unGroupOption.style.color = "#000";
-    unGroupOption.style.backgroundColor = "#fff";
-    unGroupOption.style.border = "none";
-    unGroupOption.style.textAlign = "left";
-    unGroupOption.style.fontSize = "14px";
-    unGroupOption.style.fontFamily = "Arial, sans-serif";
-    unGroupOption.addEventListener("mouseenter", () => {
-        unGroupOption.style.backgroundColor = "#f0f0f0";
-    });
-    unGroupOption.addEventListener("mouseleave", () => {
-        unGroupOption.style.backgroundColor = "#fff";
-    });
-
-    // Append menu options to the context menu
-    groupContextMenu.appendChild(groupOption);
-    groupContextMenu.appendChild(unGroupOption);
-
-    // Append context menu to the document body
-    document.body.appendChild(groupContextMenu);
-
-    // Add event listeners for group and ungroup functionality (Currently just logs actions)
-    groupOption.addEventListener("click", async () => {
-        const canGroup = selectedElements.size > 1;
-        const hasGroupableWidgets = Array.from(selectedElements).some(el => {
-            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
-            return widget && !widget.props.parentChannel; // Only top-level widgets can be grouped
+    // Helper to create menu options
+    const createMenuOption = (text, onClick) => {
+        const opt = document.createElement("div");
+        opt.innerText = text;
+        opt.style.padding = "8px 12px";
+        opt.style.cursor = "pointer";
+        opt.style.color = "#000";
+        opt.style.backgroundColor = "#fff";
+        opt.style.border = "none";
+        opt.style.textAlign = "left";
+        opt.style.fontSize = "14px";
+        opt.style.fontFamily = "Arial, sans-serif";
+        opt.addEventListener("mouseenter", () => { opt.style.backgroundColor = "#f0f0f0"; });
+        opt.addEventListener("mouseleave", () => { opt.style.backgroundColor = "#fff"; });
+        opt.addEventListener("click", (e) => {
+            e.stopPropagation();
+            groupContextMenu.style.visibility = "hidden";
+            onClick();
         });
-        if (!(canGroup && hasGroupableWidgets)) return;
+        return opt;
+    };
 
+    const createSeparator = () => {
+        const sep = document.createElement("div");
+        sep.style.height = "1px";
+        sep.style.backgroundColor = "#e0e0e0";
+        sep.style.margin = "4px 0";
+        return sep;
+    };
+
+    // Group/Ungroup Options
+    const groupOption = createMenuOption("Group", async () => {
         console.log("Cabbage: Group option clicked");
-        groupContextMenu.style.visibility = "hidden";
-        // Implement "Group" functionality here
         await groupSelectedWidgets();
     });
 
-    unGroupOption.addEventListener("click", async () => {
-        const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
-            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
-            return widget && widget.props.children && widget.props.children.length > 0 &&
-                (widget.props.type === "groupBox" || widget.props.type === "image");
-        });
-        if (!canUngroup) return;
-
+    const unGroupOption = createMenuOption("Ungroup", async () => {
         console.log("Cabbage: Ungroup option clicked");
-        groupContextMenu.style.visibility = "hidden";
-        // Implement "Ungroup" functionality here
         await ungroupSelectedWidgets();
     });
+
+    // Align Options
+    const alignLeftOption = createMenuOption("Align Left", () => alignSelectedWidgets('left'));
+    const alignRightOption = createMenuOption("Align Right", () => alignSelectedWidgets('right'));
+    const alignTopOption = createMenuOption("Align Top", () => alignSelectedWidgets('top'));
+    const alignBottomOption = createMenuOption("Align Bottom", () => alignSelectedWidgets('bottom'));
+
+    // Distribute Options
+    const distributeHorizontallyOption = createMenuOption("Distribute Horizontally", () => alignSelectedWidgets('distributeHorizontally'));
+    const distributeVerticallyOption = createMenuOption("Distribute Vertically", () => alignSelectedWidgets('distributeVertically'));
+
+    // Append menu options
+    groupContextMenu.appendChild(groupOption);
+    groupContextMenu.appendChild(unGroupOption);
+    groupContextMenu.appendChild(createSeparator());
+    groupContextMenu.appendChild(alignLeftOption);
+    groupContextMenu.appendChild(alignRightOption);
+    groupContextMenu.appendChild(alignTopOption);
+    groupContextMenu.appendChild(alignBottomOption);
+    groupContextMenu.appendChild(createSeparator());
+    groupContextMenu.appendChild(distributeHorizontallyOption);
+    groupContextMenu.appendChild(distributeVerticallyOption);
+
+    // Append context menu to the document body
+    document.body.appendChild(groupContextMenu);
 
     // Reference to the main context menu and the form element
     const contextMenu = document.querySelector(".wrapper");
@@ -566,10 +690,31 @@ export function setupFormHandlers() {
                 contextMenu.style.width = '200px'; // Or any desired width
 
                 // Calculate and display the group context menu
+                // First, make it visible off-screen to measure dimensions
+                groupContextMenu.style.visibility = "hidden";
+                groupContextMenu.style.display = "flex";
+
+                // We need to temporarily show it to measure it. 
+                // Since it's visibility:hidden, it won't be seen but will have dimensions.
+                // However, we need to ensure it's not constrained by previous left/top if they were set.
+                groupContextMenu.style.left = "0px";
+                groupContextMenu.style.top = "0px";
+
+                const menuWidth = groupContextMenu.offsetWidth || 200; // Fallback
+                const menuHeight = groupContextMenu.offsetHeight || 300; // Fallback
+
                 x = e.clientX;
                 y = e.clientY;
-                x = x > winWidth - cmWidth ? winWidth - cmWidth - 5 : x;
-                y = y > winHeight - cmHeight ? winHeight - cmHeight - 5 : y;
+
+                // Adjust if going off-screen
+                if (x + menuWidth > winWidth) {
+                    x = winWidth - menuWidth - 5;
+                }
+
+                if (y + menuHeight > winHeight) {
+                    y = winHeight - menuHeight - 5;
+                }
+
                 groupContextMenu.style.left = `${x}px`;
                 groupContextMenu.style.top = `${y}px`;
 
@@ -632,13 +777,22 @@ export function setupFormHandlers() {
                                 (widget.props.type === "groupBox" || widget.props.type === "image");
                         });
 
-                        groupOption.style.color = (canGroup && hasGroupableWidgets) ? "#000" : "#999";
-                        groupOption.style.cursor = (canGroup && hasGroupableWidgets) ? "pointer" : "not-allowed";
-                        groupOption.style.pointerEvents = (canGroup && hasGroupableWidgets) ? "auto" : "none";
+                        // Enable/Disable Group/Ungroup
+                        const setOptionState = (opt, enabled) => {
+                            opt.style.color = enabled ? "#000" : "#999";
+                            opt.style.cursor = enabled ? "pointer" : "not-allowed";
+                            opt.style.pointerEvents = enabled ? "auto" : "none";
+                        };
 
-                        unGroupOption.style.color = canUngroup ? "#000" : "#999";
-                        unGroupOption.style.cursor = canUngroup ? "pointer" : "not-allowed";
-                        unGroupOption.style.pointerEvents = canUngroup ? "auto" : "none";
+                        setOptionState(groupOption, canGroup && hasGroupableWidgets);
+                        setOptionState(unGroupOption, canUngroup);
+
+                        // Enable/Disable Align Options
+                        const canAlign = selectedElements.size >= 2;
+                        const canDistribute = selectedElements.size >= 3;
+
+                        [alignLeftOption, alignRightOption, alignTopOption, alignBottomOption].forEach(opt => setOptionState(opt, canAlign));
+                        [distributeHorizontallyOption, distributeVerticallyOption].forEach(opt => setOptionState(opt, canDistribute));
 
                         groupContextMenu.style.visibility = "visible";
                     } else {

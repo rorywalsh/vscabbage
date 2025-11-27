@@ -37,7 +37,7 @@ export class Label {
             },
             "label": {
                 "text": "Default Label"
-            },
+            }
         };
         this.vscode = null;
         // Wrap props with reactive proxy to unify visible/active handling

@@ -103,6 +103,7 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
 // (websocket variables and server were removed)
 let firstMessages: any[] = [];
 let warningDecoration: vscode.TextEditorDecorationType | undefined;
+let jsonCommentDecoration: vscode.TextEditorDecorationType | undefined;
 
 
 /**
@@ -152,6 +153,18 @@ export async function activate(context: vscode.ExtensionContext):
         overviewRulerLane: vscode.OverviewRulerLane.Right
     });
 
+    // Create a decoration type for "//" comment properties in Cabbage JSON
+    const createJsonCommentDecoration = () => {
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const color = config.get<string>('customCommentDecorationColor') || '#666666';
+        return vscode.window.createTextEditorDecorationType({
+            fontStyle: 'italic',
+            color: color,
+            opacity: '0.8'
+        });
+    };
+    jsonCommentDecoration = createJsonCommentDecoration();
+
     // Helper: find warning comment blocks and apply decoration
     const updateWarningDecorations = (editor?: vscode.TextEditor) => {
         const editors = editor ? [editor] : vscode.window.visibleTextEditors;
@@ -176,20 +189,83 @@ export async function activate(context: vscode.ExtensionContext):
         }
     };
 
+    // Helper: find "//" comment properties in Cabbage JSON sections and apply decoration
+    const updateJsonCommentDecorations = (editor?: vscode.TextEditor) => {
+        const editors = editor ? [editor] : vscode.window.visibleTextEditors;
+        for (const ed of editors) {
+            try {
+                if (!ed || !ed.document || !ed.document.fileName.endsWith('.csd')) continue;
+                const text = ed.document.getText();
+                const decorations: vscode.DecorationOptions[] = [];
+
+                // Find Cabbage section
+                const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/g;
+                let cabbageMatch: RegExpExecArray | null;
+
+                while ((cabbageMatch = cabbageRegex.exec(text)) !== null) {
+                    const cabbageContent = cabbageMatch[1];
+                    const cabbageStartIndex = cabbageMatch.index + '<Cabbage>'.length;
+
+                    // Find all "//" properties within the Cabbage section
+                    // Match: "//": "any value" or "//": 'any value'
+                    const commentRegex = /"\/\/"\s*:\s*(?:"[^"]*"|'[^']*'|[^,}\]]+)/g;
+                    let commentMatch: RegExpExecArray | null;
+
+                    while ((commentMatch = commentRegex.exec(cabbageContent)) !== null) {
+                        const matchStart = cabbageStartIndex + commentMatch.index;
+                        const matchEnd = matchStart + commentMatch[0].length;
+                        const start = ed.document.positionAt(matchStart);
+                        const end = ed.document.positionAt(matchEnd);
+                        decorations.push({ range: new vscode.Range(start, end) });
+                    }
+                }
+
+                if (jsonCommentDecoration) {
+                    ed.setDecorations(jsonCommentDecoration, decorations);
+                }
+            } catch (err) {
+                console.error('Failed to update JSON comment decorations:', err);
+            }
+        }
+    };
+
     // Initial decorate for currently visible editors
     updateWarningDecorations();
+    updateJsonCommentDecorations();
 
     // Update decorations on relevant editor/document events
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor) updateWarningDecorations(editor);
+        if (editor) {
+            updateWarningDecorations(editor);
+            updateJsonCommentDecorations(editor);
+        }
     }));
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => {
         const editor = vscode.window.visibleTextEditors.find(e => e.document === doc);
-        if (editor) updateWarningDecorations(editor);
+        if (editor) {
+            updateWarningDecorations(editor);
+            updateJsonCommentDecorations(editor);
+        }
     }));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
         const editor = vscode.window.visibleTextEditors.find(e => e.document === event.document);
-        if (editor) updateWarningDecorations(editor);
+        if (editor) {
+            updateWarningDecorations(editor);
+            updateJsonCommentDecorations(editor);
+        }
+    }));
+
+    // Listen for configuration changes to update decoration color
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('cabbage.customCommentDecorationColor')) {
+            // Dispose old decoration and create new one with updated color
+            if (jsonCommentDecoration) {
+                jsonCommentDecoration.dispose();
+            }
+            jsonCommentDecoration = createJsonCommentDecoration();
+            // Refresh all visible editors
+            updateJsonCommentDecorations();
+        }
     }));
 
     // Get the output channel from Commands class
@@ -259,6 +335,31 @@ export async function activate(context: vscode.ExtensionContext):
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.createNewCustomWidget', async () => {
             await Settings.createNewCustomWidget();
+        }));
+
+    // Command to set custom comment decoration color
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.setCustomCommentDecorationColor', async () => {
+            const config = vscode.workspace.getConfiguration('cabbage');
+            const currentColor = config.get<string>('customCommentDecorationColor') || '#666666';
+
+            const colorInput = await vscode.window.showInputBox({
+                prompt: 'Enter a color for "//" comment decorations (hex format, e.g., #FF5733)',
+                value: currentColor,
+                placeHolder: '#666666',
+                validateInput: (value) => {
+                    // Validate hex color format
+                    if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                        return 'Please enter a valid hex color (e.g., #FF5733)';
+                    }
+                    return null;
+                }
+            });
+
+            if (colorInput) {
+                await config.update('customCommentDecorationColor', colorInput, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Custom comment decoration color set to ${colorInput}`);
+            }
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
