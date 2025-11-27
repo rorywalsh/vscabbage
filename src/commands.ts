@@ -774,7 +774,7 @@ export class Commands {
      * @param context The extension context provided by VSCode.
      */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
-
+        this.compilationFailed = false;
         console.log("Cabbage: onDidSave", editor.fileName);
 
         // Check if file needs .csd extension
