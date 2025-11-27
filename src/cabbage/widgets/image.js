@@ -96,13 +96,22 @@ export class Image {
 
         // Check if svgText is not empty and render it as proper SVG
         if (this.props.svgText) {
+            // Extract viewBox and preserveAspectRatio from original SVG if present
+            const viewBoxMatch = this.props.svgText.match(/viewBox=["']([^"']+)["']/);
+            const viewBox = viewBoxMatch ? viewBoxMatch[1] : `0 0 ${this.props.bounds.width} ${this.props.bounds.height}`;
+
+            const preserveAspectRatioMatch = this.props.svgText.match(/preserveAspectRatio=["']([^"']+)["']/);
+            const preserveAspectRatio = preserveAspectRatioMatch ? preserveAspectRatioMatch[1] : 'xMidYMid meet';
+
             // Extract just the inner SVG content (paths, lines, etc) without the outer <svg> tags
             const innerSvgContent = this.props.svgText.replace(/<svg[^>]*>|<\/svg>/g, '');
 
             return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}"
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="100%" height="100%" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
                  style="position: absolute; top: 0; left: 0; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
-                ${innerSvgContent}
+                <g style="all: initial;">
+                    ${innerSvgContent}
+                </g>
             </svg>
         `;
         }
