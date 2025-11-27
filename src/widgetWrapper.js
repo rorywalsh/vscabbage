@@ -4,6 +4,7 @@
 
 import { CabbageUtils } from './cabbage/utils.js';
 import { getCabbageMode } from './cabbage/sharedState.js';
+import { widgetClipboard } from './widgetClipboard.js';
 
 // At the beginning of the file
 let interactPromise;
@@ -193,6 +194,14 @@ export class WidgetWrapper {
             );
         }
 
+        // Add paste option if clipboard has data
+        if (widgetClipboard.hasData()) {
+            menuItems.push(
+                { label: '---', action: null }, // Separator
+                { label: 'Paste', action: () => this.pasteSelectedWidgets() }
+            );
+        }
+
         menuItems.forEach(item => {
             if (item.label === '---') {
                 // Add separator
@@ -261,10 +270,39 @@ export class WidgetWrapper {
     copySelectedWidgets() {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
         console.log('Cabbage: Copy selected widgets:', selectedIds);
-        // Implement copy functionality here
+
+        // Get widget properties for selected widgets
+        const widgetProps = [];
+        selectedIds.forEach(id => {
+            const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === id);
+            if (widget) {
+                widgetProps.push(widget.props);
+            }
+        });
+
+        // Store in clipboard
+        widgetClipboard.copy(widgetProps);
+        console.log(`Cabbage: Copied ${widgetProps.length} widget(s) to clipboard`);
+    }
+
+    /**
+     * Context menu action: Paste widgets from clipboard
+     */
+    pasteSelectedWidgets() {
+        console.log('Cabbage: Paste widgets from clipboard');
+
+        if (!widgetClipboard.hasData()) {
+            console.warn('Cabbage: No widgets in clipboard to paste');
+            return;
+        }
+
+        // Prepare widgets for pasting (with unique IDs and offset positions)
+        const pastedWidgets = widgetClipboard.prepareForPaste(this.widgets, 20, 20);
+
+        // Send paste event to backend
         this.updatePanelCallback(this.vscode, {
-            eventType: "copySelection",
-            selection: selectedIds,
+            eventType: "pasteSelection",
+            widgets: pastedWidgets,
             bounds: {}
         }, this.widgets);
     }

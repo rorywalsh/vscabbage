@@ -1247,8 +1247,26 @@ export class PropertyPanel {
 
         // Iterate over the array of event objects
         events.forEach(eventObj => {
-            const { eventType, name, bounds } = eventObj; // Destructure event properties
+            const { eventType, name, bounds, widgets: pastedWidgets } = eventObj; // Destructure event properties
             console.log('PropertyPanel: processing event:', eventType, 'for widget:', name);
+
+            // Handle paste event specially - create new widgets
+            if (eventType === 'pasteSelection' && pastedWidgets) {
+                console.log(`PropertyPanel: Pasting ${pastedWidgets.length} widget(s)`);
+
+                pastedWidgets.forEach(widgetProps => {
+                    // Send widget creation message to VSCode
+                    const widgetJson = JSON.stringify(widgetProps);
+                    console.log('PropertyPanel: Creating pasted widget:', widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0));
+
+                    this.vscode.postMessage({
+                        command: 'createWidget',
+                        widgetJson: widgetJson
+                    });
+                });
+
+                return; // Don't process further for paste events
+            }
 
             console.log('PropertyPanel: searching for widget with name:', name);
             console.log('PropertyPanel: available widgets:', widgets.map(w => ({
