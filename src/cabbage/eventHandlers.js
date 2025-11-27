@@ -554,31 +554,29 @@ export function setupFormHandlers() {
     // Create a dynamic context menu for grouping and ungrouping widgets
     const groupContextMenu = document.createElement("div");
     groupContextMenu.id = "dynamicContextMenu";
+    groupContextMenu.className = "wrapper"; // Use wrapper class for styling
     groupContextMenu.style.position = "absolute";
     groupContextMenu.style.visibility = "hidden";
-    groupContextMenu.style.backgroundColor = "#fff";
-    groupContextMenu.style.border = "1px solid #ccc";
-    groupContextMenu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
     groupContextMenu.style.zIndex = 10001; // Higher than other elements
-    groupContextMenu.style.borderRadius = "4px";
     groupContextMenu.style.minWidth = "160px";
     groupContextMenu.style.display = "flex";
     groupContextMenu.style.flexDirection = "column";
 
+    // Create content container to match CSS selectors (.content .menuItem)
+    const contentContainer = document.createElement("div");
+    contentContainer.className = "content";
+    contentContainer.style.padding = "5px"; // Add some padding similar to .menu
+    groupContextMenu.appendChild(contentContainer);
+
     // Helper to create menu options
     const createMenuOption = (text, onClick) => {
         const opt = document.createElement("div");
-        opt.innerText = text;
-        opt.style.padding = "8px 12px";
-        opt.style.cursor = "pointer";
-        opt.style.color = "#000";
-        opt.style.backgroundColor = "#fff";
-        opt.style.border = "none";
-        opt.style.textAlign = "left";
-        opt.style.fontSize = "14px";
-        opt.style.fontFamily = "Arial, sans-serif";
-        opt.addEventListener("mouseenter", () => { opt.style.backgroundColor = "#f0f0f0"; });
-        opt.addEventListener("mouseleave", () => { opt.style.backgroundColor = "#fff"; });
+        opt.className = "menuItem"; // Use menuItem class
+
+        const span = document.createElement("span");
+        span.innerText = text;
+        opt.appendChild(span);
+
         opt.addEventListener("click", (e) => {
             e.stopPropagation();
             groupContextMenu.style.visibility = "hidden";
@@ -616,17 +614,17 @@ export function setupFormHandlers() {
     const distributeHorizontallyOption = createMenuOption("Distribute Horizontally", () => alignSelectedWidgets('distributeHorizontally'));
     const distributeVerticallyOption = createMenuOption("Distribute Vertically", () => alignSelectedWidgets('distributeVertically'));
 
-    // Append menu options
-    groupContextMenu.appendChild(groupOption);
-    groupContextMenu.appendChild(unGroupOption);
-    groupContextMenu.appendChild(createSeparator());
-    groupContextMenu.appendChild(alignLeftOption);
-    groupContextMenu.appendChild(alignRightOption);
-    groupContextMenu.appendChild(alignTopOption);
-    groupContextMenu.appendChild(alignBottomOption);
-    groupContextMenu.appendChild(createSeparator());
-    groupContextMenu.appendChild(distributeHorizontallyOption);
-    groupContextMenu.appendChild(distributeVerticallyOption);
+    // Append menu options to the content container
+    contentContainer.appendChild(groupOption);
+    contentContainer.appendChild(unGroupOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(alignLeftOption);
+    contentContainer.appendChild(alignRightOption);
+    contentContainer.appendChild(alignTopOption);
+    contentContainer.appendChild(alignBottomOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(distributeHorizontallyOption);
+    contentContainer.appendChild(distributeVerticallyOption);
 
     // Append context menu to the document body
     document.body.appendChild(groupContextMenu);
