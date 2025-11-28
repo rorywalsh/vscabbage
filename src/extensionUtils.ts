@@ -531,6 +531,14 @@ be lost when working with the UI editor. -->\n`;
                         Object.keys(source).forEach(key => {
                             const sv = source[key];
                             if (sv === undefined) return;
+
+                            // Handle null as deletion signal - when frontend sends null,
+                            // it means "remove this property from the CSD file"
+                            if (sv === null) {
+                                delete out[key];
+                                return;
+                            }
+
                             if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
                                 out[key] = deepMerge(out[key], sv);
                             } else {

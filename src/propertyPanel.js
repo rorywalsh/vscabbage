@@ -112,6 +112,11 @@ export class PropertyPanel {
             // Deep clone the props to avoid mutating live state
             const clone = JSON.parse(JSON.stringify(props));
 
+            // Track which top-level properties existed in the original CSD file
+            // This is used to determine which properties should be sent as null when they revert to defaults
+            const originalProps = widget.originalProps || {};
+            const originalTopLevelKeys = new Set(Object.keys(originalProps));
+
             const strip = (obj, defs) => {
                 if (!obj || !defs) return;
                 // Arrays
@@ -151,6 +156,7 @@ export class PropertyPanel {
                             }
                         } else {
                             strip(v, dv);
+                            // After stripping nested properties, check if the object is now empty
                             if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
                                 delete obj[k];
                             }
@@ -161,6 +167,21 @@ export class PropertyPanel {
             };
 
             strip(clone, defaults);
+
+            // After stripping, check for top-level properties that were deleted but existed in original CSD.
+            // Send these as null to signal explicit deletion to the backend.
+            originalTopLevelKeys.forEach(key => {
+                // Skip critical identity fields - these should never be set to null
+                if (key === 'type' || key === 'id' || key === 'channels') return;
+
+                // If the property existed in original but is now missing from clone (was stripped),
+                // and it still exists in the current props (meaning it has a value, even if default),
+                // then set it to null to signal deletion
+                if (!(key in clone) && (key in props)) {
+                    clone[key] = null;
+                }
+            });
+
             // Ensure critical identity fields aren't stripped completely.
             // If the widget had a type or id originally, ensure they remain in the
             // minimized payload so the extension can correctly identify the object.
