@@ -931,7 +931,6 @@ export class PropertyPanel {
                 input = document.createElement('input');
                 input.type = 'number'; // Set input type to number
                 input.value = value; // Set the initial value
-                input.min = 0; // Set minimum value if applicable
             }
             // Handle font family selection
             else if (key.toLowerCase().includes("family")) {
