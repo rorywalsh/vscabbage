@@ -12,6 +12,7 @@ import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 import { discoverAndRegisterCustomWidgets } from "./widgetDiscovery.js";
+import { initializeZoom } from "./zoom.js";
 
 
 // Update the vscode assignment
@@ -30,6 +31,9 @@ const rightPanel = document.getElementById('RightPanel');
 // Set initial class and visibility for left and right panels
 if (leftPanel) { leftPanel.className = "full-height-div nonDraggable"; }
 if (rightPanel) { rightPanel.style.visibility = "hidden"; }
+
+// Initialize zoom and pan functionality
+initializeZoom();
 
 // Notify the plugin that Cabbage is ready to load
 CabbageUtils.showOverlay();

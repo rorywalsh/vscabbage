@@ -996,6 +996,11 @@ ${JSON.stringify(props, null, 4)}
   .full-height-div {
     height: 100vh; /* Set the height to 100% of the viewport height */
   }
+  
+  #LeftPanel {
+    overflow: auto; /* Enable scrolling when content exceeds viewport (e.g., when zoomed) */
+    position: relative;
+  }
   </style>
 </head>
 
