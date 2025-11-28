@@ -17,7 +17,7 @@ export class PropertyPanel {
      * extension when sending minimized updates.
      * @type {string[]}
      */
-    static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value'];
+    static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value', 'range.value'];
 
     /**
      * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
@@ -47,9 +47,50 @@ export class PropertyPanel {
     static applyExcludes(obj, keys) {
         try {
             if (!obj || typeof obj !== 'object') return obj;
-            keys.forEach(k => {
+
+            // Separate simple keys (top-level) and deep keys (dot notation)
+            const simpleKeys = keys.filter(k => !k.includes('.'));
+            const deepKeys = keys.filter(k => k.includes('.'));
+
+            // 1. Handle simple keys (Shallow delete - existing behavior)
+            simpleKeys.forEach(k => {
                 if (k in obj) delete obj[k];
             });
+
+            // 2. Handle deep keys (Recursive delete)
+            if (deepKeys.length > 0) {
+                const stripDeep = (target, parentKey, childKey) => {
+                    if (!target || typeof target !== 'object') return;
+
+                    if (Array.isArray(target)) {
+                        target.forEach(item => stripDeep(item, parentKey, childKey));
+                        return;
+                    }
+
+                    // If we found the parent key, delete the child from it
+                    if (parentKey in target) {
+                        const parentObj = target[parentKey];
+                        if (parentObj && typeof parentObj === 'object' && childKey in parentObj) {
+                            delete parentObj[childKey];
+                        }
+                    }
+
+                    // Recurse into children
+                    Object.values(target).forEach(value => {
+                        if (value && typeof value === 'object') {
+                            stripDeep(value, parentKey, childKey);
+                        }
+                    });
+                };
+
+                deepKeys.forEach(key => {
+                    const [parent, child] = key.split('.');
+                    if (parent && child) {
+                        stripDeep(obj, parent, child);
+                    }
+                });
+            }
+
         } catch (e) {
             console.error('PropertyPanel.applyExcludes failed:', e);
         }
@@ -1282,12 +1323,25 @@ export class PropertyPanel {
 
             widgets.forEach((widget, index) => {
                 const widgetId = widget.props.id;
-                const channelId = widget.props.channels && widget.props.channels[0] ? widget.props.channels[0].id : null;
-                console.log(`PropertyPanel: checking widget ${index}: id=${widgetId}, channelId=${channelId}, name=${name}, match=${widgetId === name || channelId === name}`)
-                    ;
+                let channelId = null;
+                try {
+                    channelId = CabbageUtils.getChannelId(widget.props, 0);
+                } catch (e) {
+                    // Widget might be invalid or have no channel, ignore
+                }
 
-                // Check for match by widget ID, channel ID, or special case for MainForm by type
-                const isMatch = widgetId === name || channelId === name || (name === 'MainForm' && widget.props.type === 'form');
+                console.log(`PropertyPanel: checking widget ${index}: id=${widgetId}, channelId=${channelId}, name=${name}`);
+
+                let isMatch = false;
+                if (widgetId) {
+                    isMatch = (String(widgetId) === String(name));
+                } else if (channelId) {
+                    isMatch = (String(channelId) === String(name));
+                }
+
+                if (!isMatch && name === 'MainForm' && widget.props.type === 'form') {
+                    isMatch = true;
+                }
 
                 if (isMatch) {
                     console.log('PropertyPanel: found matching widget, updating...');
@@ -1318,8 +1372,10 @@ export class PropertyPanel {
                         } else if (widget.props.type === "form") {
                             widget.updateSVG(); // Update SVG for form type
                         } else {
-                            const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(widget.props, 0));
-                            widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
+                            const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+                            if (widgetDiv) {
+                                widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
+                            }
                         }
                     }
                     console.log('PropertyPanel: creating new PropertyPanel instance for widget:', name);

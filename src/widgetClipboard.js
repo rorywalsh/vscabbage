@@ -21,7 +21,22 @@ export class WidgetClipboard {
         }
 
         // Deep clone the widget properties to avoid reference issues
-        this.clipboardData = JSON.parse(JSON.stringify(widgetProps));
+        const clonedProps = JSON.parse(JSON.stringify(widgetProps));
+
+        // Define prefixes of keys to strip
+        const stripPrefixes = ['//'];
+
+        // Strip keys matching prefixes
+        clonedProps.forEach(props => {
+            Object.keys(props).forEach(key => {
+                // Check if key starts with any of the strip prefixes
+                if (stripPrefixes.some(prefix => key.startsWith(prefix))) {
+                    delete props[key];
+                }
+            });
+        });
+
+        this.clipboardData = clonedProps;
         console.log(`WidgetClipboard: Copied ${this.clipboardData.length} widget(s)`);
     }
 
