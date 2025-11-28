@@ -127,7 +127,7 @@
 	margin: 0;
 	padding: 5px;
 	list-style-type: none;
-	height: 100px;
+	height: 340px;
 }
 
 .content .menuItem {
@@ -161,6 +161,7 @@
 .content .menuItem span {
 	margin-left: 2px;
 	font-size: 12px;
+	color: inherit;
 }
 
 .resizeOnly {
