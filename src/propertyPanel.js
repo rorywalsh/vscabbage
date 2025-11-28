@@ -956,8 +956,8 @@ export class PropertyPanel {
                 input = document.createElement('select');
                 let alignments = ['left', 'right', 'centre'];
 
-                // Special case for label.align (vertical alignment)
-                if (this.type === 'rotarySlider') {
+                // Special case for label.align on rotarySlider (vertical alignment)
+                if (this.type === 'rotarySlider' && fullPath === 'label.align') {
                     alignments = ['auto', 'top', 'bottom'];
                 }
 
@@ -981,12 +981,6 @@ export class PropertyPanel {
             }
         }
 
-        // Set input attributes and event listener for direct input elements
-        if (input && input.tagName === 'INPUT') {
-            input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
-            input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
-            input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
-        }
 
         return input; // Return the created input element
     }
@@ -1025,15 +1019,21 @@ export class PropertyPanel {
         const inputElement = this.createInputElement(key, value, path);
 
         // Find the actual input element (could be nested in a container like toggle switch)
-        const input = inputElement.tagName === 'INPUT' ? inputElement : inputElement.querySelector('input');
+        // Handle both INPUT and SELECT elements
+        let input = null;
+        if (inputElement.tagName === 'INPUT' || inputElement.tagName === 'SELECT') {
+            input = inputElement;
+        } else {
+            input = inputElement.querySelector('input, select');
+        }
 
         // Set the full property path as the input id
         if (input) {
             input.id = fullPropertyPath;
             input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
             input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
-            if (input.type === 'checkbox') {
-                // Some browsers/extensions fire change more reliably for checkboxes
+            if (input.type === 'checkbox' || input.tagName === 'SELECT') {
+                // Some browsers/extensions fire change more reliably for checkboxes and selects
                 input.addEventListener('change', this.handleInputChange.bind(this));
             }
         }
