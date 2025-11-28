@@ -108,7 +108,7 @@ export class Image {
 
             return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="100%" height="100%" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
-                 style="position: absolute; top: 0; left: 0; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
+                 style="position: absolute; top: 0; left: 0; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
                 <g style="all: initial;">
                     ${innerSvgContent}
                 </g>

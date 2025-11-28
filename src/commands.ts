@@ -2961,17 +2961,34 @@ i2 5 z
 
             // Remove the widget with the specified channel
             const originalLength = widgets.length;
-            widgets = widgets.filter((widget: any) => widget.channel !== channel);
+            widgets = widgets.filter((widget: any) => {
+                // Check if widget has direct id property
+                if (widget.id === channel) {
+                    return false;
+                }
+                // Check if widget has channels array with matching id
+                if (widget.channels && Array.isArray(widget.channels) && widget.channels.length > 0) {
+                    return widget.channels[0].id !== channel;
+                }
+                return true;
+            });
             console.log(`Removed ${originalLength - widgets.length} widgets`);
 
             // Format and update the Cabbage section
             const config = vscode.workspace.getConfiguration("cabbage");
             const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-            const formattedArray = isSingleLine
-                ? ExtensionUtils.formatJsonObjects(widgets, '    ')
-                : JSON.stringify(widgets, null, 4);
 
-            const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
+            let formattedArray: string;
+            if (isSingleLine) {
+                formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
+            } else {
+                // Use the same stringify function and config as the format command
+                const indentSpaces = config.get("jsonIndentSpaces", 4);
+                const maxLength = config.get("jsonMaxLength", 120);
+                formattedArray = stringify(widgets, { maxLength: maxLength, indent: indentSpaces });
+            }
+
+            const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
 
             // Apply the edit
             const edit = new vscode.WorkspaceEdit();

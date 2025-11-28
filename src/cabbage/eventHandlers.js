@@ -488,6 +488,49 @@ async function duplicateSelectedWidgets() {
     console.log(`Cabbage: Successfully duplicated ${preparedWidgets.length} widget(s)`);
 }
 
+/**
+ * Deletes selected widgets
+ */
+async function deleteSelectedWidgets() {
+    if (selectedElements.size === 0) {
+        console.warn('Cabbage: No widgets selected to delete');
+        return;
+    }
+
+    const channelsToDelete = [];
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            const channelId = CabbageUtils.getChannelId(widget.props, 0);
+            channelsToDelete.push(channelId);
+        }
+    });
+
+    console.log(`Cabbage: Deleting ${channelsToDelete.length} widget(s):`, channelsToDelete);
+
+    // Send removeWidgets command to VS Code
+    postMessageToVSCode({
+        command: 'removeWidgets',
+        channels: channelsToDelete
+    });
+
+    // Remove widgets from DOM and widgets array
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            const index = widgets.indexOf(widget);
+            if (index > -1) {
+                widgets.splice(index, 1);
+            }
+        }
+        el.remove();
+    });
+
+    // Clear selection
+    selectedElements.clear();
+    console.log(`Cabbage: Successfully deleted ${channelsToDelete.length} widget(s)`);
+}
+
 
 /**
  * Aligns or distributes selected widgets based on the specified type.
@@ -690,6 +733,9 @@ export function setupFormHandlers() {
     // Duplicate Option
     const duplicateOption = createMenuOption("Duplicate", async () => await duplicateSelectedWidgets());
 
+    // Delete Option
+    const deleteOption = createMenuOption("Delete", async () => await deleteSelectedWidgets());
+
     // Append menu options to the content container
     contentContainer.appendChild(groupOption);
     contentContainer.appendChild(unGroupOption);
@@ -703,6 +749,7 @@ export function setupFormHandlers() {
     contentContainer.appendChild(distributeVerticallyOption);
     contentContainer.appendChild(createSeparator());
     contentContainer.appendChild(duplicateOption);
+    contentContainer.appendChild(deleteOption);
 
     // Append context menu to the document body
     document.body.appendChild(groupContextMenu);
@@ -873,6 +920,10 @@ export function setupFormHandlers() {
                         // Enable/Disable Duplicate
                         const canDuplicate = selectedElements.size > 0;
                         setOptionState(duplicateOption, canDuplicate);
+
+                        // Enable/Disable Delete
+                        const canDelete = selectedElements.size > 0;
+                        setOptionState(deleteOption, canDelete);
 
                         groupContextMenu.style.visibility = "visible";
                     } else {
