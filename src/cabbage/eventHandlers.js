@@ -13,6 +13,7 @@ import { cabbageMode, vscode, widgets, postMessageToVSCode } from "./sharedState
 
 // Imports utility and property panel modules
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
+import { widgetClipboard } from "../widgetClipboard.js";
 
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -412,9 +413,81 @@ async function ungroupSelectedWidgets() {
     // Clear selection
     selectedElements.forEach(element => element.classList.remove('selected'));
     selectedElements.clear();
-
     console.log("Cabbage: Successfully ungrouped container:", containerChannelId);
 }
+
+/**
+ * Duplicates selected widgets
+ */
+async function duplicateSelectedWidgets() {
+    if (selectedElements.size === 0) {
+        console.warn('Cabbage: No widgets selected to duplicate');
+        return;
+    }
+
+    const widgetProps = [];
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            widgetProps.push(widget.props);
+        }
+    });
+
+    // Prepare widgets with unique IDs and offset positions
+    // Temporarily store in clipboard to use the prepareForPaste logic
+    widgetClipboard.copy(widgetProps);
+    const preparedWidgets = widgetClipboard.prepareForPaste(widgets, 20, 20);
+
+    console.log(`Cabbage: Duplicating ${preparedWidgets.length} widget(s)`);
+
+    // Load PropertyPanel for minimization
+    const PP = await loadPropertyPanel();
+    if (!PP) {
+        console.error('Cabbage: PropertyPanel not available for duplication');
+        return;
+    }
+
+    // Create each duplicated widget
+    for (const widgetProps of preparedWidgets) {
+        const channelId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
+        console.log('Cabbage: Creating duplicated widget:', channelId);
+
+        // Insert the widget into the DOM and widgets array
+        await WidgetManager.insertWidget(widgetProps.type, widgetProps, WidgetManager.getCurrentCsdPath());
+
+        // Find the inserted widget instance in the widgets array
+        const inserted = widgets.find(w => w.props && (w.props.id === channelId || CabbageUtils.getChannelId(w.props, 0) === channelId));
+
+        if (inserted) {
+            try {
+                // Use PropertyPanel's minimization logic to get only non-default props
+                let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
+                minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                const payload = JSON.stringify(minimized);
+                console.log('Cabbage: Minimized payload for duplicated widget:', channelId, payload.substring(0, 200));
+
+                // Send to VSCode
+                const msg = { command: 'updateWidgetProps', text: payload };
+                postMessageToVSCode(msg);
+                // Retry once shortly after to guard against ordering races
+                setTimeout(() => postMessageToVSCode(msg), 200);
+
+                console.log('Cabbage: Sent duplicated widget to VSCode:', channelId);
+            } catch (e) {
+                console.error('Cabbage: Failed to minimize props for duplicated widget:', e);
+                // Fallback to full props if minimization fails
+                const fallback = JSON.stringify(inserted.props);
+                postMessageToVSCode({ command: 'updateWidgetProps', text: fallback });
+            }
+        } else {
+            console.error('Cabbage: Could not find inserted widget instance for:', channelId);
+        }
+    }
+
+    console.log(`Cabbage: Successfully duplicated ${preparedWidgets.length} widget(s)`);
+}
+
 
 /**
  * Aligns or distributes selected widgets based on the specified type.
@@ -614,6 +687,9 @@ export function setupFormHandlers() {
     const distributeHorizontallyOption = createMenuOption("Distribute Horizontally", () => alignSelectedWidgets('distributeHorizontally'));
     const distributeVerticallyOption = createMenuOption("Distribute Vertically", () => alignSelectedWidgets('distributeVertically'));
 
+    // Duplicate Option
+    const duplicateOption = createMenuOption("Duplicate", async () => await duplicateSelectedWidgets());
+
     // Append menu options to the content container
     contentContainer.appendChild(groupOption);
     contentContainer.appendChild(unGroupOption);
@@ -625,6 +701,8 @@ export function setupFormHandlers() {
     contentContainer.appendChild(createSeparator());
     contentContainer.appendChild(distributeHorizontallyOption);
     contentContainer.appendChild(distributeVerticallyOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(duplicateOption);
 
     // Append context menu to the document body
     document.body.appendChild(groupContextMenu);
@@ -792,6 +870,10 @@ export function setupFormHandlers() {
                         [alignLeftOption, alignRightOption, alignTopOption, alignBottomOption].forEach(opt => setOptionState(opt, canAlign));
                         [distributeHorizontallyOption, distributeVerticallyOption].forEach(opt => setOptionState(opt, canDistribute));
 
+                        // Enable/Disable Duplicate
+                        const canDuplicate = selectedElements.size > 0;
+                        setOptionState(duplicateOption, canDuplicate);
+
                         groupContextMenu.style.visibility = "visible";
                     } else {
                         console.log("Cabbage: No selected widgets, showing widget insertion menu");
@@ -831,13 +913,22 @@ export function setupFormHandlers() {
                         e.stopImmediatePropagation();
                         e.stopPropagation();
 
+                        // Only handle widget insertion menu items (from contextMenu), not action menu items (from groupContextMenu)
+                        // Check if this menu item is a child of the widget insertion menu
+                        let parent = e.target.closest('.wrapper');
+                        if (parent && parent.id === 'dynamicContextMenu') {
+                            // This is an action menu item (Duplicate, Group, etc.), not a widget insertion
+                            console.log('Cabbage: Action menu item clicked, ignoring in widget insertion handler');
+                            return;
+                        }
+
                         // Only allow inserting widgets while in draggable/edit mode
                         if (cabbageMode !== 'draggable') {
                             console.warn('Cabbage: Insert widget prevented when not in draggable mode');
                             return;
                         }
 
-                        const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig, ''); // Clean up HTML
+                        const type = e.target.innerHTML.replace(/(\<([^\>]+)\>)/ig, ''); // Clean up HTML
                         console.warn("Cabbage: Adding widget of type:", type);
                         contextMenu.style.visibility = "hidden";
 

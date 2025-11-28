@@ -918,7 +918,7 @@ export class PropertyPanel {
         // Set input attributes and event listener for direct input elements
         if (input && input.tagName === 'INPUT') {
             input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
-            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
+            input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
             input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
         }
 
@@ -964,7 +964,7 @@ export class PropertyPanel {
         // Set the full property path as the input id
         if (input) {
             input.id = fullPropertyPath;
-            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
+            input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
             input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
             if (input.type === 'checkbox') {
                 // Some browsers/extensions fire change more reliably for checkboxes
@@ -1071,7 +1071,12 @@ export class PropertyPanel {
         console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'type:', input.type, 'value:', input.value, 'checked:', input.checked);
 
         this.widgets.forEach((widget) => {
-            if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
+            const widgetId = widget.props.id;
+            const channelId = widget.props.channels && widget.props.channels[0] ? widget.props.channels[0].id : null;
+            const parentId = input.dataset.parent;
+
+            // Match by either widget ID or channel ID
+            if (widgetId === parentId || channelId === parentId) {
                 const path = input.id;
                 const inputValue = input.value;
                 const isColorProperty = path.toLowerCase().includes('color');
@@ -1276,11 +1281,13 @@ export class PropertyPanel {
             })));
 
             widgets.forEach((widget, index) => {
-                const widgetChannelId = CabbageUtils.getChannelId(widget.props, 0);
-                console.log(`PropertyPanel: checking widget ${index}: channelId=${widgetChannelId}, name=${name}, match=${widgetChannelId === name}`);
+                const widgetId = widget.props.id;
+                const channelId = widget.props.channels && widget.props.channels[0] ? widget.props.channels[0].id : null;
+                console.log(`PropertyPanel: checking widget ${index}: id=${widgetId}, channelId=${channelId}, name=${name}, match=${widgetId === name || channelId === name}`)
+                    ;
 
-                // Check for match by ID, or special case for MainForm by type
-                const isMatch = widgetChannelId === name || (name === 'MainForm' && widget.props.type === 'form');
+                // Check for match by widget ID, channel ID, or special case for MainForm by type
+                const isMatch = widgetId === name || channelId === name || (name === 'MainForm' && widget.props.type === 'form');
 
                 if (isMatch) {
                     console.log('PropertyPanel: found matching widget, updating...');

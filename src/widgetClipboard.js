@@ -114,7 +114,7 @@ export class WidgetClipboard {
                 newWidget.id = newId;
             }
 
-            // Generate unique IDs for all channels
+            // Generate unique IDs for all channels (independently from widget ID)
             if (newWidget.channels && Array.isArray(newWidget.channels)) {
                 newWidget.channels.forEach(channel => {
                     if (channel.id) {
