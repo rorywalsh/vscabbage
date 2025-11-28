@@ -35,7 +35,8 @@ export class RotarySlider {
 
       "label": {
         "text": "",
-        "offsetY": 0
+        "offsetY": 0,
+        "align": "auto"
       },
 
       "valueText": {
@@ -653,6 +654,25 @@ export class RotarySlider {
 
       const thumbFilter = hasShadow ? `filter="url(#thumbShadow-${CabbageUtils.getWidgetDivId(this.props)})"` : '';
 
+      // Determine effective alignment
+      let effectiveAlign = this.props.label.align || 'auto';
+      if (effectiveAlign === 'auto') {
+        effectiveAlign = this.props.valueText.visible ? 'top' : 'bottom';
+      }
+
+      let labelTop, valueTextTop;
+      const valueTextHeight = Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18);
+
+      if (effectiveAlign === 'top') {
+        // Label Top, Value Bottom
+        labelTop = this.props.label.offsetY;
+        valueTextTop = this.props.bounds.height - valueTextHeight + this.props.valueText.offsetY;
+      } else {
+        // Label Bottom, Value Top
+        labelTop = this.props.bounds.height - labelFontSize + this.props.label.offsetY;
+        valueTextTop = this.props.valueText.offsetY;
+      }
+
       return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
         ${shadowFilter}
@@ -660,14 +680,14 @@ export class RotarySlider {
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
         <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
   <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} ${thumbFilter} />
-        <foreignObject x="${inputX}" y="${this.props.bounds.height - Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18) + this.props.valueText.offsetY}" width="${this.props.bounds.width}" height="${Math.max(actualValueTextSize * (this.props.style.valueText.fontSize !== "auto" && this.props.style.valueText.fontSize > 0 ? 1.8 : 1.5), 18)}">
+        <foreignObject x="${inputX}" y="${valueTextTop}" width="${this.props.bounds.width}" height="${valueTextHeight}">
             <input type="text" xmlns="http://www.w3.org/1999/xhtml" value="${currentValue.toFixed(decimalPlaces)}"
             style="width:100%; outline: none; height:100%; text-align:center; font-size:${actualValueTextSize}px; font-family:${this.props.style.valueText.fontFamily}; color:${this.props.style.valueText.fontColor}; background:none; border:none; padding:0; margin:0; line-height:1; box-sizing:border-box;"
             onKeyDown="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').RotarySliderInstance.handleInputChange(event)"/>
         />
         </foreignObject>
         </svg>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${this.props.label.offsetY}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${labelText}</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${labelText}</div>
       `;
     }
 
@@ -684,6 +704,20 @@ export class RotarySlider {
 
     const thumbFilter = hasShadow ? `filter="url(#thumbShadow-${CabbageUtils.getWidgetDivId(this.props)})"` : '';
 
+    // Determine effective alignment
+    let effectiveAlign = this.props.label.align || 'auto';
+    if (effectiveAlign === 'auto') {
+      effectiveAlign = 'bottom'; // Default for no value text
+    }
+
+    let labelTop;
+    if (effectiveAlign === 'top') {
+      labelTop = this.props.label.offsetY;
+    } else {
+      // Bottom
+      labelTop = labelY - labelFontSize;
+    }
+
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
       ${shadowFilter}
@@ -692,7 +726,7 @@ export class RotarySlider {
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
   <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} ${thumbFilter} />
       </svg>
-      <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelY - labelFontSize}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${this.props.label.text}</div>
+      <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${this.props.label.text}</div>
     `;
   }
 }

@@ -97,6 +97,21 @@ CabbageUtils.showOverlay();
 //send message to Cabbage to indicate that the UI is ready to load
 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
 
+// Add key listener for save command (Ctrl+S or Cmd+S)
+window.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        console.log('Cabbage: Save shortcut triggered from webview');
+        // Send save command to VS Code extension
+        if (vscode) {
+            vscode.postMessage({
+                command: 'saveFromUIEditor',
+                lastSavedFileName: '' // Extension will determine the file
+            });
+        }
+    }
+});
+
 /**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
  * This function is also called whenever a widget is updated through Csound, or the host DAW.

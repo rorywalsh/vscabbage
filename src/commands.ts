@@ -368,10 +368,21 @@ export class Commands {
             case 'saveFromUIEditor':
                 let documentToSave: vscode.TextDocument | undefined;
 
-                if (vscode.window.activeTextEditor) {
+                // Try to find the document based on the panel title
+                if (this.panel && this.panel.title) {
+                    const expectedFileName = this.panel.title + '.csd';
+                    documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith(expectedFileName));
+
+                    if (!documentToSave) {
+                        // If not found in open documents, try to find it in the workspace (though we can only save open docs)
+                        // Ideally, the document should be open if the webview is active.
+                        console.log(`Cabbage: Could not find open document for ${expectedFileName}`);
+                    }
+                }
+
+                // Fallback to active editor if it's a CSD file (legacy behavior, or if panel title match fails)
+                if (!documentToSave && vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.fileName.endsWith('.csd')) {
                     documentToSave = vscode.window.activeTextEditor.document;
-                } else {
-                    documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith('.csd'));
                 }
 
                 if (documentToSave) {
@@ -386,15 +397,14 @@ export class Commands {
                                 lastSavedFileName: documentToSave.fileName
                             });
                         }
-
-                        // Commands.onDidSave(documentToSave, context); // Removed - VS Code save event will trigger this
                     } catch (error) {
                         console.error('Cabbage: Error saving file:', error);
                         vscode.window.showErrorMessage('Failed to save the file. Please try again.');
                     }
                 } else {
                     console.error('Cabbage: No suitable document found to save');
-                    vscode.window.showErrorMessage('No .csd file found to save. Please ensure a .csd file is open.');
+                    const fileName = this.panel ? this.panel.title + '.csd' : 'source file';
+                    vscode.window.showErrorMessage(`Could not find source file '${fileName}'. Is the file tab closed?`);
                 }
                 break;
 

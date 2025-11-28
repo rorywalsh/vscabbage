@@ -18,7 +18,7 @@ export function handleRadioGroup(radioGroup, activeChannel) {
 
     // Find all widgets in the same radioGroup
     const groupWidgets = widgets.filter(widget =>
-        widget.props.radioGroup === radioGroup && CabbageUtils.getChannelId(widget.props, 0) !== activeChannel
+        widget.props.radioGroup == radioGroup && CabbageUtils.getWidgetDivId(widget.props) !== activeChannel
     );
 
     // Deactivate all other widgets in the group
@@ -27,8 +27,7 @@ export function handleRadioGroup(radioGroup, activeChannel) {
             groupWidget.props.value = 0;
 
             // Update visual state
-            const groupChannelId = CabbageUtils.getChannelId(groupWidget.props, 0);
-            const widgetDiv = document.getElementById(groupChannelId);
+            const widgetDiv = CabbageUtils.getWidgetDiv(groupWidget.props);
             if (widgetDiv) {
                 widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 // Send update to host

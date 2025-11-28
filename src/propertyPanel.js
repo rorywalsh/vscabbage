@@ -954,7 +954,12 @@ export class PropertyPanel {
             // Handle text alignment selection
             else if (key.toLowerCase() === 'align' || key.toLowerCase().endsWith('.align')) {
                 input = document.createElement('select');
-                const alignments = ['left', 'right', 'centre'];
+                let alignments = ['left', 'right', 'centre'];
+
+                // Special case for label.align (vertical alignment)
+                if (this.type === 'rotarySlider') {
+                    alignments = ['auto', 'top', 'bottom'];
+                }
 
                 // Populate alignment options
                 alignments.forEach((align) => {
@@ -963,7 +968,7 @@ export class PropertyPanel {
                     option.textContent = align;
                     input.appendChild(option);
                 });
-                input.value = value || 'centre'; // Set default value if none provided
+                input.value = value || alignments[0]; // Set default value if none provided
             }
             // Default case for text input
             else {

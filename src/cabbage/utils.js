@@ -708,7 +708,7 @@ export class CabbageUtils {
 
   static updateBounds(props, identifier) {
     // Handle both string channels and object channels (for xyPad)
-    const channelId = CabbageUtils.getChannelId(props, 0);
+    const channelId = CabbageUtils.getWidgetDivId(props);
     const element = document.getElementById(channelId);
 
     if (!element) {
