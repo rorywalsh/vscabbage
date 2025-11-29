@@ -108,10 +108,6 @@ export class GroupBox {
             textLeft = '50%';
         }
 
-        // For containers with children, make background transparent so children are visible
-        const hasChildren = this.props.children && Array.isArray(this.props.children) && this.props.children.length > 0;
-        const fillColor = hasChildren ? 'transparent' : this.props.style.backgroundColor;
-
         return `
             <div style="position: relative; width: ${width}px; height: ${height}px;">
                 <div style="position: absolute; top: 0; left: ${textLeft}; transform: translateX(-50%); 
@@ -145,7 +141,7 @@ export class GroupBox {
                     <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
                     <rect width="${width - (strokeWidth * 2)}" height="${height - (yOffset + strokeWidth)}" 
                           x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
-                          fill="${fillColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
+                          fill="${this.props.style.backgroundColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
                     
                     <!-- Rounded rectangle border outline with gap for text -->
                     <rect width="${width - strokeWidth}" height="${height - (yOffset + strokeWidth / 2)}" 

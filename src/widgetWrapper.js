@@ -477,7 +477,7 @@ export class WidgetWrapper {
 
         // Move each child widget
         parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
             const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
@@ -655,7 +655,7 @@ export class WidgetWrapper {
 
         // Update each child widget using original relative bounds when available
         parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
             const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 // Prefer stored original bounds (created at grouping time) to avoid compounded scaling

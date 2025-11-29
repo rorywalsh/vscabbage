@@ -925,19 +925,16 @@ export class WidgetManager {
                                 if (childDiv) {
                                     const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
                                     const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
-                                    // Update child widget styles consistently
-                                    const childWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === CabbageUtils.getWidgetDivId(childProps));
-                                    if (childWidget) {
-                                        WidgetManager.updateWidgetStyles(childDiv, {
-                                            ...childWidget.props,
-                                            bounds: {
-                                                ...childWidget.props.bounds,
-                                                left: absoluteLeft,
-                                                top: absoluteTop
-                                            }
-                                        });
-                                    }
-                                    console.log(`Cabbage: Updated child ${CabbageUtils.getWidgetDivId(childProps)} position to (${absoluteLeft}, ${absoluteTop})`);
+                                    // Update child widget styles using childProps directly
+                                    // (child widgets are not in the widgets array, they're only in parent.children)
+                                    WidgetManager.updateWidgetStyles(childDiv, {
+                                        ...childProps,
+                                        bounds: {
+                                            ...childProps.bounds,
+                                            left: absoluteLeft,
+                                            top: absoluteTop
+                                        }
+                                    });
                                 }
                             });
                         }

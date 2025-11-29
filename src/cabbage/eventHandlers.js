@@ -287,16 +287,16 @@ async function groupSelectedWidgets() {
 
 
     // Update the CSD file with the modified container (now with children)
-    // Use originalProps as base to keep it minimal, but add the children array
+    // Send only the essential delta: id, type, and children
+    // The extension's deepMerge will preserve all other existing properties
     const containerUpdatePayload = {
-        ...(containerWidget.originalProps || {}),
         id: containerWidget.props.id,
         type: containerWidget.props.type,
         children: containerWidget.props.children
     };
 
-    // Ensure essential identity fields are present
-    if (containerWidget.props.channels && !containerUpdatePayload.channels) {
+    // Include channels for identification
+    if (containerWidget.props.channels) {
         containerUpdatePayload.channels = containerWidget.props.channels.map(c => ({ id: c.id }));
     }
 
@@ -346,7 +346,8 @@ async function ungroupSelectedWidgets() {
 
     // Process each child widget
     const childrenPromises = containerWidget.props.children.map(async (childProps) => {
-        const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+        // Use getWidgetDivId to ensure we find the correct DOM element (prioritizes props.id)
+        const childChannelId = CabbageUtils.getWidgetDivId(childProps);
         const existingChildDiv = document.getElementById(childChannelId);
 
         // Calculate absolute position
@@ -390,7 +391,7 @@ async function ungroupSelectedWidgets() {
         delete topLevelProps.parentChannel;
 
         // Find and update the existing child widget in the widgets array
-        const existingChildWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === childChannelId);
+        const existingChildWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
         if (existingChildWidget) {
             // Update existing widget props - merge the absolute bounds and remove parentChannel
             existingChildWidget.props.bounds = absoluteBounds;
