@@ -334,6 +334,12 @@ export class PropertyPanel {
         this.createSections(this.properties, panel);
         this.createMiscSection(this.properties, panel);
 
+        // Add a spacer at the bottom to ensure the last item is not obscured by scrollbars
+        const spacer = document.createElement('div');
+        spacer.style.height = '50px';
+        spacer.style.width = '100%';
+        panel.appendChild(spacer);
+
         // Mark inputs as initialized after a short delay and re-enable events.
         // This allows any component initialization (like color pickers) to complete
         // without triggering genuine change handlers.
@@ -1218,8 +1224,8 @@ export class PropertyPanel {
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
 
-                // Update widget styles if the index property changed (for z-index updates)
-                if (path === 'index') {
+                // Update widget styles if the index or zIndex property changed
+                if (path === 'index' || path === 'zIndex') {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 

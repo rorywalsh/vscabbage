@@ -21,6 +21,11 @@ interface WidgetChannel { id: string; event: string; range?: { min: number; max:
 interface Widget { type: string; bounds?: { top: number; left: number; width: number; height: number }; channels?: WidgetChannel[]; size?: { width: number; height: number }; text?: string | string[]; tableNumber?: number }
 
 export class ExtensionUtils {
+    /**
+     * List of property keys that should be excluded from the generated CSD file.
+     * This can be populated dynamically or statically.
+     */
+    static excludedProperties: string[] = ['currentCsdFile'];
 
     // Note: default props cache and lookup removed. Default prop resolution
     // should be performed by callers and passed into updateText when needed.
@@ -552,9 +557,18 @@ be lost when working with the UI editor. -->\n`;
                     if (props.type === 'form') {
                         const formIndex = cabbageJsonArray.findIndex((o: any) => o.type === 'form');
                         if (formIndex !== -1) {
+                            // Filter excluded properties before merging
+                            ExtensionUtils.excludedProperties.forEach(prop => {
+                                delete props[prop];
+                            });
+
                             const merged = deepMerge(cabbageJsonArray[formIndex], props);
                             cabbageJsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(merged);
                         } else {
+                            // Filter excluded properties before adding
+                            ExtensionUtils.excludedProperties.forEach(prop => {
+                                delete props[prop];
+                            });
                             cabbageJsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
                         }
                     } else {
@@ -571,10 +585,43 @@ be lost when working with the UI editor. -->\n`;
                             return false;
                         });
 
+                        // Filter excluded properties before merging/adding
+                        ExtensionUtils.excludedProperties.forEach(prop => {
+                            delete props[prop];
+                        });
+
                         if (existingIndex !== -1) {
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
                             cabbageJsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(merged);
+
+                            // If this widget has children, remove those children from the top-level array
+                            // to prevent duplicates (children should only exist within their parent)
+                            if (merged.children && Array.isArray(merged.children) && merged.children.length > 0) {
+                                // Extract all child IDs
+                                const childIds = merged.children.map((child: any) => {
+                                    return child.id || (child.channels && child.channels[0] && child.channels[0].id);
+                                }).filter(Boolean);
+
+                                // Remove children from top level (iterate backwards to avoid index issues)
+                                for (let i = cabbageJsonArray.length - 1; i >= 0; i--) {
+                                    if (i === existingIndex) continue; // Don't remove the parent itself
+
+                                    const widget = cabbageJsonArray[i];
+                                    const widgetId = widget.id || (widget.channels && widget.channels[0] && widget.channels[0].id);
+
+                                    if (widgetId && childIds.includes(widgetId)) {
+                                        cabbageJsonArray.splice(i, 1);
+                                        console.log(`ExtensionUtils: Removed child widget '${widgetId}' from top level (now in parent's children array)`);
+
+                                        // Adjust existingIndex if we removed an element before it
+                                        if (i < existingIndex) {
+                                            // This shouldn't happen in practice since we update existingIndex widget,
+                                            // but handle it defensively
+                                        }
+                                    }
+                                }
+                            }
                         } else {
                             cabbageJsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
                         }

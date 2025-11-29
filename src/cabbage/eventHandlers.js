@@ -239,14 +239,18 @@ async function groupSelectedWidgets() {
             height: widget.props.bounds.height
         };
 
+        // Use originalProps (minimized) if available, otherwise use props
+        // This keeps the child definitions minimal (only non-default properties)
+        const sourceProps = widget.originalProps || widget.props;
+
         const childProps = {
-            ...widget.props,
-            bounds: relativeBounds,
-            parentChannel: containerId
+            ...sourceProps,
+            bounds: relativeBounds
         };
 
-        // Remove parentChannel if it exists (shouldn't for top-level widgets)
+        // Remove properties that shouldn't be in children
         delete childProps.parentChannel;
+        delete childProps.currentCsdFile;
 
         containerWidget.props.children.push(childProps);
 
@@ -281,10 +285,24 @@ async function groupSelectedWidgets() {
         console.error("Cabbage: Container div not found:", containerChannelId);
     }
 
+
     // Update the CSD file with the modified container (now with children)
+    // Use originalProps as base to keep it minimal, but add the children array
+    const containerUpdatePayload = {
+        ...(containerWidget.originalProps || {}),
+        id: containerWidget.props.id,
+        type: containerWidget.props.type,
+        children: containerWidget.props.children
+    };
+
+    // Ensure essential identity fields are present
+    if (containerWidget.props.channels && !containerUpdatePayload.channels) {
+        containerUpdatePayload.channels = containerWidget.props.channels.map(c => ({ id: c.id }));
+    }
+
     postMessageToVSCode({
         command: 'updateWidgetProps',
-        text: JSON.stringify(containerWidget.props)
+        text: JSON.stringify(containerUpdatePayload)
     });
 
     // Clear selection

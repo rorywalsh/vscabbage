@@ -575,7 +575,13 @@ export class WidgetManager {
 
         // Set zIndex based on widget index property, ensuring widgets appear above the main form (zIndex: 0)
         const baseZIndex = 1000; // Base zIndex higher than main form
-        const widgetIndex = typeof props?.zIndex === 'number' ? props.zIndex : 0;
+        let widgetIndex = 0;
+        if (props?.zIndex !== undefined && props?.zIndex !== null) {
+            const parsed = parseInt(props.zIndex, 10);
+            if (!isNaN(parsed)) {
+                widgetIndex = parsed;
+            }
+        }
         widgetDiv.style.zIndex = (baseZIndex + widgetIndex).toString();
     }
 
@@ -813,6 +819,9 @@ export class WidgetManager {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
                 if (widgetDiv) {
+                    // Update styles (position, size, zIndex) immediately
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+
                     // Special-case for widgets that manage their own canvas (e.g. genTable, eqController).
                     // Do not clobber the inner DOM. Ensure the inner placeholder exists and
                     // then call the widget's update method which will reuse/append the canvas.
