@@ -36,11 +36,57 @@ export function initializeZoom() {
         return;
     }
 
+    // Create a wrapper container for MainForm that we can freely position
+    let wrapper = document.getElementById('zoom-wrapper');
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.id = 'zoom-wrapper';
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+
+        // Move MainForm into the wrapper
+        const mainForm = document.getElementById('MainForm');
+        if (mainForm && mainForm.parentElement === leftPanel) {
+            leftPanel.removeChild(mainForm);
+            wrapper.appendChild(mainForm);
+        }
+        leftPanel.appendChild(wrapper);
+    }
+
+    // Observe LeftPanel for changes (e.g. when MainForm is recreated on mode switch)
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.id === 'MainForm') {
+                        console.log('Cabbage: MainForm recreated, moving to zoom-wrapper');
+                        // Move it to the wrapper
+                        const wrapper = document.getElementById('zoom-wrapper');
+                        if (wrapper && node.parentElement === leftPanel) {
+                            leftPanel.removeChild(node);
+                            wrapper.appendChild(node);
+                            // Re-apply zoom to ensure correct scaling
+                            applyZoom(leftPanel);
+                        }
+                    }
+                });
+            }
+        });
+    });
+
+    observer.observe(leftPanel, { childList: true });
+
     // Set up zoom with Ctrl/Cmd + Mouse Wheel
     setupZoom(leftPanel);
 
     // Set up pan with middle mouse button
     setupPan(leftPanel);
+
+    // Apply initial zoom (at 100%) to set up negative margin for panning
+    applyZoom(leftPanel);
 
     console.log('Cabbage: Zoom and pan initialized successfully');
 }
@@ -78,24 +124,24 @@ function applyZoom(leftPanel) {
     const mainForm = document.getElementById('MainForm');
     if (!mainForm) return;
 
-    // Get the original dimensions of MainForm
-    const originalWidth = mainForm.offsetWidth;
-    const originalHeight = mainForm.offsetHeight;
+    // Apply transform to MainForm instead of LeftPanel
+    // This keeps LeftPanel's flex layout intact
+    mainForm.style.transform = `scale(${zoomLevel})`;
+    mainForm.style.transformOrigin = '0 0';
 
-    // Apply transform to LeftPanel
-    leftPanel.style.transform = `scale(${zoomLevel})`;
-    leftPanel.style.transformOrigin = '0 0';
+    // Get the original dimensions
+    const originalWidth = mainForm.offsetWidth / zoomLevel; // Divide to get unscaled size
+    const originalHeight = mainForm.offsetHeight / zoomLevel;
 
-    // Calculate scaled dimensions
+    // Calculate how much space the scaled content needs
     const scaledWidth = originalWidth * zoomLevel;
     const scaledHeight = originalHeight * zoomLevel;
 
-    // Set LeftPanel's width and height to the scaled dimensions
-    // This creates scrollable area without pushing RightPanel
-    leftPanel.style.width = `${scaledWidth}px`;
-    leftPanel.style.height = `${scaledHeight}px`;
+    // Set MainForm's width and height
+    mainForm.style.width = `${scaledWidth}px`;
+    mainForm.style.height = `${scaledHeight}px`;
 
-    console.log(`Cabbage: Applied zoom ${(zoomLevel * 100).toFixed(0)}%, scaled dimensions: ${scaledWidth}x${scaledHeight}`);
+    console.log(`Cabbage: Applied zoom ${(zoomLevel * 100).toFixed(0)}%`);
 }
 
 /**
@@ -111,8 +157,20 @@ function setupPan(leftPanel) {
             isPanning = true;
             panStartX = e.clientX;
             panStartY = e.clientY;
-            scrollStartX = leftPanel.scrollLeft;
-            scrollStartY = leftPanel.scrollTop;
+
+            // Get current wrapper position
+            const wrapper = document.getElementById('zoom-wrapper');
+            if (wrapper) {
+                const transform = wrapper.style.transform;
+                const match = transform.match(/translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\)/);
+                if (match) {
+                    scrollStartX = parseFloat(match[1]);
+                    scrollStartY = parseFloat(match[2]);
+                } else {
+                    scrollStartX = 0;
+                    scrollStartY = 0;
+                }
+            }
 
             // Change cursor to grabbing
             leftPanel.style.cursor = 'grabbing';
@@ -127,12 +185,16 @@ function setupPan(leftPanel) {
             e.preventDefault();
 
             // Calculate delta from start position
-            const deltaX = panStartX - e.clientX;
-            const deltaY = panStartY - e.clientY;
+            const deltaX = e.clientX - panStartX;
+            const deltaY = e.clientY - panStartY;
 
-            // Update scroll position
-            leftPanel.scrollLeft = scrollStartX + deltaX;
-            leftPanel.scrollTop = scrollStartY + deltaY;
+            // Update wrapper position using transform
+            const wrapper = document.getElementById('zoom-wrapper');
+            if (wrapper) {
+                const newX = scrollStartX + deltaX;
+                const newY = scrollStartY + deltaY;
+                wrapper.style.transform = `translate(${newX}px, ${newY}px)`;
+            }
         }
     });
 
