@@ -152,8 +152,8 @@ export class WidgetWrapper {
             position: fixed;
             top: ${y}px;
             left: ${x}px;
-            background: var(--vscode-menu-background, #ffffff);
-            border: 1px solid var(--vscode-menu-border, #ccc);
+            background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
+            border: 1px solid var(--vscode-menu-border, #454545);
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             z-index: 999999;
@@ -161,7 +161,7 @@ export class WidgetWrapper {
             padding: 4px 0;
             font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
             font-size: 13px;
-            color: var(--vscode-menu-foreground, #333);
+            color: var(--vscode-menu-foreground, var(--vscode-editor-foreground, #cccccc));
         `;
 
         // Add context menu items based on selection
@@ -215,28 +215,41 @@ export class WidgetWrapper {
                 return;
             }
 
+
             const menuItem = document.createElement('div');
             menuItem.textContent = item.label;
+
+            // Determine if item is disabled (has no action)
+            const isDisabled = !item.action;
+
             menuItem.style.cssText = `
                 padding: 6px 12px;
-                cursor: pointer;
+                cursor: ${isDisabled ? 'default' : 'pointer'};
                 transition: background-color 0.1s ease;
+                color: red !important;
+                background-color: red !important;
+                opacity: ${isDisabled ? '0.4' : '1'} !important;
+                pointer-events: ${isDisabled ? 'none' : 'auto'};
             `;
 
-            menuItem.addEventListener('mouseenter', () => {
-                menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
-            });
+            if (!isDisabled) {
+                menuItem.addEventListener('mouseenter', () => {
+                    menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
+                    menuItem.style.color = 'var(--vscode-menu-selectionForeground, #000000)';
+                });
 
-            menuItem.addEventListener('mouseleave', () => {
-                menuItem.style.backgroundColor = 'transparent';
-            });
+                menuItem.addEventListener('mouseleave', () => {
+                    menuItem.style.backgroundColor = 'transparent';
+                    menuItem.style.color = 'var(--vscode-menu-foreground, #cccccc)';
+                });
 
-            menuItem.addEventListener('click', () => {
-                if (item.action) {
-                    item.action();
-                }
-                this.hideCustomContextMenu();
-            });
+                menuItem.addEventListener('click', () => {
+                    if (item.action) {
+                        item.action();
+                    }
+                    this.hideCustomContextMenu();
+                });
+            }
 
             contextMenu.appendChild(menuItem);
         });

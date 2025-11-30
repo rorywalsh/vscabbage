@@ -932,7 +932,7 @@ export function setupFormHandlers() {
 
                         // Enable/Disable Group/Ungroup
                         const setOptionState = (opt, enabled) => {
-                            opt.style.color = enabled ? "#000" : "#999";
+                            opt.style.color = enabled ? "#999" : "#000";
                             opt.style.cursor = enabled ? "pointer" : "not-allowed";
                             opt.style.pointerEvents = enabled ? "auto" : "none";
                         };
