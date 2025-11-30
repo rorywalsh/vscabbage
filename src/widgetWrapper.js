@@ -70,52 +70,11 @@ export class WidgetWrapper {
             mousePosition.y = event.clientY;
         });
 
-        // Handle right-click context menu for selected widgets
-        document.addEventListener('contextmenu', (event) => {
-            // Only allow the custom selection context menu when in draggable/edit mode
-            try {
-                if (getCabbageMode() !== 'draggable') {
-                    return; // suppress context menu when not editable
-                }
-            } catch (ex) {
-                // If shared state isn't available, silently continue
-            }
-            const draggableElement = event.target.closest('.draggable');
-            if (draggableElement) {
-                console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);
-                console.log('Cabbage: Selected elements count:', this.selectedElements.size);
-                console.log('Cabbage: Selected element IDs:', Array.from(this.selectedElements).map(el => el.id));
-
-                // Check if the clicked element is selected or if there are selected elements
-                const isClickedElementSelected = this.selectedElements.has(draggableElement);
-                const hasSelectedElements = this.selectedElements.size > 0;
-
-                console.log('Cabbage: Is clicked element selected:', isClickedElementSelected);
-                console.log('Cabbage: Has selected elements:', hasSelectedElements);
-
-                // For now, show context menu if there are any selected elements
-                // Later we can make it more specific to only show when clicking on selected elements
-                if (hasSelectedElements) {
-                    // Show context menu for selected widgets
-                    console.log('Cabbage: Showing context menu for selected widgets:', Array.from(this.selectedElements).map(el => el.id));
-
-                    // Create custom context menu positioned at mouse location
-                    this.showSelectionContextMenu(mousePosition.x, mousePosition.y);
-                    event.preventDefault(); // Prevent default context menu
-                    return false;
-                } else {
-                    console.log('Cabbage: No selected elements, preventing context menu');
-                    // Prevent context menu on non-selected draggable elements
-                    event.preventDefault();
-                    return false;
-                }
-            }
-        });
+        // Context menu is handled by eventHandlers.js
 
         // Handle mouse down to prevent dragging when right-clicking on selected elements
         document.addEventListener('mousedown', (event) => {
-            // Hide custom context menu on any mouse down
-            this.hideCustomContextMenu();
+            // Context menu hiding is handled by eventHandlers.js
         });
 
         // Re-enable dragging when Alt is released (keep for other functionality)
@@ -127,155 +86,13 @@ export class WidgetWrapper {
             }
         });
 
-        // Hide context menu when clicking elsewhere
+        // Hide context menu when clicking elsewhere - handled by eventHandlers.js
         document.addEventListener('click', () => {
-            this.hideCustomContextMenu();
+            // Context menu hiding is handled by eventHandlers.js
         });
     }
 
-    /**
-     * Shows a custom context menu for selected widgets at the specified position.
-     * @param {number} x - The x coordinate for the menu position
-     * @param {number} y - The y coordinate for the menu position
-     */
-    showSelectionContextMenu(x, y) {
-        // Remove any existing context menu
-        this.hideCustomContextMenu();
 
-        const selectedCount = this.selectedElements.size;
-        const isMultipleSelection = selectedCount > 1;
-
-        // Create custom context menu
-        const contextMenu = document.createElement('div');
-        contextMenu.id = 'custom-context-menu';
-        contextMenu.style.cssText = `
-            position: fixed;
-            top: ${y}px;
-            left: ${x}px;
-            background: var(--vscode-menu-background, var(--vscode-editor-background, #252526));
-            border: 1px solid var(--vscode-menu-border, #454545);
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            z-index: 999999;
-            min-width: 180px;
-            padding: 4px 0;
-            font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
-            font-size: 13px;
-            color: var(--vscode-menu-foreground, var(--vscode-editor-foreground, #cccccc));
-        `;
-
-        // Add context menu items based on selection
-        const menuItems = [];
-
-        if (isMultipleSelection) {
-            // Menu items for multiple selection
-            menuItems.push(
-                { label: `Group ${selectedCount} Widgets`, action: () => this.groupSelectedWidgets() },
-                { label: 'Align Left', action: () => this.alignSelectedWidgets('left') },
-                { label: 'Align Right', action: () => this.alignSelectedWidgets('right') },
-                { label: 'Align Top', action: () => this.alignSelectedWidgets('top') },
-                { label: 'Align Bottom', action: () => this.alignSelectedWidgets('bottom') },
-                { label: 'Distribute Horizontally', action: () => this.distributeSelectedWidgets('horizontal') },
-                { label: 'Distribute Vertically', action: () => this.distributeSelectedWidgets('vertical') },
-                { label: '---', action: null }, // Separator
-                { label: `Copy ${selectedCount} Widgets`, action: () => this.copySelectedWidgets() },
-                { label: `Delete ${selectedCount} Widgets`, action: () => this.deleteSelectedWidgets() }
-            );
-        } else {
-            // Menu items for single selection
-            const singleElement = Array.from(this.selectedElements)[0];
-            menuItems.push(
-                { label: 'Copy Widget', action: () => this.copySelectedWidgets() },
-                { label: 'Duplicate Widget', action: () => this.duplicateWidget(singleElement) },
-                { label: 'Delete Widget', action: () => this.deleteSelectedWidgets() },
-                { label: '---', action: null }, // Separator
-                { label: 'Bring to Front', action: () => this.bringToFront(singleElement) },
-                { label: 'Send to Back', action: () => this.sendToBack(singleElement) }
-            );
-        }
-
-        // Add paste option if clipboard has data
-        if (widgetClipboard.hasData()) {
-            menuItems.push(
-                { label: '---', action: null }, // Separator
-                { label: 'Paste', action: () => this.pasteSelectedWidgets() }
-            );
-        }
-
-        menuItems.forEach(item => {
-            if (item.label === '---') {
-                // Add separator
-                const separator = document.createElement('div');
-                separator.style.cssText = `
-                    height: 1px;
-                    background: var(--vscode-menu-separatorBackground, #e5e5e5);
-                    margin: 4px 0;
-                `;
-                contextMenu.appendChild(separator);
-                return;
-            }
-
-
-            const menuItem = document.createElement('div');
-            menuItem.textContent = item.label;
-
-            // Determine if item is disabled (has no action)
-            const isDisabled = !item.action;
-
-            menuItem.style.cssText = `
-                padding: 6px 12px;
-                cursor: ${isDisabled ? 'default' : 'pointer'};
-                transition: background-color 0.1s ease;
-                color: red !important;
-                background-color: red !important;
-                opacity: ${isDisabled ? '0.4' : '1'} !important;
-                pointer-events: ${isDisabled ? 'none' : 'auto'};
-            `;
-
-            if (!isDisabled) {
-                menuItem.addEventListener('mouseenter', () => {
-                    menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
-                    menuItem.style.color = 'var(--vscode-menu-selectionForeground, #000000)';
-                });
-
-                menuItem.addEventListener('mouseleave', () => {
-                    menuItem.style.backgroundColor = 'transparent';
-                    menuItem.style.color = 'var(--vscode-menu-foreground, #cccccc)';
-                });
-
-                menuItem.addEventListener('click', () => {
-                    if (item.action) {
-                        item.action();
-                    }
-                    this.hideCustomContextMenu();
-                });
-            }
-
-            contextMenu.appendChild(menuItem);
-        });
-
-        // Add to document
-        document.body.appendChild(contextMenu);
-
-        // Adjust position if menu would go off-screen
-        const rect = contextMenu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            contextMenu.style.left = (x - rect.width) + 'px';
-        }
-        if (rect.bottom > window.innerHeight) {
-            contextMenu.style.top = (y - rect.height) + 'px';
-        }
-    }
-
-    /**
-     * Hides the custom context menu.
-     */
-    hideCustomContextMenu() {
-        const existingMenu = document.getElementById('custom-context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-    }
 
     /**
      * Context menu action: Copy selected widgets

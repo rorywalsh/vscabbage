@@ -62,6 +62,14 @@ cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FX"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FXd"
 
+# Copy propertyPanel.js and widgetWrapper.js to the parent of the target cabbage directory
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR"
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR_FX"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR_FX"
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR_FXd"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR_FXd"
+
 # Copy only the contents of ./src/cabbage (excluding its widgets subfolder)
 if [ -d "./src/cabbage" ]; then
     echo "Copying ./src/cabbage (excluding widgets) to $CUSTOM_WIDGETS_DIR"

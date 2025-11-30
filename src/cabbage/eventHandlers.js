@@ -767,6 +767,9 @@ export function setupFormHandlers() {
     const deleteOption = createMenuOption("Delete", async () => await deleteSelectedWidgets());
 
     // Append menu options to the content container
+    contentContainer.appendChild(duplicateOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(deleteOption);
     contentContainer.appendChild(groupOption);
     contentContainer.appendChild(unGroupOption);
     contentContainer.appendChild(createSeparator());
@@ -777,9 +780,8 @@ export function setupFormHandlers() {
     contentContainer.appendChild(createSeparator());
     contentContainer.appendChild(distributeHorizontallyOption);
     contentContainer.appendChild(distributeVerticallyOption);
-    contentContainer.appendChild(createSeparator());
-    contentContainer.appendChild(duplicateOption);
-    contentContainer.appendChild(deleteOption);
+
+
 
     // Append context menu to the document body
     document.body.appendChild(groupContextMenu);
@@ -932,7 +934,12 @@ export function setupFormHandlers() {
 
                         // Enable/Disable Group/Ungroup
                         const setOptionState = (opt, enabled) => {
-                            opt.style.color = enabled ? "#999" : "#000";
+                            const isDark = document.body.classList.contains('vscode-dark');
+                            if (isDark) {
+                                opt.style.color = enabled ? "#999" : "#000";
+                            } else {
+                                opt.style.color = enabled ? "#000" : "#999";
+                            }
                             opt.style.cursor = enabled ? "pointer" : "not-allowed";
                             opt.style.pointerEvents = enabled ? "auto" : "none";
                         };
