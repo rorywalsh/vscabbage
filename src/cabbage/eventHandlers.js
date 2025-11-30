@@ -80,9 +80,12 @@ export async function handlePointerDown(e, widgetDiv) {
         if (PropertyPanel && cabbageMode === 'draggable') {
             const PP = await loadPropertyPanel();
             if (PP && typeof PP.updatePanel === 'function') {
+                // Collect all selected widget IDs for multi-widget editing
+                const selectedIds = Array.from(selectedElements).map(el => el.id);
                 await PP.updatePanel(vscode, {
                     eventType: "click",
                     name: foundId,
+                    selection: selectedIds.length > 0 ? selectedIds : [foundId],
                     bounds: {}
                 }, widgets);
             } else {

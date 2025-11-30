@@ -255,9 +255,21 @@ export class PropertyPanel {
     constructor(vscode, type, properties, widgets) {
         this.vscode = vscode;           // VSCode API instance
         this.type = type;               // Type of the widget
-        this.properties = properties;   // Properties of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
-        console.log('PropertyPanel: Constructor called for type:', type, 'channel:', CabbageUtils.getChannelId(properties, 0));
+
+        // Handle multi-widget mode
+        if (type === 'multi' && Array.isArray(properties)) {
+            this.selectedWidgets = properties;  // Array of selected widget objects
+            this.properties = null;  // No single properties object
+            this.isMultiMode = true;
+            console.log('PropertyPanel: Constructor called for multi-widget mode with', this.selectedWidgets.length, 'widgets');
+        } else {
+            this.properties = properties;   // Properties of the single widget
+            this.selectedWidgets = null;
+            this.isMultiMode = false;
+            console.log('PropertyPanel: Constructor called for type:', type, 'channel:', CabbageUtils.getChannelId(properties, 0));
+        }
+
         // Create the panel and sections on initialization
         this.createPanel();
     }
@@ -295,7 +307,8 @@ export class PropertyPanel {
      * Creates or rebuilds the panel DOM and attaches listeners.
      */
     createPanel() {
-        console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', CabbageUtils.getChannelId(this.properties, 0));
+        const channelInfo = this.isMultiMode ? 'multi-widget' : CabbageUtils.getChannelId(this.properties, 0);
+        console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', channelInfo);
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
@@ -327,12 +340,18 @@ export class PropertyPanel {
             panel.setAttribute('data-scroll-handler-attached', 'true');
         }
 
-        // Create a special section for type and channel
-        this.createSpecialSection(panel);
+        if (this.isMultiMode) {
+            // Multi-widget mode: show header and common properties
+            this.createMultiWidgetPanel(panel);
+        } else {
+            // Single widget mode: existing behavior
+            // Create a special section for type and channel
+            this.createSpecialSection(panel);
 
-        // Create sections based on the properties object
-        this.createSections(this.properties, panel);
-        this.createMiscSection(this.properties, panel);
+            // Create sections based on the properties object
+            this.createSections(this.properties, panel);
+            this.createMiscSection(this.properties, panel);
+        }
 
         // Add a spacer at the bottom to ensure the last item is not obscured by scrollbars
         const spacer = document.createElement('div');
@@ -351,7 +370,121 @@ export class PropertyPanel {
         }, 60);
     }
 
-    /** 
+    /**
+     * Creates a multi-widget property panel showing common properties
+     * @param panel - The panel to which sections are appended
+     */
+    createMultiWidgetPanel(panel) {
+        // Track handled properties
+        this.handledProperties = new Set();
+
+        // Create header showing selection count
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 12px;
+            background: var(--vscode-editor-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            font-weight: bold;
+            text-align: center;
+        `;
+        header.textContent = `${this.selectedWidgets.length} Widgets Selected`;
+        panel.appendChild(header);
+
+        // Get common properties across all selected widgets
+        const commonProps = this.getCommonProperties();
+
+        // Create bounds section (most common property to edit)
+        if (commonProps.bounds) {
+            const boundsSection = this.createSection('Bounds');
+            Object.entries(commonProps.bounds.value || {}).forEach(([key, value]) => {
+                const isMixed = commonProps.bounds.mixed && commonProps.bounds.mixed.has(key);
+                this.addPropertyToSection(key, isMixed ? '' : value, boundsSection, 'bounds', isMixed);
+            });
+            panel.appendChild(boundsSection);
+            this.handledProperties.add('bounds');
+        }
+
+        // Create misc section for other common properties
+        const miscSection = this.createSection('Common Properties');
+        let hasCommonProps = false;
+
+        // Add zIndex if common
+        if (commonProps.zIndex !== undefined) {
+            const isMixed = commonProps.zIndex.mixed;
+            this.addPropertyToSection('zIndex', isMixed ? '' : commonProps.zIndex.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        // Add visible if common
+        if (commonProps.visible !== undefined) {
+            const isMixed = commonProps.visible.mixed;
+            this.addPropertyToSection('visible', isMixed ? '' : commonProps.visible.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        // Add active if common
+        if (commonProps.active !== undefined) {
+            const isMixed = commonProps.active.mixed;
+            this.addPropertyToSection('active', isMixed ? '' : commonProps.active.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        if (hasCommonProps) {
+            panel.appendChild(miscSection);
+        }
+    }
+
+    /**
+     * Gets common properties across all selected widgets
+     * @returns Object with common properties and mixed value indicators
+     */
+    getCommonProperties() {
+        if (!this.selectedWidgets || this.selectedWidgets.length === 0) {
+            return {};
+        }
+
+        const commonProps = {};
+        const firstWidget = this.selectedWidgets[0].props;
+
+        // Check bounds
+        if (firstWidget.bounds) {
+            const boundsCommon = { value: {}, mixed: new Set() };
+            ['left', 'top', 'width', 'height'].forEach(key => {
+                const firstValue = firstWidget.bounds[key];
+                const allSame = this.selectedWidgets.every(w => w.props.bounds && w.props.bounds[key] === firstValue);
+                boundsCommon.value[key] = firstValue;
+                if (!allSame) {
+                    boundsCommon.mixed.add(key);
+                }
+            });
+            commonProps.bounds = boundsCommon;
+        }
+
+        // Check zIndex
+        if (firstWidget.zIndex !== undefined) {
+            const firstValue = firstWidget.zIndex;
+            const allSame = this.selectedWidgets.every(w => w.props.zIndex === firstValue);
+            commonProps.zIndex = { value: firstValue, mixed: !allSame };
+        }
+
+        // Check visible
+        if (firstWidget.visible !== undefined) {
+            const firstValue = firstWidget.visible;
+            const allSame = this.selectedWidgets.every(w => w.props.visible === firstValue);
+            commonProps.visible = { value: firstValue, mixed: !allSame };
+        }
+
+        // Check active
+        if (firstWidget.active !== undefined) {
+            const firstValue = firstWidget.active;
+            const allSame = this.selectedWidgets.every(w => w.props.active === firstValue);
+            commonProps.active = { value: firstValue, mixed: !allSame };
+        }
+
+        return commonProps;
+    }
+
+    /**
      * Creates a special section for widget properties (Type and Channel).
      * @param panel - The panel to which the special section is appended.
      */
@@ -515,10 +648,10 @@ export class PropertyPanel {
     }
 
     /** 
- * Creates a miscellaneous section for properties not in a specific section.
- * @param properties - The properties object containing miscellaneous data.
- * @param panel - The panel to which the miscellaneous section is appended.
- */
+    * Creates a miscellaneous section for properties not in a specific section.
+    * @param properties - The properties object containing miscellaneous data.
+    * @param panel - The panel to which the miscellaneous section is appended.
+    */
     createMiscSection(properties, panel) {
         const miscSection = this.createSection('Misc');
 
@@ -685,12 +818,12 @@ export class PropertyPanel {
     }
 
     /** 
- * Creates an input element based on the property key and value.
- * @param key - The property key to create the input for.
- * @param value - The initial value of the input.
- * @param path - The nested path for the property (optional).
- * @returns The created input element.
- */
+    * Creates an input element based on the property key and value.
+    * @param key - The property key to create the input for.
+    * @param value - The initial value of the input.
+    * @param path - The nested path for the property (optional).
+    * @returns The created input element.
+    */
     createInputElement(key, value, path = '') {
         let input;
         const fullPath = path ? `${path}.${key}` : key;
@@ -1001,7 +1134,7 @@ export class PropertyPanel {
      * @param section - The section to which the property is added.
      * @param path - The nested path for the property (optional).
      */
-    addPropertyToSection(key, value, section, path = '') {
+    addPropertyToSection(key, value, section, path = '', isMixed = false) {
         if (key === 'currentCsdFile' || key === 'value') {
             return;
         }
@@ -1036,7 +1169,21 @@ export class PropertyPanel {
         // Set the full property path as the input id
         if (input) {
             input.id = fullPropertyPath;
-            input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
+
+            // For multi-widget mode, store selected widget IDs instead of single parent
+            if (this.isMultiMode) {
+                input.dataset.multiWidget = 'true';
+                input.dataset.selectedIds = JSON.stringify(this.selectedWidgets.map(w => w.props.id || CabbageUtils.getChannelId(w.props, 0)));
+            } else {
+                input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
+            }
+
+            // Set placeholder for mixed values
+            if (isMixed && input.tagName === 'INPUT') {
+                input.placeholder = '(mixed)';
+                input.style.fontStyle = 'italic';
+            }
+
             input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
             if (input.type === 'checkbox' || input.tagName === 'SELECT') {
                 // Some browsers/extensions fire change more reliably for checkboxes and selects
@@ -1141,6 +1288,12 @@ export class PropertyPanel {
         }
 
         console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'type:', input.type, 'value:', input.value, 'checked:', input.checked);
+
+        // Handle multi-widget mode
+        if (input.dataset.multiWidget === 'true') {
+            this.handleMultiWidgetChange(input);
+            return;
+        }
 
         this.widgets.forEach((widget) => {
             const widgetId = widget.props.id;
@@ -1249,6 +1402,70 @@ export class PropertyPanel {
         });
     }
 
+    /**
+     * Handles property changes for multiple selected widgets
+     * @param input - The input element that changed
+     */
+    handleMultiWidgetChange(input) {
+        const path = input.id;
+        const inputValue = input.value;
+
+        // Parse the value
+        let parsedValue;
+        if (input.type === 'checkbox') {
+            parsedValue = input.checked;
+        } else if (input.type === 'number') {
+            const n = Number(inputValue);
+            parsedValue = isNaN(n) ? inputValue : n;
+        } else if (!isNaN(inputValue) && inputValue !== '') {
+            parsedValue = Number(inputValue);
+        } else {
+            parsedValue = inputValue;
+        }
+
+        console.log(`PropertyPanel: Multi-widget update - setting ${path} to ${parsedValue} for ${this.selectedWidgets.length} widgets`);
+
+        // Update all selected widgets
+        this.selectedWidgets.forEach(widget => {
+            // Update the property
+            this.setNestedProperty(widget.props, path, parsedValue);
+
+            // Update the visual display
+            const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+            if (widgetDiv) {
+                if (widget.props['type'] === 'form') {
+                    widget.updateSVG();
+                } else {
+                    widgetDiv.innerHTML = widget.getInnerHTML();
+                }
+
+                // Update widget styles if zIndex changed
+                if (path === 'index' || path === 'zIndex') {
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+                }
+
+                // Update bounds if bounds property changed
+                CabbageUtils.updateBounds(widget.props, path);
+            }
+
+            // Send update to VSCode
+            try {
+                let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                console.log(`PropertyPanel: Sending multi-widget update for ${widget.props.id || CabbageUtils.getChannelId(widget.props, 0)}`);
+                this.vscode.postMessage({
+                    command: 'updateWidgetProps',
+                    text: textPayload,
+                });
+            } catch (e) {
+                console.error('PropertyPanel: failed to post multi-widget update', e);
+                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
+            }
+        });
+    }
+
     /** 
      * Static method to reattach event listeners to widgets.
      * @param widget - The widget to which listeners are attached.
@@ -1327,6 +1544,7 @@ export class PropertyPanel {
             const { eventType, name, bounds, widgets: pastedWidgets } = eventObj; // Destructure event properties
             console.log('PropertyPanel: processing event:', eventType, 'for widget:', name);
 
+
             // Handle paste event specially - create new widgets
             if (eventType === 'pasteSelection' && pastedWidgets) {
                 console.log(`PropertyPanel: Pasting ${pastedWidgets.length} widget(s)`);
@@ -1343,6 +1561,26 @@ export class PropertyPanel {
                 });
 
                 return; // Don't process further for paste events
+            }
+
+            // Check if multiple widgets are selected
+            const selection = eventObj.selection || [name];
+            if (selection.length > 1 && eventType === 'click') {
+                console.log(`PropertyPanel: Multiple widgets selected (${selection.length})`);
+
+                // Find all selected widgets
+                const selectedWidgets = selection.map(id =>
+                    widgets.find(w =>
+                        w.props.id === id ||
+                        CabbageUtils.getChannelId(w.props, 0) === id
+                    )
+                ).filter(w => w !== undefined);
+
+                if (selectedWidgets.length > 0) {
+                    // Create multi-widget property panel
+                    new PropertyPanel(this.vscode, 'multi', selectedWidgets, widgets);
+                }
+                return; // Don't process single widget logic
             }
 
             console.log('PropertyPanel: searching for widget with name:', name);

@@ -512,8 +512,16 @@ export class WidgetWrapper {
                 element = element.parentElement;
             }
 
+
             if (widgetId) {
-                this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
+                // Collect all selected widget IDs for multi-widget editing
+                const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+                this.updatePanelCallback(this.vscode, {
+                    eventType: "click",
+                    name: widgetId,
+                    selection: selectedIds.length > 0 ? selectedIds : [widgetId],
+                    bounds: {}
+                }, this.widgets);
             }
         }).resizable({
             edges: { left: false, right: true, bottom: true, top: false }, // Resize edges configuration
