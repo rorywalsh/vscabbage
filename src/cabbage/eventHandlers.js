@@ -422,9 +422,17 @@ async function ungroupSelectedWidgets() {
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
 
     // Update the CSD file with the container (now without children)
+    // Send a minimal update to avoid writing default properties to the CSD
+    const containerUpdatePayload = {
+        id: containerWidget.props.id,
+        type: containerWidget.props.type,
+        children: [], // Explicitly empty the children
+        channels: containerWidget.props.channels ? containerWidget.props.channels.map(c => ({ id: c.id })) : []
+    };
+
     postMessageToVSCode({
         command: 'updateWidgetProps',
-        text: JSON.stringify(containerWidget.props)
+        text: JSON.stringify(containerUpdatePayload)
     });
 
     console.log("Cabbage: Container", containerChannelId, "now has no children and remains as a top-level widget");
