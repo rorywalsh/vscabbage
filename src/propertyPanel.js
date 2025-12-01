@@ -185,11 +185,21 @@ export class PropertyPanel {
                     const cloneValue = cloneObj ? cloneObj[key] : undefined;
                     const propsValue = propsObj ? propsObj[key] : undefined;
 
+                    if (pathString.includes('svg')) {
+                        console.log(`PropertyPanel: restoreDeletedProperties checking ${pathString}:`, {
+                            originalValue,
+                            cloneValue,
+                            propsValue,
+                            willSetNull: originalValue !== undefined && cloneValue === undefined && propsValue !== undefined
+                        });
+                    }
+
                     // If the property existed in original and is now missing from clone (was stripped because it matches default)
                     // but still exists in current props, set it to null to signal deletion
                     if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
                         // For nested objects, we need to restore the parent structure
                         if (!cloneObj) return;
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now matches default)`);
                         cloneObj[key] = null;
                     } 
                     // If it's an object in both original and clone, recurse into it
