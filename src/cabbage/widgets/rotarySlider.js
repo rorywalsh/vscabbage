@@ -77,8 +77,8 @@ export class RotarySlider {
         },
 
         "shadow": {
-          "offsetX": 4,
-          "offsetY": 4,
+          "offsetX": 2,
+          "offsetY": 2,
           "blur": 4,
           "color": "rgba(0, 0, 0, 0.8)"
         }

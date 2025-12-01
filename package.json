@@ -229,6 +229,19 @@
           "type": "string",
           "default": "#666666",
           "description": "Color for '//' comment properties in Cabbage JSON sections. Use 'Cabbage: Set Custom Comment Decoration Color' command to pick a color."
+        },
+        "cabbage.cabbageSectionPlacement": {
+          "type": "string",
+          "default": "top",
+          "enum": [
+            "top",
+            "bottom"
+          ],
+          "enumDescriptions": [
+            "Place <Cabbage> section at the top of the .csd file (traditional placement)",
+            "Place <Cabbage> section at the bottom of the .csd file (before </CsoundSynthesizer>)"
+          ],
+          "description": "Controls where new <Cabbage> sections are placed in .csd files. Note: This setting only applies when creating new sections. To move an existing section, use the 'Cabbage: Move Cabbage Section' command."
         }
       }
     },
@@ -421,6 +434,11 @@
       {
         "command": "cabbage.addCabbageSection",
         "title": "Add a Cabbage section",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.moveCabbageSection",
+        "title": "Move Cabbage Section",
         "category": "Cabbage"
       },
       {
