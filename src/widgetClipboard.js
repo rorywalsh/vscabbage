@@ -65,6 +65,17 @@ export class WidgetClipboard {
     }
 
     /**
+     * Generate a short hash string
+     * @returns {string} A short hash (4 characters)
+     */
+    static generateShortHash() {
+        // Use timestamp and random value to create a unique hash
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substring(2, 4);
+        return (timestamp + random).substring(0, 4);
+    }
+
+    /**
      * Generate a unique ID for a pasted widget
      * @param {string} originalId - The original widget ID
      * @param {number} totalWidgets - Total number of widgets in the interface
@@ -72,14 +83,20 @@ export class WidgetClipboard {
      * @returns {string} A unique ID for the pasted widget
      */
     static generateUniqueId(originalId, totalWidgets, existingIds) {
-        let baseId = originalId;
-        let counter = 1;
-        let newId = `${baseId}_copy_${counter}`;
+        // Strip any existing hash suffix (pattern: _xxxx where x is alphanumeric, 4 chars)
+        // This prevents IDs from growing like: filterAtt_abc1_def2_ghi3
+        let baseId = originalId.replace(/_[a-z0-9]{4}$/i, '');
 
-        // Keep incrementing until we find a unique ID
+        // If the entire ID was just a hash (unlikely), use the original
+        if (!baseId) {
+            baseId = originalId;
+        }
+
+        let newId = `${baseId}_${WidgetClipboard.generateShortHash()}`;
+
+        // Keep generating new hashes until we find a unique ID (very unlikely to collide)
         while (existingIds.has(newId)) {
-            counter++;
-            newId = `${baseId}_copy_${counter}`;
+            newId = `${baseId}_${WidgetClipboard.generateShortHash()}`;
         }
 
         console.log(`WidgetClipboard: Generated unique ID: ${originalId} → ${newId}`);

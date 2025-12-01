@@ -176,7 +176,7 @@ export class PropertyPanel {
                 Object.keys(originalObj).forEach(key => {
                     const fullPath = [...path, key];
                     const pathString = fullPath.join('.');
-                    
+
                     // Skip critical identity fields - these should never be set to null
                     if (pathString === 'type' || pathString === 'id' || pathString === 'channels') return;
 
@@ -194,17 +194,17 @@ export class PropertyPanel {
                         });
                     }
 
-                    // If the property existed in original and is now missing from clone (was stripped because it matches default)
-                    // but still exists in current props, set it to null to signal deletion
-                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                    // If the property existed in original CSD but is now deleted from current props,
+                    // send null to signal deletion to the backend
+                    if (originalValue !== undefined && propsValue === undefined) {
                         // For nested objects, we need to restore the parent structure
                         if (!cloneObj) return;
-                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now matches default)`);
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now deleted from props)`);
                         cloneObj[key] = null;
-                    } 
+                    }
                     // If it's an object in both original and clone, recurse into it
                     else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
-                             cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
+                        cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
                         restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
                     }
                 });
@@ -1289,13 +1289,20 @@ export class PropertyPanel {
             }
         }
         const lastKey = keys[keys.length - 1];
-        if (typeof lastKey === 'number') {
+
+        // If value is an empty string, delete the property instead of setting it
+        // This ensures that cleared fields (like SVG markup) are actually removed
+        if (value === '' && typeof lastKey === 'string') {
+            delete currentObj[lastKey];
+            console.log('PropertyPanel: deleted', path, '(was set to empty string)');
+        } else if (typeof lastKey === 'number') {
             if (!Array.isArray(currentObj)) currentObj = [];
             currentObj[lastKey] = value;
+            console.log('PropertyPanel: set', path, 'to', value);
         } else {
             currentObj[lastKey] = value;
+            console.log('PropertyPanel: set', path, 'to', value);
         }
-        console.log('PropertyPanel: set', path, 'to', value);
     }
 
     /** 

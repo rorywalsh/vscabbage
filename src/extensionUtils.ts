@@ -1276,7 +1276,7 @@ be lost when working with the UI editor. -->\n
         "channels": [{"id": "gain"}],
         "text": "Gain"
     }`;
-            
+
             const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d
@@ -1474,62 +1474,94 @@ ${csoundSection}`;
             try {
                 const jsonArray = JSON.parse(cabbageContent);
 
-                // Check for duplicate channels
-                const channelMap = new Map<string, number[]>(); // channelId -> array of line numbers
+                // Check for duplicate props.id AND duplicate channel IDs
+                const propsIdMap = new Map<string, number[]>(); // props.id -> array of line numbers
+                const channelIdMap = new Map<string, number[]>(); // channel id -> array of line numbers
                 const diagnostics: vscode.Diagnostic[] = [];
 
-                // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
-                const getChannelId = (obj: any): string => {
-                    if (obj.id) {
-                        return obj.id;
-                    }
-                    if (obj.channels) {
-                        if (Array.isArray(obj.channels) && obj.channels[0]) {
-                            return obj.channels[0].id;
-                        } else if (typeof obj.channels === 'object' && obj.channels[0]) {
-                            return obj.channels[0].id;
+                // Find all props.id and channel ID occurrences
+                jsonArray.forEach((widget: any, widgetIndex: number) => {
+                    // Check props.id - need to be careful not to match channel IDs
+                    // We'll search for the widget in the JSON and find its top-level "id"
+                    if (widget.id) {
+                        // Search for "id": "value" but NOT inside "channels": [{"id": ...}]
+                        // We do this by looking for the pattern where "id" is NOT preceded by "channels"
+                        const text = editor.getText();
+                        const escapedId = widget.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                        // Find all occurrences of this id value
+                        const idRegex = new RegExp(`"id"\\s*:\\s*"${escapedId}"`, 'g');
+                        let match;
+                        while ((match = idRegex.exec(text)) !== null) {
+                            const matchIndex = match.index;
+
+                            // Check if this is inside a channels array by looking backwards
+                            const beforeMatch = text.substring(Math.max(0, matchIndex - 200), matchIndex);
+
+                            // If we see "channels" followed by "[" and "{" before this "id", skip it
+                            // This is a channel ID, not a props.id
+                            if (/channels["\s]*:\s*\[\s*\{\s*$/.test(beforeMatch)) {
+                                continue; // Skip channel IDs
+                            }
+
+                            const lineNumber = text.substring(0, matchIndex).split('\n').length - 1;
+
+                            if (!propsIdMap.has(widget.id)) {
+                                propsIdMap.set(widget.id, []);
+                            }
+                            if (!propsIdMap.get(widget.id)!.includes(lineNumber)) {
+                                propsIdMap.get(widget.id)!.push(lineNumber);
+                            }
                         }
                     }
-                    return obj.channel || '';
-                };
 
-                // Find all channel occurrences and their positions
-                jsonArray.forEach((widget: any, widgetIndex: number) => {
-                    const channelId = getChannelId(widget);
-                    if (channelId) {
-                        // Find all occurrences of this channel in the document (both old and new formats)
-                        const oldFormatRegex = new RegExp(`"channel"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
-                        const newFormatRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                    // Check channels[0].id
+                    if (widget.channels && Array.isArray(widget.channels) && widget.channels[0] && widget.channels[0].id) {
+                        const channelId = widget.channels[0].id;
+                        const channelIdRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                        let match;
+                        while ((match = channelIdRegex.exec(editor.getText())) !== null) {
+                            const matchIndex = match.index;
+                            const beforeMatch = editor.getText().substring(0, matchIndex);
+                            const lineNumber = beforeMatch.split('\n').length - 1;
 
-                        [oldFormatRegex, newFormatRegex].forEach(regex => {
-                            let match;
-                            while ((match = regex.exec(editor.getText())) !== null) {
-                                const matchIndex = match.index;
-                                const beforeMatch = editor.getText().substring(0, matchIndex);
-                                const lineNumber = beforeMatch.split('\n').length - 1;
-
-                                if (!channelMap.has(channelId)) {
-                                    channelMap.set(channelId, []);
-                                }
-                                if (!channelMap.get(channelId)!.includes(lineNumber)) {
-                                    channelMap.get(channelId)!.push(lineNumber);
-                                }
+                            if (!channelIdMap.has(channelId)) {
+                                channelIdMap.set(channelId, []);
                             }
-                        });
+                            if (!channelIdMap.get(channelId)!.includes(lineNumber)) {
+                                channelIdMap.get(channelId)!.push(lineNumber);
+                            }
+                        }
                     }
                 });
 
-                // Create diagnostics for duplicate channels
-                for (const [channelId, lineNumbers] of channelMap) {
+                // Create diagnostics for duplicate props.id
+                for (const [propsId, lineNumbers] of propsIdMap) {
                     if (lineNumbers.length > 1) {
-                        console.log(`Found duplicate channel: ${channelId} on lines: ${lineNumbers.join(', ')}`);
-                        // This channel is duplicated
+                        console.log(`Found duplicate props.id: ${propsId} on lines: ${lineNumbers.join(', ')}`);
                         for (const lineNumber of lineNumbers) {
                             const lineContent = editor.getText().split('\n')[lineNumber];
                             const range = new vscode.Range(lineNumber, 0, lineNumber, lineContent.length);
                             const diagnostic = new vscode.Diagnostic(
                                 range,
-                                `Duplicate channel "${channelId}": Channel IDs must be unique`,
+                                `Duplicate widget ID "${propsId}": Widget IDs must be unique`,
+                                vscode.DiagnosticSeverity.Error
+                            );
+                            diagnostics.push(diagnostic);
+                        }
+                    }
+                }
+
+                // Create diagnostics for duplicate channel IDs
+                for (const [channelId, lineNumbers] of channelIdMap) {
+                    if (lineNumbers.length > 1) {
+                        console.log(`Found duplicate channel ID: ${channelId} on lines: ${lineNumbers.join(', ')}`);
+                        for (const lineNumber of lineNumbers) {
+                            const lineContent = editor.getText().split('\n')[lineNumber];
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, lineContent.length);
+                            const diagnostic = new vscode.Diagnostic(
+                                range,
+                                `Duplicate channel ID "${channelId}": Channel IDs must be unique`,
                                 vscode.DiagnosticSeverity.Error
                             );
                             diagnostics.push(diagnostic);
@@ -1546,11 +1578,19 @@ ${csoundSection}`;
                     if (diagnostics.length > 0) {
                         activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
                     }
-                    const duplicateChannels = Array.from(channelMap.keys()).filter(channelId => channelMap.get(channelId)!.length > 1);
-                    const errorMsg = `Duplicate channels found: ${duplicateChannels.join(', ')}`;
+                    const duplicatePropsIds = Array.from(propsIdMap.keys()).filter(id => propsIdMap.get(id)!.length > 1);
+                    const duplicateChannelIds = Array.from(channelIdMap.keys()).filter(id => channelIdMap.get(id)!.length > 1);
+                    let errorMsg = '';
+                    if (duplicatePropsIds.length > 0) {
+                        errorMsg += `Duplicate widget IDs found: ${duplicatePropsIds.join(', ')}`;
+                    }
+                    if (duplicateChannelIds.length > 0) {
+                        if (errorMsg) errorMsg += '; ';
+                        errorMsg += `Duplicate channel IDs found: ${duplicateChannelIds.join(', ')}`;
+                    }
                     Commands.getOutputChannel().appendLine(errorMsg);
                     Commands.getOutputChannel().show();
-                    return false; // Don't proceed if there are duplicate channels
+                    return false; // Don't proceed if there are duplicates
                 }
 
                 console.log("No duplicates found, returning true");
