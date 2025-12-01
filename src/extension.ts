@@ -656,6 +656,10 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.addCabbageSection();
         }));
     context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.moveCabbageSection', () => {
+            Commands.moveCabbageSection();
+        }));
+    context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.updateToCabbage3', () => {
             Commands.updateCodeToJSON();
         }));

@@ -1347,7 +1347,7 @@ export class Commands {
 
         const document = editor.document;
         const config = vscode.workspace.getConfiguration('cabbage');
-        const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
+        const cabbageSectionPosition = config.get('cabbageSectionPlacement', 'top');
 
         const warningComment = ExtensionUtils.getWarningComment();
 
@@ -1379,6 +1379,95 @@ export class Commands {
         }
 
         vscode.workspace.applyEdit(edit);
+    }
+
+    /**
+     * Moves an existing Cabbage section to the opposite position (toggles between top and bottom)
+     */
+    static async moveCabbageSection() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found');
+            return;
+        }
+
+        const document = editor.document;
+        const text = document.getText();
+        
+        // Find existing Cabbage section
+        const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        let cabbageMatch = text.match(cabbageRegexWithWarning);
+        let hasWarning = true;
+
+        if (!cabbageMatch) {
+            cabbageMatch = text.match(cabbageRegexWithoutWarning);
+            hasWarning = false;
+        }
+
+        if (!cabbageMatch) {
+            vscode.window.showErrorMessage('No Cabbage section found in the current file');
+            return;
+        }
+
+        // Get the full matched section (including warning if present)
+        const cabbageSection = cabbageMatch[0];
+        const cabbageSectionStart = cabbageMatch.index!;
+        const cabbageSectionEnd = cabbageSectionStart + cabbageSection.length;
+
+        // Determine current position
+        const csoundSynthesizerStartTag = '<CsoundSynthesizer>';
+        const csoundSynthesizerEndTag = '</CsoundSynthesizer>';
+        const csoundStartIndex = text.indexOf(csoundSynthesizerStartTag);
+        const csoundEndIndex = text.indexOf(csoundSynthesizerEndTag);
+        
+        // Section is at top if it appears before <CsoundSynthesizer>
+        const isCurrentlyAtTop = csoundStartIndex !== -1 && cabbageSectionStart < csoundStartIndex;
+        
+        // Toggle to opposite position
+        const targetPosition = isCurrentlyAtTop ? 'bottom' : 'top';
+
+        const edit = new vscode.WorkspaceEdit();
+        
+        // Remove from current position
+        const removeRange = new vscode.Range(
+            document.positionAt(cabbageSectionStart),
+            document.positionAt(cabbageSectionEnd)
+        );
+        
+        // Also remove trailing newlines after the section
+        let endPosition = cabbageSectionEnd;
+        while (endPosition < text.length && (text[endPosition] === '\n' || text[endPosition] === '\r')) {
+            endPosition++;
+        }
+        const removeRangeWithNewlines = new vscode.Range(
+            document.positionAt(cabbageSectionStart),
+            document.positionAt(endPosition)
+        );
+        
+        edit.delete(document.uri, removeRangeWithNewlines);
+
+        // Insert at target position
+        if (targetPosition === 'top') {
+            edit.insert(document.uri, new vscode.Position(0, 0), cabbageSection + '\n');
+        } else {
+            // Insert after </CsoundSynthesizer>
+            if (csoundEndIndex !== -1) {
+                const insertPosition = document.positionAt(csoundEndIndex + csoundSynthesizerEndTag.length);
+                edit.insert(document.uri, insertPosition, '\n' + cabbageSection);
+            } else {
+                // No closing tag, insert at end
+                const endPosition = document.positionAt(text.length);
+                edit.insert(document.uri, endPosition, '\n' + cabbageSection);
+            }
+        }
+
+        const success = await vscode.workspace.applyEdit(edit);
+        if (success) {
+            vscode.window.showInformationMessage(`Cabbage section moved to ${targetPosition}`);
+        } else {
+            vscode.window.showErrorMessage('Failed to move Cabbage section');
+        }
     }
 
     /**

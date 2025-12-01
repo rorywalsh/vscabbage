@@ -673,7 +673,7 @@ be lost when working with the UI editor. -->\n`;
         } else {
             // No Cabbage section found, add one using the setting
             const config = vscode.workspace.getConfiguration("cabbage");
-            const cabbageSectionPosition = 'top';//config.get('cabbageSectionPosition', 'top');
+            const cabbageSectionPosition = config.get('cabbageSectionPlacement', 'top');
 
             const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
 
@@ -1256,20 +1256,28 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static getNewCabbageFile(type: string) {
-        if (type === 'effect') {
-            return `
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const placement = config.get<string>('cabbageSectionPlacement', 'top');
+
+        const cabbageSection = (caption: string, widgets: string) => `
+<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
+be lost when working with the UI editor. -->\n
 <Cabbage>
 [
-    {"type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+    {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "pluginId": "def1"},${widgets}
+]
+</Cabbage>`;
+
+        if (type === 'effect') {
+            const effectWidgets = `
     {
         "type": "rotarySlider",
         "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
         "channels": [{"id": "gain"}],
         "text": "Gain"
-    }
-]
-</Cabbage>
-<CsoundSynthesizer>
+    }`;
+            
+            const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d
 </CsOptions>
@@ -1292,12 +1300,17 @@ endin
 i1 0 z
 </CsScore>
 </CsoundSynthesizer>`;
+
+            if (placement === 'bottom') {
+                return `${csoundSection}
+${cabbageSection("Template Effect", effectWidgets)}`;
+            } else {
+                return `${cabbageSection("Template Effect", effectWidgets)}
+${csoundSection}`;
+            }
         }
         else if (type === 'synth') {
-            return `
-<Cabbage>
-[
-    {"type": "form", "caption": "Synth", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+            const synthWidgets = `
     {
         "type": "keyboard",
         "id": "keyboard",
@@ -1308,10 +1321,9 @@ i1 0 z
                 "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0}
             }
         ]
-    }
-]
-</Cabbage>
-<CsoundSynthesizer>
+    }`;
+
+            const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 --midi-key-cps=4 --midi-velocity-amp=5
 </CsOptions>
@@ -1335,6 +1347,14 @@ endin
 f0 z
 </CsScore>
 </CsoundSynthesizer>`;
+
+            if (placement === 'bottom') {
+                return `${csoundSection}
+${cabbageSection("Synth", synthWidgets)}`;
+            } else {
+                return `${cabbageSection("Synth", synthWidgets)}
+${csoundSection}`;
+            }
         }
     }
     static getIndexHtml() {
