@@ -168,19 +168,39 @@ export class PropertyPanel {
 
             strip(clone, defaults);
 
-            // After stripping, check for top-level properties that were deleted but existed in original CSD.
+            // After stripping, check for properties (both top-level and nested) that were deleted but existed in original CSD.
             // Send these as null to signal explicit deletion to the backend.
-            originalTopLevelKeys.forEach(key => {
-                // Skip critical identity fields - these should never be set to null
-                if (key === 'type' || key === 'id' || key === 'channels') return;
+            const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
+                if (!originalObj || typeof originalObj !== 'object') return;
 
-                // If the property existed in original but is now missing from clone (was stripped),
-                // and it still exists in the current props (meaning it has a value, even if default),
-                // then set it to null to signal deletion
-                if (!(key in clone) && (key in props)) {
-                    clone[key] = null;
-                }
-            });
+                Object.keys(originalObj).forEach(key => {
+                    const fullPath = [...path, key];
+                    const pathString = fullPath.join('.');
+                    
+                    // Skip critical identity fields - these should never be set to null
+                    if (pathString === 'type' || pathString === 'id' || pathString === 'channels') return;
+
+                    // Get values from all three objects at this path
+                    const originalValue = originalObj[key];
+                    const cloneValue = cloneObj ? cloneObj[key] : undefined;
+                    const propsValue = propsObj ? propsObj[key] : undefined;
+
+                    // If the property existed in original and is now missing from clone (was stripped because it matches default)
+                    // but still exists in current props, set it to null to signal deletion
+                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                        // For nested objects, we need to restore the parent structure
+                        if (!cloneObj) return;
+                        cloneObj[key] = null;
+                    } 
+                    // If it's an object in both original and clone, recurse into it
+                    else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
+                             cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
+                        restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
+                    }
+                });
+            };
+
+            restoreDeletedProperties(clone, originalProps, props);
 
             // Ensure critical identity fields aren't stripped completely.
             // If the widget had a type or id originally, ensure they remain in the
@@ -1065,6 +1085,12 @@ export class PropertyPanel {
                     this.handleInputChange(event); // Trigger change handler
                 });
             }
+            // Handle radioGroup as text input (not number)
+            else if (key.toLowerCase() === 'radiogroup') {
+                input = document.createElement('input');
+                input.type = 'text';
+                input.value = value; // Set the initial value
+            }
             // Handle numeric input for stroke width and other numeric properties
             else if (fullPath.includes("stroke.width") || typeof value === 'number') {
                 input = document.createElement('input');
@@ -1430,7 +1456,10 @@ export class PropertyPanel {
         console.log(`PropertyPanel: Multi-widget update - setting ${path} to ${parsedValue} for ${this.selectedWidgets.length} widgets`);
 
         // Update all selected widgets
-        this.selectedWidgets.forEach(widget => {
+        this.selectedWidgets.forEach((widget, index) => {
+            const widgetId = widget.props.id || CabbageUtils.getChannelId(widget.props, 0);
+            console.log(`PropertyPanel: Processing widget ${index + 1}/${this.selectedWidgets.length}: ${widgetId}`);
+
             // Update the property
             this.setNestedProperty(widget.props, path, parsedValue);
 
@@ -1454,16 +1483,19 @@ export class PropertyPanel {
 
             // Send update to VSCode
             try {
+                console.log(`PropertyPanel: Minimizing props for ${widgetId}, has rawDefaults: ${!!widget.rawDefaults}, has originalProps: ${!!widget.originalProps}`);
                 let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
                 minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
                 const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
-                console.log(`PropertyPanel: Sending multi-widget update for ${widget.props.id || CabbageUtils.getChannelId(widget.props, 0)}`);
+                console.log(`PropertyPanel: Sending multi-widget update for ${widgetId}, payload size: ${textPayload.length} chars`);
+                console.log(`PropertyPanel: Payload preview: ${textPayload.substring(0, 200)}`);
                 this.vscode.postMessage({
                     command: 'updateWidgetProps',
                     text: textPayload,
                 });
+                console.log(`PropertyPanel: Successfully posted message for ${widgetId}`);
             } catch (e) {
-                console.error('PropertyPanel: failed to post multi-widget update', e);
+                console.error(`PropertyPanel: failed to post multi-widget update for ${widgetId}`, e);
                 const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
                 this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
             }

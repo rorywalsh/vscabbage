@@ -36,6 +36,7 @@ export class Commands {
     private static compilationFailed: boolean = false;
     private static panelRevealTimeout: NodeJS.Timeout | undefined;
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
+    private static editQueue: Promise<void> = Promise.resolve();
     appendOutput: Boolean = true;
 
     /**
@@ -248,8 +249,12 @@ export class Commands {
                     const rawText = message && message.text;
                     console.log('Extension: Received updateWidgetProps from webview:', message && (message.oldId ? `(oldId:${message.oldId}) ` : '') + String(rawText).slice(0, 200));
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        // Previously we looked up default props here; that logic has been removed.
-                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        // Queue the edit to prevent race conditions when multiple updates arrive simultaneously
+                        Commands.editQueue = Commands.editQueue.then(async () => {
+                            await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        }).catch(err => {
+                            console.error('Extension: Error processing queued edit:', err);
+                        });
                     }
                 }
                 break;
