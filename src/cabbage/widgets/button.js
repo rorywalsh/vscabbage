@@ -62,6 +62,17 @@ export class Button {
         "text": {
           "on": "On",
           "off": "Off"
+        },
+        "align": "center"
+      },
+
+      "svg": {
+        "markup": "",
+        "padding": {
+          "top": 5,
+          "right": 5,
+          "bottom": 5,
+          "left": 5
         }
       }
     };
@@ -180,14 +191,15 @@ export class Button {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
+    const textAlign = this.props.label.align || 'center';
+    const svgAlign = alignMap[textAlign] || 'middle';
     const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.style.fontSize;
     const padding = 5;
 
     let textX;
-    if (this.props.style.textAlign === 'left') {
+    if (textAlign === 'left') {
       textX = this.props.style.borderRadius + padding;
-    } else if (this.props.style.textAlign === 'right') {
+    } else if (textAlign === 'right') {
       textX = this.props.bounds.width - this.props.style.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
@@ -214,7 +226,8 @@ export class Button {
       textColour = this.props.style.hover.textColor;
     }
 
-    return `
+    // Base button SVG
+    let buttonHtml = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
            width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
         <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.style.borderColor}"
@@ -223,6 +236,41 @@ export class Button {
           fill="${textColour}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
+
+    // If svg.markup is provided, add it as an overlay
+    if (this.props.svg && this.props.svg.markup) {
+      // Extract viewBox from original SVG if present, otherwise use button bounds
+      const viewBoxMatch = this.props.svg.markup.match(/viewBox=["']([^"']+)["']/);
+      const viewBox = viewBoxMatch ? viewBoxMatch[1] : `0 0 ${this.props.bounds.width} ${this.props.bounds.height}`;
+
+      const preserveAspectRatioMatch = this.props.svg.markup.match(/preserveAspectRatio=["']([^"']+)["']/);
+      const preserveAspectRatio = preserveAspectRatioMatch ? preserveAspectRatioMatch[1] : 'xMidYMid meet';
+
+      // Extract inner SVG content without outer <svg> tags
+      const innerSvgContent = this.props.svg.markup.replace(/<svg[^>]*>|<\/svg>/g, '');
+
+      // Get padding values
+      const paddingTop = this.props.svg.padding?.top || 0;
+      const paddingRight = this.props.svg.padding?.right || 0;
+      const paddingBottom = this.props.svg.padding?.bottom || 0;
+      const paddingLeft = this.props.svg.padding?.left || 0;
+
+      // Calculate SVG dimensions accounting for padding
+      const svgWidth = this.props.bounds.width - paddingLeft - paddingRight;
+      const svgHeight = this.props.bounds.height - paddingTop - paddingBottom;
+
+      // Add overlay SVG with padding
+      buttonHtml += `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${svgWidth}" height="${svgHeight}" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
+           style="position: absolute; top: ${paddingTop}px; left: ${paddingLeft}px; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'};">
+        <g style="all: initial;">
+          ${innerSvgContent}
+        </g>
+      </svg>
+      `;
+    }
+
+    return buttonHtml;
   }
 }
 

@@ -46,7 +46,15 @@ export class Image {
             },
 
             "file": "",
-            "svgText": "",
+            "svg": {
+                "markup": "",
+                "padding": {
+                    "top": 0,
+                    "right": 0,
+                    "bottom": 0,
+                    "left": 0
+                }
+            },
             "currentCsdFile": "",
             "parameterIndex": -1,
             "children": []
@@ -94,21 +102,31 @@ export class Image {
         const transformStyle = this.props.rotate.radians !== 0 ?
             `transform: rotate(${rotationDegrees}deg); transform-origin: ${transformOriginX}px ${transformOriginY}px;` : '';
 
-        // Check if svgText is not empty and render it as proper SVG
-        if (this.props.svgText) {
+        // Check if svg.markup is not empty and render it as proper SVG
+        if (this.props.svg && this.props.svg.markup) {
             // Extract viewBox and preserveAspectRatio from original SVG if present
-            const viewBoxMatch = this.props.svgText.match(/viewBox=["']([^"']+)["']/);
+            const viewBoxMatch = this.props.svg.markup.match(/viewBox=["']([^"']+)["']/);
             const viewBox = viewBoxMatch ? viewBoxMatch[1] : `0 0 ${this.props.bounds.width} ${this.props.bounds.height}`;
 
-            const preserveAspectRatioMatch = this.props.svgText.match(/preserveAspectRatio=["']([^"']+)["']/);
+            const preserveAspectRatioMatch = this.props.svg.markup.match(/preserveAspectRatio=["']([^"']+)["']/);
             const preserveAspectRatio = preserveAspectRatioMatch ? preserveAspectRatioMatch[1] : 'xMidYMid meet';
 
             // Extract just the inner SVG content (paths, lines, etc) without the outer <svg> tags
-            const innerSvgContent = this.props.svgText.replace(/<svg[^>]*>|<\/svg>/g, '');
+            const innerSvgContent = this.props.svg.markup.replace(/<svg[^>]*>|<\/svg>/g, '');
+
+            // Get padding values
+            const paddingTop = this.props.svg.padding?.top || 0;
+            const paddingRight = this.props.svg.padding?.right || 0;
+            const paddingBottom = this.props.svg.padding?.bottom || 0;
+            const paddingLeft = this.props.svg.padding?.left || 0;
+
+            // Calculate SVG dimensions accounting for padding
+            const svgWidth = this.props.bounds.width - paddingLeft - paddingRight;
+            const svgHeight = this.props.bounds.height - paddingTop - paddingBottom;
 
             return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="100%" height="100%" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
-                 style="position: absolute; top: 0; left: 0; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${svgWidth}" height="${svgHeight}" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
+                 style="position: absolute; top: ${paddingTop}px; left: ${paddingLeft}px; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}">
                 <g style="all: initial;">
                     ${innerSvgContent}
                 </g>

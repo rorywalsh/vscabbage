@@ -1099,6 +1099,10 @@ export class PropertyPanel {
                 if (this.type === 'rotarySlider' && fullPath === 'label.align') {
                     alignments = ['auto', 'top', 'bottom'];
                 }
+                // Special case for label.align on button (horizontal alignment)
+                else if (this.type === 'button' && fullPath === 'label.align') {
+                    alignments = ['left', 'center', 'right'];
+                }
 
                 // Populate alignment options
                 alignments.forEach((align) => {
