@@ -13,6 +13,7 @@ import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 import { discoverAndRegisterCustomWidgets } from "./widgetDiscovery.js";
 import { initializeZoom } from "./zoom.js";
+import { keyboardMidiInput } from "./keyboardMidiInput.js";
 
 
 // Update the vscode assignment
@@ -34,6 +35,9 @@ if (rightPanel) { rightPanel.style.visibility = "hidden"; }
 
 // Initialize zoom and pan functionality
 initializeZoom();
+
+// Initialize keyboard MIDI input for performance testing
+keyboardMidiInput.init();
 
 // Notify the plugin that Cabbage is ready to load
 CabbageUtils.showOverlay();

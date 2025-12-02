@@ -249,8 +249,8 @@ export class PropertyPanel {
 
             strip(clone, defaults);
 
-            // After stripping, check for properties (both top-level and nested) that were deleted but existed in original CSD.
-            // Send these as null to signal explicit deletion to the backend.
+            // After stripping, check for properties that existed in the original CSD but were stripped
+            // because they now match defaults. Send these as null to signal explicit deletion to the backend.
             const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
                 if (!originalObj || typeof originalObj !== 'object') return;
 
@@ -266,27 +266,33 @@ export class PropertyPanel {
                     const cloneValue = cloneObj ? cloneObj[key] : undefined;
                     const propsValue = propsObj ? propsObj[key] : undefined;
 
-                    if (pathString.includes('svg')) {
-                        console.log(`PropertyPanel: restoreDeletedProperties checking ${pathString}:`, {
-                            originalValue,
-                            cloneValue,
-                            propsValue,
-                            willSetNull: originalValue !== undefined && cloneValue === undefined && propsValue !== undefined
-                        });
-                    }
-
-                    // If the property existed in original CSD but is now deleted from current props,
-                    // send null to signal deletion to the backend
-                    if (originalValue !== undefined && propsValue === undefined) {
-                        // For nested objects, we need to restore the parent structure
+                    // If the property existed in the original CSD but was stripped from the clone
+                    // (because it now matches the default), we need to send null to signal deletion
+                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                        // Ensure parent structure exists to hold the null
                         if (!cloneObj) return;
-                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now deleted from props)`);
-                        cloneObj[key] = null;
+
+                        // Need to reconstruct parent path if it was also stripped
+                        let current = clone;
+                        for (let i = 0; i < path.length; i++) {
+                            if (!current[path[i]] || typeof current[path[i]] !== 'object') {
+                                current[path[i]] = {};
+                            }
+                            current = current[path[i]];
+                        }
+
+                        current[key] = null;
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now reverted to default)`);
                     }
-                    // If it's an object in both original and clone, recurse into it
+                    // If it's an object in both original and current props, recurse into it
                     else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
-                        cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
-                        restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
+                        propsValue && typeof propsValue === 'object' && !Array.isArray(propsValue)) {
+                        // Make sure we have the parent structure in clone to recurse into
+                        if (!cloneObj || !cloneObj[key]) {
+                            if (!cloneObj) cloneObj = {};
+                            if (!cloneObj[key]) cloneObj[key] = {};
+                        }
+                        restoreDeletedProperties(cloneObj[key], originalValue, propsValue, fullPath);
                     }
                 });
             };

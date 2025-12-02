@@ -46,7 +46,19 @@ export function setVSCode(vsCodeInstance) {
 }
 
 export function setCabbageMode(mode) {
+    const previousMode = cabbageMode;
     cabbageMode = mode;
+
+    // Release all keyboard MIDI notes when entering draggable mode
+    // This prevents stuck notes when switching modes
+    if (mode === 'draggable' && previousMode !== 'draggable') {
+        // Import dynamically to avoid circular dependency
+        import('./keyboardMidiInput.js').then(({ keyboardMidiInput }) => {
+            keyboardMidiInput.releaseAllNotes();
+        }).catch(err => {
+            console.warn('Cabbage: Could not release keyboard MIDI notes:', err);
+        });
+    }
 }
 
 export function getCabbageMode() {
