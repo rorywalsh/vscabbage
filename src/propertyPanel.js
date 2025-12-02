@@ -20,6 +20,80 @@ export class PropertyPanel {
     static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value', 'range.value'];
 
     /**
+     * Show a notification message in the property panel
+     * @param {string} message - The message to display
+     * @param {string} type - Type of notification: 'error', 'warning', 'info' (default: 'error')
+     */
+    static showNotification(message, type = 'error') {
+        // Remove any existing notifications
+        const existing = document.querySelector('.property-panel-notification');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `property-panel-notification property-panel-notification-${type}`;
+        notification.style.cssText = `
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 32px 8px 12px;
+            margin-bottom: 8px;
+            background-color: ${type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#2196F3'};
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.3;
+            z-index: 10000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+        `;
+
+        const messageSpan = document.createElement('span');
+        messageSpan.textContent = message;
+        messageSpan.style.whiteSpace = 'pre-line';
+
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.style.cssText = `
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            width: 20px;
+            height: 20px;
+        `;
+        closeButton.onclick = () => notification.remove();
+
+        notification.appendChild(messageSpan);
+        notification.appendChild(closeButton);
+
+        // Insert at the top of the property panel
+        const propertyPanel = document.querySelector('.property-panel');
+        if (propertyPanel) {
+            propertyPanel.insertBefore(notification, propertyPanel.firstChild);
+            console.log('PropertyPanel: Notification displayed:', message);
+        } else {
+            console.error('PropertyPanel: Could not find .property-panel element to show notification');
+        }
+
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 4000);
+    }
+
+    /**
      * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
      * returns undefined, which can lead to the extension receiving an invalid payload.
      * Uses CabbageUtils.sanitizeForEditor then ensures JSON.stringify returns a string.
@@ -948,10 +1022,29 @@ export class PropertyPanel {
                     });
 
                     if (widget) {
-                        // Check for uniqueness
+                        // Check for uniqueness - but allow the same widget to have matching props.id and channels[0].id
                         const existingDiv = document.getElementById(newChannel);
-                        if (existingDiv && existingDiv.id !== originalChannel) {
+
+                        // Find the current widget's div (using the original channel/id)
+                        const currentWidgetDiv = document.getElementById(originalChannel);
+
+                        // Only reject if:
+                        // 1. An element with this ID exists
+                        // 2. It's NOT the current widget we're editing
+                        if (existingDiv && existingDiv !== currentWidgetDiv) {
                             console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
+
+                            // Show user-friendly notification
+                            const existingWidgetType = existingDiv.getAttribute('data-type') || 'widget';
+                            PropertyPanel.showNotification(
+                                `Cannot use ID "${newChannel}".\n\nThis ID is already used by another ${existingWidgetType}.\n\nPlease choose a unique ID.`,
+                                'error'
+                            );
+
+                            // Revert the input field to the original value
+                            if (input && input.value !== originalChannel) {
+                                input.value = originalChannel;
+                            }
                             return;
                         }
 

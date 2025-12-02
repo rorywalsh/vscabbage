@@ -450,6 +450,7 @@ async function ungroupSelectedWidgets() {
  * Duplicates selected widgets
  */
 async function duplicateSelectedWidgets() {
+    console.log('Cabbage: duplicateSelectedWidgets called');
     if (selectedElements.size === 0) {
         console.warn('Cabbage: No widgets selected to duplicate');
         return;
@@ -463,59 +464,111 @@ async function duplicateSelectedWidgets() {
         }
     });
 
+    console.log(`Cabbage: Found ${widgetProps.length} widgets to duplicate`);
+
     // Prepare widgets with unique IDs and offset positions
     // Temporarily store in clipboard to use the prepareForPaste logic
-    widgetClipboard.copy(widgetProps);
-    const preparedWidgets = widgetClipboard.prepareForPaste(widgets, 20, 20);
+    try {
+        console.log('Cabbage: Copying widgets to clipboard');
+        widgetClipboard.copy(widgetProps);
+        console.log('Cabbage: Preparing widgets for paste');
+        const preparedWidgets = widgetClipboard.prepareForPaste(widgets, 20, 20);
+        console.log(`Cabbage: Prepared ${preparedWidgets.length} widget(s) for duplication`);
 
-    console.log(`Cabbage: Duplicating ${preparedWidgets.length} widget(s)`);
-
-    // Load PropertyPanel for minimization
-    const PP = await loadPropertyPanel();
-    if (!PP) {
-        console.error('Cabbage: PropertyPanel not available for duplication');
-        return;
-    }
-
-    // Create each duplicated widget
-    for (const widgetProps of preparedWidgets) {
-        const channelId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
-        console.log('Cabbage: Creating duplicated widget:', channelId);
-
-        // Insert the widget into the DOM and widgets array
-        await WidgetManager.insertWidget(widgetProps.type, widgetProps, WidgetManager.getCurrentCsdPath());
-
-        // Find the inserted widget instance in the widgets array
-        const inserted = widgets.find(w => w.props && (w.props.id === channelId || CabbageUtils.getChannelId(w.props, 0) === channelId));
-
-        if (inserted) {
-            try {
-                // Use PropertyPanel's minimization logic to get only non-default props
-                let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
-                minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
-
-                const payload = JSON.stringify(minimized);
-                console.log('Cabbage: Minimized payload for duplicated widget:', channelId, payload.substring(0, 200));
-
-                // Send to VSCode
-                const msg = { command: 'updateWidgetProps', text: payload };
-                postMessageToVSCode(msg);
-                // Retry once shortly after to guard against ordering races
-                setTimeout(() => postMessageToVSCode(msg), 200);
-
-                console.log('Cabbage: Sent duplicated widget to VSCode:', channelId);
-            } catch (e) {
-                console.error('Cabbage: Failed to minimize props for duplicated widget:', e);
-                // Fallback to full props if minimization fails
-                const fallback = JSON.stringify(inserted.props);
-                postMessageToVSCode({ command: 'updateWidgetProps', text: fallback });
-            }
-        } else {
-            console.error('Cabbage: Could not find inserted widget instance for:', channelId);
+        // Load PropertyPanel for minimization
+        console.log('Cabbage: Loading PropertyPanel');
+        const PP = await loadPropertyPanel();
+        if (!PP) {
+            console.error('Cabbage: PropertyPanel not available for duplication');
+            return;
         }
-    }
+        console.log('Cabbage: PropertyPanel loaded successfully');
 
-    console.log(`Cabbage: Successfully duplicated ${preparedWidgets.length} widget(s)`);
+        // Create each duplicated widget
+        for (let i = 0; i < preparedWidgets.length; i++) {
+            const widgetProps = preparedWidgets[i];
+            const channelId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
+            console.log(`Cabbage: [${i + 1}/${preparedWidgets.length}] Creating duplicated widget:`, channelId);
+
+            try {
+                // Insert the widget into the DOM and widgets array
+                console.log(`Cabbage: Inserting widget ${channelId}`);
+                await WidgetManager.insertWidget(widgetProps.type, widgetProps, WidgetManager.getCurrentCsdPath());
+                console.log(`Cabbage: Widget ${channelId} inserted`);
+
+                // Find the inserted widget instance in the widgets array
+                // Since the ID might have changed, look for the most recently added widget with matching bounds
+                const inserted = widgets.find(w =>
+                    w.props &&
+                    w.props.bounds &&
+                    widgetProps.bounds &&
+                    w.props.bounds.left === widgetProps.bounds.left &&
+                    w.props.bounds.top === widgetProps.bounds.top &&
+                    (w.props.id === channelId || CabbageUtils.getChannelId(w.props, 0) === channelId)
+                );
+
+                if (inserted) {
+                    console.log(`Cabbage: Found inserted widget instance for ${channelId}`);
+                    try {
+                        // Use PropertyPanel's minimization logic to get only non-default props
+                        let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
+                        minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                        const payload = JSON.stringify(minimized);
+                        console.log('Cabbage: Minimized payload for duplicated widget:', channelId, payload.substring(0, 200));
+
+                        // Send to VSCode
+                        const msg = { command: 'updateWidgetProps', text: payload };
+                        postMessageToVSCode(msg);
+                        // Retry once shortly after to guard against ordering races
+                        setTimeout(() => postMessageToVSCode(msg), 200);
+
+                        console.log('Cabbage: Sent duplicated widget to VSCode:', channelId);
+                    } catch (e) {
+                        console.error('Cabbage: Failed to minimize props for duplicated widget:', e);
+                        // Fallback to full props if minimization fails
+                        const fallback = JSON.stringify(inserted.props);
+                        postMessageToVSCode({ command: 'updateWidgetProps', text: fallback });
+                    }
+                } else {
+                    console.error('Cabbage: Could not find inserted widget instance for:', channelId);
+                }
+            } catch (widgetError) {
+                console.error(`Cabbage: Error duplicating widget ${channelId}:`, widgetError);
+                // Continue with next widget instead of crashing
+            }
+        }
+
+        console.log(`Cabbage: Successfully duplicated ${preparedWidgets.length} widget(s)`);
+
+        // Select all the newly created widgets so they can be moved as a group
+        if (preparedWidgets.length > 0) {
+            console.log('Cabbage: Selecting newly duplicated widgets');
+
+            // Clear current selection
+            selectedElements.clear();
+            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+
+            // Select all the newly duplicated widgets
+            preparedWidgets.forEach(widgetProps => {
+                const widgetId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
+                const widgetDiv = document.getElementById(widgetId);
+
+                if (widgetDiv) {
+                    widgetDiv.classList.add('selected');
+                    selectedElements.add(widgetDiv);
+                    console.log('Cabbage: Selected duplicated widget:', widgetId);
+                } else {
+                    console.warn('Cabbage: Could not find duplicated widget div for selection:', widgetId);
+                }
+            });
+
+            console.log(`Cabbage: Selected ${selectedElements.size} duplicated widget(s)`);
+        }
+    } catch (error) {
+        console.error('Cabbage: Error in duplicateSelectedWidgets:', error);
+        console.error('Cabbage: Stack trace:', error.stack);
+    }
 }
 
 /**
