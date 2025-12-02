@@ -1398,7 +1398,7 @@ export class Commands {
 
         const document = editor.document;
         const text = document.getText();
-        
+
         // Find existing Cabbage section
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
         const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -1425,21 +1425,21 @@ export class Commands {
         const csoundSynthesizerEndTag = '</CsoundSynthesizer>';
         const csoundStartIndex = text.indexOf(csoundSynthesizerStartTag);
         const csoundEndIndex = text.indexOf(csoundSynthesizerEndTag);
-        
+
         // Section is at top if it appears before <CsoundSynthesizer>
         const isCurrentlyAtTop = csoundStartIndex !== -1 && cabbageSectionStart < csoundStartIndex;
-        
+
         // Toggle to opposite position
         const targetPosition = isCurrentlyAtTop ? 'bottom' : 'top';
 
         const edit = new vscode.WorkspaceEdit();
-        
+
         // Remove from current position
         const removeRange = new vscode.Range(
             document.positionAt(cabbageSectionStart),
             document.positionAt(cabbageSectionEnd)
         );
-        
+
         // Also remove trailing newlines after the section
         let endPosition = cabbageSectionEnd;
         while (endPosition < text.length && (text[endPosition] === '\n' || text[endPosition] === '\r')) {
@@ -1449,7 +1449,7 @@ export class Commands {
             document.positionAt(cabbageSectionStart),
             document.positionAt(endPosition)
         );
-        
+
         edit.delete(document.uri, removeRangeWithNewlines);
 
         // Insert at target position

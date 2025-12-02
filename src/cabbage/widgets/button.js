@@ -135,7 +135,7 @@ export class Button {
     if (!this.props.active) {
       return '';
     }
-    this.isMouseOver = true;
+    this.isMouseInside = true;
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -143,7 +143,7 @@ export class Button {
     if (!this.props.active) {
       return '';
     }
-    this.isMouseOver = false;
+    this.isMouseInside = false;
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -214,24 +214,34 @@ export class Button {
     const baseColour = isOn ? this.props.style.on.backgroundColor : this.props.style.off.backgroundColor;
     const baseTextColour = isOn ? this.props.style.on.textColor : this.props.style.off.textColor;
 
-    // Apply hover or active state if applicable
-    let currentColour = baseColour;
+    // Determine overlay colors for hover/active states
+    let overlayColour = null;
     let textColour = baseTextColour;
 
     if (this.isMouseDown && this.props.style.active.backgroundColor) {
-      currentColour = this.props.style.active.backgroundColor;
+      overlayColour = this.props.style.active.backgroundColor;
       textColour = this.props.style.active.textColor;
     } else if (this.isMouseInside && this.props.style.hover.backgroundColor) {
-      currentColour = this.props.style.hover.backgroundColor;
+      overlayColour = this.props.style.hover.backgroundColor;
       textColour = this.props.style.hover.textColor;
     }
 
-    // Base button SVG
+    // Base button SVG - always draw the base state (on/off)
     let buttonHtml = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
            width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
-        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.style.borderColor}"
-          stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
+        <rect x="0" y="0" width="100%" height="100%" fill="${baseColour}" stroke="${this.props.style.borderColor}"
+          stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>`;
+
+    // Add overlay rect for hover/active state if present
+    if (overlayColour) {
+      buttonHtml += `
+        <rect x="0" y="0" width="100%" height="100%" fill="${overlayColour}"
+          rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>`;
+    }
+
+    // Add text on top
+    buttonHtml += `
         <text x="${textX}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
           fill="${textColour}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>

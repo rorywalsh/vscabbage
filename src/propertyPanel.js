@@ -229,9 +229,16 @@ export class PropertyPanel {
                                 if (WidgetManager.deepEqual(v, dv)) delete obj[k];
                             }
                         } else {
+                            // Before recursing, check if this object has any keys that aren't in defaults
+                            // This handles cases where deeply nested properties have changed
+                            const hasNonDefaultKeys = Object.keys(v).some(vk => !(vk in dv));
+
                             strip(v, dv);
+
                             // After stripping nested properties, check if the object is now empty
-                            if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
+                            // BUT: only delete if it was empty to begin with OR if it had no non-default keys
+                            // This preserves parent objects when deeply nested children have changed
+                            if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0 && !hasNonDefaultKeys) {
                                 delete obj[k];
                             }
                         }
@@ -636,7 +643,7 @@ export class PropertyPanel {
     createSections(properties, panel) {
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
+        const hiddenProps = widget?.hiddenProps || ['//', 'parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps or already handled
@@ -761,7 +768,7 @@ export class PropertyPanel {
 
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
+        const hiddenProps = widget?.hiddenProps || ['//', 'parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         // Collect misc properties and sort them alphabetically
         const miscProperties = [];
@@ -1028,10 +1035,20 @@ export class PropertyPanel {
                         // Find the current widget's div (using the original channel/id)
                         const currentWidgetDiv = document.getElementById(originalChannel);
 
+                        // Check if the existing div belongs to the same widget we're editing
+                        // This allows props.id and channels[0].id to have the same value
+                        let isSameWidget = false;
+                        if (existingDiv && widget.props) {
+                            // Check if existingDiv's id matches either props.id or channels[0].id of current widget
+                            const widgetPropsId = widget.props.id;
+                            const widgetChannelId = widget.props.channels?.[0]?.id;
+                            isSameWidget = (newChannel === widgetPropsId || newChannel === widgetChannelId);
+                        }
+
                         // Only reject if:
                         // 1. An element with this ID exists
-                        // 2. It's NOT the current widget we're editing
-                        if (existingDiv && existingDiv !== currentWidgetDiv) {
+                        // 2. It's NOT the current widget we're editing (checked by div reference or widget ownership)
+                        if (existingDiv && existingDiv !== currentWidgetDiv && !isSameWidget) {
                             console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
 
                             // Show user-friendly notification
@@ -1505,13 +1522,23 @@ export class PropertyPanel {
                 // Handle nested properties
                 this.setNestedProperty(widget.props, path, parsedValue);
 
-                console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                // Debug: Log the range property for debugging (handle both top-level and channel-level range)
+                if (path.includes('range')) {
+                    console.log('PropertyPanel: after setNestedProperty, widget.props.range:', JSON.stringify(widget.props.range, null, 2));
+                    if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
+                        console.log('PropertyPanel: after setNestedProperty, widget.props.channels[0].range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                    }
+                }
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
+                } else if (typeof widget.updateCanvas === 'function') {
+                    widget.updateCanvas(); // Update canvas for canvas-based widgets
+                } else if (typeof widget.updateTable === 'function') {
+                    widget.updateTable(); // Backward compatibility
                 } else {
                     console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
@@ -1525,7 +1552,9 @@ export class PropertyPanel {
                 console.log('PropertyPanel: sending updateWidgetProps to VSCode');
                 try {
                     let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                    console.log('PropertyPanel: minimized props:', JSON.stringify(minimized, null, 2));
                     minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                    console.log('PropertyPanel: after applyExcludes:', JSON.stringify(minimized, null, 2));
                     const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
                     console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
                     this.vscode.postMessage({
@@ -1578,6 +1607,10 @@ export class PropertyPanel {
             if (widgetDiv) {
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
+                } else if (typeof widget.updateCanvas === 'function') {
+                    widget.updateCanvas(); // Update canvas for canvas-based widgets
+                } else if (typeof widget.updateTable === 'function') {
+                    widget.updateTable(); // Backward compatibility
                 } else {
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
@@ -1782,10 +1815,12 @@ export class PropertyPanel {
 
                     // Handle specific widget types with dedicated update methods
                     if (eventType !== 'click') {
-                        if (widget.props.type === "gentable") {
-                            widget.updateTable(); // Update table for gentable type
-                        } else if (widget.props.type === "form") {
+                        if (widget.props.type === "form") {
                             widget.updateSVG(); // Update SVG for form type
+                        } else if (typeof widget.updateCanvas === 'function') {
+                            widget.updateCanvas(); // Update canvas for canvas-based widgets (gentable, custom widgets, etc.)
+                        } else if (typeof widget.updateTable === 'function') {
+                            widget.updateTable(); // Backward compatibility for gentable widgets
                         } else {
                             const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                             if (widgetDiv) {

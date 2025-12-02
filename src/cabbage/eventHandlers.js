@@ -62,10 +62,13 @@ export let selectedElements = new Set();
  * @param {HTMLElement} widgetDiv - The widget element being clicked.
  */
 export async function handlePointerDown(e, widgetDiv) {
-    if (e.altKey || e.shiftKey) {
+    // Cmd/Meta key: toggle widget in/out of selection (multi-select)
+    // Shift key: reserved for drag-to-select
+    // No modifier: exclusive selection (replace existing selection)
+    if (e.metaKey || e.ctrlKey) {
         widgetDiv.classList.toggle('selected');
         updateSelectedElements(widgetDiv);
-    } else if (!widgetDiv.classList.contains('selected')) {
+    } else if (!e.shiftKey && !widgetDiv.classList.contains('selected')) {
         // Clear all other selections and select the clicked widget exclusively
         selectedElements.forEach(element => element.classList.remove('selected'));
         selectedElements.clear();
@@ -1156,8 +1159,10 @@ export function setupFormHandlers() {
                 offsetX = formRect.left;
                 offsetY = formRect.top;
 
-                // Selection logic for multi-select using Shift/Alt keys
-                if ((event.shiftKey || event.altKey) && event.target.id === "MainForm") {
+                // Selection logic for multi-select using Shift key (drag-to-select)
+                // Cmd/Meta is used for toggling individual widget selection
+                if (event.shiftKey && !event.metaKey && !event.ctrlKey) {
+                    // Start drag-to-select - works anywhere on the form
                     isSelecting = true;
                     startX = event.clientX - offsetX;
                     startY = event.clientY - offsetY;
@@ -1175,20 +1180,24 @@ export function setupFormHandlers() {
                     form.appendChild(selectionBox);
                 } else if ((clickedElement.classList.contains('draggable') || clickedElement.classList.contains('nonDraggable')) && event.target.id !== "MainForm") {
                     // Handle individual widget selection and toggling
-                    if (!event.shiftKey && !event.altKey) {
-                        if (!selectedElements.has(clickedElement)) {
-                            selectedElements.forEach(element => element.classList.remove('selected'));
-                            selectedElements.clear();
-                            selectedElements.add(clickedElement);
-                        }
-                        clickedElement.classList.add('selected');
-                    } else {
+                    // Cmd/Meta key: toggle widget in/out of selection (multi-select)
+                    // No modifier: exclusive selection (replace existing selection)
+                    if (event.metaKey || event.ctrlKey) {
+                        // Toggle this widget in the current selection
                         clickedElement.classList.toggle('selected');
                         if (clickedElement.classList.contains('selected')) {
                             selectedElements.add(clickedElement);
                         } else {
                             selectedElements.delete(clickedElement);
                         }
+                    } else if (!event.shiftKey) {
+                        // Exclusive selection (clear others unless already selected)
+                        if (!selectedElements.has(clickedElement)) {
+                            selectedElements.forEach(element => element.classList.remove('selected'));
+                            selectedElements.clear();
+                            selectedElements.add(clickedElement);
+                        }
+                        clickedElement.classList.add('selected');
                     }
                 }
 
@@ -1217,8 +1226,8 @@ export function setupFormHandlers() {
                     selectedElements.clear();
                 }
 
-                // In the part where PropertyPanel is used:
-                if (!event.shiftKey && !event.altKey && cabbageMode === 'draggable') {
+                // Update PropertyPanel (but not during shift-drag selection or cmd-toggle)
+                if (!event.shiftKey && !event.metaKey && !event.ctrlKey && cabbageMode === 'draggable') {
                     try {
                         const PP = await loadPropertyPanel();
                         if (PP && typeof PP.updatePanel === 'function') {

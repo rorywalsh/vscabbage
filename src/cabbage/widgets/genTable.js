@@ -41,8 +41,10 @@ export class GenTable {
                 "borderRadius": 4,
                 "borderWidth": 1,
                 "borderColor": "#dddddd",
-                "fill": "#93d200",
-                "background": "#00000022",
+                "strokeColor": "#dddddd",
+                "strokeWidth": 1,
+                "fillColor": "#93d200",
+                "backgroundColor": "#00000022",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -76,8 +78,19 @@ export class GenTable {
         // Cache for the waveform rendering (for performance)
         this.waveformCanvas = null;
         this.waveformCtx = null;
-        // Wrap props with reactive proxy to unify visible/active handling
-        this.props = CabbageUtils.createReactiveProps(this, this.props);
+
+        // Wrap props with reactive proxy to watch for samples changes
+        this.props = CabbageUtils.createReactiveProps(this, this.props, {
+            watchKeys: ['samples', 'totalSamples'],
+            onPropertyChange: (change) => {
+                // Redraw when samples array changes
+                if (change.key === 'samples' || change.key === 'totalSamples') {
+                    if (this.canvas && this.waveformCanvas) {
+                        this.updateCanvas();
+                    }
+                }
+            }
+        });
     }
 
 
@@ -328,13 +341,23 @@ export class GenTable {
         return `<div id="${channelId}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
+    /**
+     * Called by PropertyPanel when properties change
+     * This is the method the property panel expects for gentable widgets
+     */
+    updateTable() {
+        if (this.canvas && this.waveformCanvas) {
+            this.updateCanvas();
+        }
+    }
+
     updateCanvas() {
         // Resize both canvases
         this.canvas.width = Number(this.props.bounds.width);
         this.canvas.height = Number(this.props.bounds.height);
         this.waveformCanvas.width = Number(this.props.bounds.width);
         this.waveformCanvas.height = Number(this.props.bounds.height);
-
+        console.log(`Cabbage: GenTable: updateCanvas called for widget ID: ${this.props.id}`);
         // Render the waveform to the offscreen canvas (this is the expensive operation)
         this.renderWaveformToCache();
 
@@ -394,6 +417,25 @@ export class GenTable {
             this.drawSelectionOverlay();
         }
 
+        // Draw rounded background border on the main canvas so it appears
+        // above the waveform and selection overlay. Use `borderColor`/`borderWidth`.
+        const bgBorderWidth2 = Number((this.props.style && (typeof this.props.style.borderWidth !== 'undefined')) ? this.props.style.borderWidth : 0);
+        const bgBorderColor2 = (this.props.style && this.props.style.borderColor) || 'rgba(0,0,0,0)';
+        if (bgBorderWidth2 > 0) {
+            this.ctx.save();
+            this.ctx.strokeStyle = bgBorderColor2;
+            this.ctx.lineWidth = bgBorderWidth2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(Number(this.props.style.borderRadius), 0);
+            this.ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.style.borderRadius));
+            this.ctx.closePath();
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+
         // Update DOM with the canvas
         const widgetElement = CabbageUtils.getWidgetDiv(this.props);
         if (widgetElement) {
@@ -416,11 +458,11 @@ export class GenTable {
      * Renders the waveform (background, samples, text) to the offscreen canvas
      * This is the expensive operation that we cache
      * 
-     * Color scheme:
-     * - shape.background: Widget background (behind waveform)
-     * - shape.fill: Waveform shape fill color
-     * - shape.borderColor: Outline color around waveform
-     * - shape.borderWidth: Outline thickness
+    // Color scheme:
+    // - shape.backgroundColor: Widget background (behind waveform)
+    // - shape.fillColor: Waveform shape fill color
+    // - shape.borderColor / shape.borderWidth: Border drawn around the rounded background
+    // - shape.strokeColor / shape.strokeWidth: Outline stroke used for the waveform itself
      */
     renderWaveformToCache() {
         const ctx = this.waveformCtx;
@@ -444,8 +486,12 @@ export class GenTable {
         const yMin = (this.props.range && this.props.range.y && typeof this.props.range.y.min !== 'undefined') ? this.props.range.y.min : -1.0;
         const yMax = (this.props.range && this.props.range.y && typeof this.props.range.y.max !== 'undefined') ? this.props.range.y.max : 1.0;
 
+        // Calculate border inset to prevent waveform from overlapping the border
+        const borderInset = Number((this.props.style && (typeof this.props.style.borderWidth !== 'undefined')) ? this.props.style.borderWidth : 0);
+
         // Draw background with rounded corners
-        ctx.fillStyle = this.props.style.background;
+        // Prefer the new `backgroundColor` key but fall back to the old `background`
+        ctx.fillStyle = (this.props.style && (this.props.style.backgroundColor || this.props.style.background)) || 'rgba(0,0,0,0)';
         ctx.beginPath();
         ctx.moveTo(Number(this.props.style.borderRadius), 0);
         ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.style.borderRadius));
@@ -454,6 +500,25 @@ export class GenTable {
         ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.style.borderRadius));
         ctx.closePath();
         ctx.fill();
+
+        // Set up clipping region inset by border width so waveform doesn't overlap the border area
+        ctx.save();
+        if (borderInset > 0) {
+            const insetRadius = Math.max(0, Number(this.props.style.borderRadius) - borderInset);
+            ctx.beginPath();
+            ctx.moveTo(borderInset + insetRadius, borderInset);
+            ctx.arcTo(this.props.bounds.width - borderInset, borderInset, this.props.bounds.width - borderInset, this.props.bounds.height - borderInset, insetRadius);
+            ctx.arcTo(this.props.bounds.width - borderInset, this.props.bounds.height - borderInset, borderInset, this.props.bounds.height - borderInset, insetRadius);
+            ctx.arcTo(borderInset, this.props.bounds.height - borderInset, borderInset, borderInset, insetRadius);
+            ctx.arcTo(borderInset, borderInset, this.props.bounds.width - borderInset, borderInset, insetRadius);
+            ctx.closePath();
+            ctx.clip();
+        }
+
+        // Background border drawing moved to `updateCanvas()` so it is painted
+        // on the main canvas after the waveform and selection overlays. This
+        // ensures the border appears above the waveform rather than being
+        // obscured by it.
 
         // Only draw waveform if we have samples
         if (this.props.samples.length === 0) {
@@ -517,7 +582,8 @@ export class GenTable {
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
             // Draw filled waveform from center line to amplitudes
-            ctx.fillStyle = this.props.style.fill;
+            // Prefer `fillColor`, fall back to legacy `fill` color key
+            ctx.fillStyle = (this.props.style && (this.props.style.fillColor || this.props.style.fill)) || '#000000';
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 let startIdx, endIdx;
                 const useLog3 = (this.props.style && this.props.style.logarithmic);
@@ -555,9 +621,14 @@ export class GenTable {
         }
 
         // Draw outline stroke on top
-        if (Number(this.props.style.borderWidth) > 0) {
-            ctx.strokeStyle = this.props.style.borderColor;
-            ctx.lineWidth = Number(this.props.style.borderWidth);
+        // Check strokeWidth first (primary), then fall back to borderWidth for legacy support
+        const outlineWidth = Number((this.props.style && (typeof this.props.style.strokeWidth !== 'undefined')) ? this.props.style.strokeWidth : (this.props.style.borderWidth || 0));
+        if (outlineWidth > 0) {
+            // Use `strokeColor`/`strokeWidth` for the waveform outline if provided,
+            // otherwise fall back to legacy `borderColor`/`borderWidth`.
+            const outlineColor = (this.props.style && (this.props.style.strokeColor || this.props.style.borderColor)) || '#000000';
+            ctx.strokeStyle = outlineColor;
+            ctx.lineWidth = outlineWidth;
             ctx.beginPath();
 
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
@@ -594,6 +665,9 @@ export class GenTable {
 
         // Note: red diagnostic tick lines removed — enable visual diagnostics
         // via console mapping logs if needed.
+
+        // Restore context (remove clipping)
+        ctx.restore();
 
         // Draw text on top of everything
         this.drawText(ctx);
