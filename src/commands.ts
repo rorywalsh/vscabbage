@@ -36,6 +36,7 @@ export class Commands {
     private static compilationFailed: boolean = false;
     private static panelRevealTimeout: NodeJS.Timeout | undefined;
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
+    private static editQueue: Promise<void> = Promise.resolve();
     appendOutput: Boolean = true;
 
     /**
@@ -248,8 +249,12 @@ export class Commands {
                     const rawText = message && message.text;
                     console.log('Extension: Received updateWidgetProps from webview:', message && (message.oldId ? `(oldId:${message.oldId}) ` : '') + String(rawText).slice(0, 200));
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        // Previously we looked up default props here; that logic has been removed.
-                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        // Queue the edit to prevent race conditions when multiple updates arrive simultaneously
+                        Commands.editQueue = Commands.editQueue.then(async () => {
+                            await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        }).catch(err => {
+                            console.error('Extension: Error processing queued edit:', err);
+                        }); 
                     }
                 }
                 break;
@@ -1393,7 +1398,7 @@ export class Commands {
 
         const document = editor.document;
         const text = document.getText();
-        
+
         // Find existing Cabbage section
         const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
         const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
@@ -1420,21 +1425,21 @@ export class Commands {
         const csoundSynthesizerEndTag = '</CsoundSynthesizer>';
         const csoundStartIndex = text.indexOf(csoundSynthesizerStartTag);
         const csoundEndIndex = text.indexOf(csoundSynthesizerEndTag);
-        
+
         // Section is at top if it appears before <CsoundSynthesizer>
         const isCurrentlyAtTop = csoundStartIndex !== -1 && cabbageSectionStart < csoundStartIndex;
-        
+
         // Toggle to opposite position
         const targetPosition = isCurrentlyAtTop ? 'bottom' : 'top';
 
         const edit = new vscode.WorkspaceEdit();
-        
+
         // Remove from current position
         const removeRange = new vscode.Range(
             document.positionAt(cabbageSectionStart),
             document.positionAt(cabbageSectionEnd)
         );
-        
+
         // Also remove trailing newlines after the section
         let endPosition = cabbageSectionEnd;
         while (endPosition < text.length && (text[endPosition] === '\n' || text[endPosition] === '\r')) {
@@ -1444,7 +1449,7 @@ export class Commands {
             document.positionAt(cabbageSectionStart),
             document.positionAt(endPosition)
         );
-        
+
         edit.delete(document.uri, removeRangeWithNewlines);
 
         // Insert at target position

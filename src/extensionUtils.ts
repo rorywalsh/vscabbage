@@ -591,8 +591,19 @@ be lost when working with the UI editor. -->\n`;
                         });
 
                         if (existingIndex !== -1) {
+                            // Debug logging for gentable updates
+                            if (props.type === 'genTable') {
+                                console.log('ExtensionUtils: Before merge - existing widget:', JSON.stringify(cabbageJsonArray[existingIndex], null, 2));
+                                console.log('ExtensionUtils: Merging props:', JSON.stringify(props, null, 2));
+                            }
+
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
+
+                            if (props.type === 'genTable') {
+                                console.log('ExtensionUtils: After merge - merged widget:', JSON.stringify(merged, null, 2));
+                            }
+
                             cabbageJsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(merged);
 
                             // If this widget has children, remove those children from the top-level array
@@ -1133,13 +1144,30 @@ ${JSON.stringify(props, null, 4)}
         } : undefined;
 
         // Create an ordered range object only if range is present in the original object
-        const orderedRange = range ? {
-            min: range.min,
-            max: range.max,
-            defaultValue: range.defaultValue,
-            skew: range.skew,
-            increment: range.increment,
-        } : undefined;
+        // Handle both flat range (for sliders) and nested range (for gentable with x/y)
+        let orderedRange: any = undefined;
+        if (range) {
+            // Check if this is a gentable-style nested range with x/y properties
+            if (range.x !== undefined || range.y !== undefined) {
+                // Preserve the nested structure for gentable
+                orderedRange = {};
+                if (range.x !== undefined) {
+                    orderedRange.x = range.x;
+                }
+                if (range.y !== undefined) {
+                    orderedRange.y = range.y;
+                }
+            } else {
+                // Flat range for sliders
+                orderedRange = {
+                    min: range.min,
+                    max: range.max,
+                    defaultValue: range.defaultValue,
+                    skew: range.skew,
+                    increment: range.increment,
+                };
+            }
+        }
 
         // Return a new object with the original order and only include bounds/range if they exist
         const result: WidgetProps = {
@@ -1276,7 +1304,7 @@ be lost when working with the UI editor. -->\n
         "channels": [{"id": "gain"}],
         "text": "Gain"
     }`;
-            
+
             const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d
@@ -1474,65 +1502,129 @@ ${csoundSection}`;
             try {
                 const jsonArray = JSON.parse(cabbageContent);
 
-                // Check for duplicate channels
-                const channelMap = new Map<string, number[]>(); // channelId -> array of line numbers
+                console.log(`ExtensionUtils: validateCabbageJSON checking ${jsonArray.length} widgets`);
+
+                // Check for duplicate IDs programmatically - no regex, just parse JSON
+                const propsIdMap = new Map<string, number[]>(); // id -> array of widget indices
+                const channelIdMap = new Map<string, number[]>(); // id -> array of widget indices
                 const diagnostics: vscode.Diagnostic[] = [];
 
-                // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
-                const getChannelId = (obj: any): string => {
-                    if (obj.id) {
-                        return obj.id;
-                    }
-                    if (obj.channels) {
-                        if (Array.isArray(obj.channels) && obj.channels[0]) {
-                            return obj.channels[0].id;
-                        } else if (typeof obj.channels === 'object' && obj.channels[0]) {
-                            return obj.channels[0].id;
-                        }
-                    }
-                    return obj.channel || '';
-                };
-
-                // Find all channel occurrences and their positions
+                // Parse the JSON and track IDs
                 jsonArray.forEach((widget: any, widgetIndex: number) => {
-                    const channelId = getChannelId(widget);
-                    if (channelId) {
-                        // Find all occurrences of this channel in the document (both old and new formats)
-                        const oldFormatRegex = new RegExp(`"channel"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
-                        const newFormatRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                    console.log(`ExtensionUtils: Widget ${widgetIndex}: props.id="${widget.id}", channel[0].id="${widget.channels?.[0]?.id}"`);
 
-                        [oldFormatRegex, newFormatRegex].forEach(regex => {
-                            let match;
-                            while ((match = regex.exec(editor.getText())) !== null) {
-                                const matchIndex = match.index;
-                                const beforeMatch = editor.getText().substring(0, matchIndex);
-                                const lineNumber = beforeMatch.split('\n').length - 1;
+                    // Track props.id
+                    if (widget.id) {
+                        if (!propsIdMap.has(widget.id)) {
+                            propsIdMap.set(widget.id, []);
+                        }
+                        propsIdMap.get(widget.id)!.push(widgetIndex);
+                    }
 
-                                if (!channelMap.has(channelId)) {
-                                    channelMap.set(channelId, []);
-                                }
-                                if (!channelMap.get(channelId)!.includes(lineNumber)) {
-                                    channelMap.get(channelId)!.push(lineNumber);
-                                }
-                            }
-                        });
+                    // Track channels[0].id - but only if it's different from props.id
+                    if (widget.channels && Array.isArray(widget.channels) && widget.channels[0] && widget.channels[0].id) {
+                        const channelId = widget.channels[0].id;
+
+                        // Allow same widget to have matching props.id and channels[0].id
+                        if (widget.id === channelId) {
+                            console.log(`ExtensionUtils: Widget ${widgetIndex} has matching props.id and channel.id="${channelId}" - this is allowed`);
+                            return;
+                        }
+
+                        console.log(`ExtensionUtils: Tracking channel ID "${channelId}" for widget ${widgetIndex}`);
+
+                        if (!channelIdMap.has(channelId)) {
+                            channelIdMap.set(channelId, []);
+                        }
+                        channelIdMap.get(channelId)!.push(widgetIndex);
                     }
                 });
 
-                // Create diagnostics for duplicate channels
-                for (const [channelId, lineNumbers] of channelMap) {
-                    if (lineNumbers.length > 1) {
-                        console.log(`Found duplicate channel: ${channelId} on lines: ${lineNumbers.join(', ')}`);
-                        // This channel is duplicated
-                        for (const lineNumber of lineNumbers) {
-                            const lineContent = editor.getText().split('\n')[lineNumber];
-                            const range = new vscode.Range(lineNumber, 0, lineNumber, lineContent.length);
-                            const diagnostic = new vscode.Diagnostic(
-                                range,
-                                `Duplicate channel "${channelId}": Channel IDs must be unique`,
-                                vscode.DiagnosticSeverity.Error
-                            );
+                console.log(`ExtensionUtils: propsIdMap:`, Array.from(propsIdMap.entries()).map(([id, indices]) => `${id}: [${indices.join(',')}]`).join('; '));
+                console.log(`ExtensionUtils: channelIdMap:`, Array.from(channelIdMap.entries()).map(([id, indices]) => `${id}: [${indices.join(',')}]`).join('; '));
+
+                // Helper function to find all line numbers where an ID appears
+                const findAllIdLineNumbers = (id: string, isChannelId: boolean): number[] => {
+                    const text = editor.getText();
+                    const lines = text.split('\n');
+                    const lineNumbers: number[] = [];
+                    const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (isChannelId) {
+                            // For channel IDs, look for "id": "value" within channels array
+                            if (line.includes('"channels"') || (i > 0 && lines[i - 1].includes('"channels"'))) {
+                                const idPattern = new RegExp(`"id"\\s*:\\s*"${escapedId}"`, 'i');
+                                if (idPattern.test(line)) {
+                                    lineNumbers.push(i);
+                                }
+                            }
+                        } else {
+                            // For props.id, avoid matching channel IDs
+                            const idPattern = new RegExp(`^[^"]*"id"\\s*:\\s*"${escapedId}"`, 'i');
+                            if (idPattern.test(line) && !lines[i - 1]?.includes('"channels"')) {
+                                lineNumbers.push(i);
+                            }
+                        }
+                    }
+                    return lineNumbers.length > 0 ? lineNumbers : [cabbageStartIndex];
+                };
+
+                // Check for duplicate props.id
+                for (const [propsId, indices] of propsIdMap) {
+                    if (indices.length > 1) {
+                        const message = `Duplicate widget ID "${propsId}": Found in ${indices.length} widgets (indices: ${indices.join(', ')})`;
+                        console.log(message);
+                        Commands.getOutputChannel().appendLine(message);
+
+                        const lineNumbers = findAllIdLineNumbers(propsId, false);
+                        lineNumbers.forEach(lineNumber => {
+                            const line = editor.lineAt(lineNumber);
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                            const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
                             diagnostics.push(diagnostic);
+                        });
+                    }
+                }
+
+                // Check for duplicate channel IDs
+                for (const [channelId, indices] of channelIdMap) {
+                    if (indices.length > 1) {
+                        const message = `Duplicate channel ID "${channelId}": Found in ${indices.length} widgets (indices: ${indices.join(', ')})`;
+                        console.log(message);
+                        Commands.getOutputChannel().appendLine(message);
+
+                        const lineNumbers = findAllIdLineNumbers(channelId, true);
+                        lineNumbers.forEach(lineNumber => {
+                            const line = editor.lineAt(lineNumber);
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                            const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                            diagnostics.push(diagnostic);
+                        });
+                    }
+                }
+
+                // Check for collisions between props.id and channel IDs across different widgets
+                for (const [channelId, channelIndices] of channelIdMap) {
+                    if (propsIdMap.has(channelId)) {
+                        const propsIndices = propsIdMap.get(channelId)!;
+                        const hasCollision = channelIndices.some(ci =>
+                            propsIndices.some(pi => ci !== pi)
+                        );
+
+                        if (hasCollision) {
+                            const message = `ID collision "${channelId}": Used as channel ID in widgets ${channelIndices.join(', ')} and as widget ID in widgets ${propsIndices.join(', ')}`;
+                            console.log(message);
+                            Commands.getOutputChannel().appendLine(message);
+
+                            const lineNumbers = findAllIdLineNumbers(channelId, true);
+                            lineNumbers.forEach(lineNumber => {
+                                const line = editor.lineAt(lineNumber);
+                                const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                                const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                diagnostics.push(diagnostic);
+                            });
                         }
                     }
                 }
@@ -1543,14 +1635,9 @@ ${csoundSection}`;
                     console.log("Setting diagnostics and returning false");
                     Commands.setJSONDiagnostics(editor.uri, diagnostics);
                     // Scroll to the first error
-                    if (diagnostics.length > 0) {
-                        activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-                    }
-                    const duplicateChannels = Array.from(channelMap.keys()).filter(channelId => channelMap.get(channelId)!.length > 1);
-                    const errorMsg = `Duplicate channels found: ${duplicateChannels.join(', ')}`;
-                    Commands.getOutputChannel().appendLine(errorMsg);
+                    activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
                     Commands.getOutputChannel().show();
-                    return false; // Don't proceed if there are duplicate channels
+                    return false; // Don't proceed if there are duplicates
                 }
 
                 console.log("No duplicates found, returning true");
