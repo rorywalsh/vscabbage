@@ -92,10 +92,10 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
             // Error messages like: Unexpected token ']', ..."98\n    },\n]" is not valid JSON
             // The snippet might have literal newlines or escaped \n
             const snippetMatch = errorMessage.match(/\.{3}"([^"]+)"[\s\w]*is not valid JSON/);
-            
+
             if (snippetMatch) {
                 let snippet = snippetMatch[1];
-                
+
                 // Try both: with escaped newlines converted and as-is
                 const snippetVariants = [
                     snippet,
@@ -104,7 +104,7 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
 
                 for (const variant of snippetVariants) {
                     const snippetIndex = cabbageContent.indexOf(variant);
-                    
+
                     if (snippetIndex !== -1) {
                         // Found the snippet - the error is at the end of this snippet
                         const documentPosition = cabbageStartIndex + snippetIndex + variant.length - 1;
@@ -146,7 +146,7 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
         if (position && errorMessage.includes('Unexpected token')) {
             const allLines = documentText.split('\n');
             const errorLine = allLines[position.line];
-            
+
             // If the error line starts with ] or } and previous line ends with comma, 
             // highlight the previous line (where the trailing comma is)
             if (errorLine && errorLine.trim().match(/^[\]\}]/) && position.line > 0) {
@@ -659,9 +659,15 @@ export async function activate(context: vscode.ExtensionContext):
         vscode.commands.registerCommand('cabbage.moveCabbageSection', () => {
             Commands.moveCabbageSection();
         }));
-    context.subscriptions.push(
-        vscode.commands.registerCommand('cabbage.updateToCabbage3', () => {
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.updateToCabbage3', () => {
             Commands.updateCodeToJSON();
+        }));
+
+    // Register command for reordering widgets
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.reorderWidgets', () => {
+            Commands.reorderWidgets();
         }));
 
     // Register document formatting provider for VSCode's built-in Format Document command
@@ -777,8 +783,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         // Validate JSON in Cabbage section before compilation
         const jsonValidation = validateCabbageJSON(editor.getText());
         if (!jsonValidation.valid) {
-            const lineInfo = jsonValidation.position 
-                ? ` (line ${jsonValidation.position.line + 1}, column ${jsonValidation.position.column + 1})` 
+            const lineInfo = jsonValidation.position
+                ? ` (line ${jsonValidation.position.line + 1}, column ${jsonValidation.position.column + 1})`
                 : '';
             const errorMsg = `Cabbage: Cannot compile - Invalid JSON in Cabbage section${lineInfo}: ${jsonValidation.error}`;
             Commands.getOutputChannel().appendLine(errorMsg);

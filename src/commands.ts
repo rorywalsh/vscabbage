@@ -14,6 +14,7 @@ export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
+import { reorderWidgets } from './utils/widgetSorter';
 // setupWebSocketServer no longer needed - using pipes
 
 /**
@@ -38,6 +39,82 @@ export class Commands {
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
     private static editQueue: Promise<void> = Promise.resolve();
     appendOutput: Boolean = true;
+
+    /**
+     * Reorders widgets in the active CSD file based on their visual hierarchy.
+     * Grouped widgets are placed immediately after their parent GroupBox.
+     */
+    static async reorderWidgets() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found.');
+            return;
+        }
+
+        const document = editor.document;
+        const text = document.getText();
+
+        // Find <Cabbage> section
+        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const match = text.match(cabbageRegex);
+
+        if (!match) {
+            vscode.window.showErrorMessage('No <Cabbage> section found in the file.');
+            return;
+        }
+
+        const jsonContent = match[1];
+
+        try {
+            // Parse JSON (handling comments loosely if possible, but standard JSON.parse is strict)
+            // Cabbage JSON often contains comments which JSON.parse fails on.
+            // We need a way to parse this while preserving comments or at least parsing it successfully.
+            // Since the user mentioned "The widget JSON code should be lifted wholesale", 
+            // we should try to parse it using a lenient parser or eval (with safety checks) 
+            // OR use the existing ExtensionUtils.getCabbageJson which might handle this.
+
+            // Let's try to use Function constructor to parse relaxed JSON (with comments)
+            // This is what Cabbage often does internally or what we might need here.
+            // However, to preserve comments during rewrite, we would need a CST (Concrete Syntax Tree) parser.
+            // Standard JSON.stringify will strip comments.
+
+            // User requirement: "Comments are part of a valid "//": key, they should be kept."
+            // Ah! If comments are actual keys like "//": "...", then standard JSON.parse works!
+            // We just need to handle the surrounding brackets if they are missing or malformed?
+            // Usually Cabbage section is a JSON array [ ... ].
+
+            const widgets = JSON.parse(jsonContent);
+
+            if (!Array.isArray(widgets)) {
+                vscode.window.showErrorMessage('Cabbage section is not a valid JSON array.');
+                return;
+            }
+
+            const reorderedWidgets = reorderWidgets(widgets);
+
+            // Get formatting settings from configuration
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+
+            // Stringify back to JSON using pretty compact formatter
+            const newJsonContent = stringify(reorderedWidgets, { maxLength: maxLength, indent: indentSpaces });
+
+            // Replace in editor
+            const startPos = document.positionAt(match.index! + "<Cabbage>".length);
+            const endPos = document.positionAt(match.index! + "<Cabbage>".length + jsonContent.length);
+
+            await editor.edit(editBuilder => {
+                editBuilder.replace(new vscode.Range(startPos, endPos), '\n' + newJsonContent + '\n');
+            });
+
+            vscode.window.showInformationMessage('Widgets reordered successfully.');
+
+        } catch (error) {
+            console.error('Error reordering widgets:', error);
+            vscode.window.showErrorMessage('Failed to parse Cabbage JSON. Please ensure it is valid JSON.');
+        }
+    }
 
     /**
      * Initializes the Commands class by creating an output channel for logging
@@ -254,7 +331,7 @@ export class Commands {
                             await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
                         }).catch(err => {
                             console.error('Extension: Error processing queued edit:', err);
-                        }); 
+                        });
                     }
                 }
                 break;
