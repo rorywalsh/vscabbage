@@ -254,7 +254,7 @@ export class Commands {
                             await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
                         }).catch(err => {
                             console.error('Extension: Error processing queued edit:', err);
-                        });
+                        }); 
                     }
                 }
                 break;
