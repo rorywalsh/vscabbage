@@ -136,7 +136,7 @@ export class GroupBox {
                      style="display: ${this.props.visible ? 'block' : 'none'}; position: absolute; top: 0; left: 0;">
                     <defs>
                         <!-- Mask to create transparent area behind text -->
-                        <mask id="textMask_${this.props.channels[0].id}">
+                        <mask id="textMask_${this.props.id}">
                             <!-- White rectangle covers everything (visible) -->
                             <rect x="0" y="0" width="${width}" height="${height}" fill="white"/>
                             <!-- Black rectangle behind text creates transparent area -->
@@ -148,13 +148,13 @@ export class GroupBox {
                     <!-- Background rectangle with fill color - fills to top border, with text cutout and padding -->
                     <rect width="${width - (strokeWidth * 2)}" height="${height - (yOffset + strokeWidth)}" 
                           x="${strokeWidth}" y="${yOffset + strokeWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
-                          fill="${this.props.style.backgroundColor}" mask="url(#textMask_${this.props.channels[0].id})"></rect>
+                          fill="${this.props.style.backgroundColor}" mask="url(#textMask_${this.props.id})"></rect>
                     
                     <!-- Rounded rectangle border outline with gap for text -->
                     <rect width="${width - strokeWidth}" height="${height - (yOffset + strokeWidth / 2)}" 
                           x="${strokeWidth / 2}" y="${yOffset + strokeWidth / 2}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
                           fill="none" stroke="${strokeColour}" stroke-width="${strokeWidth}" 
-                          mask="url(#textMask_${this.props.channels[0].id})"/>
+                          mask="url(#textMask_${this.props.id})"/>
                 </svg>
             </div>
         `;
