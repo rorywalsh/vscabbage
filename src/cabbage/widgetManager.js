@@ -11,6 +11,7 @@ import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { handleRadioGroup } from "./radioGroup.js";
+import { PropertyPanel } from "../propertyPanel.js";
 
 /**
  * WidgetManager class handles the creation, insertion, and management of widgets.
@@ -205,8 +206,39 @@ export class WidgetManager {
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }
+
+        // Check for duplicate widgets before insertion
+        const duplicateCheck = this.checkForDuplicateWidget(widgetId, props);
+        if (duplicateCheck.isDuplicate) {
+            console.error('🚨 DUPLICATE WIDGET DETECTED 🚨');
+            console.error(`Attempting to insert widget with ID: "${widgetId}"`);
+            console.error(`Widget type: ${type}`);
+            console.error(`Duplicate found: ${duplicateCheck.reason}`);
+            console.error('Existing widget:', duplicateCheck.existingWidget);
+            console.error('New widget props:', props);
+            console.trace('Stack trace for duplicate insertion:');
+
+            // Show notification to user
+            if (typeof PropertyPanel !== 'undefined' && PropertyPanel.showNotification) {
+                PropertyPanel.showNotification(
+                    `⚠️ Duplicate Widget Detected!\n\nAttempted to insert duplicate widget with ID "${widgetId}".\n\n${duplicateCheck.reason}\n\nThis insertion has been blocked. Check console for details.`,
+                    'warning'
+                );
+            }
+
+            // Don't insert the duplicate - return early
+            console.warn('Duplicate widget insertion blocked. Returning existing widget.');
+            return duplicateCheck.existingWidget.props;
+        }
+
         // Add the widget to the global widgets array
-        console.log("Cabbage: Pushing widget to widgets array", widget, `parentChannel: ${widget.props.parentChannel || 'none'}`);
+        console.log("Cabbage: Pushing widget to widgets array", {
+            type: widget.props.type,
+            id: widgetId,
+            parentChannel: widget.props.parentChannel || 'none',
+            currentArraySize: widgets.length,
+            allExistingIds: widgets.map(w => w.props.id || w.props.channels?.[0]?.id)
+        });
         widgets.push(widget);
 
 
@@ -262,6 +294,56 @@ export class WidgetManager {
         }
 
         return widget.props;
+    }
+
+    /**
+     * Check if a widget with the given ID already exists
+     * @param {string} widgetId - The ID to check
+     * @param {object} props - The props of the widget being inserted
+     * @returns {object} - { isDuplicate: boolean, reason: string, existingWidget: object }
+     */
+    static checkForDuplicateWidget(widgetId, props) {
+        // Check 1: Look for existing widget in the widgets array
+        const existingInArray = widgets.find(w => {
+            const wId = w.props.id || (w.props.channels?.[0]?.id);
+            return wId === widgetId;
+        });
+
+        if (existingInArray) {
+            return {
+                isDuplicate: true,
+                reason: `Widget with ID "${widgetId}" already exists in widgets array`,
+                existingWidget: existingInArray
+            };
+        }
+
+        // Check 2: Look for existing DOM element with this ID
+        const existingInDOM = document.getElementById(widgetId);
+        if (existingInDOM && existingInDOM.cabbageInstance) {
+            return {
+                isDuplicate: true,
+                reason: `DOM element with ID "${widgetId}" already exists`,
+                existingWidget: existingInDOM.cabbageInstance
+            };
+        }
+
+        // Check 3: Check if any widget has this ID in their channels array
+        const existingWithChannelId = widgets.find(w => {
+            if (Array.isArray(w.props.channels)) {
+                return w.props.channels.some(ch => ch.id === widgetId);
+            }
+            return false;
+        });
+
+        if (existingWithChannelId) {
+            return {
+                isDuplicate: true,
+                reason: `Widget "${existingWithChannelId.props.id || existingWithChannelId.props.channels?.[0]?.id}" already has a channel with ID "${widgetId}"`,
+                existingWidget: existingWithChannelId
+            };
+        }
+
+        return { isDuplicate: false };
     }
 
     /**

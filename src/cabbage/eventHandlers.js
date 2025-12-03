@@ -343,6 +343,13 @@ async function ungroupSelectedWidgets() {
 
     console.log("Cabbage: Ungrouping container", CabbageUtils.getChannelId(containerWidget.props, 0), "with", containerWidget.props.children.length, "children");
 
+    // Load PropertyPanel for minimization
+    const PP = await loadPropertyPanel();
+    if (!PP) {
+        console.error('Cabbage: PropertyPanel not available for ungrouping');
+        return;
+    }
+
     // First, remove existing child DOM elements from the container and re-parent them to MainForm
     const mainForm = document.getElementById('MainForm');
     if (!mainForm) {
@@ -403,17 +410,52 @@ async function ungroupSelectedWidgets() {
             existingChildWidget.props.bounds = absoluteBounds;
             delete existingChildWidget.props.parentChannel;
             console.log(`Cabbage: Updated existing child widget ${childChannelId} in widgets array - removed parentChannel and updated bounds`);
+
+            // Minimize props before sending to VS Code
+            try {
+                let minimized = PP.minimizePropsForWidget(existingChildWidget.props, existingChildWidget);
+                minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                const payload = JSON.stringify(minimized);
+                console.log('Cabbage: Minimized ungroup payload for', childChannelId, ':', payload.substring(0, 200));
+
+                postMessageToVSCode({
+                    command: 'updateWidgetProps',
+                    text: payload
+                });
+            } catch (e) {
+                console.error('Cabbage: Failed to minimize props for ungrouped widget:', e);
+                // Fallback to full props if minimization fails
+                postMessageToVSCode({
+                    command: 'updateWidgetProps',
+                    text: JSON.stringify(existingChildWidget.props)
+                });
+            }
         } else {
             // Insert as new widget (shouldn't normally happen, but handle it)
             console.log(`Cabbage: Child widget ${childChannelId} not found in widgets array, inserting new`);
             const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
-        }
 
-        // Update the CSD file with the new top-level widget
-        postMessageToVSCode({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(topLevelProps)
-        });
+            // For newly inserted widgets, minimize before sending
+            const inserted = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
+            if (inserted) {
+                try {
+                    let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
+                    minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                    postMessageToVSCode({
+                        command: 'updateWidgetProps',
+                        text: JSON.stringify(minimized)
+                    });
+                } catch (e) {
+                    console.error('Cabbage: Failed to minimize props for newly inserted ungrouped widget:', e);
+                    postMessageToVSCode({
+                        command: 'updateWidgetProps',
+                        text: JSON.stringify(inserted.props)
+                    });
+                }
+            }
+        }
 
         return topLevelProps;
     });
@@ -728,19 +770,41 @@ async function alignSelectedWidgets(type) {
         });
     }
 
+    // Load PropertyPanel for minimization
+    const PP = await loadPropertyPanel();
+    if (!PP) {
+        console.error('Cabbage: PropertyPanel not available for alignment');
+        return;
+    }
+
     // Apply updates
-    updates.forEach(item => {
+    for (const item of updates) {
         // Update DOM
         item.element.style.transform = `translate(${item.widget.props.bounds.left}px, ${item.widget.props.bounds.top}px)`;
         item.element.setAttribute('data-x', item.widget.props.bounds.left);
         item.element.setAttribute('data-y', item.widget.props.bounds.top);
 
-        // Send to VS Code
-        postMessageToVSCode({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(item.widget.props)
-        });
-    });
+        // Minimize props before sending to VS Code
+        try {
+            let minimized = PP.minimizePropsForWidget(item.widget.props, item.widget);
+            minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+            const payload = JSON.stringify(minimized);
+            console.log('Cabbage: Minimized alignment payload:', payload.substring(0, 200));
+
+            postMessageToVSCode({
+                command: 'updateWidgetProps',
+                text: payload
+            });
+        } catch (e) {
+            console.error('Cabbage: Failed to minimize props for aligned widget:', e);
+            // Fallback to full props if minimization fails
+            postMessageToVSCode({
+                command: 'updateWidgetProps',
+                text: JSON.stringify(item.widget.props)
+            });
+        }
+    }
 
     console.log(`Cabbage: Aligned ${updates.length} widgets (${type})`);
 }
