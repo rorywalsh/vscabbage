@@ -33,12 +33,13 @@ export class GroupBox {
                 "backgroundColor": "#888888",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
-                "fontColor": "#dddddd",
-                "textAlign": "center"
+                "fontColor": "#dddddd"
             },
 
             "label": {
-                "text": "Hello"
+                "text": "Hello",
+                "offsetY": 0,
+                "align": "center"
             }
         };
         // Wrap props with reactive proxy to unify visible/active handling
@@ -70,11 +71,13 @@ export class GroupBox {
         const outlineOffset = strokeWidth / 2;
         const textSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 11 : this.props.style.fontSize;
         const yOffset = textSize / 2; // vertical offset for text
-        const padding = 4; // padding around text to leave a gap in the line
+        const padding = 5; // padding around text to leave a gap in the line
 
-        // Use a more accurate text width estimation for SVG text
-        const avgCharWidth = textSize * 0.6; // More accurate approximation for most fonts
-        const textWidth = this.props.label.text.length * avgCharWidth;
+        // Use canvas to measure text width accurately
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        context.font = `${textSize}px ${this.props.style.fontFamily}`;
+        const textWidth = context.measureText(this.props.label.text).width;
 
         const alignMap = {
             'left': 'start',
@@ -83,34 +86,38 @@ export class GroupBox {
             'right': 'end',
         };
 
-        const svgAlign = this.props.style.textAlign || 'middle'; // Default to 'middle' if textAlign is not set or invalid
+        const svgAlign = alignMap[this.props.label.align] || 'middle'; // Default to 'middle' if align is not set or invalid
 
         // Calculate text position based on textAlign
         let gapStart;
         let gapEnd;
         let textAlign = 'center';
         let textLeft = '50%';
+        let transform = 'translateX(-50%)'; // Only center alignment needs this
 
         if (svgAlign === 'start') {
             gapStart = outlineOffset;
             gapEnd = outlineOffset + textWidth + (padding * 2);
             textAlign = 'left';
-            textLeft = `${padding}px`;
+            textLeft = '0';
+            transform = 'none';
         } else if (svgAlign === 'end') {
             gapStart = width - outlineOffset - textWidth - (padding * 2);
             gapEnd = width - outlineOffset;
             textAlign = 'right';
-            textLeft = 'auto';
+            textLeft = '100%';
+            transform = 'translateX(-100%)';
         } else {
             gapStart = (width / 2) - textWidth / 2 - padding;
             gapEnd = (width / 2) + textWidth / 2 + padding;
             textAlign = 'center';
             textLeft = '50%';
+            transform = 'translateX(-50%)';
         }
 
         return `
             <div style="position: relative; width: ${width}px; height: ${height}px;">
-                <div style="position: absolute; top: 0; left: ${textLeft}; transform: translateX(-50%); 
+                <div style="position: absolute; top: 0; left: ${textLeft}; transform: ${transform}; 
                             text-align: ${textAlign}; 
                             font-family: ${this.props.style.fontFamily}; 
                             font-size: ${textSize}px; 
