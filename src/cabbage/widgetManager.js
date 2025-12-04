@@ -707,7 +707,7 @@ export class WidgetManager {
             console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
             return;
         }
-        console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        // console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
         // Extract channel ID for logging
         const channelStr = obj.id;
         //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
