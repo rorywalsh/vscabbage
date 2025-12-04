@@ -25,7 +25,7 @@ export class ExtensionUtils {
      * List of property keys that should be excluded from the generated CSD file.
      * This can be populated dynamically or statically.
      */
-    static excludedProperties: string[] = ['currentCsdFile', 'linearValue'];
+    static excludedProperties: string[] = ['currentCsdFile', 'linearValue', 'parameterIndex'];
 
     // Note: default props cache and lookup removed. Default prop resolution
     // should be performed by callers and passed into updateText when needed.

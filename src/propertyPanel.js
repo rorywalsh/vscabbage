@@ -249,6 +249,37 @@ export class PropertyPanel {
 
             strip(clone, defaults);
 
+            // Strip excluded properties (like parameterIndex) from all levels
+            // These are runtime-only properties that should never be written to CSD files
+            const stripExcludedProperties = (obj) => {
+                if (!obj || typeof obj !== 'object') return;
+
+                // Get excluded properties from ExtensionUtils if available, otherwise use hardcoded list
+                const excluded = (typeof ExtensionUtils !== 'undefined' && ExtensionUtils.excludedProperties)
+                    ? ExtensionUtils.excludedProperties
+                    : ['currentCsdFile', 'linearValue', 'parameterIndex'];
+
+                // Remove excluded properties from current level
+                excluded.forEach(prop => {
+                    if (prop in obj) {
+                        delete obj[prop];
+                    }
+                });
+
+                // Recurse into nested objects and arrays
+                Object.keys(obj).forEach(key => {
+                    const value = obj[key];
+                    if (Array.isArray(value)) {
+                        value.forEach(item => stripExcludedProperties(item));
+                    } else if (value && typeof value === 'object') {
+                        stripExcludedProperties(value);
+                    }
+                });
+            };
+
+            stripExcludedProperties(clone);
+
+
             // After stripping, check for properties that existed in the original CSD but were stripped
             // because they now match defaults. Send these as null to signal explicit deletion to the backend.
             const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
@@ -267,8 +298,11 @@ export class PropertyPanel {
                     const propsValue = propsObj ? propsObj[key] : undefined;
 
                     // If the property existed in the original CSD but was stripped from the clone
-                    // (because it now matches the default), we need to send null to signal deletion
-                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                    // (because it now matches the default OR was deleted from props), we need to send null to signal deletion
+                    // This handles two cases:
+                    // 1. Property was set back to default value (propsValue !== undefined but matches default)
+                    // 2. Property was completely removed from props (propsValue === undefined)
+                    if (originalValue !== undefined && cloneValue === undefined) {
                         // Ensure parent structure exists to hold the null
                         if (!cloneObj) return;
 
@@ -282,7 +316,7 @@ export class PropertyPanel {
                         }
 
                         current[key] = null;
-                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now reverted to default)`);
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now ${propsValue === undefined ? 'deleted' : 'reverted to default'})`);
                     }
                     // If it's an object in both original and current props, recurse into it
                     else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
