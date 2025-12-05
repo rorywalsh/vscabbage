@@ -470,6 +470,11 @@
         "command": "cabbage.setCustomCommentDecorationColor",
         "title": "Set Custom Comment Decoration Color",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.reorderWidgets",
+        "title": "Reorder Widgets",
+        "category": "Cabbage"
       }
     ]
   },
