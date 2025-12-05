@@ -555,7 +555,7 @@ export class RotarySlider {
         const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
 
         return `
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
           ${filmStripElement}
         </svg>
         <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelY}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${this.props.label.text}</div>
@@ -675,7 +675,7 @@ export class RotarySlider {
       }
 
       return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
         ${shadowFilter}
         <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
         <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />
@@ -720,7 +720,7 @@ export class RotarySlider {
     }
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${scale}%" height="${scale}%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
       ${shadowFilter}
       <path d='${outerTrackerPath}' id="arc" fill="none" stroke=${trackerOutlineColour} stroke-width=${this.props.style.thumb.borderWidth} />
       <path d='${trackerPath}' id="arc" fill="none" stroke=${this.props.style.track.backgroundColor} stroke-width=${innerTrackerWidth} />

@@ -20,80 +20,6 @@ export class PropertyPanel {
     static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value', 'range.value'];
 
     /**
-     * Show a notification message in the property panel
-     * @param {string} message - The message to display
-     * @param {string} type - Type of notification: 'error', 'warning', 'info' (default: 'error')
-     */
-    static showNotification(message, type = 'error') {
-        // Remove any existing notifications
-        const existing = document.querySelector('.property-panel-notification');
-        if (existing) {
-            existing.remove();
-        }
-
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `property-panel-notification property-panel-notification-${type}`;
-        notification.style.cssText = `
-            position: sticky;
-            top: 0;
-            left: 0;
-            right: 0;
-            padding: 8px 32px 8px 12px;
-            margin-bottom: 8px;
-            background-color: ${type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#2196F3'};
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-            line-height: 1.3;
-            z-index: 10000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            position: relative;
-        `;
-
-        const messageSpan = document.createElement('span');
-        messageSpan.textContent = message;
-        messageSpan.style.whiteSpace = 'pre-line';
-
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.style.cssText = `
-            position: absolute;
-            top: 4px;
-            right: 8px;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0;
-            line-height: 1;
-            width: 20px;
-            height: 20px;
-        `;
-        closeButton.onclick = () => notification.remove();
-
-        notification.appendChild(messageSpan);
-        notification.appendChild(closeButton);
-
-        // Insert at the top of the property panel
-        const propertyPanel = document.querySelector('.property-panel');
-        if (propertyPanel) {
-            propertyPanel.insertBefore(notification, propertyPanel.firstChild);
-            console.log('PropertyPanel: Notification displayed:', message);
-        } else {
-            console.error('PropertyPanel: Could not find .property-panel element to show notification');
-        }
-
-        // Auto-remove after 4 seconds
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 4000);
-    }
-
-    /**
      * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
      * returns undefined, which can lead to the extension receiving an invalid payload.
      * Uses CabbageUtils.sanitizeForEditor then ensures JSON.stringify returns a string.
@@ -229,16 +155,9 @@ export class PropertyPanel {
                                 if (WidgetManager.deepEqual(v, dv)) delete obj[k];
                             }
                         } else {
-                            // Before recursing, check if this object has any keys that aren't in defaults
-                            // This handles cases where deeply nested properties have changed
-                            const hasNonDefaultKeys = Object.keys(v).some(vk => !(vk in dv));
-
                             strip(v, dv);
-
                             // After stripping nested properties, check if the object is now empty
-                            // BUT: only delete if it was empty to begin with OR if it had no non-default keys
-                            // This preserves parent objects when deeply nested children have changed
-                            if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0 && !hasNonDefaultKeys) {
+                            if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
                                 delete obj[k];
                             }
                         }
@@ -249,46 +168,15 @@ export class PropertyPanel {
 
             strip(clone, defaults);
 
-            // Strip excluded properties (like parameterIndex) from all levels
-            // These are runtime-only properties that should never be written to CSD files
-            const stripExcludedProperties = (obj) => {
-                if (!obj || typeof obj !== 'object') return;
-
-                // Get excluded properties from ExtensionUtils if available, otherwise use hardcoded list
-                const excluded = (typeof ExtensionUtils !== 'undefined' && ExtensionUtils.excludedProperties)
-                    ? ExtensionUtils.excludedProperties
-                    : ['currentCsdFile', 'linearValue', 'parameterIndex'];
-
-                // Remove excluded properties from current level
-                excluded.forEach(prop => {
-                    if (prop in obj) {
-                        delete obj[prop];
-                    }
-                });
-
-                // Recurse into nested objects and arrays
-                Object.keys(obj).forEach(key => {
-                    const value = obj[key];
-                    if (Array.isArray(value)) {
-                        value.forEach(item => stripExcludedProperties(item));
-                    } else if (value && typeof value === 'object') {
-                        stripExcludedProperties(value);
-                    }
-                });
-            };
-
-            stripExcludedProperties(clone);
-
-
-            // After stripping, check for properties that existed in the original CSD but were stripped
-            // because they now match defaults. Send these as null to signal explicit deletion to the backend.
+            // After stripping, check for properties (both top-level and nested) that were deleted but existed in original CSD.
+            // Send these as null to signal explicit deletion to the backend.
             const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
                 if (!originalObj || typeof originalObj !== 'object') return;
 
                 Object.keys(originalObj).forEach(key => {
                     const fullPath = [...path, key];
                     const pathString = fullPath.join('.');
-
+                    
                     // Skip critical identity fields - these should never be set to null
                     if (pathString === 'type' || pathString === 'id' || pathString === 'channels') return;
 
@@ -297,36 +185,27 @@ export class PropertyPanel {
                     const cloneValue = cloneObj ? cloneObj[key] : undefined;
                     const propsValue = propsObj ? propsObj[key] : undefined;
 
-                    // If the property existed in the original CSD but was stripped from the clone
-                    // (because it now matches the default OR was deleted from props), we need to send null to signal deletion
-                    // This handles two cases:
-                    // 1. Property was set back to default value (propsValue !== undefined but matches default)
-                    // 2. Property was completely removed from props (propsValue === undefined)
-                    if (originalValue !== undefined && cloneValue === undefined) {
-                        // Ensure parent structure exists to hold the null
-                        if (!cloneObj) return;
-
-                        // Need to reconstruct parent path if it was also stripped
-                        let current = clone;
-                        for (let i = 0; i < path.length; i++) {
-                            if (!current[path[i]] || typeof current[path[i]] !== 'object') {
-                                current[path[i]] = {};
-                            }
-                            current = current[path[i]];
-                        }
-
-                        current[key] = null;
-                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now ${propsValue === undefined ? 'deleted' : 'reverted to default'})`);
+                    if (pathString.includes('svg')) {
+                        console.log(`PropertyPanel: restoreDeletedProperties checking ${pathString}:`, {
+                            originalValue,
+                            cloneValue,
+                            propsValue,
+                            willSetNull: originalValue !== undefined && cloneValue === undefined && propsValue !== undefined
+                        });
                     }
-                    // If it's an object in both original and current props, recurse into it
+
+                    // If the property existed in original and is now missing from clone (was stripped because it matches default)
+                    // but still exists in current props, set it to null to signal deletion
+                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                        // For nested objects, we need to restore the parent structure
+                        if (!cloneObj) return;
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now matches default)`);
+                        cloneObj[key] = null;
+                    } 
+                    // If it's an object in both original and clone, recurse into it
                     else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
-                        propsValue && typeof propsValue === 'object' && !Array.isArray(propsValue)) {
-                        // Make sure we have the parent structure in clone to recurse into
-                        if (!cloneObj || !cloneObj[key]) {
-                            if (!cloneObj) cloneObj = {};
-                            if (!cloneObj[key]) cloneObj[key] = {};
-                        }
-                        restoreDeletedProperties(cloneObj[key], originalValue, propsValue, fullPath);
+                             cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
+                        restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
                     }
                 });
             };
@@ -683,7 +562,7 @@ export class PropertyPanel {
     createSections(properties, panel) {
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || ['//', 'parameterIndex', 'children', 'currentCsdFile', 'value'];
+        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps or already handled
@@ -808,7 +687,7 @@ export class PropertyPanel {
 
         // Get the widget instance to access hiddenProps
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
-        const hiddenProps = widget?.hiddenProps || ['//', 'parameterIndex', 'children', 'currentCsdFile', 'value'];
+        const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
         // Collect misc properties and sort them alphabetically
         const miscProperties = [];
@@ -1069,39 +948,10 @@ export class PropertyPanel {
                     });
 
                     if (widget) {
-                        // Check for uniqueness - but allow the same widget to have matching props.id and channels[0].id
+                        // Check for uniqueness
                         const existingDiv = document.getElementById(newChannel);
-
-                        // Find the current widget's div (using the original channel/id)
-                        const currentWidgetDiv = document.getElementById(originalChannel);
-
-                        // Check if the existing div belongs to the same widget we're editing
-                        // This allows props.id and channels[0].id to have the same value
-                        let isSameWidget = false;
-                        if (existingDiv && widget.props) {
-                            // Check if existingDiv's id matches either props.id or channels[0].id of current widget
-                            const widgetPropsId = widget.props.id;
-                            const widgetChannelId = widget.props.channels?.[0]?.id;
-                            isSameWidget = (newChannel === widgetPropsId || newChannel === widgetChannelId);
-                        }
-
-                        // Only reject if:
-                        // 1. An element with this ID exists
-                        // 2. It's NOT the current widget we're editing (checked by div reference or widget ownership)
-                        if (existingDiv && existingDiv !== currentWidgetDiv && !isSameWidget) {
+                        if (existingDiv && existingDiv.id !== originalChannel) {
                             console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
-
-                            // Show user-friendly notification
-                            const existingWidgetType = existingDiv.getAttribute('data-type') || 'widget';
-                            PropertyPanel.showNotification(
-                                `Cannot use ID "${newChannel}".\n\nThis ID is already used by another ${existingWidgetType}.\n\nPlease choose a unique ID.`,
-                                'error'
-                            );
-
-                            // Revert the input field to the original value
-                            if (input && input.value !== originalChannel) {
-                                input.value = originalChannel;
-                            }
                             return;
                         }
 
@@ -1439,20 +1289,13 @@ export class PropertyPanel {
             }
         }
         const lastKey = keys[keys.length - 1];
-
-        // If value is an empty string, delete the property instead of setting it
-        // This ensures that cleared fields (like SVG markup) are actually removed
-        if (value === '' && typeof lastKey === 'string') {
-            delete currentObj[lastKey];
-            console.log('PropertyPanel: deleted', path, '(was set to empty string)');
-        } else if (typeof lastKey === 'number') {
+        if (typeof lastKey === 'number') {
             if (!Array.isArray(currentObj)) currentObj = [];
             currentObj[lastKey] = value;
-            console.log('PropertyPanel: set', path, 'to', value);
         } else {
             currentObj[lastKey] = value;
-            console.log('PropertyPanel: set', path, 'to', value);
         }
+        console.log('PropertyPanel: set', path, 'to', value);
     }
 
     /** 
@@ -1562,23 +1405,13 @@ export class PropertyPanel {
                 // Handle nested properties
                 this.setNestedProperty(widget.props, path, parsedValue);
 
-                // Debug: Log the range property for debugging (handle both top-level and channel-level range)
-                if (path.includes('range')) {
-                    console.log('PropertyPanel: after setNestedProperty, widget.props.range:', JSON.stringify(widget.props.range, null, 2));
-                    if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
-                        console.log('PropertyPanel: after setNestedProperty, widget.props.channels[0].range:', JSON.stringify(widget.props.channels[0].range, null, 2));
-                    }
-                }
+                console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
-                } else if (typeof widget.updateCanvas === 'function') {
-                    widget.updateCanvas(); // Update canvas for canvas-based widgets
-                } else if (typeof widget.updateTable === 'function') {
-                    widget.updateTable(); // Backward compatibility
                 } else {
                     console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
@@ -1592,9 +1425,7 @@ export class PropertyPanel {
                 console.log('PropertyPanel: sending updateWidgetProps to VSCode');
                 try {
                     let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                    console.log('PropertyPanel: minimized props:', JSON.stringify(minimized, null, 2));
                     minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                    console.log('PropertyPanel: after applyExcludes:', JSON.stringify(minimized, null, 2));
                     const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
                     console.log('PropertyPanel: posting updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
                     this.vscode.postMessage({
@@ -1647,10 +1478,6 @@ export class PropertyPanel {
             if (widgetDiv) {
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
-                } else if (typeof widget.updateCanvas === 'function') {
-                    widget.updateCanvas(); // Update canvas for canvas-based widgets
-                } else if (typeof widget.updateTable === 'function') {
-                    widget.updateTable(); // Backward compatibility
                 } else {
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 }
@@ -1855,12 +1682,10 @@ export class PropertyPanel {
 
                     // Handle specific widget types with dedicated update methods
                     if (eventType !== 'click') {
-                        if (widget.props.type === "form") {
+                        if (widget.props.type === "gentable") {
+                            widget.updateTable(); // Update table for gentable type
+                        } else if (widget.props.type === "form") {
                             widget.updateSVG(); // Update SVG for form type
-                        } else if (typeof widget.updateCanvas === 'function') {
-                            widget.updateCanvas(); // Update canvas for canvas-based widgets (gentable, custom widgets, etc.)
-                        } else if (typeof widget.updateTable === 'function') {
-                            widget.updateTable(); // Backward compatibility for gentable widgets
                         } else {
                             const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                             if (widgetDiv) {

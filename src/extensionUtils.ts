@@ -1133,7 +1133,16 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static sortOrderOfProperties(obj: WidgetProps): WidgetProps {
-        const { type, id, bounds, range, ...rest } = obj; // Destructure type, id, bounds, range, and the rest of the properties, excluding deprecated 'channel'
+        const { type, id, bounds, range, ...rest } = obj; // Destructure type, id, bounds, range, and the rest of the properties
+
+        // Pull out any comment-like properties (keys that start with '//') so they can be emitted first
+        const commentKeys = Object.keys(obj).filter(k => k.startsWith('//'));
+        const commentObj: any = {};
+        commentKeys.forEach(k => { commentObj[k] = (obj as any)[k]; });
+
+        // Ensure we don't duplicate comment keys when spreading the rest
+        const restClone: any = { ...rest };
+        commentKeys.forEach(k => { if (restClone.hasOwnProperty(k)) delete restClone[k]; });
 
         // Create an ordered bounds object only if bounds is present in the original object
         const orderedBounds = bounds ? {
@@ -1169,12 +1178,13 @@ ${JSON.stringify(props, null, 4)}
             }
         }
 
-        // Return a new object with the original order and only include bounds/range if they exist
+        // Build result placing comment properties first, then the canonical fields, then the other properties
         const result: WidgetProps = {
+            ...commentObj,
             type,
             ...(id !== undefined && { id }), // Conditionally include id
             ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
-            ...rest,                                         // Include the rest of the properties
+            ...restClone,                                         // Include the rest of the properties (without comments)
         };
 
         // Only include range if it's defined

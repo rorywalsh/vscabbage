@@ -4,6 +4,7 @@
 
 import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { keyboardMidiInput } from "../keyboardMidiInput.js";
 
 /**
  * MidiKeyboard class
@@ -20,6 +21,7 @@ export class MidiKeyboard {
       "channels": [
         { "id": "comboBox", "event": "valueChanged" }
       ],
+      
       "value": 36,
       "automatable": false,
       "active": true,
@@ -43,11 +45,21 @@ export class MidiKeyboard {
         "blackNote": "#000000"
       },
 
-      "octaves": -1
+      "octaves": -1,
+      "baseOctave": 3
     };
 
     this.isMouseDown = false; // Track the state of the mouse button
     this.octaveOffset = 3;
+    // When a keyboard widget exists we may want to set the computer-keyboard base octave
+    // Inform the global keyboardMidiInput so ASCII-key mappings follow this widget's baseOctave
+    try {
+      if (typeof this.props.baseOctave !== 'undefined' && keyboardMidiInput && typeof keyboardMidiInput.setBaseOctave === 'function') {
+        keyboardMidiInput.setBaseOctave(this.props.baseOctave);
+      }
+    } catch (e) {
+      // ignore if keyboardMidiInput not available yet
+    }
     this.noteMap = {};
     this.activeNotes = new Set(); // Track active notes
     this.vscode = null;
@@ -58,6 +70,16 @@ export class MidiKeyboard {
         // Re-render when bounds change to recalculate octaves
         if (prop === 'bounds' && this.widgetDiv) {
           CabbageUtils.updateInnerHTML(this.props, this);
+        }
+        // If baseOctave changes, inform the keyboardMidiInput so computer keyboard mapping updates
+        if (prop === 'baseOctave') {
+          try {
+            if (keyboardMidiInput && typeof keyboardMidiInput.setBaseOctave === 'function') {
+              keyboardMidiInput.setBaseOctave(value);
+            }
+          } catch (e) {
+            console.warn('Cabbage: Failed to set keyboard base octave', e);
+          }
         }
       }
     });

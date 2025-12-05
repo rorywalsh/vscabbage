@@ -229,7 +229,7 @@ export class Button {
     // Base button SVG - always draw the base state (on/off)
     let buttonHtml = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
+           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
         <rect x="0" y="0" width="100%" height="100%" fill="${baseColour}" stroke="${this.props.style.borderColor}"
           stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>`;
 

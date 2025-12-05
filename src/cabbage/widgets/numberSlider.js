@@ -249,11 +249,11 @@ export class NumberSlider {
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         const html = `
-            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
-                        pointer-events="${this.props.visible ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
+                        pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
                 </svg>
     
                 <!-- Text using foreignObject for consistent rendering -->
