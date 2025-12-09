@@ -578,6 +578,11 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.enterEditMode();
         }));
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.stopCsound', () => {
+            Commands.stopCsound();
+        }));
+
     // utility function to send text to Cabbage instrument overriding the current
     // realtime audio inputs
     context.subscriptions.push(vscode.commands.registerCommand(

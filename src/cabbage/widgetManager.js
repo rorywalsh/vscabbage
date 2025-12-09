@@ -207,29 +207,8 @@ export class WidgetManager {
             widget.props.currentCsdFile = currentCsdFile;
         }
 
-        // Check for duplicate widgets before insertion
-        const duplicateCheck = this.checkForDuplicateWidget(widgetId, props);
-        if (duplicateCheck.isDuplicate) {
-            console.error('🚨 DUPLICATE WIDGET DETECTED 🚨');
-            console.error(`Attempting to insert widget with ID: "${widgetId}"`);
-            console.error(`Widget type: ${type}`);
-            console.error(`Duplicate found: ${duplicateCheck.reason}`);
-            console.error('Existing widget:', duplicateCheck.existingWidget);
-            console.error('New widget props:', props);
-            console.trace('Stack trace for duplicate insertion:');
-
-            // Show notification to user
-            if (typeof PropertyPanel !== 'undefined' && PropertyPanel.showNotification) {
-                PropertyPanel.showNotification(
-                    `⚠️ Duplicate Widget Detected!\n\nAttempted to insert duplicate widget with ID "${widgetId}".\n\n${duplicateCheck.reason}\n\nThis insertion has been blocked. Check console for details.`,
-                    'warning'
-                );
-            }
-
-            // Don't insert the duplicate - return early
-            console.warn('Duplicate widget insertion blocked. Returning existing widget.');
-            return duplicateCheck.existingWidget.props;
-        }
+        // Duplicate check is now performed in updateWidget before insertion begins
+        // This prevents race conditions with pendingWidgets tracking
 
         // Add the widget to the global widgets array
         console.log("Cabbage: Pushing widget to widgets array", {
@@ -1117,6 +1096,21 @@ export class WidgetManager {
                     const widgetId = p.id || (p.channels && p.channels.length > 0 && p.channels[0].id);
                     console.log(`WidgetManager.updateWidget: Parsed props for new widget. Type: ${p.type}, ID: ${widgetId}`);
                     console.log(`WidgetManager.updateWidget: Pending widgets map size: ${WidgetManager.pendingWidgets.size}`);
+
+                    // Check for duplicates BEFORE starting insertion
+                    if (widgetId) {
+                        const existingWidget = widgets.find(w => {
+                            const wId = w.props.id || (w.props.channels?.[0]?.id);
+                            return wId === widgetId;
+                        });
+
+                        const existingDOM = document.getElementById(widgetId);
+
+                        if (existingWidget || (existingDOM && existingDOM.cabbageInstance)) {
+                            console.warn(`WidgetManager.updateWidget: Widget ${widgetId} already exists, skipping duplicate insertion`);
+                            return;
+                        }
+                    }
 
                     // Check for pending insertion to prevent race conditions
                     if (widgetId && WidgetManager.pendingWidgets.has(widgetId)) {

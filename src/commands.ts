@@ -243,6 +243,15 @@ export class Commands {
     }
 
     /**
+    * Stops Csound audio performance without entering edit mode.
+    * This allows users to stop audio while remaining in play mode.
+     */
+    static stopCsound() {
+        this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+    }
+
+
+    /**
     * Handles incoming messages from the webview and performs actions based
     * on the message type.
     * @param message The message from the webview.

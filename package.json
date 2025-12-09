@@ -267,6 +267,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.stopCsound",
+        "title": "Stop Csound",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.formatDocument",
         "title": "Format Document",
         "category": "Cabbage"
