@@ -54,7 +54,36 @@ export class PropertyPanel {
 
             // 1. Handle simple keys (Shallow delete - existing behavior)
             simpleKeys.forEach(k => {
-                if (k in obj) delete obj[k];
+                if (k in obj) {
+                    delete obj[k];
+                }
+            });
+
+            // Also recursively delete simple keys from nested objects and arrays
+            const deleteFromNested = (target, keyToDelete) => {
+                if (!target || typeof target !== 'object') return;
+
+                if (Array.isArray(target)) {
+                    target.forEach(item => {
+                        if (item && typeof item === 'object' && keyToDelete in item) {
+                            delete item[keyToDelete];
+                        }
+                        deleteFromNested(item, keyToDelete);
+                    });
+                } else {
+                    Object.values(target).forEach(value => {
+                        if (value && typeof value === 'object') {
+                            if (keyToDelete in value) {
+                                delete value[keyToDelete];
+                            }
+                            deleteFromNested(value, keyToDelete);
+                        }
+                    });
+                }
+            };
+
+            simpleKeys.forEach(k => {
+                deleteFromNested(obj, k);
             });
 
             // 2. Handle deep keys (Recursive delete)
@@ -176,7 +205,7 @@ export class PropertyPanel {
                 Object.keys(originalObj).forEach(key => {
                     const fullPath = [...path, key];
                     const pathString = fullPath.join('.');
-                    
+
                     // Skip critical identity fields - these should never be set to null
                     if (pathString === 'type' || pathString === 'id' || pathString === 'channels') return;
 
@@ -201,10 +230,10 @@ export class PropertyPanel {
                         if (!cloneObj) return;
                         console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now matches default)`);
                         cloneObj[key] = null;
-                    } 
+                    }
                     // If it's an object in both original and clone, recurse into it
                     else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
-                             cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
+                        cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
                         restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
                     }
                 });

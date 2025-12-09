@@ -357,7 +357,7 @@ export class GenTable {
         this.canvas.height = Number(this.props.bounds.height);
         this.waveformCanvas.width = Number(this.props.bounds.width);
         this.waveformCanvas.height = Number(this.props.bounds.height);
-        console.log(`Cabbage: GenTable: updateCanvas called for widget ID: ${this.props.id}`);
+
         // Render the waveform to the offscreen canvas (this is the expensive operation)
         this.renderWaveformToCache();
 

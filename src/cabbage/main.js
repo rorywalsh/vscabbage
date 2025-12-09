@@ -244,13 +244,23 @@ window.addEventListener('message', async (event) => {
         case 'onFileChanged':
             console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
+
+            // Clear pending widgets map to prevent race conditions during rebuild
+            if (WidgetManager.pendingWidgets) {
+                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets`);
+                WidgetManager.pendingWidgets.clear();
+            }
+
+            // Clear the widgets array BEFORE removing MainForm
+            // This prevents updateWidget from finding widgets in the array during rebuild
+            widgets.length = 0;
+
+            // Remove the MainForm element (this automatically removes all child widgets)
             if (mainForm) {
-                mainForm.remove(); // Remove the MainForm element from the DOM
+                mainForm.remove();
             } else {
                 console.error("MainForm not found");
             }
-            widgets.length = 0; // Clear the widgets array
-            // currentFileName = message.lastSavedFileName; // Update the current file name
 
             // Update child widget pointer events for performance mode
             updateChildWidgetPointerEvents('nonDraggable');
@@ -293,15 +303,21 @@ window.addEventListener('message', async (event) => {
                 });
             });
 
-            // Remove the MainForm element and clear the widget array
+            // Clear pending widgets map to prevent race conditions during rebuild
+            if (WidgetManager.pendingWidgets) {
+                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets before edit mode`);
+                WidgetManager.pendingWidgets.clear();
+            }
+
+            // Clear the widgets array BEFORE removing MainForm
+            widgets.length = 0;
+
+            // Remove the MainForm element (this automatically removes all child widgets)
             if (mainForm) {
                 mainForm.remove();
             } else {
                 console.error("MainForm not found");
             }
-
-            //now clear all widgets
-            widgets.length = 0;
 
             // Update each widget after clearing the form
             widgetUpdatesMessages.forEach(msg => WidgetManager.updateWidget(msg));

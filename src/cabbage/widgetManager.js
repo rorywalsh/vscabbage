@@ -1108,6 +1108,14 @@ export class WidgetManager {
 
                         if (existingWidget || (existingDOM && existingDOM.cabbageInstance)) {
                             console.warn(`WidgetManager.updateWidget: Widget ${widgetId} already exists, skipping duplicate insertion`);
+                            console.warn(`  - Found in widgets array: ${!!existingWidget}`);
+                            console.warn(`  - Found in DOM: ${!!existingDOM}`);
+                            if (existingDOM) {
+                                console.warn(`  - DOM element parent: ${existingDOM.parentElement?.id || existingDOM.parentElement?.tagName}`);
+                                console.warn(`  - DOM element has cabbageInstance: ${!!existingDOM.cabbageInstance}`);
+                            }
+                            console.warn(`  - widgets.length: ${widgets.length}`);
+                            console.warn(`  - MainForm exists: ${!!document.getElementById('MainForm')}`);
                             return;
                         }
                     }
@@ -1120,24 +1128,40 @@ export class WidgetManager {
                         return;
                     }
 
+                    // If this is NOT a form widget and MainForm doesn't exist, queue it
+                    if (p.type !== 'form' && !document.getElementById('MainForm')) {
+                        if (!WidgetManager.pendingNonFormWidgets) {
+                            WidgetManager.pendingNonFormWidgets = [];
+                        }
+                        console.log(`WidgetManager.updateWidget: MainForm not found, queueing ${p.type} widget ${widgetId}`);
+                        WidgetManager.pendingNonFormWidgets.push(obj);
+                        return;
+                    }
+
                     console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
 
-                    if (widgetId) {
-                        let resolveInsertion;
-                        const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
-                        WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
-                        console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                    // Track this insertion in pendingWidgets
+                    let resolveInsertion;
+                    const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
+                    WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
+                    console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
 
-                        try {
-                            await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
-                        } finally {
-                            resolveInsertion();
-                            WidgetManager.pendingWidgets.delete(widgetId);
-                            console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
-                        }
-                    } else {
-                        console.warn('WidgetManager.updateWidget: No widgetId found, cannot track pending insertion.');
+                    try {
                         await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
+
+                        // If this was a form widget and we have queued widgets, process them now
+                        if (p.type === 'form' && WidgetManager.pendingNonFormWidgets && WidgetManager.pendingNonFormWidgets.length > 0) {
+                            console.log(`WidgetManager.updateWidget: MainForm created, processing ${WidgetManager.pendingNonFormWidgets.length} queued widgets`);
+                            const queuedWidgets = WidgetManager.pendingNonFormWidgets;
+                            WidgetManager.pendingNonFormWidgets = [];
+                            for (const queuedMessage of queuedWidgets) {
+                                await WidgetManager.updateWidget(queuedMessage);
+                            }
+                        }
+                    } finally {
+                        resolveInsertion();
+                        WidgetManager.pendingWidgets.delete(widgetId);
+                        console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
                     }
                 }
                 else {
