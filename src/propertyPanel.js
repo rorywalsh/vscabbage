@@ -363,6 +363,39 @@ export class PropertyPanel {
     } // end checkChannelUniqueness
 
     /**
+     * Shows a warning message at the top of the property panel.
+     * The warning automatically disappears after a few seconds.
+     * @param {string} message - The warning message to display
+     * @param {number} duration - Duration in milliseconds (default: 3000)
+     */
+    showWarning(message, duration = 3000) {
+        const panel = document.querySelector('.property-panel');
+        if (!panel) return;
+
+        // Remove any existing warning
+        const existingWarning = panel.querySelector('.property-panel-warning');
+        if (existingWarning) {
+            existingWarning.remove();
+        }
+
+        // Create warning element
+        const warning = document.createElement('div');
+        warning.classList.add('property-panel-warning', 'show');
+        warning.textContent = message;
+
+        // Insert at the top of the panel
+        panel.insertBefore(warning, panel.firstChild);
+
+        // Remove after duration
+        setTimeout(() => {
+            warning.classList.remove('show');
+            setTimeout(() => {
+                warning.remove();
+            }, 300); // Wait for fade-out animation
+        }, duration);
+    }
+
+    /**
      * Creates or rebuilds the panel DOM and attaches listeners.
      */
     createPanel() {
@@ -978,9 +1011,12 @@ export class PropertyPanel {
 
                     if (widget) {
                         // Check for uniqueness
+                        // Allow channel.id to match the widget's own top-level id
                         const existingDiv = document.getElementById(newChannel);
-                        if (existingDiv && existingDiv.id !== originalChannel) {
+                        const isOwnWidgetId = widget.props.id === newChannel;
+                        if (existingDiv && existingDiv.id !== originalChannel && !isOwnWidgetId) {
                             console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
+                            this.showWarning(`A widget with id '${newChannel}' already exists!`);
                             return;
                         }
 

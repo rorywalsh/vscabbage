@@ -11,6 +11,29 @@
     color: var(--vscode-editor-foreground, #d4d4d4);
 }
 
+/* Warning panel */
+.property-panel-warning {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding: 10px 12px;
+    margin: 0;
+    background-color: var(--vscode-inputValidation-warningBackground, #4d3800);
+    border: 1px solid var(--vscode-inputValidation-warningBorder, #d4aa00);
+    border-left: 4px solid var(--vscode-inputValidation-warningBorder, #d4aa00);
+    color: var(--vscode-inputValidation-warningForeground, #ffffff);
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.property-panel-warning.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .property-panel .property-section {
     margin: 0 0 6px;
     padding: 0;
