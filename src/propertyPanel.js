@@ -315,6 +315,7 @@ export class PropertyPanel {
         this.vscode = vscode;           // VSCode API instance
         this.type = type;               // Type of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
+        this._channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
 
         // Handle multi-widget mode
         if (type === 'multi' && Array.isArray(properties)) {
@@ -393,6 +394,123 @@ export class PropertyPanel {
                 warning.remove();
             }, 300); // Wait for fade-out animation
         }, duration);
+    }
+
+    /**
+     * Handles live validation and debounced updates for channel ID inputs.
+     * Shows warnings immediately but debounces the actual update.
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} fullPath - The property path (e.g., 'channels[0].id')
+     * @param {number|null} channelIndex - The channel index if applicable
+     */
+    handleChannelIdInput(input, fullPath, channelIndex) {
+        const newChannel = input.value.trim();
+        const originalChannel = input.dataset.originalChannel;
+
+        // Find the widget
+        const widget = this.widgets.find(w => {
+            if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
+                return w.props.channels[channelIndex].id === originalChannel;
+            } else if (fullPath === 'id') {
+                return w.props.id === originalChannel;
+            } else if (fullPath === 'channel') {
+                return w.props.channel === originalChannel;
+            }
+            return false;
+        });
+
+        if (!widget) return;
+
+        // Immediate validation - show warning if duplicate
+        const existingDiv = document.getElementById(newChannel);
+        const isOwnWidgetId = widget.props.id === newChannel;
+        const isDuplicate = existingDiv && existingDiv.id !== originalChannel && !isOwnWidgetId;
+
+        if (isDuplicate && newChannel !== '') {
+            this.showWarning(`A widget with id '${newChannel}' already exists!`);
+        }
+
+        // Clear existing debounce timer for this input
+        const timerId = this._channelIdDebounceTimers.get(input);
+        if (timerId) {
+            clearTimeout(timerId);
+        }
+
+        // Don't update if duplicate or empty
+        if (isDuplicate || newChannel === '') {
+            return;
+        }
+
+        // Debounce the actual update
+        const newTimerId = setTimeout(() => {
+            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
+            this._channelIdDebounceTimers.delete(input);
+        }, 400); // 400ms debounce
+
+        this._channelIdDebounceTimers.set(input, newTimerId);
+    }
+
+    /**
+     * Commits a channel ID change after debounce or on Enter/Tab.
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} fullPath - The property path
+     * @param {number|null} channelIndex - The channel index if applicable
+     * @param {string} newChannel - The new channel ID
+     * @param {string} originalChannel - The original channel ID
+     * @param {Object} widget - The widget object
+     */
+    commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget) {
+        console.log('PropertyPanel: committing channel ID change from', originalChannel, 'to', newChannel);
+
+        // Save cursor position
+        const cursorPosition = input.selectionStart;
+        const inputId = input.id;
+
+        // Update the widget's id property in place
+        if (fullPath === 'id') {
+            widget.props.id = newChannel;
+        } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
+            widget.props.channels[channelIndex].id = newChannel;
+        }
+
+        // Update the widget div id to match the updated props
+        // This is necessary so that click events send the correct ID
+        const widgetDiv = document.getElementById(originalChannel);
+        if (widgetDiv) {
+            widgetDiv.id = newChannel;
+            console.log('PropertyPanel: updated DOM element ID from', originalChannel, 'to', newChannel);
+        } else {
+            console.warn('PropertyPanel: could not find DOM element with ID', originalChannel);
+        }
+
+        // Update the original channel reference
+        input.dataset.originalChannel = newChannel;
+
+        // Send update with old ID so extension can find and update the correct widget
+        try {
+            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            this.vscode.postMessage({
+                command: 'updateWidgetProps',
+                text: PropertyPanel.safeSanitizeForPost(minimized),
+                oldId: originalChannel
+            });
+        } catch (e) {
+            console.error('PropertyPanel: failed to post id-change update', e);
+            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
+        }
+
+        // Rebuild the panel
+        this.rebuildPropertiesPanel();
+
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById(inputId);
+            if (newInput && newInput.tagName === 'INPUT') {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 10);
     }
 
     /**
@@ -991,13 +1109,27 @@ export class PropertyPanel {
             const currentId = (fullPath === 'channel') ? value : (channelIndex !== null ? (Array.isArray(this.properties?.channels) && this.properties.channels[channelIndex] ? this.properties.channels[channelIndex].id : value) : (this.properties.id || value));
             input.value = currentId;
             input.dataset.originalChannel = currentId;
-            input.dataset.skipInputHandler = 'true';
+            input.dataset.channelIdInput = 'true'; // Mark as channel ID input
 
+            // Add live input handler for debounced updates and validation
+            input.addEventListener('input', (evt) => {
+                this.handleChannelIdInput(evt.target, fullPath, channelIndex);
+            });
+
+            // Keep Enter/Tab for immediate commit
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter' || evt.key === 'Tab') {
                     evt.preventDefault();
                     const newChannel = evt.target.value.trim();
                     const originalChannel = input.dataset.originalChannel;
+
+                    // Clear any pending debounce
+                    const timerId = this._channelIdDebounceTimers.get(input);
+                    if (timerId) {
+                        clearTimeout(timerId);
+                        this._channelIdDebounceTimers.delete(input);
+                    }
+
                     const widget = this.widgets.find(w => {
                         if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
                             return w.props.channels[channelIndex].id === originalChannel;
@@ -1020,33 +1152,6 @@ export class PropertyPanel {
                             return;
                         }
 
-                        // Update the widget's id property in place
-                        if (fullPath === 'id') {
-                            widget.props.id = newChannel;
-                        } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
-                            widget.props.channels[channelIndex].id = newChannel;
-                        }
-
-                        // Update the widget div id
-                        const widgetDiv = document.getElementById(originalChannel);
-                        if (widgetDiv) {
-                            widgetDiv.id = newChannel;
-                        }
-
-                        // Send update with old ID so extension can find and update the correct widget
-                        try {
-                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                            this.vscode.postMessage({
-                                command: 'updateWidgetProps',
-                                text: PropertyPanel.safeSanitizeForPost(minimized),
-                                oldId: originalChannel
-                            });
-                        } catch (e) {
-                            console.error('PropertyPanel: failed to post id-change update', e);
-                            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
-                        }
-
                         // If the user pressed Tab we want to preserve tab order across the
                         // rebuild. Capture the current tabbable elements index, rebuild,
                         // then focus the next element.
@@ -1058,9 +1163,8 @@ export class PropertyPanel {
                             let currIndex = focusables.indexOf(input);
                             if (currIndex === -1) currIndex = 0;
 
-                            // Rebuild the panel (this will recreate DOM nodes)
-                            this.rebuildPropertiesPanel();
-                            input.blur();
+                            // Commit the change immediately
+                            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
 
                             // After rebuild, attempt to focus the next or previous element in order
                             setTimeout(() => {
@@ -1075,9 +1179,12 @@ export class PropertyPanel {
                                 }
                             }, 60);
                         } else {
-                            // Default Enter behaviour: rebuild and blur the input
-                            this.rebuildPropertiesPanel();
-                            input.blur();
+                            // Default Enter behaviour: commit and blur
+                            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
+                            setTimeout(() => {
+                                const newInput = document.getElementById(input.id);
+                                if (newInput) newInput.blur();
+                            }, 10);
                         }
                     }
                     else {
@@ -1379,6 +1486,11 @@ export class PropertyPanel {
 
         // Ignore events for inputs that are flagged to skip the handler
         if (input.dataset.skipInputHandler === 'true') {
+            return;
+        }
+
+        // Channel ID inputs have their own handler (handleChannelIdInput)
+        if (input.dataset.channelIdInput === 'true') {
             return;
         }
 
