@@ -39,6 +39,7 @@ export class Button {
         "borderWidth": 0,
         "fontSize": "auto",
         "borderColor": "#dddddd",
+        "fontFamily": "Verdana",
 
         "on": {
           "backgroundColor": "#3d800a",
