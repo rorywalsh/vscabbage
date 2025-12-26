@@ -141,6 +141,12 @@ export class PropertyPanel {
             // Deep clone the props to avoid mutating live state
             const clone = JSON.parse(JSON.stringify(props));
 
+            // If the widget has pre-minimized children (from grouping), use those instead
+            // of the runtime-expanded children that are in props.children
+            if (widget.serializedChildren && Array.isArray(widget.serializedChildren)) {
+                clone.children = JSON.parse(JSON.stringify(widget.serializedChildren));
+            }
+
             // Track which top-level properties existed in the original CSD file
             // This is used to determine which properties should be sent as null when they revert to defaults
             const originalProps = widget.originalProps || {};

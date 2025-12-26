@@ -39,7 +39,7 @@ if (vscode !== null) {
     propertyPanelPromise = import("../propertyPanel.js")
         .then(module => {
             console.log("Cabbage: PropertyPanel module loaded:", module);
-            PropertyPanel = loadPropertyPanel();
+            PropertyPanel = module.default || module.PropertyPanel;
             console.log("Cabbage: PropertyPanel assigned:", PropertyPanel);
             return PropertyPanel;
         })
@@ -125,6 +125,9 @@ async function groupSelectedWidgets() {
         console.warn("Cabbage: Need at least 2 widgets to group");
         return;
     }
+
+    // Ensure PropertyPanel is loaded for minimization
+    await loadPropertyPanel();
 
     console.log("Cabbage: Grouping", selectedElements.size, "widgets");
 
@@ -245,12 +248,19 @@ async function groupSelectedWidgets() {
             height: widget.props.bounds.height
         };
 
-        // Use originalProps (minimized) if available, otherwise use props
-        // This keeps the child definitions minimal (only non-default properties)
-        const sourceProps = widget.originalProps || widget.props;
+        // Minimize the current props to strip defaults and runtime properties
+        // This ensures children only include non-default properties from the current state
+        let minimizedProps = widget.props;
+        if (PropertyPanel && typeof PropertyPanel.minimizePropsForWidget === 'function') {
+            minimizedProps = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+            // Also apply exclusions to remove runtime properties like parameterIndex, value, etc.
+            minimizedProps = PropertyPanel.applyExcludes(minimizedProps, PropertyPanel.defaultExcludeKeys);
+        } else {
+            console.warn("Cabbage: PropertyPanel.minimizePropsForWidget not available, using full props");
+        }
 
         const childProps = {
-            ...sourceProps,
+            ...minimizedProps,
             bounds: relativeBounds
         };
 
@@ -273,6 +283,11 @@ async function groupSelectedWidgets() {
         }
     });
 
+    // Store the minimized children for sending to VSCode (before insertChildWidgets expands them)
+    // Also store them on the widget so future updates (like moves) use the minimized version
+    const minimizedChildren = JSON.parse(JSON.stringify(containerWidget.props.children));
+    containerWidget.serializedChildren = minimizedChildren;
+
     // Update the container's HTML to reflect it now has children (this will update styling)
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
     const containerDiv = document.getElementById(containerChannelId);
@@ -281,7 +296,8 @@ async function groupSelectedWidgets() {
         const containerInstance = containerDiv.cabbageInstance || widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === containerChannelId);
         if (containerInstance && typeof containerInstance.getInnerHTML === 'function') {
             containerDiv.innerHTML = containerInstance.getInnerHTML();
-            console.log("Cabbage: Updated container HTML to reflect children");
+            // Also store minimized children on the instance used for updates
+            containerInstance.serializedChildren = minimizedChildren;
         }
 
         // Use insertChildWidgets to properly render the children
@@ -295,10 +311,11 @@ async function groupSelectedWidgets() {
     // Update the CSD file with the modified container (now with children)
     // Send only the essential delta: id, type, and children
     // The extension's deepMerge will preserve all other existing properties
+    // Use the minimized children we stored earlier, not the expanded ones from insertChildWidgets
     const containerUpdatePayload = {
         id: containerWidget.props.id,
         type: containerWidget.props.type,
-        children: containerWidget.props.children
+        children: minimizedChildren
     };
 
     // Include channels for identification
@@ -309,6 +326,13 @@ async function groupSelectedWidgets() {
     postMessageToVSCode({
         command: 'updateWidgetProps',
         text: JSON.stringify(containerUpdatePayload)
+    });
+
+    // Ensure all references to this container in the widgets array have the minimized children
+    widgets.forEach(w => {
+        if (w.props.id === containerWidget.props.id || CabbageUtils.getChannelId(w.props, 0) === containerId) {
+            w.serializedChildren = minimizedChildren;
+        }
     });
 
     // Clear selection

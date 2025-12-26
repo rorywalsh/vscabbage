@@ -191,6 +191,12 @@ export class WidgetManager {
             widget.originalProps = JSON.parse(JSON.stringify(props));
         }
 
+        // If this widget has children in the original props (from the CSD file),
+        // store them as serializedChildren so they remain minimized during updates
+        if (props.children && Array.isArray(props.children) && props.children.length > 0) {
+            widget.serializedChildren = JSON.parse(JSON.stringify(props.children));
+        }
+
         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {
             const interaction = (type === 'button' || type === 'checkBox' || type === 'optionButton') ? 'click' : 'drag';
             const channels = Array.isArray(widget.props.channels) ? widget.props.channels : [];
