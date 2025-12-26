@@ -315,7 +315,7 @@ export class PropertyPanel {
         this.vscode = vscode;           // VSCode API instance
         this.type = type;               // Type of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
-        this._channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
+        this.channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
 
         // Handle multi-widget mode
         if (type === 'multi' && Array.isArray(properties)) {
@@ -431,7 +431,7 @@ export class PropertyPanel {
         }
 
         // Clear existing debounce timer for this input
-        const timerId = this._channelIdDebounceTimers.get(input);
+        const timerId = this.channelIdDebounceTimers.get(input);
         if (timerId) {
             clearTimeout(timerId);
         }
@@ -444,10 +444,10 @@ export class PropertyPanel {
         // Debounce the actual update
         const newTimerId = setTimeout(() => {
             this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
-            this._channelIdDebounceTimers.delete(input);
+            this.channelIdDebounceTimers.delete(input);
         }, 400); // 400ms debounce
 
-        this._channelIdDebounceTimers.set(input, newTimerId);
+        this.channelIdDebounceTimers.set(input, newTimerId);
     }
 
     /**
@@ -525,7 +525,7 @@ export class PropertyPanel {
 
         // Suppress input events while we build the panel to avoid firing
         // handleInputChange from initialization side-effects (color pickers, style updates, etc.)
-        this._suppressEvents = true;
+        this.suppressEvents = true;
 
         // Prevent scroll events from bubbling to the main webview
         if (!panel.hasAttribute('data-scroll-handler-attached')) {
@@ -573,7 +573,7 @@ export class PropertyPanel {
         // This allows any component initialization (like color pickers) to complete
         // without triggering genuine change handlers.
         setTimeout(() => {
-            this._suppressEvents = false;
+            this.suppressEvents = false;
             const initables = document.querySelectorAll('.property-panel input, .property-panel select, .property-panel textarea');
             initables.forEach(i => i.dataset.initialized = 'true');
             console.log('PropertyPanel: inputs initialized, event suppression lifted');
@@ -1124,10 +1124,10 @@ export class PropertyPanel {
                     const originalChannel = input.dataset.originalChannel;
 
                     // Clear any pending debounce
-                    const timerId = this._channelIdDebounceTimers.get(input);
+                    const timerId = this.channelIdDebounceTimers.get(input);
                     if (timerId) {
                         clearTimeout(timerId);
-                        this._channelIdDebounceTimers.delete(input);
+                        this.channelIdDebounceTimers.delete(input);
                     }
 
                     const widget = this.widgets.find(w => {
@@ -1499,7 +1499,7 @@ export class PropertyPanel {
         // components (colour pickers, selects, etc.) may emit synthetic
         // input/change events while being constructed — we don't want those
         // to be treated as user edits.
-        if (this._suppressEvents || input.dataset.initialized !== 'true') {
+        if (this.suppressEvents || input.dataset.initialized !== 'true') {
             console.log('PropertyPanel: ignoring initialization input event for', input && input.id);
             return;
         }
@@ -1673,6 +1673,69 @@ export class PropertyPanel {
                 console.log(`PropertyPanel: Minimizing props for ${widgetId}, has rawDefaults: ${!!widget.rawDefaults}, has originalProps: ${!!widget.originalProps}`);
                 let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
                 minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+
+                // For multi-widget updates, we need to ensure the property is sent regardless of whether
+                // it matches defaults, because we're explicitly changing it across multiple widgets
+                const pathParts = path.split('.');
+                if (pathParts.length > 0) {
+                    // Check if the property was stripped during minimization
+                    let minimizedValue = minimized;
+                    let wasStripped = false;
+
+                    for (let i = 0; i < pathParts.length; i++) {
+                        if (minimizedValue && typeof minimizedValue === 'object' && pathParts[i] in minimizedValue) {
+                            minimizedValue = minimizedValue[pathParts[i]];
+                        } else {
+                            wasStripped = true;
+                            break;
+                        }
+                    }
+
+                    // If it was stripped, we need to restore it or set it to null
+                    if (wasStripped) {
+                        // Check if it existed in originalProps
+                        let originalValue = widget.originalProps;
+                        let existedInOriginal = false;
+
+                        if (originalValue) {
+                            for (let i = 0; i < pathParts.length; i++) {
+                                if (originalValue && typeof originalValue === 'object' && pathParts[i] in originalValue) {
+                                    originalValue = originalValue[pathParts[i]];
+                                } else {
+                                    existedInOriginal = false;
+                                    break;
+                                }
+                            }
+                            if (originalValue !== undefined) {
+                                existedInOriginal = true;
+                            }
+                        }
+
+                        // Reconstruct the path in minimized
+                        let current = minimized;
+                        for (let i = 0; i < pathParts.length - 1; i++) {
+                            if (!current[pathParts[i]]) {
+                                current[pathParts[i]] = {};
+                            }
+                            current = current[pathParts[i]];
+                        }
+
+                        const finalKey = pathParts[pathParts.length - 1];
+
+                        if (existedInOriginal) {
+                            // Property existed in original CSD and was stripped because it matches default
+                            // Send null to remove it from the CSD
+                            current[finalKey] = null;
+                            console.log(`PropertyPanel: Setting ${path} to null (existed in original, now matches default)`);
+                        } else {
+                            // Property didn't exist in original CSD but we're setting it
+                            // Send the actual value
+                            current[finalKey] = parsedValue;
+                            console.log(`PropertyPanel: Restoring ${path} = ${parsedValue} (new property being set explicitly)`);
+                        }
+                    }
+                }
+
                 const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
                 console.log(`PropertyPanel: Sending multi-widget update for ${widgetId}, payload size: ${textPayload.length} chars`);
                 console.log(`PropertyPanel: Payload preview: ${textPayload.substring(0, 200)}`);

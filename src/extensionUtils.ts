@@ -1312,7 +1312,7 @@ be lost when working with the UI editor. -->\n
         "type": "rotarySlider",
         "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
         "channels": [{"id": "gain"}],
-        "text": "Gain"
+        "label": {"text": "Gain"}
     }`;
 
             const csoundSection = `<CsoundSynthesizer>

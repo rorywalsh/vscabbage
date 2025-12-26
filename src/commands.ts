@@ -1669,13 +1669,35 @@ export class Commands {
     static async createNewCabbageFile(type: string) {
         // Get the new file contents based on the type
         const newFileContents = ExtensionUtils.getNewCabbageFile(type);
-        // Create a new untitled document with .csd extension and appropriate language
-        const document = await vscode.workspace.openTextDocument({
-            content: newFileContents,
-            language: 'csound-csd'  // Set proper language mode for .csd files
+        if (!newFileContents) {
+            vscode.window.showErrorMessage(`Failed to create new ${type} file`);
+            return;
+        }
+        // Show save dialog with CSD file filter
+        // Default to workspace root if available, otherwise user's home directory
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const defaultUri = workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder.uri, 'Untitled.csd')
+            : vscode.Uri.file('Untitled.csd');
+
+        const fileUri = await vscode.window.showSaveDialog({
+            filters: {
+                'Csound CSD': ['csd']
+            },
+            defaultUri: defaultUri,
+            saveLabel: `Create New ${type === 'effect' ? 'Effect' : 'Synth'}`
         });
 
-        // Open the new document in a new editor tab
+        if (!fileUri) {
+            return; // User cancelled
+        }
+
+        // Write the file
+        const fileContent = new TextEncoder().encode(newFileContents);
+        await vscode.workspace.fs.writeFile(fileUri, fileContent);
+
+        // Open the new file
+        const document = await vscode.workspace.openTextDocument(fileUri);
         await vscode.window.showTextDocument(document);
     }
 

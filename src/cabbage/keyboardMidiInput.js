@@ -68,10 +68,10 @@ class KeyboardMidiInput {
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleKeyUp = this.handleKeyUp.bind(this);
         // Store a copy of the original mapping so we can shift it by octaves later
-        this._baseKeyToNote = Object.assign({}, this.keyToNote);
+        this.baseKeyToNote = Object.assign({}, this.keyToNote);
         // Default base octave that the mapping was authored for (C4 = 4 for 'a' key)
-        this._baseOctave = 4;
-        this._currentBaseOctave = this._baseOctave;
+        this.baseOctave = 4;
+        this.currentBaseOctave = this.baseOctave;
     }
 
     /**
@@ -81,17 +81,17 @@ class KeyboardMidiInput {
      */
     setBaseOctave(octave) {
         if (typeof octave !== 'number' || isNaN(octave)) return;
-        const deltaOctaves = octave - this._baseOctave;
+        const deltaOctaves = octave - this.baseOctave;
         const semitoneShift = deltaOctaves * 12;
         this.keyToNote = {};
-        Object.keys(this._baseKeyToNote).forEach(k => {
-            let v = this._baseKeyToNote[k] + semitoneShift;
+        Object.keys(this.baseKeyToNote).forEach(k => {
+            let v = this.baseKeyToNote[k] + semitoneShift;
             // clamp to valid MIDI range
             if (v < 0) v = 0;
             if (v > 127) v = 127;
             this.keyToNote[k] = v;
         });
-        this._currentBaseOctave = octave;
+        this.currentBaseOctave = octave;
         console.log('Cabbage: keyboardMidiInput base octave set to', octave);
     }
 

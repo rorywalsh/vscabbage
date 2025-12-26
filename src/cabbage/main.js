@@ -142,12 +142,12 @@ window.addEventListener('message', async (event) => {
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Set up MutationObserver to watch for changes to MainForm
-    if (mainForm && !mainForm._mutationObserver) {
+    if (mainForm && !mainForm.mutationObserver) {
         console.log('Cabbage: Setting up MutationObserver on MainForm');
         // Add a unique identifier to track if MainForm gets replaced
         mainForm.setAttribute('data-instance-id', Date.now().toString());
         console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
-        mainForm._mutationObserver = new MutationObserver((mutations) => {
+        mainForm.mutationObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'childList') {
                     console.log('Cabbage: MainForm childList mutation detected!');
@@ -165,7 +165,7 @@ window.addEventListener('message', async (event) => {
                 }
             });
         });
-        mainForm._mutationObserver.observe(mainForm, {
+        mainForm.mutationObserver.observe(mainForm, {
             childList: true,
             attributes: true,
             subtree: false

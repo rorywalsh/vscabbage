@@ -365,31 +365,31 @@ export class GenTable {
         // verify that pixel->sample mapping is actually non-linear at runtime.
         try {
             const useLog = (this.props.style && this.props.style.logarithmic);
-            if (useLog && !this._gentableLogged) {
+            if (useLog && !this.gentableLogged) {
                 const w = Number(this.props.bounds.width) || 1;
                 const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
                 const map = (x) => this.pixelToSample(x);
                 // mark as logged for a short period to avoid noisy output
-                this._gentableLogged = true;
-                setTimeout(() => { this._gentableLogged = false; }, 3000);
+                this.gentableLogged = true;
+                setTimeout(() => { this.gentableLogged = false; }, 3000);
             }
             // One-time props dump to help diagnose whether style.logarithmic
             // is actually present on the widget props at render time. This
             // is guarded so it only prints briefly and won't spam the console.
-            if (!this._gentablePropsLogged) {
+            if (!this.gentablePropsLogged) {
                 try {
 
                 } catch (e) {
                     console.warn('Cabbage: Failed to log GenTable props', e);
                 }
-                this._gentablePropsLogged = true;
+                this.gentablePropsLogged = true;
                 // Allow a single reprint after a short delay (in case props update)
-                setTimeout(() => { this._gentablePropsLogged = false; }, 5000);
+                setTimeout(() => { this.gentablePropsLogged = false; }, 5000);
             }
             // Targeted mapping output: print whether logarithmic mode is enabled
             // and a few pixel->sample mappings so we can verify the mapping math
             // at runtime even when the props object prints as a Proxy.
-            if (!this._gentableMapLogged) {
+            if (!this.gentableMapLogged) {
                 try {
                     const w = Number(this.props.bounds.width) || 1;
                     const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
@@ -401,8 +401,8 @@ export class GenTable {
                 } catch (e) {
                     console.warn('Cabbage: GenTable mapping log failed', e);
                 }
-                this._gentableMapLogged = true;
-                setTimeout(() => { this._gentableMapLogged = false; }, 3000);
+                this.gentableMapLogged = true;
+                setTimeout(() => { this.gentableMapLogged = false; }, 3000);
             }
         } catch (e) {
             console.warn('Cabbage: GenTable debug logging failed', e);
