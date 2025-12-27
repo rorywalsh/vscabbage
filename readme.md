@@ -10,6 +10,9 @@ Beyond audio processing, Cabbage includes a built-in graphical UI editor that le
 
 This repository contains the source code for the Cabbage Visual Studio Code extension. The extension serves as a bridge between VS Code and the Cabbage plugin-development framework for Csound, providing all the tools necessary to create, edit, preview, and test Cabbage instruments directly inside the editor. More info can be found [here](https://rorywalsh.github.io/cabbage3docs/docs/intro)
 
+> This extension is best used in tandem with with the Csound vscode plugin extension which is available in the [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=kunstmusik.csound-vscode-plugin). 
+
+
 ## Repository Structure
 
 ### Core Architecture
@@ -52,25 +55,24 @@ The extension is divided into two main components:
 - **`assets/`** - Static resources and binary files
 - **`examples/`** - Sample Cabbage instruments (CSD files)
 
-### Property System
+### Widget Property System
 
-The extension uses a sophisticated property management system to handle the dual representation of widgets:
+The extension uses a property management system to handle the dual representation of widgets:
 
-**Serialization** - Properties are minimized when saved to the CSD file (only non-default values)
+**Serialization** - Properties are minimized when saved to the CSD file. Only non-default values are shown. This makes the JSON objects more accessible. 
 **Runtime** - Properties are expanded with all defaults when loaded into the webview
 
-Key concepts:
-- `widget.props` - Expanded runtime properties with all defaults applied
-- `widget.originalProps` - Minimized properties from the CSD file (used for reference)
+Core members of widget class:
+- `widget.props` - Expanded runtime properties with all defaults applied - this is the main reference for any widget
+- `widget.originalProps` - Minimised properties from the CSD file (used for reference when moving data around between internal widgets and the .csd file)
 - `widget.rawDefaults` - Default values for the widget type
-- `widget.serializedChildren` - Minimized children array (preserved through drag operations)
+- `widget.serializedChildren` - Minimised child array (preserved through drag operations)
 
 ### Data Flow
 
-1. **Load**: CSD file → Extension parses JSON → Webview instantiates widgets with defaults applied
-2. **Edit**: User modifies widget (property panel, drag, resize) → Webview minimizes props → Extension updates CSD
-3. **Save**: Extension writes minimized JSON to CSD file
-4. **Reload**: CSD file changed → Extension notifies webview → Webview reloads widgets
+1. **Load**: CSD file -> Extension parses JSON -> Webview instantiates widgets with defaults applied and opens webview panel
+2. **Edit**: Users modify widgets (property panel, drag, resize) -> Webview minimizes props -> Extension updates CSD
+3. **Save/Reload**: Extension writes minimized JSON to CSD file -> Extension notifies webview -> Webview reloads widgets
 
 ### Build and Development
 
