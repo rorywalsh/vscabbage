@@ -47,10 +47,15 @@ export function initializeZoom() {
         wrapper.style.width = '100%';
         wrapper.style.height = '100%';
 
-        // Move MainForm into the wrapper
+        // Move MainForm into the wrapper - check both leftPanel and body
         const mainForm = document.getElementById('MainForm');
-        if (mainForm && mainForm.parentElement === leftPanel) {
-            leftPanel.removeChild(mainForm);
+        if (mainForm) {
+            if (mainForm.parentElement === leftPanel) {
+                leftPanel.removeChild(mainForm);
+            } else if (mainForm.parentElement === document.body) {
+                console.log('Cabbage: MainForm found in body, moving to zoom-wrapper');
+                document.body.removeChild(mainForm);
+            }
             wrapper.appendChild(mainForm);
         }
         leftPanel.appendChild(wrapper);
@@ -65,8 +70,13 @@ export function initializeZoom() {
                         console.log('Cabbage: MainForm recreated, moving to zoom-wrapper');
                         // Move it to the wrapper
                         const wrapper = document.getElementById('zoom-wrapper');
-                        if (wrapper && node.parentElement === leftPanel) {
-                            leftPanel.removeChild(node);
+                        if (wrapper) {
+                            if (node.parentElement === leftPanel) {
+                                leftPanel.removeChild(node);
+                            } else if (node.parentElement === document.body) {
+                                console.log('Cabbage: MainForm found in body during mutation, moving');
+                                document.body.removeChild(node);
+                            }
                             wrapper.appendChild(node);
                             // Re-apply zoom to ensure correct scaling
                             applyZoom(leftPanel);
@@ -78,6 +88,8 @@ export function initializeZoom() {
     });
 
     observer.observe(leftPanel, { childList: true });
+    // Also observe body in case MainForm is added there
+    observer.observe(document.body, { childList: true });
 
     // Set up zoom with Ctrl/Cmd + Mouse Wheel
     setupZoom(leftPanel);

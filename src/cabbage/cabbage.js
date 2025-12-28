@@ -54,21 +54,38 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 
-  static sendCustomCommand(command, vscode = null) {
+  static sendCustomCommand(command, vscode = null, additionalData = {}) {
     const msg = {
       command: command,
-      text: JSON.stringify({})
+      text: JSON.stringify(additionalData)
     };
 
     if (vscode !== null) {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        console.log('Cabbage: Calling window.sendMessageFromUI with:', msg);
+        try {
+          const result = window.sendMessageFromUI(msg);
+          console.log('Cabbage: sendMessageFromUI returned:', result);
+        } catch (err) {
+          console.error('Cabbage: sendMessageFromUI threw error:', err);
+          console.error('Cabbage: Error stack:', err.stack);
+        }
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available yet. Message:', msg);
+        console.error('Cabbage: typeof window.sendMessageFromUI:', typeof window.sendMessageFromUI);
+        console.error('Cabbage: window.sendMessageFromUI value:', window.sendMessageFromUI);
+      }
     }
   }
 
@@ -81,7 +98,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 
@@ -101,7 +122,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 
@@ -130,7 +155,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 
@@ -154,7 +183,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 
@@ -172,7 +205,11 @@ export class Cabbage {
       vscode.postMessage(msg);
     }
     else {
-      window.sendMessageFromUI(msg);
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
     }
   }
 

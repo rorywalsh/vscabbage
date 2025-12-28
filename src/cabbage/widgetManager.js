@@ -2,8 +2,6 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("Cabbage: Loading widgetManager.js...");
-
 // Import necessary modules and utilities
 import { widgetConstructors, getWidgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
@@ -361,14 +359,22 @@ export class WidgetManager {
         if (form) {
             console.log(`Cabbage: appendToMainForm - Found MainForm tagName=${form.tagName}, appending widget id=${widgetDiv.id}`);
         } else {
-            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id} to body`);
+            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id}`);
         }
         if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
             // MainForm is an HTML element - append to it
             form.appendChild(widgetDiv);
         } else {
-            // MainForm not found or is an SVG rect - append to document body
-            document.body.appendChild(widgetDiv);
+            // MainForm not found or is an SVG rect - append to appropriate container
+            // For plugin mode, use zoom-wrapper if available, otherwise body
+            const zoomWrapper = document.getElementById('zoom-wrapper');
+            if (zoomWrapper) {
+                console.log(`Cabbage: Appending ${widgetDiv.id} to zoom-wrapper`);
+                zoomWrapper.appendChild(widgetDiv);
+            } else {
+                console.log(`Cabbage: Appending ${widgetDiv.id} to body`);
+                document.body.appendChild(widgetDiv);
+            }
         }
 
         // Diagnostic: log current MainForm child count and visible child IDs

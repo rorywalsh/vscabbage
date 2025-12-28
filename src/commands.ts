@@ -2230,9 +2230,35 @@ include $(SYSTEM_FILES_DIR)/Makefile
         -ms-user-select: text;
         cursor: text;
     }
+
+    .full-height-div {
+        height: 100vh;
+    }
+
+    #LeftPanel {
+        overflow: hidden;
+        position: relative;
+    }
+
+    #parent {
+        display: flex;
+        flex-direction: row;
+    }
+
+    #LeftPanel {
+        flex: 1;
+        order: 1;
+    }
 </style>
 </head>
 <body>
+<div id="parent" class="full-height-div">
+    <div id="LeftPanel" class="full-height-div">
+        <!-- Widgets will be dynamically added here -->
+    </div>
+    <span class="popup" id="popupValue">50</span>
+</div>
+
 ${widgetScripts}
 <script type="module" src="cabbage/utils.js"></script>
 <script type="module" src="cabbage/cabbage.js"></script>

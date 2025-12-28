@@ -102,7 +102,8 @@ CabbageUtils.showOverlay();
     console.error('Cabbage: Rejection stack:', error.stack);
 });
 
-//send message to Cabbage to indicate that the UI is ready to load
+// Send message to Cabbage to indicate that the UI is ready to load
+console.log('Cabbage: Sending cabbageIsReadyToLoad');
 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
 
 // Add key listener for save command (Ctrl+S or Cmd+S)
@@ -138,39 +139,7 @@ window.addEventListener('message', async (event) => {
         }
     }
 
-    // console.log('Cabbage: main.js: received message:', message.command, message);
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
-
-    // Set up MutationObserver to watch for changes to MainForm
-    if (mainForm && !mainForm.mutationObserver) {
-        console.log('Cabbage: Setting up MutationObserver on MainForm');
-        // Add a unique identifier to track if MainForm gets replaced
-        mainForm.setAttribute('data-instance-id', Date.now().toString());
-        console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
-        mainForm.mutationObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                    console.log('Cabbage: MainForm childList mutation detected!');
-                    console.trace('Mutation trace:');
-                    console.log('Added nodes:', mutation.addedNodes.length);
-                    mutation.addedNodes.forEach((node, index) => {
-                        console.log(`Added node ${index}: ${node.tagName} id=${node.id}`);
-                    });
-                    console.log('Removed nodes:', mutation.removedNodes.length);
-                    mutation.removedNodes.forEach((node, index) => {
-                        console.log(`Removed node ${index}: ${node.tagName} id=${node.id}`);
-                    });
-                } else if (mutation.type === 'attributes') {
-                    console.log('Cabbage: MainForm attribute mutation:', mutation.attributeName);
-                }
-            });
-        });
-        mainForm.mutationObserver.observe(mainForm, {
-            childList: true,
-            attributes: true,
-            subtree: false
-        });
-    }
 
     // Handle different commands based on the message received
     switch (message.command) {
@@ -200,13 +169,6 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
-
-            // Add a 5-second delay to check DOM structure after widget creation
-            // setTimeout(() => {
-            //     console.log('Cabbage: DOM structure after 5 seconds:');
-            //     // ... (logging code commented out)
-            // }, 5000);
-
             break;
 
         // Called when the host triggers a parameter change in the UI
@@ -227,7 +189,6 @@ window.addEventListener('message', async (event) => {
                         continue;
                     }
                     if (channel.parameterIndex === parameterMessage.paramIdx) {
-                        console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
                         const updateMsg = {
                             id: channel.id,
                             channel: channel.id,
