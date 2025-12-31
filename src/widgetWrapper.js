@@ -259,6 +259,9 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
         });
+        
+        // NOTE: We don't update the code editor during drag movement to avoid
+        // creating excessive undo history entries. Updates happen only on dragend.
     }
 
     /**
@@ -376,15 +379,26 @@ export class WidgetWrapper {
                     // If this element has children (grouped widgets), resize them too
                     this.resizeChildWidgets(target, event.rect.width, event.rect.height);
 
+                    // NOTE: We don't update the code editor during resize to avoid
+                    // creating excessive undo history entries. Updates happen only on resize end.
+
+                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+                    target.setAttribute('data-x', x); // Update data-x attribute
+                    target.setAttribute('data-y', y); // Update data-y attribute
+                },
+                end: (event) => {
+                    // Update code editor only at the end of resize
+                    const target = event.target;
+                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
+                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
+
                     this.updatePanelCallback(this.vscode, {
                         eventType: "resize", // Event type for resizing
                         name: event.target.id, // Name of the resized element
                         bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
                     }, this.widgets);
 
-                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-                    target.setAttribute('data-x', x); // Update data-x attribute
-                    target.setAttribute('data-y', y); // Update data-y attribute
+                    console.log(`Cabbage: Resize ended for element ${target.id}: w=${event.rect.width}, h=${event.rect.height}`);
                 }
             },
             modifiers: [

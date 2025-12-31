@@ -1227,27 +1227,26 @@ export class Commands {
                             if (msg['command'] === 'widgetUpdate') {
                                 const panel = Commands.getPanel();
                                 if (panel) {
-                                    if (msg.hasOwnProperty('data')) {
-                                        let channel = msg['channel'];
-                                        if (channel === null && msg['data']) {
+                                    if (msg.hasOwnProperty('widgetJson')) {
+                                        let id = msg['id'];
+                                        if (!id && msg['widgetJson']) {
                                             try {
-                                                const parsed = JSON.parse(msg['data']);
-                                                channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                                const parsed = JSON.parse(msg['widgetJson']);
+                                                id = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
                                             } catch (e) {
-                                                console.error('Failed to parse data for channel:', e);
+                                                console.error('Failed to parse widgetJson for id:', e);
                                             }
                                         }
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
-                                            channel: channel,
-                                            widgetJson: msg['data'],
+                                            id: id,
+                                            widgetJson: msg['widgetJson'],
                                             currentCsdPath: Commands.getCurrentFileName(),
                                         });
                                     } else if (msg.hasOwnProperty('value')) {
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
                                             id: msg['id'],
-                                            channel: msg['channel'],
                                             value: msg['value'],
                                             currentCsdPath: Commands.getCurrentFileName(),
                                         });
