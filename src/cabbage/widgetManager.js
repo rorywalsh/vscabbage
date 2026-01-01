@@ -148,6 +148,12 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
+        // For comboBox with populate, set automatable to false (plugins can't handle dynamic ranges)
+        if (widget.props.type === 'comboBox' && widget.props.populate?.directory) {
+            widget.props.automatable = false;
+            widget.props.channelType = "string";
+        }
+
         // Clean up redundant IDs: if widget has both id and channels[0].id, prefer channels[0].id
         if (widget.props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
             if (widget.props.channels[0].id) {

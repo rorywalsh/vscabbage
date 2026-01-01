@@ -97,12 +97,21 @@ export class ComboBox {
 
         this.props.value = valueToSend;
 
+        // For non-automatable comboBox (e.g., with populate), send the selected item text as a string
+        // For automatable comboBox, send the numeric index
+        const isAutomatable = this.props.automatable === true || this.props.automatable === 1;
+
         const msg = {
-            paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
             channel: CabbageUtils.getChannelId(this.props),
-            value: this.props.value,
-            channelType: "number"
+            value: isAutomatable ? this.props.value : this.selectedItem
         };
+
+        // Only include paramIdx and channelType for automatable widgets
+        if (isAutomatable) {
+            msg.paramIdx = CabbageUtils.getChannelParameterIndex(this.props, 0);
+            msg.channelType = "number";
+        }
+
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
         this.isOpen = false;
@@ -139,13 +148,14 @@ export class ComboBox {
         // Calculate the maximum width needed for all items
         const fontSize = this.props.style.fontSize === "auto" ? this.props.bounds.height * 0.5 : this.props.style.fontSize;
         let maxWidth = rect.width;
+
+        // Create a canvas to measure text width
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext("2d");
+        ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;
+
         items.forEach(item => {
-            const textWidth = CabbageUtils.getStringWidth(item, {
-                font: {
-                    family: this.props.style.fontFamily,
-                    size: fontSize
-                }
-            });
+            const textWidth = ctx.measureText(item).width;
             // Add some padding
             const itemWidth = textWidth + 20;
             if (itemWidth > maxWidth) {

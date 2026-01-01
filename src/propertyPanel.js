@@ -763,6 +763,11 @@ export class PropertyPanel {
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
         const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
+        // For comboBox widgets with populate, hide items array
+        if (this.type === 'comboBox' && properties.populate) {
+            hiddenProps.push('items');
+        }
+
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps or already handled
             if (hiddenProps.includes(sectionName)) {
@@ -787,14 +792,17 @@ export class PropertyPanel {
                     }
 
                     // Check if the value is an object
-                    if (typeof value === 'object' && value !== null) {
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                         // Handle nested properties (like colour)
+                        console.log(`PropertyPanel: Processing nested object - sectionName: ${sectionName}, key: ${key}`);
                         Object.entries(value).forEach(([nestedKey, nestedValue]) => {
                             // Skip if this deeply nested property is in hiddenProps
                             if (hiddenProps.includes(`${sectionName}.${key}.${nestedKey}`)) {
                                 return;
                             }
-                            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, sectionName);
+                            // Pass the compound key directly without sectionName prefix
+                            console.log(`PropertyPanel: Adding nested property - key: ${key}.${nestedKey}, value: ${nestedValue}, path: ''`);
+                            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, '');
                         });
                     } else {
                         this.addPropertyToSection(key, value, sectionDiv, sectionName);
@@ -1076,8 +1084,8 @@ export class PropertyPanel {
             return toggleContainer;
         }
 
-        // Handle file input
-        if (key.toLowerCase().includes('file') && key !== 'currentCsdFile') {
+        // Handle file input (but not fileType which is just a text filter)
+        if (key.toLowerCase().includes('file') && key !== 'currentCsdFile' && key !== 'fileType' && !key.toLowerCase().includes('filetype')) {
             input = document.createElement('select');
             input.classList.add('loading');
 
@@ -1400,6 +1408,7 @@ export class PropertyPanel {
         // Set the full property path as the input id
         if (input) {
             input.id = fullPropertyPath;
+            console.log(`PropertyPanel: Created input with id: ${fullPropertyPath}, parent: ${CabbageUtils.getWidgetDivId(this.properties)}`);
 
             // For multi-widget mode, store selected widget IDs instead of single parent
             if (this.isMultiMode) {
@@ -1608,13 +1617,15 @@ export class PropertyPanel {
                 const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
-                } else {
+                } else if (widgetDiv) {
                     console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
+                } else {
+                    console.warn('PropertyPanel: widgetDiv is null, skipping innerHTML update for', CabbageUtils.getChannelId(widget.props, 0));
                 }
 
                 // Update widget styles if the index or zIndex property changed
-                if (path === 'index' || path === 'zIndex') {
+                if (widgetDiv && (path === 'index' || path === 'zIndex')) {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 
