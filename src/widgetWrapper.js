@@ -259,7 +259,7 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
         });
-        
+
         // NOTE: We don't update the code editor during drag movement to avoid
         // creating excessive undo history entries. Updates happen only on dragend.
     }

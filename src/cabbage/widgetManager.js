@@ -148,12 +148,17 @@ export class WidgetManager {
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
-        // Only set the first channel's id to match the widget id if the channel doesn't already have an id
-        // This preserves custom channel IDs while ensuring new widgets have matching IDs
-        if (props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
-            // Only update if the channel ID is not explicitly provided in props
-            if (!props.channels || !props.channels[0] || !props.channels[0].id) {
-                widget.props.channels[0].id = props.id;
+        // Clean up redundant IDs: if widget has both id and channels[0].id, prefer channels[0].id
+        if (widget.props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            if (widget.props.channels[0].id) {
+                // Channel has its own ID, remove redundant widget.id
+                if (widget.props.id === widget.props.channels[0].id) {
+                    delete widget.props.id;
+                }
+            } else {
+                // Channel doesn't have ID, use widget.id for the channel
+                widget.props.channels[0].id = widget.props.id;
+                delete widget.props.id;
             }
         }
 
@@ -1140,6 +1145,15 @@ export class WidgetManager {
                         return;
                     }
 
+                    // Track this insertion in pendingWidgets IMMEDIATELY to prevent TOCTOU race
+                    // This must happen BEFORE any await or async operation
+                    let resolveInsertion;
+                    const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
+                    if (widgetId) {
+                        WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
+                        console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                    }
+
                     // If this is NOT a form widget and MainForm doesn't exist, queue it
                     if (p.type !== 'form' && !document.getElementById('MainForm')) {
                         if (!WidgetManager.pendingNonFormWidgets) {
@@ -1147,16 +1161,15 @@ export class WidgetManager {
                         }
                         console.log(`WidgetManager.updateWidget: MainForm not found, queueing ${p.type} widget ${widgetId}`);
                         WidgetManager.pendingNonFormWidgets.push(obj);
+                        // Clean up pending flag since we're queueing instead of inserting
+                        if (widgetId) {
+                            resolveInsertion();
+                            WidgetManager.pendingWidgets.delete(widgetId);
+                        }
                         return;
                     }
 
                     console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
-
-                    // Track this insertion in pendingWidgets
-                    let resolveInsertion;
-                    const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
-                    WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
-                    console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
 
                     try {
                         await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
@@ -1171,9 +1184,11 @@ export class WidgetManager {
                             }
                         }
                     } finally {
-                        resolveInsertion();
-                        WidgetManager.pendingWidgets.delete(widgetId);
-                        console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                        if (widgetId) {
+                            resolveInsertion();
+                            WidgetManager.pendingWidgets.delete(widgetId);
+                            console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                        }
                     }
                 }
                 else {

@@ -299,15 +299,30 @@ export class PropertyPanel {
                     clone.id = props.id;
                 }
 
-                // Defensive: if after minimization we have neither a type nor an id,
+                // Defensive: if after minimization we have neither a type nor an id (or channel id),
                 // that's an invalid payload to send — return the full props so the
                 // extension receives a complete object (and can validate/err).
-                if ((!clone.type || clone.type === '') && (!clone.id || clone.id === '')) {
-                    console.error('PropertyPanel.minimizePropsForWidget: minimized object has no type or id — returning full props to avoid invalid payload');
+                const hasChannelId = clone.channels && Array.isArray(clone.channels) && clone.channels.length > 0 && clone.channels[0]?.id;
+                if ((!clone.type || clone.type === '') && (!clone.id || clone.id === '') && !hasChannelId) {
+                    console.error('PropertyPanel.minimizePropsForWidget: minimized object has no type, id, or channel id — returning full props to avoid invalid payload');
                     return props;
                 }
             } catch (e) {
                 console.error('PropertyPanel.minimizePropsForWidget post-strip checks failed:', e);
+            }
+
+            // Remove redundant widget.id if it matches the first channel's id
+            // This avoids duplicate IDs in the serialized JSON
+            try {
+                if (clone.id && clone.channels && Array.isArray(clone.channels) && clone.channels.length > 0) {
+                    const firstChannelId = clone.channels[0]?.id;
+                    if (firstChannelId && clone.id === firstChannelId) {
+                        delete clone.id;
+                        console.log('PropertyPanel.minimizePropsForWidget: removed redundant widget.id (matches channels[0].id)');
+                    }
+                }
+            } catch (e) {
+                console.error('PropertyPanel.minimizePropsForWidget: failed to check redundant id', e);
             }
 
             return clone;
@@ -715,11 +730,9 @@ export class PropertyPanel {
         this.addPropertyToSection('type', this.type, specialSection);
         this.handledProperties.add('type'); // Mark as handled
 
-        // Add widget ID if it exists (top-level id)
-        if (this.properties.id) {
-            this.addPropertyToSection('id', this.properties.id, specialSection, '');
-            this.handledProperties.add('id'); // Mark as handled
-        }
+        // Always show widget ID field (even if empty) so users know it's available
+        this.addPropertyToSection('id', this.properties.id || '', specialSection, '');
+        this.handledProperties.add('id'); // Mark as handled
 
         panel.appendChild(specialSection); // Append special section to panel
 

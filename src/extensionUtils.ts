@@ -573,6 +573,13 @@ be lost when working with the UI editor. -->\n`;
                         }
                     } else {
                         const searchId = oldId || getChannelId(props);
+                        console.log(`ExtensionUtils: Searching for widget with searchId="${searchId}" (oldId="${oldId}", getChannelId="${getChannelId(props)}")`);
+                        console.log(`ExtensionUtils: cabbageJsonArray has ${cabbageJsonArray.length} widgets:`, cabbageJsonArray.map((o: any) => ({
+                            type: o?.type,
+                            id: o?.id,
+                            channel: o?.channel,
+                            channelsId: o?.channels?.[0]?.id
+                        })));
 
                         // Find an existing object by matching the searchId against
                         // all reasonable identifier fields (id, channel, channels[0].id).
@@ -584,6 +591,8 @@ be lost when working with the UI editor. -->\n`;
                             if (o.channels && Array.isArray(o.channels) && o.channels[0] && typeof o.channels[0].id === 'string' && o.channels[0].id === searchId) return true;
                             return false;
                         });
+
+                        console.log(`ExtensionUtils: existingIndex=${existingIndex}, ${existingIndex !== -1 ? 'updating existing widget' : 'adding new widget'}`);
 
                         // Filter excluded properties before merging/adding
                         ExtensionUtils.excludedProperties.forEach(prop => {
@@ -599,6 +608,19 @@ be lost when working with the UI editor. -->\n`;
 
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
+
+                            // If the merged widget has channels[0].id, remove redundant top-level id
+                            // This ensures we don't have both id and channels[0].id pointing to different values
+                            if (merged.channels && Array.isArray(merged.channels) && merged.channels[0]?.id) {
+                                const channelId = merged.channels[0].id;
+                                if (merged.id && merged.id !== channelId) {
+                                    console.log(`ExtensionUtils: Removing redundant top-level id="${merged.id}" (channels[0].id="${channelId}")`);
+                                    delete merged.id;
+                                } else if (merged.id === channelId) {
+                                    console.log(`ExtensionUtils: Removing duplicate top-level id="${merged.id}" (matches channels[0].id)`);
+                                    delete merged.id;
+                                }
+                            }
 
                             if (props.type === 'genTable') {
                                 console.log('ExtensionUtils: After merge - merged widget:', JSON.stringify(merged, null, 2));

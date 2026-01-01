@@ -84,6 +84,7 @@ export class HorizontalSlider {
     this.upListener = this.pointerUp.bind(this);
     this.startX = 0;
     this.startValue = 0;
+    this.dragOffset = 0; // Offset from thumb start when dragging
     this.vscode = null;
     this.isMouseDown = false;
     this.decimalPlaces = 0;
@@ -147,25 +148,50 @@ export class HorizontalSlider {
     if (offsetX >= textWidth && offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
       this.isMouseDown = true;
       this.startX = offsetX - textWidth;
-      console.log(`pointerDown: startX=${this.startX}, sliderWidth=${sliderWidth}, offsetX=${offsetX}, textWidth=${textWidth}`);
 
-      // Calculate the linear normalized position (0-1)
-      const linearNormalized = this.startX / sliderWidth;
-      console.log(`pointerDown: linearNormalized=${linearNormalized}`);
+      // Get current value before any changes
+      const currentValue = this.props.value ?? range.defaultValue;
 
-      // Apply skew transformation for display value
-      const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
-      console.log(`pointerDown: skewedNormalized=${skewedNormalized}`);
+      // Calculate where the thumb currently is
+      const sliderControlHeight = Math.min(this.props.bounds.height, 60);
+      const thumbWidth = this.props.style.thumb.width === "auto" ? sliderControlHeight * 0.4 : this.props.style.thumb.width;
+      const linearValue = this.getLinearValue(currentValue);
+      const clampedLinearValue = CabbageUtils.clamp(linearValue, range.min, range.max);
+      const currentThumbPosition = Math.max(1, Math.min(
+        CabbageUtils.map(clampedLinearValue, range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1,
+        sliderWidth - thumbWidth
+      ));
 
-      // Convert to actual range values
-      let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
-      console.log(`pointerDown: skewedValue before rounding=${skewedValue}`);
+      // Check if click is on the thumb (with some tolerance)
+      const clickedOnThumb = this.startX >= currentThumbPosition && this.startX <= currentThumbPosition + thumbWidth;
 
-      // Apply increment snapping to the skewed value
-      skewedValue = Math.round(skewedValue / range.increment) * range.increment;
-      console.log(`pointerDown: skewedValue after rounding=${skewedValue}`);
+      if (clickedOnThumb) {
+        // Clicked on thumb - store the offset from thumb start for smooth dragging
+        this.dragOffset = this.startX - currentThumbPosition;
+      } else {
+        // Click on track - jump to that position and reset offset
+        this.dragOffset = thumbWidth / 2; // Center the thumb on the click position
 
-      this.props.value = skewedValue;
+        // Calculate the linear normalized position (0-1)
+        const linearNormalized = this.startX / sliderWidth;
+
+        // Apply skew transformation for display value
+        const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
+
+        // Convert to actual range values
+        let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
+
+        // Apply increment snapping to the skewed value
+        skewedValue = Math.round(skewedValue / range.increment) * range.increment;
+
+        this.props.value = skewedValue;
+        CabbageUtils.updateInnerHTML(this.props, this);
+
+        // Send denormalized value directly to backend
+        const valueToSend = skewedValue;
+        const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+      }
 
       // Capture pointer to ensure we receive pointerup even if pointer leaves element
       this.widgetDiv.setPointerCapture(evt.pointerId);
@@ -179,16 +205,6 @@ export class HorizontalSlider {
       window.addEventListener("pointerup", this.boundPointerUp);
 
       this.startValue = this.props.value;
-      CabbageUtils.updateInnerHTML(this.props, this);
-
-      // Send denormalized value directly to backend
-      const valueToSend = skewedValue;
-      const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
-      console.log(`pointerDown: sending valueToSend=${valueToSend}`);
-
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-
-
     }
 
   }
@@ -315,6 +331,9 @@ export class HorizontalSlider {
     // Calculate the relative position of the mouse pointer within the slider bounds
     let offsetX = evt.clientX - sliderRect.left - textWidth;
 
+    // Apply the drag offset so the thumb follows where you grabbed it
+    offsetX = offsetX - this.dragOffset;
+
     // Clamp the mouse position to stay within the bounds of the slider
     offsetX = CabbageUtils.clamp(offsetX, 0, sliderWidth);
 
@@ -335,12 +354,6 @@ export class HorizontalSlider {
 
     // Store the skewed value for display
     this.props.value = skewedValue;
-
-    console.log(`pointerMove: offsetX=${offsetX}, sliderWidth=${sliderWidth}, textWidth=${textWidth}`);
-    console.log(`  range: min=${range.min}, max=${range.max}, inc=${range.increment}, skew=${range.skew}`);
-    console.log(`  linearNorm=${linearNormalized}, skewedNorm=${skewedNormalized}, value=${skewedValue}`);
-    console.log(`  sliderRect:`, sliderRect);
-    console.log(`  bounds:`, this.props.bounds);
 
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props, this);

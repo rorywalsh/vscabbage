@@ -1167,7 +1167,8 @@ export function setupFormHandlers() {
                         // Insert new widget and update the editor
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
                         console.log("Cabbage: Inserting widget with uniqueId:", uniqueId);
-                        await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
+                        // Only assign channel ID, not widget.id (avoid redundancy when they match)
+                        await WidgetManager.insertWidget(type, { channels: [{ id: uniqueId }], top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
                         // insertWidget pushes the widget instance into the shared
                         // `widgets` array. Locate the instance so we can access
                         // `originalProps`. Fall back to the inserted props if

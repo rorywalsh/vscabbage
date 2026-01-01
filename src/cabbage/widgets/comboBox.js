@@ -46,7 +46,8 @@ export class ComboBox {
             "indexOffset": false,
             "populate": {
                 "directory": "",
-                "fileType": ""
+                "fileType": "",
+                "fullFileAndPath": false
             }
         };
 
