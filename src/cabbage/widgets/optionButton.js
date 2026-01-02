@@ -76,7 +76,7 @@ export class OptionButton {
 
     // Send normalized value (0-1) to maintain consistency with parameter system
     const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: this.props.channels[0].type || "number" };
     console.log('Sending parameter update:', msg);
     if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);

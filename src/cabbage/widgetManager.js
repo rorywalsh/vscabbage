@@ -151,7 +151,9 @@ export class WidgetManager {
         // For comboBox with populate, set automatable to false (plugins can't handle dynamic ranges)
         if (widget.props.type === 'comboBox' && widget.props.populate?.directory) {
             widget.props.automatable = false;
-            widget.props.channelType = "string";
+            if (widget.props.channels && widget.props.channels[0]) {
+                widget.props.channels[0].type = "string";
+            }
         }
 
         // Clean up redundant IDs: if widget has both id and channels[0].id, prefer channels[0].id

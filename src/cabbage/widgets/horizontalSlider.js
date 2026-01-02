@@ -189,7 +189,7 @@ export class HorizontalSlider {
 
         // Send denormalized value directly to backend
         const valueToSend = skewedValue;
-        const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
+        const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" };
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
       }
 
@@ -360,7 +360,7 @@ export class HorizontalSlider {
 
     // Send denormalized value directly to backend
     const valueToSend = skewedValue;
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" }
     if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
@@ -393,7 +393,7 @@ export class HorizontalSlider {
           paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
           channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
-          channelType: "number"
+          channelType: this.props.channels[0].type || "number"
         };
 
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);

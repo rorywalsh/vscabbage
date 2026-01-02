@@ -16,6 +16,14 @@ export class ListBox {
                 "width": 200,
                 "height": 300
             },
+            "channels": [
+                {
+                    "id": "listBox",
+                    "event": "valueChanged",
+                    "range": { "defaultValue": 0, "increment": 1, "max": 3, "min": 0, "skew": 1 },
+                    "type": "number"
+                }
+            ],
             "visible": true,
             "active": true,
             "automatable": true,
@@ -32,10 +40,7 @@ export class ListBox {
             },
 
             "items": "item1, item2, item3",
-            "selectedIndex": -1,
-            "channelType": "number",
-            "min": 0,
-            "max": 3
+            "selectedIndex": -1
         };
         // Wrap props with reactive proxy to unify visible/active handling
         this.props = CabbageUtils.createReactiveProps(this, this.props);
