@@ -514,7 +514,7 @@
     "@vscode/vsce": "^3.2.1",
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
-    "json-stringify-pretty-compact": "^4.0.0",
+    "fracturedjsonjs": "^5.0.1",
     "ws": "^8.16.0",
     "xml2js": "^0.6.2"
   },

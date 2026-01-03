@@ -10,8 +10,18 @@ import os from 'os';
 import fs from 'fs';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
-import stringify from 'json-stringify-pretty-compact';
+import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 import { Settings } from './settings';
+
+// Helper to format JSON using FracturedJson
+function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
+    const formatter = new Formatter();
+    const fjOptions = new FracturedJsonOptions();
+    fjOptions.MaxTotalLineLength = options.maxLength;
+    fjOptions.IndentSpaces = options.indent;
+    formatter.Options = fjOptions;
+    return formatter.Serialize(obj) ?? '';
+}
 
 
 /** 
@@ -667,10 +677,10 @@ be lost when working with the UI editor. -->\n`;
                     if (isSingleLine) {
                         formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
                     } else {
-                        // Use the same stringify function and config as the format command
+                        // Use the same FracturedJson formatter and config as the format command
                         const indentSpaces = config.get("jsonIndentSpaces", 4);
                         const maxLength = config.get("jsonMaxLength", 120);
-                        formattedArray = stringify(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
+                        formattedArray = formatJson(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
                     }
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
@@ -816,7 +826,7 @@ ${JSON.stringify(props, null, 4)}
 
             // Parse and format the JSON content
             const jsonObject = JSON.parse(jsonContent.trim());
-            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
             return beforeTag + '\n' + formattedJson + '\n' + afterTag;
         } catch (error) {
             // If JSON parsing fails, return the original section

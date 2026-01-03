@@ -6,10 +6,20 @@ import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import * as cp from "child_process";
 import { Settings } from './settings';
-import stringify from 'json-stringify-pretty-compact';
+import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
+
+// Helper to format JSON using FracturedJson
+function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
+    const formatter = new Formatter();
+    const fjOptions = new FracturedJsonOptions();
+    fjOptions.MaxTotalLineLength = options.maxLength;
+    fjOptions.IndentSpaces = options.indent;
+    formatter.Options = fjOptions;
+    return formatter.Serialize(obj) ?? '';
+}
 export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
@@ -97,8 +107,8 @@ export class Commands {
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
 
-            // Stringify back to JSON using pretty compact formatter
-            const newJsonContent = stringify(reorderedWidgets, { maxLength: maxLength, indent: indentSpaces });
+            // Stringify back to JSON using FracturedJson formatter
+            const newJsonContent = formatJson(reorderedWidgets, { maxLength: maxLength, indent: indentSpaces });
 
             // Replace in editor
             const startPos = document.positionAt(match.index! + "<Cabbage>".length);
@@ -1648,7 +1658,7 @@ export class Commands {
             const maxLength = config.get("jsonMaxLength", 120);
 
             const jsonObject = JSON.parse(cabbageContent);
-            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
 
             editor.edit(editBuilder => {
                 editBuilder.replace(range, '\n' + formattedJson + '\n');
@@ -3219,10 +3229,10 @@ i2 5 z
             if (isSingleLine) {
                 formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
             } else {
-                // Use the same stringify function and config as the format command
+                // Use the same FracturedJson formatter and config as the format command
                 const indentSpaces = config.get("jsonIndentSpaces", 4);
                 const maxLength = config.get("jsonMaxLength", 120);
-                formattedArray = stringify(widgets, { maxLength: maxLength, indent: indentSpaces });
+                formattedArray = formatJson(widgets, { maxLength: maxLength, indent: indentSpaces });
             }
 
             const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
