@@ -217,7 +217,7 @@ export class RotarySlider {
     this.isMouseDown = true;
     this.isDragging = true;
     this.startY = evt.clientY;
-    this.startValue = this.props.value ?? range.defaultValue;
+    this.startValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
     // Validate startValue to prevent NaN
     if (isNaN(this.startValue) || this.startValue === null || this.startValue === undefined) {
       console.warn('Invalid startValue in rotarySlider pointerDown, using default', this.startValue);
@@ -373,7 +373,7 @@ export class RotarySlider {
     // console.log(`RotarySlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, snappedSkewedValue=${snappedSkewedValue}`);
 
     // Store the values
-    this.props.value = snappedSkewedValue; // What user sees (skewed)
+    this.props.channels[0].range.value = snappedSkewedValue; // What user sees (skewed)
     this.props.linearValue = newLinearValue; // For positioning
 
     // Update the widget display
@@ -451,7 +451,7 @@ export class RotarySlider {
 
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         // Store the input value as the skewed value (what user sees)
-        this.props.value = inputValue;
+        this.props.channels[0].range.value = inputValue;
 
         // Convert to normalized space for the input value
         const skewedNormalized = (inputValue - range.min) / (range.max - range.min);
@@ -497,7 +497,7 @@ export class RotarySlider {
     const originalFrameHeight = this.props.filmStrip.frames.height;
 
     // Use linear value for frame calculation
-    const currentValue = this.props.value ?? range.defaultValue;
+    const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
     const linearValue = this.props.linearValue ?? this.getLinearValue(currentValue);
     const linearNormalizedValue = (linearValue - range.min) / (range.max - range.min);
     const frameIndex = Math.round(linearNormalizedValue * (totalFrames - 1));
@@ -537,7 +537,7 @@ export class RotarySlider {
   getInnerHTML() {
     // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.thumb.opacity}`);
     const range = CabbageUtils.getChannelRange(this.props, 0);
-    const currentValue = this.props.value ?? range.defaultValue;
+    const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;

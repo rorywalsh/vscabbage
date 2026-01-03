@@ -70,12 +70,12 @@ export class OptionButton {
     this.isMouseDown = true;
     const itemsLength = this.getItems().length;
     this.currentIndex = (this.currentIndex + 1) % itemsLength;
-    this.props.value = this.currentIndex;
+    this.props.channels[0].range.value = this.currentIndex;
 
     CabbageUtils.updateInnerHTML(this.props, this, evt.currentTarget);
 
     // Send normalized value (0-1) to maintain consistency with parameter system
-    const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
+    const normalizedValue = CabbageUtils.map(this.props.channels[0].range.value, 0, itemsLength - 1, 0, 1);
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: this.props.channels[0].type || "number" };
     console.log('Sending parameter update:', msg);
     if (this.props.automatable) {

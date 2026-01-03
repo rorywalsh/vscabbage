@@ -144,9 +144,9 @@ export class VerticalSlider {
       this.activePointerId = evt.pointerId;
 
       this.startY = evt.offsetY - sliderTop;
-      this.props.value = CabbageUtils.map(this.startY, 5, sliderHeight, range.max, range.min);
-      this.props.value = Math.round(this.props.value / range.increment) * range.increment;
-      this.startValue = this.props.value;
+      this.props.channels[0].range.value = CabbageUtils.map(this.startY, 5, sliderHeight, range.max, range.min);
+      this.props.channels[0].range.value = Math.round(this.props.channels[0].range.value / range.increment) * range.increment;
+      this.startValue = this.props.channels[0].range.value;
       const moveHandler = this.boundPointerMove || this.moveListener;
       const upHandler = this.boundPointerUp || this.upListener;
       if (!this.boundPointerMove) this.boundPointerMove = moveHandler;
@@ -158,7 +158,7 @@ export class VerticalSlider {
       console.log('VerticalSlider pointerDown: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
       console.log('VerticalSlider pointerMove: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
       // Send denormalized value directly to backend
-      const valueToSend = this.props.value;
+      const valueToSend = this.props.channels[0].range.value;
       if (isNaN(valueToSend) || !isFinite(valueToSend)) {
         console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
         return;
@@ -192,7 +192,7 @@ export class VerticalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
@@ -261,7 +261,7 @@ export class VerticalSlider {
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
-        this.props.value = inputValue;
+        this.props.channels[0].range.value = inputValue;
         const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
         if (widgetDiv) {
           widgetDiv.innerHTML = this.getInnerHTML();
@@ -319,7 +319,7 @@ export class VerticalSlider {
     skewedValue = Math.round(skewedValue / range.increment) * range.increment;
 
     // Store the skewed value for display
-    this.props.value = skewedValue;
+    this.props.channels[0].range.value = skewedValue;
 
     // Update the slider appearance
     const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
@@ -340,7 +340,7 @@ export class VerticalSlider {
 
   getInnerHTML() {
     const range = CabbageUtils.getChannelRange(this.props, 0);
-    const currentValue = this.props.value ?? range.defaultValue;
+    const currentValue = this.props.channels[0].range.value ?? range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;

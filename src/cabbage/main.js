@@ -139,6 +139,11 @@ window.addEventListener('message', async (event) => {
         }
     }
 
+    // Log all incoming messages to help debug
+    if (message.command === 'batchWidgetUpdate') {
+        console.log(`[main.js] Received ${message.command} with ${message.widgets ? message.widgets.length : 0} widgets`);
+    }
+
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Handle different commands based on the message received
@@ -169,6 +174,24 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+            break;
+
+        // Batch widget update for efficient preset loading
+        case 'batchWidgetUpdate':
+            console.log(`main.js batchWidgetUpdate: processing ${message.widgets.length} widgets`);
+            console.log(`main.js batchWidgetUpdate: first widget:`, message.widgets[0]);
+            CabbageUtils.hideOverlay();
+
+            // Process all widgets in the batch
+            for (const widgetData of message.widgets) {
+                console.log(`main.js batchWidgetUpdate: updating widget id=${widgetData.id}, hasWidgetJson=${!!widgetData.widgetJson}, widgetJsonType=${typeof widgetData.widgetJson}`);
+                const updateMsg = {
+                    id: widgetData.id,
+                    widgetJson: widgetData.widgetJson
+                };
+                await WidgetManager.updateWidget(updateMsg);
+            }
+            console.log(`main.js batchWidgetUpdate: completed updating ${message.widgets.length} widgets`);
             break;
 
         // Called when the host triggers a parameter change in the UI

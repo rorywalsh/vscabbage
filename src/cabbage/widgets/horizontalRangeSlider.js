@@ -134,7 +134,7 @@ export class HorizontalRangeSlider {
     if (evt.offsetX >= textWidth && evt.offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
       this.isMouseDown = true;
       this.startX = evt.offsetX - textWidth;
-      this.props.value = CabbageUtils.map(this.startX, 0, sliderWidth, range.min, range.max);
+      this.props.channels[0].range.value = CabbageUtils.map(this.startX, 0, sliderWidth, range.min, range.max);
 
       // Capture pointer to ensure we receive pointerup even if pointer leaves element
       evt.target.setPointerCapture(evt.pointerId);
@@ -147,8 +147,8 @@ export class HorizontalRangeSlider {
       window.addEventListener("pointermove", this.boundPointerMove);
       window.addEventListener("pointerup", this.boundPointerUp);
 
-      this.props.value = Math.round(this.props.value / range.increment) * range.increment;
-      this.startValue = this.props.value;
+      this.props.channels[0].range.value = Math.round(this.props.channels[0].range.value / range.increment) * range.increment;
+      this.startValue = this.props.channels[0].range.value;
       CabbageUtils.updateInnerHTML(this.props, this);
     }
   }
@@ -170,7 +170,7 @@ export class HorizontalRangeSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
@@ -266,13 +266,13 @@ export class HorizontalRangeSlider {
     newValue = Math.round(newValue / range.increment) * range.increment; // Round to the nearest increment
 
     // Update the slider value
-    this.props.value = newValue;
+    this.props.channels[0].range.value = newValue;
 
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props, this);
 
     // Send denormalized value directly to backend
-    const valueToSend = this.props.value;
+    const valueToSend = this.props.channels[0].range.value;
     console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
@@ -292,7 +292,7 @@ export class HorizontalRangeSlider {
     if (evt.key === 'Enter') {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
-        this.props.value = inputValue;
+        this.props.channels[0].range.value = inputValue;
         CabbageUtils.updateInnerHTML(this.props, this);
         widgetDiv.querySelector('input').focus();
       }
@@ -301,7 +301,7 @@ export class HorizontalRangeSlider {
 
   getInnerHTML() {
     const range = CabbageUtils.getChannelRange(this.props, 0);
-    const currentValue = this.props.value ?? range.defaultValue;
+    const currentValue = this.props.channels[0].range.value ?? range.defaultValue;
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;

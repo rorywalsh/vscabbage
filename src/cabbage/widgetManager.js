@@ -208,17 +208,7 @@ export class WidgetManager {
             widget.serializedChildren = JSON.parse(JSON.stringify(props.children));
         }
 
-        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {
-            const interaction = (type === 'button' || type === 'checkBox' || type === 'optionButton') ? 'click' : 'drag';
-            const channels = Array.isArray(widget.props.channels) ? widget.props.channels : [];
-            const range = (channels[0] && channels[0].range) ? channels[0].range : CabbageUtils.getDefaultRange(interaction);
-            widget.props.value = (typeof range.defaultValue !== 'undefined') ? range.defaultValue : 0;
-        }
-
-        // Handle combobox default value for indexOffset compatibility
-        if (type === "comboBox" && widget.props.indexOffset && widget.props.value === null) {
-            widget.props.value = 1; // Cabbage2 comboboxes default to index 1
-        }
+        // Note: We no longer initialize widget.props.value - widgets read from channels[].range.value directly
 
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
@@ -711,13 +701,13 @@ export class WidgetManager {
             console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
             return;
         }
-        // console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        console.log(`WidgetManager.updateWidget: Called with obj.id=${obj.id}, hasWidgetJson=${!!obj.widgetJson}, hasValue=${!!obj.value}`);
         // Extract channel ID for logging
         const channelStr = obj.id;
         //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
         // Check if 'widgetJson' exists, otherwise use 'value'
         const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
-        //console.log(`WidgetManager.updateWidget: Parsed data:`, data);
+        console.log(`WidgetManager.updateWidget: Parsed data type=${typeof data}, isObject=${typeof data === 'object'}`);
 
         // Determine the channel to use for finding the widget
         // If data is a primitive (number, string), use obj.id directly
@@ -731,7 +721,7 @@ export class WidgetManager {
                 (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
                 w.props.id === channelToFind;
         });
-        //console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
+        console.log(`WidgetManager.updateWidget: Found widget for ${channelToFind}:`, widget ? `type=${widget.props.type}` : 'NOT FOUND');
         let widgetFound = false;
 
         // Check if this is a child widget
@@ -741,6 +731,7 @@ export class WidgetManager {
         }
 
         if (widget) {
+            console.log(`WidgetManager.updateWidget: Inside widget branch, hasValue=${obj.hasOwnProperty('value')}, hasWidgetJson=${obj.hasOwnProperty('widgetJson')}`);
             const channelId = CabbageUtils.getWidgetDivId(widget.props, 0);
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
@@ -835,8 +826,10 @@ export class WidgetManager {
                                 console.warn(`WidgetManager: Could not find channel index for ${channelToFind} in widget ${widget.props.type}`);
                             }
                         } else {
-                            // Single-channel widget - update widget.props.value
-                            widget.props.value = newValue;
+                            // Single-channel widget - update channels[0].range.value
+                            if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
+                                widget.props.channels[0].range.value = newValue;
+                            }
                         }
 
                         // Call getInnerHTML to refresh the widget's display
@@ -860,31 +853,11 @@ export class WidgetManager {
                 return; // Early return
             }
 
+            console.log(`WidgetManager.updateWidget: Reached deepMerge section for ${widget.props.type}, widgetJson present`);
             //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
-            // Save current value for sliders to prevent accidental null resets during visibility changes
-            let savedSliderValue;
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                savedSliderValue = widget.props.value;
-            }
-            // Update widget properties
+            // Update widget properties - deepMerge handles channels[].range.value automatically
             //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
             WidgetManager.deepMerge(widget.props, data);
-            // Restore value if accidentally set to null
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                if (widget.props.value === null && savedSliderValue !== null && savedSliderValue !== undefined) {
-                    widget.props.value = savedSliderValue;
-                    // console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
-                }
-            }
-
-            // Ensure slider values are not null or NaN
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                const range = CabbageUtils.getChannelRange(widget.props, 0);
-                if (widget.props.value === null || isNaN(widget.props.value)) {
-                    widget.props.value = range.defaultValue;
-                }
-                // Note: Values from backend are already in full range, no normalization needed
-            }
             widgetFound = true;
             if (widget.props.type === "form") {
                 // Special handling for form widget
@@ -904,6 +877,7 @@ export class WidgetManager {
             else {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                console.log(`WidgetManager.updateWidget: widgetDiv lookup for ${channelId}: ${widgetDiv ? 'FOUND' : 'NULL'}`);
                 if (widgetDiv) {
                     // Update styles (position, size, zIndex) immediately
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
@@ -981,7 +955,9 @@ export class WidgetManager {
                         }
                     } else {
                         // Default behavior for widgets that render their HTML via getInnerHTML
+                        console.log(`WidgetManager.updateWidget: About to update innerHTML for ${widget.props.type} id=${widget.props.id}`);
                         widgetDiv.innerHTML = widget.getInnerHTML();
+                        console.log(`WidgetManager.updateWidget: innerHTML updated for ${widget.props.type}`);
 
                         // Update wrapper styles (respect parent-relative positioning)
                         let propsForStyling = widget.props;
@@ -1071,25 +1047,12 @@ export class WidgetManager {
                     const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
                     if (instance) {
                         WidgetManager.deepMerge(instance.props, childProps);
-                        // Ensure slider values are not null or NaN
-                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
-                            if (instance.props.value === null || isNaN(instance.props.value)) {
-                                instance.props.value = instance.props.range.defaultValue;
-                            }
-                        }
                         childDiv.innerHTML = instance.getInnerHTML();
                         console.warn("Cabbage: Updated child widget instance", obj.id, instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
                         const tempWidget = await WidgetManager.createWidget(childProps.type);
                         WidgetManager.deepMerge(tempWidget.props, childProps);
-                        // Ensure slider values are not null
-                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
-                            if (tempWidget.props.value === null) {
-                                const range = CabbageUtils.getChannelRange(tempWidget.props, 0);
-                                tempWidget.props.value = range.defaultValue;
-                            }
-                        }
                         childDiv.innerHTML = tempWidget.getInnerHTML();
                         console.warn("Cabbage: Updated temporary child widget", obj.id);
                     }

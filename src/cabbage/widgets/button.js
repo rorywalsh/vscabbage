@@ -108,24 +108,24 @@ export class Button {
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
-    if (this.props.value === null) {
-      this.props.value = range.defaultValue;
+    if (this.props.channels[0].range.value === null) {
+      this.props.channels[0].range.value = range.defaultValue;
     }
 
     // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
-      if (this.props.value === range.min) {
-        this.props.value = range.max;
+      if (this.props.channels[0].range.value === range.min) {
+        this.props.channels[0].range.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for buttons not in radioGroup
-      this.props.value = (this.props.value === range.min ? range.max : range.min);
+      this.props.channels[0].range.value = (this.props.channels[0].range.value === range.min ? range.max : range.min);
     }
 
     CabbageUtils.updateInnerHTML(this.props, this);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value }
     console.log(msg);
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -183,7 +183,7 @@ export class Button {
 
   getInnerHTML() {
     // Use defaultValue for visual state when value is null
-    const currentValue = this.props.value !== null ? this.props.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
+    const currentValue = this.props.channels[0].range.value !== null ? this.props.channels[0].range.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
 
     const alignMap = {
       'left': 'start',

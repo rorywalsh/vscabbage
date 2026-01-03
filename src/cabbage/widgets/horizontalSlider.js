@@ -150,7 +150,7 @@ export class HorizontalSlider {
       this.startX = offsetX - textWidth;
 
       // Get current value before any changes
-      const currentValue = this.props.value ?? range.defaultValue;
+      const currentValue = this.props.channels[0].range.value ?? range.defaultValue;
 
       // Calculate where the thumb currently is
       const sliderControlHeight = Math.min(this.props.bounds.height, 60);
@@ -184,7 +184,7 @@ export class HorizontalSlider {
         // Apply increment snapping to the skewed value
         skewedValue = Math.round(skewedValue / range.increment) * range.increment;
 
-        this.props.value = skewedValue;
+        this.props.channels[0].range.value = skewedValue;
         CabbageUtils.updateInnerHTML(this.props, this);
 
         // Send denormalized value directly to backend
@@ -204,7 +204,7 @@ export class HorizontalSlider {
       window.addEventListener("pointermove", this.boundPointerMove);
       window.addEventListener("pointerup", this.boundPointerUp);
 
-      this.startValue = this.props.value;
+      this.startValue = this.props.channels[0].range.value;
     }
 
   }
@@ -231,7 +231,7 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
       const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
@@ -377,7 +377,7 @@ export class HorizontalSlider {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         // Store the input value as the skewed value (what user sees)
-        this.props.value = inputValue;
+        this.props.channels[0].range.value = inputValue;
 
         // Convert to linear space for Cabbage
         const linearValue = this.getLinearValue(inputValue);

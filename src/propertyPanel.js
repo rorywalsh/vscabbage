@@ -203,6 +203,15 @@ export class PropertyPanel {
 
             strip(clone, defaults);
 
+            // Remove items array if populate exists (comboBox should not have both populate and items)
+            // Check on the original props, not the clone, since populate may have been stripped
+            if (props.populate && props.populate.directory && props.populate.directory !== '') {
+                if (clone.items) {
+                    delete clone.items;
+                    console.log('PropertyPanel.minimizePropsForWidget: removed items array (populate.directory is set)');
+                }
+            }
+
             // After stripping, check for properties (both top-level and nested) that were deleted but existed in original CSD.
             // Send these as null to signal explicit deletion to the backend.
             const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
@@ -1974,24 +1983,22 @@ export class PropertyPanel {
                     // (not just a click to open the panel). Clicks should open the panel
                     // without triggering an update that could insert default channel objects.
                     if (eventType !== 'click') {
-                        // Delay sending messages to VSCode to avoid slow responses
-                        setTimeout(() => {
-                            try {
-                                let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                                minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
-                                console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
-                                this.vscode.postMessage({
-                                    command: 'updateWidgetProps',
-                                    text: textPayload,
-                                });
-                            } catch (e) {
-                                console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
-                                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
-                                console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
-                                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
-                            }
-                        }, (index + 1) * 150); // Delay increases with index
+                        // Send immediately - the extension's edit queue will handle sequencing
+                        try {
+                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                            console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
+                            this.vscode.postMessage({
+                                command: 'updateWidgetProps',
+                                text: textPayload,
+                            });
+                        } catch (e) {
+                            console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
+                            const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                            console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
+                        }
                     } else {
                         console.log('PropertyPanel: click event - not sending update to VSCode');
                     }

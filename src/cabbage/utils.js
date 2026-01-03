@@ -671,16 +671,28 @@ export class CabbageUtils {
    * @returns {Object} sanitized clone
    */
   static sanitizeForEditor(obj) {
-    const internalKeys = new Set(['groupBaseBounds', 'origBounds', 'originalProps', 'channel']);
+    // Internal/runtime keys that should never be serialized to CSD
+    const internalKeys = new Set([
+      'groupBaseBounds',
+      'origBounds',
+      'originalProps',
+      'channel',
+      'value',           // Runtime state - widget's current value
+      'parameterIndex',  // Runtime - assigned during initialization
+      'samples',         // Runtime - audio/table data
+      'currentCsdFile'   // Runtime - file path
+    ]);
 
-    function cloneAndClean(value) {
+    function cloneAndClean(value, parentKey) {
       if (value === null || value === undefined) return value;
-      if (Array.isArray(value)) return value.map(cloneAndClean);
+      if (Array.isArray(value)) return value.map((v, i) => cloneAndClean(v, `${parentKey}[${i}]`));
       if (typeof value === 'object') {
         const out = {};
         Object.keys(value).forEach((k) => {
           if (internalKeys.has(k)) return; // skip internal fields
-          out[k] = cloneAndClean(value[k]);
+          // Skip range.value specifically (runtime state within range object)
+          if (parentKey === 'range' && k === 'value') return;
+          out[k] = cloneAndClean(value[k], k);
         });
         return out;
       }
@@ -688,7 +700,7 @@ export class CabbageUtils {
     }
 
     const target = (obj && obj.props) ? obj.props : obj;
-    return cloneAndClean(target);
+    return cloneAndClean(target, '');
   }
 
   static sendToBack(currentDiv) {
