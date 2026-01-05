@@ -86,6 +86,9 @@ CabbageUtils.showOverlay();
                 await widgetWrappers.interactPromise;
 
                 console.log('Cabbage: Initialization complete');
+
+                // Send message to indicate UI is ready to receive widget data
+                Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
             } catch (error) {
                 console.error("Cabbage: Error loading modules in main.js:", error);
                 console.error("Cabbage: Error stack:", error.stack);
@@ -101,10 +104,6 @@ CabbageUtils.showOverlay();
     console.error('Cabbage: Unhandled promise rejection in main.js:', error);
     console.error('Cabbage: Rejection stack:', error.stack);
 });
-
-// Send message to Cabbage to indicate that the UI is ready to load
-console.log('Cabbage: Sending cabbageIsReadyToLoad');
-Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
 
 // Add key listener for save command (Ctrl+S or Cmd+S)
 window.addEventListener('keydown', (event) => {
@@ -174,6 +173,12 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+
+            // After widget is updated, signal readiness to receive queued updates
+            // This is important after recompilation when processor is recreated
+            if (updateMsg.hasOwnProperty('widgetJson') && vscode) {
+                Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
+            }
             break;
 
         // Batch widget update for efficient preset loading

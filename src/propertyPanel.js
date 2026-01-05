@@ -321,14 +321,21 @@ export class PropertyPanel {
             }
 
             // Remove redundant widget.id if it matches the first channel's id
-            // This avoids duplicate IDs in the serialized JSON
+            // BUT only if channels array is still present after minimization
+            // (we need at least one identifier to find the widget in the CSD)
             try {
                 if (clone.id && clone.channels && Array.isArray(clone.channels) && clone.channels.length > 0) {
                     const firstChannelId = clone.channels[0]?.id;
                     if (firstChannelId && clone.id === firstChannelId) {
+                        // Only remove id if channels will definitely be in the payload
                         delete clone.id;
                         console.log('PropertyPanel.minimizePropsForWidget: removed redundant widget.id (matches channels[0].id)');
                     }
+                }
+                // If channels were stripped but we had an id, restore it so the widget can be found
+                else if (!clone.channels && props.id) {
+                    clone.id = props.id;
+                    console.log('PropertyPanel.minimizePropsForWidget: restored widget.id (channels were stripped)');
                 }
             } catch (e) {
                 console.error('PropertyPanel.minimizePropsForWidget: failed to check redundant id', e);

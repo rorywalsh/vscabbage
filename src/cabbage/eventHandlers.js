@@ -14,6 +14,7 @@ import { cabbageMode, vscode, widgets, postMessageToVSCode } from "./sharedState
 // Imports utility and property panel modules
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { widgetClipboard } from "../widgetClipboard.js";
+import { screenToFormCoordinates } from "../cabbage/zoom.js";
 
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -845,7 +846,7 @@ export function setupFormHandlers() {
     const groupContextMenu = document.createElement("div");
     groupContextMenu.id = "dynamicContextMenu";
     groupContextMenu.className = "wrapper"; // Use wrapper class for styling
-    groupContextMenu.style.position = "absolute";
+    groupContextMenu.style.position = "fixed";
     groupContextMenu.style.visibility = "hidden";
     groupContextMenu.style.zIndex = 10001; // Higher than other elements
     groupContextMenu.style.minWidth = "160px";
@@ -934,6 +935,11 @@ export function setupFormHandlers() {
     const contextMenu = document.querySelector(".wrapper");
     const form = document.getElementById('MainForm');
 
+    // Ensure contextMenu also uses fixed positioning
+    if (contextMenu) {
+        contextMenu.style.position = "fixed";
+    }
+
     console.log("Cabbage: Setting up context menu handlers");
     console.log("Cabbage: form element:", form);
     console.log("Cabbage: contextMenu element:", contextMenu);
@@ -972,16 +978,46 @@ export function setupFormHandlers() {
                     return;
                 }
 
-                // Calculate correct context menu position
+                // Get LeftPanel position for correct context menu placement
+                const leftPanel = document.getElementById('LeftPanel');
+                const panelRect = leftPanel ? leftPanel.getBoundingClientRect() : { left: 0, top: 0 };
+
+                console.log('Cabbage: Context menu positioning debug:', {
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    pageX: e.pageX,
+                    pageY: e.pageY,
+                    panelTop: panelRect.top,
+                    panelLeft: panelRect.left,
+                    scrollY: window.scrollY,
+                    scrollX: window.scrollX,
+                    targetElement: e.target.tagName,
+                    currentTargetElement: e.currentTarget ? e.currentTarget.id : 'none'
+                });
+
+                // For fixed positioning, use clientX/Y directly
+                // These are always relative to the viewport, regardless of transforms
                 let x = e.clientX, y = e.clientY,
                     winWidth = window.innerWidth,
                     winHeight = window.innerHeight,
                     cmWidth = contextMenu.offsetWidth,
                     cmHeight = contextMenu.offsetHeight;
 
-                // Ensure the menu does not overflow the window bounds
-                x = x > winWidth - cmWidth ? winWidth - cmWidth - 5 : x;
-                y = y > winHeight - cmHeight ? winHeight - cmHeight - 5 : y;
+                console.log('Cabbage: Menu dimensions:', { cmWidth, cmHeight, winWidth, winHeight });
+                console.log('Cabbage: Overflow check - y + cmHeight:', y + cmHeight, 'winHeight:', winHeight, 'would adjust:', y + cmHeight > winHeight);
+
+                // Smart overflow protection: flip menu position if it would extend off-screen
+                // For X: if menu would go off right edge, shift it left
+                if (x + cmWidth > winWidth) {
+                    x = winWidth - cmWidth - 5;
+                }
+
+                // For Y: if menu would go off bottom edge, position it ABOVE the cursor
+                if (y + cmHeight > winHeight) {
+                    y = Math.max(5, y - cmHeight); // Show above cursor, but not above viewport
+                }
+
+                console.log('Cabbage: Final menu position:', { x, y });
 
                 contextMenu.style.left = `${x}px`;
                 contextMenu.style.top = `${y}px`;
@@ -1017,7 +1053,9 @@ export function setupFormHandlers() {
                 groupContextMenu.style.left = `${x}px`;
                 groupContextMenu.style.top = `${y}px`;
 
-                mouseDownPosition = { x: x, y: y };
+                // Store FORM coordinates (accounting for zoom/pan) for widget insertion
+                const formCoords = screenToFormCoordinates(e.clientX, e.clientY);
+                mouseDownPosition = { x: formCoords.x, y: formCoords.y };
 
                 // Show appropriate menu based on mode and selection
                 // Check if the right-click is on the form background (not on a widget)
@@ -1031,7 +1069,7 @@ export function setupFormHandlers() {
                     let iterations = 0;
                     const maxIterations = 20;
 
-                    while (element && element !== formDiv && iterations < maxIterations) {
+                    while (element && element !== form && iterations < maxIterations) {
                         iterations++;
                         console.log("Cabbage: Iteration", iterations, "element:", element.tagName, "classList:", element.classList);
 
@@ -1243,7 +1281,9 @@ export function setupFormHandlers() {
                 groupContextMenu.style.visibility = "hidden";
 
                 const clickedElement = event.target;
-                const selectionColour = CabbageColours.invertColor(clickedElement.getAttribute('fill'));
+                // Only invert color for SVG elements that have a fill attribute
+                const fillColor = clickedElement.getAttribute ? clickedElement.getAttribute('fill') : null;
+                const selectionColour = fillColor ? CabbageColours.invertColor(fillColor) : '#4a90e2';
                 const formRect = form.getBoundingClientRect();
                 offsetX = formRect.left;
                 offsetY = formRect.top;

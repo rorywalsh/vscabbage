@@ -268,23 +268,41 @@ be lost when working with the UI editor. -->\n`;
         const document = editor.document;
         const text = document.getText(); // Get the entire document text
 
-        // Create a regex pattern to find the channel in the JSON objects
-        const pattern = new RegExp(`"id":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the id
+        console.log(`[findWidgetPosition] Searching for widget: "${widgetName}"`);
+        console.log(`[findWidgetPosition] Document length: ${text.length} characters`);
 
-        // Search for the pattern in the document text
-        const match = pattern.exec(text);
-        if (match) {
-            const startIndex = match.index; // Get the start index of the match
-            const endIndex = startIndex + match[0].length; // Get the end index of the match
+        // Escape special regex characters in widgetName
+        const escapedName = widgetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-            // Convert the indices to positions in the document
-            const startPos = document.positionAt(startIndex);
-            const endPos = document.positionAt(endIndex);
+        // Try multiple patterns to find the widget:
+        // 1. Top-level id: "widgetName" (with flexible whitespace)
+        // 2. Channel id in channels array: channels: [{ id: "widgetName" }]
+        // 3. Legacy channel: channel: "widgetName"
+        // Note: Using \s+ to match one or more whitespace/tabs between key and value
+        const patterns = [
+            new RegExp(`"id"\\s*:\\s*"${escapedName}"`, 'i'),
+            new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{[^}]*"id"\\s*:\\s*"${escapedName}"`, 'i'),
+            new RegExp(`"channel"\\s*:\\s*"${escapedName}"`, 'i')
+        ];
 
-            // Return the start position of the match
-            return startPos;
+        // Try each pattern in order of preference
+        for (let i = 0; i < patterns.length; i++) {
+            const pattern = patterns[i];
+            console.log(`[findWidgetPosition] Trying pattern ${i + 1}: ${pattern}`);
+            const match = pattern.exec(text);
+            if (match) {
+                console.log(`[findWidgetPosition] Match found with pattern ${i + 1} at index ${match.index}`);
+                console.log(`[findWidgetPosition] Matched text: "${match[0]}"`);
+                const startIndex = match.index; // Get the start index of the match
+                const startPos = document.positionAt(startIndex);
+                console.log(`[findWidgetPosition] Position: line ${startPos.line}, character ${startPos.character}`);
+                return startPos;
+            } else {
+                console.log(`[findWidgetPosition] No match with pattern ${i + 1}`);
+            }
         }
 
+        console.log(`[findWidgetPosition] Widget "${widgetName}" not found in document`);
         return null; // No match found
     }
 
@@ -619,16 +637,17 @@ be lost when working with the UI editor. -->\n`;
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
 
-                            // If the merged widget has channels[0].id, remove redundant top-level id
-                            // This ensures we don't have both id and channels[0].id pointing to different values
+                            // If the merged widget has channels[0].id that matches the top-level id,
+                            // remove the redundant top-level id to avoid duplication.
+                            // BUT if they're different, keep both (widget id vs channel id are different concepts)
                             if (merged.channels && Array.isArray(merged.channels) && merged.channels[0]?.id) {
                                 const channelId = merged.channels[0].id;
-                                if (merged.id && merged.id !== channelId) {
-                                    console.log(`ExtensionUtils: Removing redundant top-level id="${merged.id}" (channels[0].id="${channelId}")`);
-                                    delete merged.id;
-                                } else if (merged.id === channelId) {
+                                if (merged.id && merged.id === channelId) {
                                     console.log(`ExtensionUtils: Removing duplicate top-level id="${merged.id}" (matches channels[0].id)`);
                                     delete merged.id;
+                                } else if (merged.id && merged.id !== channelId) {
+                                    console.log(`ExtensionUtils: Keeping both widget.id="${merged.id}" and channels[0].id="${channelId}" (different values)`);
+                                    // Keep both - they serve different purposes
                                 }
                             }
 

@@ -84,9 +84,13 @@ export class GenTable {
             watchKeys: ['samples', 'totalSamples'],
             onPropertyChange: (change) => {
                 // Redraw when samples array changes
+                console.log(`Cabbage: GenTable reactive prop changed:`, change.key, `samples.length=${this.props.samples?.length}, canvas=${!!this.canvas}, waveformCanvas=${!!this.waveformCanvas}`);
                 if (change.key === 'samples' || change.key === 'totalSamples') {
                     if (this.canvas && this.waveformCanvas) {
+                        console.log(`Cabbage: GenTable calling updateCanvas() due to ${change.key} change`);
                         this.updateCanvas();
+                    } else {
+                        console.warn(`Cabbage: GenTable cannot updateCanvas - canvas=${!!this.canvas}, waveformCanvas=${!!this.waveformCanvas}`);
                     }
                 }
             }
@@ -450,7 +454,7 @@ export class GenTable {
             // Add event listeners
             this.addEventListeners(widgetElement);
         } else {
-            console.log(`Cabbage: Element: ${channelId} not found.`);
+            console.log(`Cabbage: Element: ${this.props.channels[0].id} not found.`);
         }
     }
 

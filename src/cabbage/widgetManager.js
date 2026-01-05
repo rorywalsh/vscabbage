@@ -136,17 +136,24 @@ export class WidgetManager {
             widgetDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, widgetDiv));
         }
 
-        // Assign properties to the widget
-        if (props.top !== undefined && props.left !== undefined) {
-            widget.props.bounds = widget.props.bounds || {};
-            widget.props.bounds.top = props.top;
-            widget.props.bounds.left = props.left;
-            delete props.top;
-            delete props.left;
-        }
+        // Store top/left if provided (will be applied after deepMerge)
+        const explicitTop = props.top;
+        const explicitLeft = props.left;
+
+        // Remove from props to prevent them being merged incorrectly
+        if (explicitTop !== undefined) delete props.top;
+        if (explicitLeft !== undefined) delete props.left;
 
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
+
+        // NOW apply explicit position AFTER merge to ensure it overrides defaults
+        if (explicitTop !== undefined && explicitLeft !== undefined) {
+            widget.props.bounds = widget.props.bounds || {};
+            widget.props.bounds.top = explicitTop;
+            widget.props.bounds.left = explicitLeft;
+            console.log(`Cabbage: insertWidget - Applied explicit position: top=${explicitTop}, left=${explicitLeft}`);
+        }
 
         // For comboBox with populate, set automatable to false (plugins can't handle dynamic ranges)
         if (widget.props.type === 'comboBox' && widget.props.populate?.directory) {
@@ -172,7 +179,15 @@ export class WidgetManager {
 
         // Recalculate derived properties after merging props
         if (Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
-            const rng = (widget.props.channels[0].range) ? widget.props.channels[0].range : CabbageUtils.getDefaultRange('drag');
+            // Ensure channel has a complete range object with value initialized
+            if (!widget.props.channels[0].range) {
+                widget.props.channels[0].range = CabbageUtils.getDefaultRange('drag');
+            }
+            // Initialize value from defaultValue if not set
+            if (widget.props.channels[0].range.value === undefined || widget.props.channels[0].range.value === null) {
+                widget.props.channels[0].range.value = widget.props.channels[0].range.defaultValue;
+            }
+            const rng = widget.props.channels[0].range;
             widget.decimalPlaces = CabbageUtils.getDecimalPlaces(rng.increment);
         }
 

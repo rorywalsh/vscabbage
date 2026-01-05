@@ -40,6 +40,7 @@ export class WidgetWrapper {
         // Bind the drag end listener
         this.widgets = widgets; // All widgets in the UI
         this.vscode = vscode; // VSCode API for messaging
+        this.updateTimer = null; // Timer for debouncing updates on mouse release
 
         // Add global event listeners for context menu handling
         this.setupGlobalEventListeners();
@@ -266,11 +267,13 @@ export class WidgetWrapper {
 
     /**
      * Handles the end of a drag event.
+     * Debounces updates to avoid flooding the editor undo history.
      * @param {Object} event - The event object containing drag data.
      */
     dragEndListener(event) {
         const { dx, dy } = event;
 
+        // Update all selected elements' positions immediately for visual feedback
         this.selectedElements.forEach(element => {
             const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx;
             const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy;
@@ -282,14 +285,37 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx, dy);
 
-            this.updatePanelCallback(this.vscode, {
-                eventType: "move", // Event type for movement
-                name: element.id, // Name of the element moved
-                bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
-            }, this.widgets);
-
-            console.warn(`Cabbage: Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
+            console.log(`Cabbage: dragEndListener - element ${element.id} moved to x=${x}, y=${y}`);
         });
+
+        // Clear any pending update timer
+        if (this.updateTimer) {
+            console.log('Cabbage: Clearing previous update timer');
+            clearTimeout(this.updateTimer);
+        }
+
+        // Debounce the update to VSCode - only send after 150ms of no drag events
+        // This prevents flooding the undo history with intermediate positions
+        console.log('Cabbage: Setting update timer for 150ms');
+        this.updateTimer = setTimeout(() => {
+            console.log('Cabbage: Timer fired, sending updates to VSCode');
+            console.log('Cabbage: updatePanelCallback type:', typeof this.updatePanelCallback);
+            console.log('Cabbage: Number of selected elements:', this.selectedElements.size);
+
+            this.selectedElements.forEach(element => {
+                const x = parseFloat(element.getAttribute('data-x')) || 0;
+                const y = parseFloat(element.getAttribute('data-y')) || 0;
+
+                console.log(`Cabbage: Calling updatePanelCallback for ${element.id} at x=${x}, y=${y}`);
+                this.updatePanelCallback(this.vscode, {
+                    eventType: "move", // Event type for movement
+                    name: element.id, // Name of the element moved
+                    bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
+                }, this.widgets);
+
+                console.log(`Cabbage: Position update sent for ${element.id}: x=${x}, y=${y}`);
+            });
+        }, 150);
     }
 
     /**

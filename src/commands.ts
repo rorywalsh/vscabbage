@@ -399,8 +399,9 @@ export class Commands {
 
             case 'cabbageIsReadyToLoad':
                 console.log("Extension: Received cabbageIsReadyToLoad from webview");
+                // Forward to C++ backend - it will send widgets and queue table updates
                 this.sendMessageToCabbageApp({
-                    command: "initialiseWidgets",
+                    command: "cabbageIsReadyToLoad",
                     text: ""
                 });
                 break;
@@ -1412,12 +1413,7 @@ export class Commands {
         this.cabbageServerStarted = true;
 
         // No longer need setupWebSocketServer - we're using pipes now
-        // Send initial message to CabbageApp via stdin to initialize
-        const lastProcess = this.processes[this.processes.length - 1];
-        if (lastProcess && lastProcess.stdin) {
-            const initMsg = { command: 'initialiseWidgets' };
-            lastProcess.stdin.write(JSON.stringify(initMsg) + '\n');
-        }
+        // Webview will send cabbageIsReadyToLoad when it's ready
     }
     /**
      * Updates, or at least tries, old Cabbage syntax to JSON

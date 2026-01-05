@@ -265,3 +265,68 @@ export function resetZoom() {
     setZoomLevel(1.0);
     console.log('Cabbage: Zoom reset to 100%');
 }
+
+/**
+ * Converts screen coordinates to form coordinates
+ * Accounts for zoom and pan transforms
+ * @param {number} screenX - X coordinate in screen space (e.g., e.clientX)
+ * @param {number} screenY - Y coordinate in screen space (e.g., e.clientY)
+ * @returns {{x: number, y: number}} Coordinates in form space
+ */
+export function screenToFormCoordinates(screenX, screenY) {
+    const mainForm = document.getElementById('MainForm');
+    const wrapper = document.getElementById('zoom-wrapper');
+    const leftPanel = document.getElementById('LeftPanel');
+
+    if (!mainForm || !wrapper || !leftPanel) {
+        console.warn('Cabbage: Cannot convert coordinates - elements not found');
+        return { x: screenX, y: screenY };
+    }
+
+    // Get LeftPanel's bounding rect (viewport position)
+    const panelRect = leftPanel.getBoundingClientRect();
+
+    // Convert screen coordinates to panel-relative coordinates
+    let x = screenX - panelRect.left;
+    let y = screenY - panelRect.top;
+
+    // Account for pan transform (translate on zoom-wrapper)
+    const wrapperTransform = wrapper.style.transform;
+    const translateMatch = wrapperTransform.match(/translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\)/);
+    if (translateMatch) {
+        const translateX = parseFloat(translateMatch[1]);
+        const translateY = parseFloat(translateMatch[2]);
+        x -= translateX;
+        y -= translateY;
+    }
+
+    // Account for zoom transform (scale on MainForm)
+    // When scaled, 1 pixel on screen = (1/zoomLevel) pixels in form space
+    x = x / zoomLevel;
+    y = y / zoomLevel;
+
+    console.log(`Cabbage: Converted screen (${screenX}, ${screenY}) to form (${x.toFixed(1)}, ${y.toFixed(1)}) [zoom: ${zoomLevel}, pan: ${translateMatch ? `(${translateMatch[1]}, ${translateMatch[2]})` : 'none'}]`);
+
+    return { x: Math.round(x), y: Math.round(y) };
+}
+
+/**
+ * Gets the current pan offset
+ * @returns {{x: number, y: number}} Pan offset in pixels
+ */
+export function getPanOffset() {
+    const wrapper = document.getElementById('zoom-wrapper');
+    if (!wrapper) return { x: 0, y: 0 };
+
+    const wrapperTransform = wrapper.style.transform;
+    const translateMatch = wrapperTransform.match(/translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\)/);
+
+    if (translateMatch) {
+        return {
+            x: parseFloat(translateMatch[1]),
+            y: parseFloat(translateMatch[2])
+        };
+    }
+
+    return { x: 0, y: 0 };
+}
