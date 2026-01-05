@@ -82,7 +82,7 @@ jobs:
           p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
           p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
 
-            - name: Download CsoundLib64 Package
+      - name: Download CsoundLib64 Package
         run: |
           # Download the package using curl
           curl -L -o csound-7.zip "${{ env.CSOUND_MAC_URL }}"
@@ -291,16 +291,29 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "${{ env.CSOUND_WIN_URL }}" -OutFile "csound7.zip"
-          Expand-Archive -Path "csound7.zip" -DestinationPath "csound7"
-          $exe = Get-ChildItem -Path "csound7" -Filter "*.exe" | Select-Object -First 1
+          Expand-Archive -Path "csound7.zip" -DestinationPath "csound7" -Force
+
+          Write-Host "Contents of csound7 (for debug):"
+          Get-ChildItem -Path "csound7" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          # Prefer an x86_64 installer if present, otherwise take first .exe
+          $exe = Get-ChildItem -Path "csound7" -Recurse -Filter "*windows*x86*64*.exe" -File | Select-Object -First 1
+          if (-not $exe) {
+            $exe = Get-ChildItem -Path "csound7" -Recurse -Filter "*.exe" -File | Select-Object -First 1
+          }
+
+          if (-not $exe) {
+            Write-Error "No .exe installer found in csound7 folder!"
+            exit 1
+          }
+
           Write-Host "Found installer: $($exe.FullName)"
-          Move-Item $exe.FullName .\csound-7.exe
+          Copy-Item -Path $exe.FullName -Destination ".\csound-7.exe" -Force
 
       - name: Install Csound
         shell: pwsh
         run: |
           Start-Process -FilePath ".\csound-7.exe" -ArgumentList "/VERYSILENT" -Wait -Verb RunAs
-
 
       - name: Wait for Installation to Complete
         shell: pwsh
