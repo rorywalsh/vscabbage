@@ -973,6 +973,7 @@ export class WidgetManager {
 
                         try {
                             if (typeof widget.updateCanvas === 'function') {
+                                console.log(`WidgetManager: Calling updateCanvas for ${widget.props.type} id=${widget.props.id}, samples=${widget.props.samples?.length || 0}`);
                                 widget.updateCanvas();
                             }
                         } catch (e) {

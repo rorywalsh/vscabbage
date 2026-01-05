@@ -400,10 +400,12 @@ export class Commands {
             case 'cabbageIsReadyToLoad':
                 console.log("Extension: Received cabbageIsReadyToLoad from webview");
                 // Forward to C++ backend - it will send widgets and queue table updates
+                console.log("Extension: Forwarding cabbageIsReadyToLoad to backend");
                 this.sendMessageToCabbageApp({
                     command: "cabbageIsReadyToLoad",
                     text: ""
                 });
+                console.log("Extension: cabbageIsReadyToLoad sent to backend, waiting for widget updates...");
                 break;
 
             case 'fileOpen':
@@ -1232,22 +1234,32 @@ export class Commands {
                     const jsonString = line.substring('CABBAGE_JSON:'.length);
                     try {
                         const msg = JSON.parse(jsonString);
+                        console.log('Extension: Received message from backend:', msg.command || 'unknown command');
 
                         // Handle widget update messages
                         if (msg.hasOwnProperty('command')) {
                             if (msg['command'] === 'widgetUpdate') {
                                 const panel = Commands.getPanel();
+                                console.log(`Extension: widgetUpdate message - hasWidgetJson=${msg.hasOwnProperty('widgetJson')}, id=${msg['id']}, panel=${!!panel}`);
                                 if (panel) {
                                     if (msg.hasOwnProperty('widgetJson')) {
                                         let id = msg['id'];
-                                        if (!id && msg['widgetJson']) {
-                                            try {
-                                                const parsed = JSON.parse(msg['widgetJson']);
-                                                id = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                                            } catch (e) {
-                                                console.error('Failed to parse widgetJson for id:', e);
+                                        console.log(`Extension: widgetUpdate - id from msg=${id}, widgetJson length=${msg['widgetJson']?.length}`);
+                                        
+                                        // Always parse and log the widget data
+                                        try {
+                                            const parsed = JSON.parse(msg['widgetJson']);
+                                            const widgetId = id || parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                            console.log(`Extension: widgetUpdate - id=${widgetId}, type=${parsed.type}, hasSamples=${parsed.hasOwnProperty('samples')}, samplesLength=${parsed.samples?.length || 0}`);
+                                            if (parsed.samples && Array.isArray(parsed.samples) && parsed.samples.length > 0) {
+                                                console.log(`Extension: ✓ Received widgetUpdate for ${widgetId} with ${parsed.samples.length} samples`);
+                                            } else if (parsed.type === 'genTable') {
+                                                console.log(`Extension: ✗ genTable ${widgetId} has NO samples data`);
                                             }
+                                        } catch (e) {
+                                            console.error('Extension: Failed to parse widgetJson:', e);
                                         }
+                                        
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
                                             id: id,

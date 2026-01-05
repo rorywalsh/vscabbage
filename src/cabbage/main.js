@@ -164,6 +164,16 @@ window.addEventListener('message', async (event) => {
                 try {
                     const parsedData = JSON.parse(updateMsg.widgetJson);
                     updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
+                    
+                    // Log genTable updates with samples info
+                    if (parsedData.type === 'genTable') {
+                        console.log(`Webview: widgetUpdate for genTable ${updateMsg.id}, hasSamples=${parsedData.hasOwnProperty('samples')}, samplesLength=${parsedData.samples?.length || 0}`);
+                        if (parsedData.samples && parsedData.samples.length > 0) {
+                            console.log(`Webview: ✓ genTable ${updateMsg.id} received ${parsedData.samples.length} samples`);
+                        } else {
+                            console.log(`Webview: ✗ genTable ${updateMsg.id} has NO samples data`);
+                        }
+                    }
                 } catch (e) {
                     console.error("Failed to parse widgetJson for id:", e);
                 }
