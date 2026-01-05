@@ -265,11 +265,14 @@ export class PropertyPanel {
                 // default channel entry (which can cause malformed insertions
                 // when the receiver expects only non-default changes).
 
-                // Only omit default-matching channels for form widgets. Other
-                // widget types may use channels differently and should not have
+                // Only omit default-matching channels for form and genTable widgets.
+                // genTable uses its top-level id for communication, so default channels are redundant.
+                // Other widget types may use channels differently and should not have
                 // their channels stripped by this shortcut.
-                const isFormWidget = (props && props.type === 'form') || (widget && widget.props && widget.props.type === 'form');
-                if (isFormWidget && clone.channels && defaults.channels && Array.isArray(clone.channels) && Array.isArray(defaults.channels)) {
+                const widgetType = (props && props.type) || (widget && widget.props && widget.props.type);
+                const shouldStripDefaultChannels = widgetType === 'form' || widgetType === 'genTable';
+
+                if (shouldStripDefaultChannels && clone.channels && defaults.channels && Array.isArray(clone.channels) && Array.isArray(defaults.channels)) {
                     try {
                         // Consider channels equal if their contents other than `id` match the defaults.
                         // Some widget instances may have different ids (e.g. MainForm vs generated ids)
@@ -816,9 +819,9 @@ export class PropertyPanel {
                             if (hiddenProps.includes(`${sectionName}.${key}.${nestedKey}`)) {
                                 return;
                             }
-                            // Pass the compound key directly without sectionName prefix
-                            console.log(`PropertyPanel: Adding nested property - key: ${key}.${nestedKey}, value: ${nestedValue}, path: ''`);
-                            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, '');
+                            // Pass the full path including sectionName for proper property nesting
+                            console.log(`PropertyPanel: Adding nested property - key: ${key}.${nestedKey}, value: ${nestedValue}, path: '${sectionName}'`);
+                            this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, sectionName);
                         });
                     } else {
                         this.addPropertyToSection(key, value, sectionDiv, sectionName);
@@ -1626,22 +1629,33 @@ export class PropertyPanel {
                 // Handle nested properties
                 this.setNestedProperty(widget.props, path, parsedValue);
 
-                console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                // Debug: Log the range property for debugging (handle both top-level and channel-level range)
+                if (path.includes('range')) {
+                    console.log('PropertyPanel: after setNestedProperty, widget.props.range:', JSON.stringify(widget.props.range, null, 2));
+                    if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
+                        console.log('PropertyPanel: after setNestedProperty, widget.props.channels[0].range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                    }
+                }
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+                const widgetDivId = CabbageUtils.getWidgetDivId(widget.props);
+                const widgetDiv = document.getElementById(widgetDivId);
+
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
+                } else if (typeof widget.updateCanvas === 'function') {
+                    widget.updateCanvas(); // Update canvas for canvas-based widgets
+                } else if (typeof widget.updateTable === 'function') {
+                    widget.updateTable(); // Backward compatibility
                 } else if (widgetDiv) {
-                    console.trace("Widget Div:", widgetDiv);
                     widgetDiv.innerHTML = widget.getInnerHTML();
                 } else {
-                    console.warn('PropertyPanel: widgetDiv is null, skipping innerHTML update for', CabbageUtils.getChannelId(widget.props, 0));
+                    console.warn('PropertyPanel: widgetDiv is null for', widgetDivId, '- cannot update innerHTML');
                 }
 
                 // Update widget styles if the index or zIndex property changed
-                if (widgetDiv && (path === 'index' || path === 'zIndex')) {
+                if (path === 'index' || path === 'zIndex') {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 

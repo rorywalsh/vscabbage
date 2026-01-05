@@ -198,17 +198,27 @@ export class WidgetManager {
             // Store the raw defaults on the instance so other components (e.g. PropertyPanel)
             // can compare and strip default-valued properties when minimizing props.
             widget.rawDefaults = defaultProps;
-            const minimalProps = { ...props };
-            // If insert used top/left which were moved into widget.props.bounds and removed from props,
-            // inject bounds from the instance so minimization preserves position for newly-inserted widgets.
-            if ((!minimalProps.bounds || Object.keys(minimalProps.bounds).length === 0) && widget.props && widget.props.bounds) {
-                minimalProps.bounds = { ...widget.props.bounds };
-            }
-            const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
-            excludeFromJson.forEach(prop => delete minimalProps[prop]);
-            for (let key in defaultProps) {
-                if (this.deepEqual(minimalProps[key], defaultProps[key]) && key !== 'type') {
-                    delete minimalProps[key];
+
+            // Use PropertyPanel.minimizePropsForWidget if available for consistent minimization logic
+            let minimalProps;
+            if (typeof PropertyPanel !== 'undefined' && typeof PropertyPanel.minimizePropsForWidget === 'function') {
+                // Create a temp props object with position from widget.props if not in original props
+                const propsToMinimize = { ...widget.props };
+                minimalProps = PropertyPanel.minimizePropsForWidget(propsToMinimize, widget);
+            } else {
+                // Fallback to simple minimization
+                minimalProps = { ...props };
+                // If insert used top/left which were moved into widget.props.bounds and removed from props,
+                // inject bounds from the instance so minimization preserves position for newly-inserted widgets.
+                if ((!minimalProps.bounds || Object.keys(minimalProps.bounds).length === 0) && widget.props && widget.props.bounds) {
+                    minimalProps.bounds = { ...widget.props.bounds };
+                }
+                const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
+                excludeFromJson.forEach(prop => delete minimalProps[prop]);
+                for (let key in defaultProps) {
+                    if (this.deepEqual(minimalProps[key], defaultProps[key]) && key !== 'type') {
+                        delete minimalProps[key];
+                    }
                 }
             }
             widget.originalProps = JSON.parse(JSON.stringify(minimalProps));

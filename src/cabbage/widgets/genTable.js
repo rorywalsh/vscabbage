@@ -18,18 +18,7 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
-            "channels": [
-                {
-                    "id": "gentableStart",
-                    "event": "valueChanged",
-                    "range": { "min": 0, "max": -1 }
-                },
-                {
-                    "id": "gentableLength",
-                    "event": "valueChanged",
-                    "range": { "min": 0, "max": -1 }
-                }
-            ],
+            "channels": [],
             "visible": true,
             "active": true,
             "automatable": false,
@@ -40,11 +29,11 @@ export class GenTable {
                 "opacity": 1,
                 "borderRadius": 4,
                 "borderWidth": 1,
-                "borderColor": "#dddddd",
+                "borderColor": "#dddddd11",
                 "strokeColor": "#dddddd",
                 "strokeWidth": 1,
-                "fillColor": "#93d200",
-                "backgroundColor": "#00000022",
+                "fillColor": "#ffffff11",
+                "backgroundColor": "#00000000",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -54,7 +43,7 @@ export class GenTable {
             "label": { "text": "" },
             "range": {
                 "x": { "start": 0, "end": -1 },
-                "y": { "min": -1.0, "max": 1.0 }
+                "y": { "min": -1.04, "max": 1.04 }
             },
             "id": "",
             "file": "",
@@ -535,7 +524,23 @@ export class GenTable {
         // mode we will map pixels to sample indices individually using
         // sampleToPixel/pixelToSample helpers.
         const samplesPerPixel = this.props.samples.length / this.props.bounds.width;
-        const centerY = this.props.bounds.height / 2;
+
+        // Determine the baseline Y position for filled waveforms based on the Y range
+        // For positive-only ranges (e.g., 0..1), fill from bottom
+        // For negative-only ranges (e.g., -1..0), fill from top
+        // For mixed ranges (e.g., -1..1), fill from center
+        let baselineY;
+        if (yMin >= 0) {
+            // Positive-only range: baseline at bottom (height)
+            baselineY = this.props.bounds.height;
+        } else if (yMax <= 0) {
+            // Negative-only range: baseline at top (0)
+            baselineY = 0;
+        } else {
+            // Mixed range: baseline at center
+            baselineY = this.props.bounds.height / 2;
+        }
+
         // Y-axis logarithmic support (optional): enable by setting style.logarithmicY = true
         // Enable logarithmic Y if either explicit logarithmicY is set, or the
         // general `logarithmic` flag is true (so `logarithmic:true` toggles both axes).
@@ -571,7 +576,7 @@ export class GenTable {
             }
 
             // Mixed-sign range: preserve symmetric behavior around centerValue
-            const cY = height / 2;
+            const cY = this.props.bounds.height / 2;
             const centerValue = (yMin + yMax) / 2;
             let delta = val - centerValue;
             if (delta === 0) return cY;
@@ -614,11 +619,11 @@ export class GenTable {
                     }
                 }
 
-                // For filled waveform, fill from center to the amplitude extremes
+                // For filled waveform, fill from baseline to the amplitude extremes
                 const maxY = valueToPixel(maxVal);
                 const minY = valueToPixel(minVal);
-                const topFill = Math.min(centerY, maxY, minY);
-                const bottomFill = Math.max(centerY, maxY, minY);
+                const topFill = Math.min(baselineY, maxY, minY);
+                const bottomFill = Math.max(baselineY, maxY, minY);
                 const fillHeight = Math.max(1, bottomFill - topFill);
                 ctx.fillRect(x, topFill, 1, fillHeight);
             }

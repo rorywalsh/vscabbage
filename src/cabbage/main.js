@@ -173,12 +173,6 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
-
-            // After widget is updated, signal readiness to receive queued updates
-            // This is important after recompilation when processor is recreated
-            if (updateMsg.hasOwnProperty('widgetJson') && vscode) {
-                Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
-            }
             break;
 
         // Batch widget update for efficient preset loading
