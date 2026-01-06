@@ -70,13 +70,12 @@ export class OptionButton {
     this.isMouseDown = true;
     const itemsLength = this.getItems().length;
     this.currentIndex = (this.currentIndex + 1) % itemsLength;
-    this.props.value = this.currentIndex;
+    this.props.channels[0].range.value = this.currentIndex;
 
     CabbageUtils.updateInnerHTML(this.props, this, evt.currentTarget);
+    console.log('Cabbage: CurrentText', this.props.currentText);
 
-    // Send normalized value (0-1) to maintain consistency with parameter system
-    const normalizedValue = CabbageUtils.map(this.props.value, 0, itemsLength - 1, 0, 1);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: normalizedValue, channelType: "number" };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value, channelType: this.props.channels[0].type || "number" };
     console.log('Sending parameter update:', msg);
     if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -176,7 +175,7 @@ export class OptionButton {
 
     const currentColour = this.isMouseInside ? CabbageColours.lighter(this.props.style.backgroundColor, 0.2) : this.props.style.backgroundColor;
     return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
                 <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius}" fill="${currentColour}" stroke="${this.props.style.borderColor}"
                   stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
                 <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"

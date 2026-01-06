@@ -414,10 +414,12 @@ export class XyPad {
         const ballRadius = this.props.ballSize / 2;
         const ballSize = this.props.ballSize;
 
-        // Initialize ball position if needed
-        if (this.props.value && this.props.value.x !== undefined && this.props.value.y !== undefined) {
-            const normalizedX = (this.props.value.x - this.props.range.x.min) / (this.props.range.x.max - this.props.range.x.min);
-            const normalizedY = 1 - ((this.props.value.y - this.props.range.y.min) / (this.props.range.y.max - this.props.range.y.min));
+        // Initialize ball position if needed - read from channel values
+        const xChannelValue = this.props.channels[0]?.range?.value;
+        const yChannelValue = this.props.channels[1]?.range?.value;
+        if (xChannelValue !== null && xChannelValue !== undefined && yChannelValue !== null && yChannelValue !== undefined) {
+            const normalizedX = xChannelValue; // Already normalized 0-1
+            const normalizedY = 1 - yChannelValue; // Already normalized, invert for Y
 
             // Calculate the maximum range for ball center to keep ball circumference within boundaries
             const maxXRange = 1 - (ballRadius / effectiveWidth);

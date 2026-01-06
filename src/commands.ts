@@ -6,14 +6,25 @@ import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import * as cp from "child_process";
 import { Settings } from './settings';
-import stringify from 'json-stringify-pretty-compact';
+import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
+
+// Helper to format JSON using FracturedJson
+function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
+    const formatter = new Formatter();
+    const fjOptions = new FracturedJsonOptions();
+    fjOptions.MaxTotalLineLength = options.maxLength;
+    fjOptions.IndentSpaces = options.indent;
+    formatter.Options = fjOptions;
+    return formatter.Serialize(obj) ?? '';
+}
 export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
+import { reorderWidgets } from './utils/widgetSorter';
 // setupWebSocketServer no longer needed - using pipes
 
 /**
@@ -36,7 +47,84 @@ export class Commands {
     private static compilationFailed: boolean = false;
     private static panelRevealTimeout: NodeJS.Timeout | undefined;
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
+    private static editQueue: Promise<void> = Promise.resolve();
     appendOutput: Boolean = true;
+
+    /**
+     * Reorders widgets in the active CSD file based on their visual hierarchy.
+     * Grouped widgets are placed immediately after their parent GroupBox.
+     */
+    static async reorderWidgets() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found.');
+            return;
+        }
+
+        const document = editor.document;
+        const text = document.getText();
+
+        // Find <Cabbage> section
+        const cabbageRegex = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const match = text.match(cabbageRegex);
+
+        if (!match) {
+            vscode.window.showErrorMessage('No <Cabbage> section found in the file.');
+            return;
+        }
+
+        const jsonContent = match[1];
+
+        try {
+            // Parse JSON (handling comments loosely if possible, but standard JSON.parse is strict)
+            // Cabbage JSON often contains comments which JSON.parse fails on.
+            // We need a way to parse this while preserving comments or at least parsing it successfully.
+            // Since the user mentioned "The widget JSON code should be lifted wholesale", 
+            // we should try to parse it using a lenient parser or eval (with safety checks) 
+            // OR use the existing ExtensionUtils.getCabbageJson which might handle this.
+
+            // Let's try to use Function constructor to parse relaxed JSON (with comments)
+            // This is what Cabbage often does internally or what we might need here.
+            // However, to preserve comments during rewrite, we would need a CST (Concrete Syntax Tree) parser.
+            // Standard JSON.stringify will strip comments.
+
+            // User requirement: "Comments are part of a valid "//": key, they should be kept."
+            // Ah! If comments are actual keys like "//": "...", then standard JSON.parse works!
+            // We just need to handle the surrounding brackets if they are missing or malformed?
+            // Usually Cabbage section is a JSON array [ ... ].
+
+            const widgets = JSON.parse(jsonContent);
+
+            if (!Array.isArray(widgets)) {
+                vscode.window.showErrorMessage('Cabbage section is not a valid JSON array.');
+                return;
+            }
+
+            const reorderedWidgets = reorderWidgets(widgets);
+
+            // Get formatting settings from configuration
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+
+            // Stringify back to JSON using FracturedJson formatter
+            const newJsonContent = formatJson(reorderedWidgets, { maxLength: maxLength, indent: indentSpaces });
+
+            // Replace in editor
+            const startPos = document.positionAt(match.index! + "<Cabbage>".length);
+            const endPos = document.positionAt(match.index! + "<Cabbage>".length + jsonContent.length);
+
+            await editor.edit(editBuilder => {
+                editBuilder.replace(new vscode.Range(startPos, endPos), '\n' + newJsonContent + '\n');
+            });
+
+            vscode.window.showInformationMessage('Widgets reordered successfully.');
+
+        } catch (error) {
+            console.error('Error reordering widgets:', error);
+            vscode.window.showErrorMessage('Failed to parse Cabbage JSON. Please ensure it is valid JSON.');
+        }
+    }
 
     /**
      * Initializes the Commands class by creating an output channel for logging
@@ -165,6 +253,15 @@ export class Commands {
     }
 
     /**
+    * Stops Csound audio performance without entering edit mode.
+    * This allows users to stop audio while remaining in play mode.
+     */
+    static stopCsound() {
+        this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+    }
+
+
+    /**
     * Handles incoming messages from the webview and performs actions based
     * on the message type.
     * @param message The message from the webview.
@@ -248,8 +345,12 @@ export class Commands {
                     const rawText = message && message.text;
                     console.log('Extension: Received updateWidgetProps from webview:', message && (message.oldId ? `(oldId:${message.oldId}) ` : '') + String(rawText).slice(0, 200));
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        // Previously we looked up default props here; that logic has been removed.
-                        ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        // Queue the edit to prevent race conditions when multiple updates arrive simultaneously
+                        Commands.editQueue = Commands.editQueue.then(async () => {
+                            await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
+                        }).catch(err => {
+                            console.error('Extension: Error processing queued edit:', err);
+                        });
                     }
                 }
                 break;
@@ -298,10 +399,13 @@ export class Commands {
 
             case 'cabbageIsReadyToLoad':
                 console.log("Extension: Received cabbageIsReadyToLoad from webview");
+                // Forward to C++ backend - it will send widgets and queue table updates
+                console.log("Extension: Forwarding cabbageIsReadyToLoad to backend");
                 this.sendMessageToCabbageApp({
-                    command: "initialiseWidgets",
+                    command: "cabbageIsReadyToLoad",
                     text: ""
                 });
+                console.log("Extension: cabbageIsReadyToLoad sent to backend, waiting for widget updates...");
                 break;
 
             case 'fileOpen':
@@ -368,10 +472,21 @@ export class Commands {
             case 'saveFromUIEditor':
                 let documentToSave: vscode.TextDocument | undefined;
 
-                if (vscode.window.activeTextEditor) {
+                // Try to find the document based on the panel title
+                if (this.panel && this.panel.title) {
+                    const expectedFileName = this.panel.title + '.csd';
+                    documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith(expectedFileName));
+
+                    if (!documentToSave) {
+                        // If not found in open documents, try to find it in the workspace (though we can only save open docs)
+                        // Ideally, the document should be open if the webview is active.
+                        console.log(`Cabbage: Could not find open document for ${expectedFileName}`);
+                    }
+                }
+
+                // Fallback to active editor if it's a CSD file (legacy behavior, or if panel title match fails)
+                if (!documentToSave && vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.fileName.endsWith('.csd')) {
                     documentToSave = vscode.window.activeTextEditor.document;
-                } else {
-                    documentToSave = vscode.workspace.textDocuments.find(doc => doc.fileName.endsWith('.csd'));
                 }
 
                 if (documentToSave) {
@@ -386,15 +501,14 @@ export class Commands {
                                 lastSavedFileName: documentToSave.fileName
                             });
                         }
-
-                        // Commands.onDidSave(documentToSave, context); // Removed - VS Code save event will trigger this
                     } catch (error) {
                         console.error('Cabbage: Error saving file:', error);
                         vscode.window.showErrorMessage('Failed to save the file. Please try again.');
                     }
                 } else {
                     console.error('Cabbage: No suitable document found to save');
-                    vscode.window.showErrorMessage('No .csd file found to save. Please ensure a .csd file is open.');
+                    const fileName = this.panel ? this.panel.title + '.csd' : 'source file';
+                    vscode.window.showErrorMessage(`Could not find source file '${fileName}'. Is the file tab closed?`);
                 }
                 break;
 
@@ -1120,33 +1234,42 @@ export class Commands {
                     const jsonString = line.substring('CABBAGE_JSON:'.length);
                     try {
                         const msg = JSON.parse(jsonString);
+                        console.log('Extension: Received message from backend:', msg.command || 'unknown command');
 
                         // Handle widget update messages
                         if (msg.hasOwnProperty('command')) {
                             if (msg['command'] === 'widgetUpdate') {
                                 const panel = Commands.getPanel();
+                                console.log(`Extension: widgetUpdate message - hasWidgetJson=${msg.hasOwnProperty('widgetJson')}, id=${msg['id']}, panel=${!!panel}`);
                                 if (panel) {
-                                    if (msg.hasOwnProperty('data')) {
-                                        let channel = msg['channel'];
-                                        if (channel === null && msg['data']) {
-                                            try {
-                                                const parsed = JSON.parse(msg['data']);
-                                                channel = parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                                            } catch (e) {
-                                                console.error('Failed to parse data for channel:', e);
+                                    if (msg.hasOwnProperty('widgetJson')) {
+                                        let id = msg['id'];
+                                        console.log(`Extension: widgetUpdate - id from msg=${id}, widgetJson length=${msg['widgetJson']?.length}`);
+
+                                        // Always parse and log the widget data
+                                        try {
+                                            const parsed = JSON.parse(msg['widgetJson']);
+                                            const widgetId = id || parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
+                                            console.log(`Extension: widgetUpdate - id=${widgetId}, type=${parsed.type}, hasSamples=${parsed.hasOwnProperty('samples')}, samplesLength=${parsed.samples?.length || 0}`);
+                                            if (parsed.samples && Array.isArray(parsed.samples) && parsed.samples.length > 0) {
+                                                console.log(`Extension: ✓ Received widgetUpdate for ${widgetId} with ${parsed.samples.length} samples`);
+                                            } else if (parsed.type === 'genTable') {
+                                                console.log(`Extension: ✗ genTable ${widgetId} has NO samples data`);
                                             }
+                                        } catch (e) {
+                                            console.error('Extension: Failed to parse widgetJson:', e);
                                         }
+
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
-                                            channel: channel,
-                                            widgetJson: msg['data'],
+                                            id: id,
+                                            widgetJson: msg['widgetJson'],
                                             currentCsdPath: Commands.getCurrentFileName(),
                                         });
                                     } else if (msg.hasOwnProperty('value')) {
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
                                             id: msg['id'],
-                                            channel: msg['channel'],
                                             value: msg['value'],
                                             currentCsdPath: Commands.getCurrentFileName(),
                                         });
@@ -1302,12 +1425,7 @@ export class Commands {
         this.cabbageServerStarted = true;
 
         // No longer need setupWebSocketServer - we're using pipes now
-        // Send initial message to CabbageApp via stdin to initialize
-        const lastProcess = this.processes[this.processes.length - 1];
-        if (lastProcess && lastProcess.stdin) {
-            const initMsg = { command: 'initialiseWidgets' };
-            lastProcess.stdin.write(JSON.stringify(initMsg) + '\n');
-        }
+        // Webview will send cabbageIsReadyToLoad when it's ready
     }
     /**
      * Updates, or at least tries, old Cabbage syntax to JSON
@@ -1337,7 +1455,7 @@ export class Commands {
 
         const document = editor.document;
         const config = vscode.workspace.getConfiguration('cabbage');
-        const cabbageSectionPosition = config.get('cabbageSectionPosition', 'top');
+        const cabbageSectionPosition = config.get('cabbageSectionPlacement', 'top');
 
         const warningComment = ExtensionUtils.getWarningComment();
 
@@ -1369,6 +1487,95 @@ export class Commands {
         }
 
         vscode.workspace.applyEdit(edit);
+    }
+
+    /**
+     * Moves an existing Cabbage section to the opposite position (toggles between top and bottom)
+     */
+    static async moveCabbageSection() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found');
+            return;
+        }
+
+        const document = editor.document;
+        const text = document.getText();
+
+        // Find existing Cabbage section
+        const cabbageRegexWithWarning = /<\!--[\s\S]*?Warning:[\s\S]*?--\>[\s\n]*<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        const cabbageRegexWithoutWarning = /<Cabbage>([\s\S]*?)<\/Cabbage>/;
+        let cabbageMatch = text.match(cabbageRegexWithWarning);
+        let hasWarning = true;
+
+        if (!cabbageMatch) {
+            cabbageMatch = text.match(cabbageRegexWithoutWarning);
+            hasWarning = false;
+        }
+
+        if (!cabbageMatch) {
+            vscode.window.showErrorMessage('No Cabbage section found in the current file');
+            return;
+        }
+
+        // Get the full matched section (including warning if present)
+        const cabbageSection = cabbageMatch[0];
+        const cabbageSectionStart = cabbageMatch.index!;
+        const cabbageSectionEnd = cabbageSectionStart + cabbageSection.length;
+
+        // Determine current position
+        const csoundSynthesizerStartTag = '<CsoundSynthesizer>';
+        const csoundSynthesizerEndTag = '</CsoundSynthesizer>';
+        const csoundStartIndex = text.indexOf(csoundSynthesizerStartTag);
+        const csoundEndIndex = text.indexOf(csoundSynthesizerEndTag);
+
+        // Section is at top if it appears before <CsoundSynthesizer>
+        const isCurrentlyAtTop = csoundStartIndex !== -1 && cabbageSectionStart < csoundStartIndex;
+
+        // Toggle to opposite position
+        const targetPosition = isCurrentlyAtTop ? 'bottom' : 'top';
+
+        const edit = new vscode.WorkspaceEdit();
+
+        // Remove from current position
+        const removeRange = new vscode.Range(
+            document.positionAt(cabbageSectionStart),
+            document.positionAt(cabbageSectionEnd)
+        );
+
+        // Also remove trailing newlines after the section
+        let endPosition = cabbageSectionEnd;
+        while (endPosition < text.length && (text[endPosition] === '\n' || text[endPosition] === '\r')) {
+            endPosition++;
+        }
+        const removeRangeWithNewlines = new vscode.Range(
+            document.positionAt(cabbageSectionStart),
+            document.positionAt(endPosition)
+        );
+
+        edit.delete(document.uri, removeRangeWithNewlines);
+
+        // Insert at target position
+        if (targetPosition === 'top') {
+            edit.insert(document.uri, new vscode.Position(0, 0), cabbageSection + '\n');
+        } else {
+            // Insert after </CsoundSynthesizer>
+            if (csoundEndIndex !== -1) {
+                const insertPosition = document.positionAt(csoundEndIndex + csoundSynthesizerEndTag.length);
+                edit.insert(document.uri, insertPosition, '\n' + cabbageSection);
+            } else {
+                // No closing tag, insert at end
+                const endPosition = document.positionAt(text.length);
+                edit.insert(document.uri, endPosition, '\n' + cabbageSection);
+            }
+        }
+
+        const success = await vscode.workspace.applyEdit(edit);
+        if (success) {
+            vscode.window.showInformationMessage(`Cabbage section moved to ${targetPosition}`);
+        } else {
+            vscode.window.showErrorMessage('Failed to move Cabbage section');
+        }
     }
 
     /**
@@ -1459,7 +1666,7 @@ export class Commands {
             const maxLength = config.get("jsonMaxLength", 120);
 
             const jsonObject = JSON.parse(cabbageContent);
-            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
 
             editor.edit(editBuilder => {
                 editBuilder.replace(range, '\n' + formattedJson + '\n');
@@ -1479,13 +1686,35 @@ export class Commands {
     static async createNewCabbageFile(type: string) {
         // Get the new file contents based on the type
         const newFileContents = ExtensionUtils.getNewCabbageFile(type);
-        // Create a new untitled document with .csd extension and appropriate language
-        const document = await vscode.workspace.openTextDocument({
-            content: newFileContents,
-            language: 'csound-csd'  // Set proper language mode for .csd files
+        if (!newFileContents) {
+            vscode.window.showErrorMessage(`Failed to create new ${type} file`);
+            return;
+        }
+        // Show save dialog with CSD file filter
+        // Default to workspace root if available, otherwise user's home directory
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const defaultUri = workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder.uri, 'Untitled.csd')
+            : vscode.Uri.file('Untitled.csd');
+
+        const fileUri = await vscode.window.showSaveDialog({
+            filters: {
+                'Csound CSD': ['csd']
+            },
+            defaultUri: defaultUri,
+            saveLabel: `Create New ${type === 'effect' ? 'Effect' : 'Synth'}`
         });
 
-        // Open the new document in a new editor tab
+        if (!fileUri) {
+            return; // User cancelled
+        }
+
+        // Write the file
+        const fileContent = new TextEncoder().encode(newFileContents);
+        await vscode.workspace.fs.writeFile(fileUri, fileContent);
+
+        // Open the new file
+        const document = await vscode.workspace.openTextDocument(fileUri);
         await vscode.window.showTextDocument(document);
     }
 
@@ -2018,9 +2247,35 @@ include $(SYSTEM_FILES_DIR)/Makefile
         -ms-user-select: text;
         cursor: text;
     }
+
+    .full-height-div {
+        height: 100vh;
+    }
+
+    #LeftPanel {
+        overflow: hidden;
+        position: relative;
+    }
+
+    #parent {
+        display: flex;
+        flex-direction: row;
+    }
+
+    #LeftPanel {
+        flex: 1;
+        order: 1;
+    }
 </style>
 </head>
 <body>
+<div id="parent" class="full-height-div">
+    <div id="LeftPanel" class="full-height-div">
+        <!-- Widgets will be dynamically added here -->
+    </div>
+    <span class="popup" id="popupValue">50</span>
+</div>
+
 ${widgetScripts}
 <script type="module" src="cabbage/utils.js"></script>
 <script type="module" src="cabbage/cabbage.js"></script>
@@ -2961,17 +3216,34 @@ i2 5 z
 
             // Remove the widget with the specified channel
             const originalLength = widgets.length;
-            widgets = widgets.filter((widget: any) => widget.channel !== channel);
+            widgets = widgets.filter((widget: any) => {
+                // Check if widget has direct id property
+                if (widget.id === channel) {
+                    return false;
+                }
+                // Check if widget has channels array with matching id
+                if (widget.channels && Array.isArray(widget.channels) && widget.channels.length > 0) {
+                    return widget.channels[0].id !== channel;
+                }
+                return true;
+            });
             console.log(`Removed ${originalLength - widgets.length} widgets`);
 
             // Format and update the Cabbage section
             const config = vscode.workspace.getConfiguration("cabbage");
             const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-            const formattedArray = isSingleLine
-                ? ExtensionUtils.formatJsonObjects(widgets, '    ')
-                : JSON.stringify(widgets, null, 4);
 
-            const updatedCabbageSection = `<Cabbage>${formattedArray}</Cabbage>`;
+            let formattedArray: string;
+            if (isSingleLine) {
+                formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
+            } else {
+                // Use the same FracturedJson formatter and config as the format command
+                const indentSpaces = config.get("jsonIndentSpaces", 4);
+                const maxLength = config.get("jsonMaxLength", 120);
+                formattedArray = formatJson(widgets, { maxLength: maxLength, indent: indentSpaces });
+            }
+
+            const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
 
             // Apply the edit
             const edit = new vscode.WorkspaceEdit();

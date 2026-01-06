@@ -9,34 +9,39 @@ import { CabbageUtils } from "../cabbage/utils.js";
 /**
  * Handle radio group logic: when a widget is activated, deactivate all others in the same group.
  * @param {string|number} radioGroup - The radioGroup identifier
- * @param {string} activeChannel - The channel of the widget that was just activated
+ * @param {string} activeWidgetId - The div ID of the widget that was just activated
  */
-export function handleRadioGroup(radioGroup, activeChannel) {
+export function handleRadioGroup(radioGroup, activeWidgetId) {
     if (!radioGroup || radioGroup === -1) return;
 
-    console.log(`Cabbage: Handling radioGroup ${radioGroup} for channel ${activeChannel}`);
+    console.log(`Cabbage: Handling radioGroup ${radioGroup} for widget ${activeWidgetId}`);
 
     // Find all widgets in the same radioGroup
     const groupWidgets = widgets.filter(widget =>
-        widget.props.radioGroup === radioGroup && CabbageUtils.getChannelId(widget.props, 0) !== activeChannel
+        widget.props.radioGroup == radioGroup && CabbageUtils.getWidgetDivId(widget.props) !== activeWidgetId
     );
+
+    console.log(`Cabbage: Found ${groupWidgets.length} other widgets in radioGroup ${radioGroup} to deactivate`);
 
     // Deactivate all other widgets in the group
     groupWidgets.forEach(groupWidget => {
+        const channelId = CabbageUtils.getChannelId(groupWidget.props, 0);
+        console.log(`Cabbage: Deactivating widget ${CabbageUtils.getWidgetDivId(groupWidget.props)}, channel: ${channelId}, current value: ${groupWidget.props.value}`);
+
         if (groupWidget.props.value !== 0) {
             groupWidget.props.value = 0;
 
             // Update visual state
-            const groupChannelId = CabbageUtils.getChannelId(groupWidget.props, 0);
-            const widgetDiv = document.getElementById(groupChannelId);
+            const widgetDiv = CabbageUtils.getWidgetDiv(groupWidget.props);
             if (widgetDiv) {
                 widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 // Send update to host
                 const msg = {
-                    paramIdx: groupWidget.parameterIndex,
-                    channel: CabbageUtils.getChannelId(groupWidget.props, 0),
+                    paramIdx: CabbageUtils.getChannelParameterIndex(groupWidget.props, 0),
+                    channel: channelId,
                     value: 0
                 };
+                console.log(`Cabbage: Sending channel update for ${channelId}:`, msg);
                 Cabbage.sendChannelUpdate(msg, groupWidget.vscode || null, groupWidget.props.automatable);
             }
         }

@@ -77,23 +77,23 @@ export class Checkbox {
     }
 
     const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
-    // Get current value, using default if null
-    const currentValue = this.props.value !== null ? this.props.value : range.defaultValue;
+    // Get current value from channels[0].range.value, using default if null
+    const currentValue = range.value !== null ? range.value : range.defaultValue;
 
     // For radioGroup checkboxes: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
       if (currentValue === range.min) {
-        this.props.value = range.max;
+        this.props.channels[0].range.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for checkboxes not in radioGroup
-      this.props.value = (currentValue === range.max) ? range.min : range.max;
+      this.props.channels[0].range.value = (currentValue === range.max) ? range.min : range.max;
     }
 
     CabbageUtils.updateInnerHTML(this.props, this);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value };
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value };
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -117,7 +117,8 @@ export class Checkbox {
 
   getInnerHTML() {
     // Use defaultValue for visual state when value is null
-    const currentValue = this.props.value !== null ? this.props.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
+    const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
+    const currentValue = range.value !== null ? range.value : range.defaultValue;
 
     const alignMap = {
       'left': 'start',
@@ -139,7 +140,7 @@ export class Checkbox {
     const currentState = isOn ? this.props.style.on : this.props.style.off;
 
     return `
-      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
+      <svg id="${CabbageUtils.getChannelId(this.props)}-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
   <rect x="${checkboxX}" y="${(this.props.bounds.height - checkboxSize) / 2}" width="${checkboxSize}" height="${checkboxSize}" fill="${currentState.backgroundColor}" stroke="${currentState.borderColor}" stroke-width="${currentState.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
         <text x="${textX}" y="${this.props.bounds.height / 2}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}" fill="${currentState.textColor}" text-anchor="${adjustedTextAnchor}" alignment-baseline="middle">${this.props.label.text}</text>
       </svg>

@@ -10,8 +10,18 @@ import os from 'os';
 import fs from 'fs';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
-import stringify from 'json-stringify-pretty-compact';
+import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 import { Settings } from './settings';
+
+// Helper to format JSON using FracturedJson
+function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
+    const formatter = new Formatter();
+    const fjOptions = new FracturedJsonOptions();
+    fjOptions.MaxTotalLineLength = options.maxLength;
+    fjOptions.IndentSpaces = options.indent;
+    formatter.Options = fjOptions;
+    return formatter.Serialize(obj) ?? '';
+}
 
 
 /** 
@@ -21,6 +31,11 @@ interface WidgetChannel { id: string; event: string; range?: { min: number; max:
 interface Widget { type: string; bounds?: { top: number; left: number; width: number; height: number }; channels?: WidgetChannel[]; size?: { width: number; height: number }; text?: string | string[]; tableNumber?: number }
 
 export class ExtensionUtils {
+    /**
+     * List of property keys that should be excluded from the generated CSD file.
+     * This can be populated dynamically or statically.
+     */
+    static excludedProperties: string[] = ['currentCsdFile', 'linearValue', 'parameterIndex'];
 
     // Note: default props cache and lookup removed. Default prop resolution
     // should be performed by callers and passed into updateText when needed.
@@ -253,23 +268,41 @@ be lost when working with the UI editor. -->\n`;
         const document = editor.document;
         const text = document.getText(); // Get the entire document text
 
-        // Create a regex pattern to find the channel in the JSON objects
-        const pattern = new RegExp(`"id":\\s*"${widgetName}"`, 'i'); // Case-insensitive search for the id
+        console.log(`[findWidgetPosition] Searching for widget: "${widgetName}"`);
+        console.log(`[findWidgetPosition] Document length: ${text.length} characters`);
 
-        // Search for the pattern in the document text
-        const match = pattern.exec(text);
-        if (match) {
-            const startIndex = match.index; // Get the start index of the match
-            const endIndex = startIndex + match[0].length; // Get the end index of the match
+        // Escape special regex characters in widgetName
+        const escapedName = widgetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-            // Convert the indices to positions in the document
-            const startPos = document.positionAt(startIndex);
-            const endPos = document.positionAt(endIndex);
+        // Try multiple patterns to find the widget:
+        // 1. Top-level id: "widgetName" (with flexible whitespace)
+        // 2. Channel id in channels array: channels: [{ id: "widgetName" }]
+        // 3. Legacy channel: channel: "widgetName"
+        // Note: Using \s+ to match one or more whitespace/tabs between key and value
+        const patterns = [
+            new RegExp(`"id"\\s*:\\s*"${escapedName}"`, 'i'),
+            new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{[^}]*"id"\\s*:\\s*"${escapedName}"`, 'i'),
+            new RegExp(`"channel"\\s*:\\s*"${escapedName}"`, 'i')
+        ];
 
-            // Return the start position of the match
-            return startPos;
+        // Try each pattern in order of preference
+        for (let i = 0; i < patterns.length; i++) {
+            const pattern = patterns[i];
+            console.log(`[findWidgetPosition] Trying pattern ${i + 1}: ${pattern}`);
+            const match = pattern.exec(text);
+            if (match) {
+                console.log(`[findWidgetPosition] Match found with pattern ${i + 1} at index ${match.index}`);
+                console.log(`[findWidgetPosition] Matched text: "${match[0]}"`);
+                const startIndex = match.index; // Get the start index of the match
+                const startPos = document.positionAt(startIndex);
+                console.log(`[findWidgetPosition] Position: line ${startPos.line}, character ${startPos.character}`);
+                return startPos;
+            } else {
+                console.log(`[findWidgetPosition] No match with pattern ${i + 1}`);
+            }
         }
 
+        console.log(`[findWidgetPosition] Widget "${widgetName}" not found in document`);
         return null; // No match found
     }
 
@@ -531,6 +564,14 @@ be lost when working with the UI editor. -->\n`;
                         Object.keys(source).forEach(key => {
                             const sv = source[key];
                             if (sv === undefined) return;
+
+                            // Handle null as deletion signal - when frontend sends null,
+                            // it means "remove this property from the CSD file"
+                            if (sv === null) {
+                                delete out[key];
+                                return;
+                            }
+
                             if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
                                 out[key] = deepMerge(out[key], sv);
                             } else {
@@ -544,13 +585,29 @@ be lost when working with the UI editor. -->\n`;
                     if (props.type === 'form') {
                         const formIndex = cabbageJsonArray.findIndex((o: any) => o.type === 'form');
                         if (formIndex !== -1) {
+                            // Filter excluded properties before merging
+                            ExtensionUtils.excludedProperties.forEach(prop => {
+                                delete props[prop];
+                            });
+
                             const merged = deepMerge(cabbageJsonArray[formIndex], props);
                             cabbageJsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(merged);
                         } else {
+                            // Filter excluded properties before adding
+                            ExtensionUtils.excludedProperties.forEach(prop => {
+                                delete props[prop];
+                            });
                             cabbageJsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
                         }
                     } else {
                         const searchId = oldId || getChannelId(props);
+                        console.log(`ExtensionUtils: Searching for widget with searchId="${searchId}" (oldId="${oldId}", getChannelId="${getChannelId(props)}")`);
+                        console.log(`ExtensionUtils: cabbageJsonArray has ${cabbageJsonArray.length} widgets:`, cabbageJsonArray.map((o: any) => ({
+                            type: o?.type,
+                            id: o?.id,
+                            channel: o?.channel,
+                            channelsId: o?.channels?.[0]?.id
+                        })));
 
                         // Find an existing object by matching the searchId against
                         // all reasonable identifier fields (id, channel, channels[0].id).
@@ -563,10 +620,70 @@ be lost when working with the UI editor. -->\n`;
                             return false;
                         });
 
+                        console.log(`ExtensionUtils: existingIndex=${existingIndex}, ${existingIndex !== -1 ? 'updating existing widget' : 'adding new widget'}`);
+
+                        // Filter excluded properties before merging/adding
+                        ExtensionUtils.excludedProperties.forEach(prop => {
+                            delete props[prop];
+                        });
+
                         if (existingIndex !== -1) {
+                            // Debug logging for gentable updates
+                            if (props.type === 'genTable') {
+                                console.log('ExtensionUtils: Before merge - existing widget:', JSON.stringify(cabbageJsonArray[existingIndex], null, 2));
+                                console.log('ExtensionUtils: Merging props:', JSON.stringify(props, null, 2));
+                            }
+
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
                             const merged = deepMerge(cabbageJsonArray[existingIndex], props);
+
+                            // If the merged widget has channels[0].id that matches the top-level id,
+                            // remove the redundant top-level id to avoid duplication.
+                            // BUT if they're different, keep both (widget id vs channel id are different concepts)
+                            if (merged.channels && Array.isArray(merged.channels) && merged.channels[0]?.id) {
+                                const channelId = merged.channels[0].id;
+                                if (merged.id && merged.id === channelId) {
+                                    console.log(`ExtensionUtils: Removing duplicate top-level id="${merged.id}" (matches channels[0].id)`);
+                                    delete merged.id;
+                                } else if (merged.id && merged.id !== channelId) {
+                                    console.log(`ExtensionUtils: Keeping both widget.id="${merged.id}" and channels[0].id="${channelId}" (different values)`);
+                                    // Keep both - they serve different purposes
+                                }
+                            }
+
+                            if (props.type === 'genTable') {
+                                console.log('ExtensionUtils: After merge - merged widget:', JSON.stringify(merged, null, 2));
+                            }
+
                             cabbageJsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(merged);
+
+                            // If this widget has children, remove those children from the top-level array
+                            // to prevent duplicates (children should only exist within their parent)
+                            if (merged.children && Array.isArray(merged.children) && merged.children.length > 0) {
+                                // Extract all child IDs
+                                const childIds = merged.children.map((child: any) => {
+                                    return child.id || (child.channels && child.channels[0] && child.channels[0].id);
+                                }).filter(Boolean);
+
+                                // Remove children from top level (iterate backwards to avoid index issues)
+                                for (let i = cabbageJsonArray.length - 1; i >= 0; i--) {
+                                    if (i === existingIndex) continue; // Don't remove the parent itself
+
+                                    const widget = cabbageJsonArray[i];
+                                    const widgetId = widget.id || (widget.channels && widget.channels[0] && widget.channels[0].id);
+
+                                    if (widgetId && childIds.includes(widgetId)) {
+                                        cabbageJsonArray.splice(i, 1);
+                                        console.log(`ExtensionUtils: Removed child widget '${widgetId}' from top level (now in parent's children array)`);
+
+                                        // Adjust existingIndex if we removed an element before it
+                                        if (i < existingIndex) {
+                                            // This shouldn't happen in practice since we update existingIndex widget,
+                                            // but handle it defensively
+                                        }
+                                    }
+                                }
+                            }
                         } else {
                             cabbageJsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
                         }
@@ -579,36 +696,56 @@ be lost when working with the UI editor. -->\n`;
                     if (isSingleLine) {
                         formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
                     } else {
-                        // Use the same stringify function and config as the format command
+                        // Use the same FracturedJson formatter and config as the format command
                         const indentSpaces = config.get("jsonIndentSpaces", 4);
                         const maxLength = config.get("jsonMaxLength", 120);
-                        formattedArray = stringify(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
+                        formattedArray = formatJson(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
                     }
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
-                    // Build the new document text with the updated cabbage section
+                    // Build the updated cabbage section
                     const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedArray}</Cabbage>`;
-                    const newText = originalText.replace(cabbageMatch[0], updatedCabbageSection);
 
-                    // Replace the entire document to avoid positioning issues
+                    // Save cursor position before edit
+                    const savedSelection = textEditor?.selection;
+                    const savedVisibleRange = textEditor?.visibleRanges[0];
+
+                    // Calculate the range of the Cabbage section to replace
+                    const matchStartOffset = originalText.indexOf(cabbageMatch[0]);
+                    const matchEndOffset = matchStartOffset + cabbageMatch[0].length;
+                    const matchStartPos = document.positionAt(matchStartOffset);
+                    const matchEndPos = document.positionAt(matchEndOffset);
+                    const cabbageRange = new vscode.Range(matchStartPos, matchEndPos);
+
+                    // Replace only the Cabbage section, not the entire document
                     const workspaceEdit = new vscode.WorkspaceEdit();
                     workspaceEdit.replace(
                         document.uri,
-                        new vscode.Range(0, 0, document.lineCount, 0),
-                        newText
+                        cabbageRange,
+                        updatedCabbageSection
                     );
 
                     const success = await vscode.workspace.applyEdit(workspaceEdit);
+
+                    // Restore cursor position after edit
+                    if (success && textEditor && savedSelection) {
+                        textEditor.selection = savedSelection;
+                        if (savedVisibleRange) {
+                            textEditor.revealRange(savedVisibleRange, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                        }
+                    }
                     if (!success && retryCount > 0) {
                         // If the edit failed, wait a bit and try again
                         await new Promise(resolve => setTimeout(resolve, 100));
-                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1);
+                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1, oldId);
                     }
 
                     // Attempt to highlight the updated object
                     if (textEditor) {
-                        const cabbageStartIndex = newText.indexOf('<Cabbage>');
+                        // Get the updated document text to find the Cabbage section
+                        const updatedText = document.getText();
+                        const cabbageStartIndex = updatedText.indexOf('<Cabbage>');
                         ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageStartIndex, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
                     }
                 }
@@ -618,7 +755,7 @@ be lost when working with the UI editor. -->\n`;
         } else {
             // No Cabbage section found, add one using the setting
             const config = vscode.workspace.getConfiguration("cabbage");
-            const cabbageSectionPosition = 'top';//config.get('cabbageSectionPosition', 'top');
+            const cabbageSectionPosition = config.get('cabbageSectionPlacement', 'top');
 
             const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
 
@@ -728,7 +865,7 @@ ${JSON.stringify(props, null, 4)}
 
             // Parse and format the JSON content
             const jsonObject = JSON.parse(jsonContent.trim());
-            const formattedJson = stringify(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
             return beforeTag + '\n' + formattedJson + '\n' + afterTag;
         } catch (error) {
             // If JSON parsing fails, return the original section
@@ -988,6 +1125,11 @@ ${JSON.stringify(props, null, 4)}
   .full-height-div {
     height: 100vh; /* Set the height to 100% of the viewport height */
   }
+  
+  #LeftPanel {
+    overflow: auto; /* Enable scrolling when content exceeds viewport (e.g., when zoomed) */
+    position: relative;
+  }
   </style>
 </head>
 
@@ -1062,7 +1204,16 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static sortOrderOfProperties(obj: WidgetProps): WidgetProps {
-        const { type, id, bounds, range, ...rest } = obj; // Destructure type, id, bounds, range, and the rest of the properties, excluding deprecated 'channel'
+        const { type, id, bounds, range, ...rest } = obj; // Destructure type, id, bounds, range, and the rest of the properties
+
+        // Pull out any comment-like properties (keys that start with '//') so they can be emitted first
+        const commentKeys = Object.keys(obj).filter(k => k.startsWith('//'));
+        const commentObj: any = {};
+        commentKeys.forEach(k => { commentObj[k] = (obj as any)[k]; });
+
+        // Ensure we don't duplicate comment keys when spreading the rest
+        const restClone: any = { ...rest };
+        commentKeys.forEach(k => { if (restClone.hasOwnProperty(k)) delete restClone[k]; });
 
         // Create an ordered bounds object only if bounds is present in the original object
         const orderedBounds = bounds ? {
@@ -1073,20 +1224,38 @@ ${JSON.stringify(props, null, 4)}
         } : undefined;
 
         // Create an ordered range object only if range is present in the original object
-        const orderedRange = range ? {
-            min: range.min,
-            max: range.max,
-            defaultValue: range.defaultValue,
-            skew: range.skew,
-            increment: range.increment,
-        } : undefined;
+        // Handle both flat range (for sliders) and nested range (for gentable with x/y)
+        let orderedRange: any = undefined;
+        if (range) {
+            // Check if this is a gentable-style nested range with x/y properties
+            if (range.x !== undefined || range.y !== undefined) {
+                // Preserve the nested structure for gentable
+                orderedRange = {};
+                if (range.x !== undefined) {
+                    orderedRange.x = range.x;
+                }
+                if (range.y !== undefined) {
+                    orderedRange.y = range.y;
+                }
+            } else {
+                // Flat range for sliders
+                orderedRange = {
+                    min: range.min,
+                    max: range.max,
+                    defaultValue: range.defaultValue,
+                    skew: range.skew,
+                    increment: range.increment,
+                };
+            }
+        }
 
-        // Return a new object with the original order and only include bounds/range if they exist
+        // Build result placing comment properties first, then the canonical fields, then the other properties
         const result: WidgetProps = {
+            ...commentObj,
             type,
             ...(id !== undefined && { id }), // Conditionally include id
             ...(orderedBounds && { bounds: orderedBounds }), // Conditionally include bounds
-            ...rest,                                         // Include the rest of the properties
+            ...restClone,                                         // Include the rest of the properties (without comments)
         };
 
         // Only include range if it's defined
@@ -1196,20 +1365,28 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static getNewCabbageFile(type: string) {
-        if (type === 'effect') {
-            return `
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const placement = config.get<string>('cabbageSectionPlacement', 'top');
+
+        const cabbageSection = (caption: string, widgets: string) => `
+<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
+be lost when working with the UI editor. -->\n
 <Cabbage>
 [
-    {"type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+    {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "pluginId": "def1"},${widgets}
+]
+</Cabbage>`;
+
+        if (type === 'effect') {
+            const effectWidgets = `
     {
         "type": "rotarySlider",
         "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
         "channels": [{"id": "gain"}],
-        "text": "Gain"
-    }
-]
-</Cabbage>
-<CsoundSynthesizer>
+        "label": {"text": "Gain"}
+    }`;
+
+            const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d
 </CsOptions>
@@ -1232,12 +1409,17 @@ endin
 i1 0 z
 </CsScore>
 </CsoundSynthesizer>`;
+
+            if (placement === 'bottom') {
+                return `${csoundSection}
+${cabbageSection("Template Effect", effectWidgets)}`;
+            } else {
+                return `${cabbageSection("Template Effect", effectWidgets)}
+${csoundSection}`;
+            }
         }
         else if (type === 'synth') {
-            return `
-<Cabbage>
-[
-    {"type": "form", "caption": "Synth", "size": {"width": 580, "height": 300}, "pluginId": "def1"},
+            const synthWidgets = `
     {
         "type": "keyboard",
         "id": "keyboard",
@@ -1248,10 +1430,9 @@ i1 0 z
                 "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0}
             }
         ]
-    }
-]
-</Cabbage>
-<CsoundSynthesizer>
+    }`;
+
+            const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 --midi-key-cps=4 --midi-velocity-amp=5
 </CsOptions>
@@ -1275,6 +1456,14 @@ endin
 f0 z
 </CsScore>
 </CsoundSynthesizer>`;
+
+            if (placement === 'bottom') {
+                return `${csoundSection}
+${cabbageSection("Synth", synthWidgets)}`;
+            } else {
+                return `${cabbageSection("Synth", synthWidgets)}
+${csoundSection}`;
+            }
         }
     }
     static getIndexHtml() {
@@ -1394,65 +1583,129 @@ f0 z
             try {
                 const jsonArray = JSON.parse(cabbageContent);
 
-                // Check for duplicate channels
-                const channelMap = new Map<string, number[]>(); // channelId -> array of line numbers
+                console.log(`ExtensionUtils: validateCabbageJSON checking ${jsonArray.length} widgets`);
+
+                // Check for duplicate IDs programmatically - no regex, just parse JSON
+                const propsIdMap = new Map<string, number[]>(); // id -> array of widget indices
+                const channelIdMap = new Map<string, number[]>(); // id -> array of widget indices
                 const diagnostics: vscode.Diagnostic[] = [];
 
-                // Helper function to get channel id from props (handles both old 'channel' and new 'channels' format)
-                const getChannelId = (obj: any): string => {
-                    if (obj.id) {
-                        return obj.id;
-                    }
-                    if (obj.channels) {
-                        if (Array.isArray(obj.channels) && obj.channels[0]) {
-                            return obj.channels[0].id;
-                        } else if (typeof obj.channels === 'object' && obj.channels[0]) {
-                            return obj.channels[0].id;
-                        }
-                    }
-                    return obj.channel || '';
-                };
-
-                // Find all channel occurrences and their positions
+                // Parse the JSON and track IDs
                 jsonArray.forEach((widget: any, widgetIndex: number) => {
-                    const channelId = getChannelId(widget);
-                    if (channelId) {
-                        // Find all occurrences of this channel in the document (both old and new formats)
-                        const oldFormatRegex = new RegExp(`"channel"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
-                        const newFormatRegex = new RegExp(`"channels"\\s*:\\s*\\[\\s*\\{\\s*"id"\\s*:\\s*"${channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+                    console.log(`ExtensionUtils: Widget ${widgetIndex}: props.id="${widget.id}", channel[0].id="${widget.channels?.[0]?.id}"`);
 
-                        [oldFormatRegex, newFormatRegex].forEach(regex => {
-                            let match;
-                            while ((match = regex.exec(editor.getText())) !== null) {
-                                const matchIndex = match.index;
-                                const beforeMatch = editor.getText().substring(0, matchIndex);
-                                const lineNumber = beforeMatch.split('\n').length - 1;
+                    // Track props.id
+                    if (widget.id) {
+                        if (!propsIdMap.has(widget.id)) {
+                            propsIdMap.set(widget.id, []);
+                        }
+                        propsIdMap.get(widget.id)!.push(widgetIndex);
+                    }
 
-                                if (!channelMap.has(channelId)) {
-                                    channelMap.set(channelId, []);
-                                }
-                                if (!channelMap.get(channelId)!.includes(lineNumber)) {
-                                    channelMap.get(channelId)!.push(lineNumber);
-                                }
-                            }
-                        });
+                    // Track channels[0].id - but only if it's different from props.id
+                    if (widget.channels && Array.isArray(widget.channels) && widget.channels[0] && widget.channels[0].id) {
+                        const channelId = widget.channels[0].id;
+
+                        // Allow same widget to have matching props.id and channels[0].id
+                        if (widget.id === channelId) {
+                            console.log(`ExtensionUtils: Widget ${widgetIndex} has matching props.id and channel.id="${channelId}" - this is allowed`);
+                            return;
+                        }
+
+                        console.log(`ExtensionUtils: Tracking channel ID "${channelId}" for widget ${widgetIndex}`);
+
+                        if (!channelIdMap.has(channelId)) {
+                            channelIdMap.set(channelId, []);
+                        }
+                        channelIdMap.get(channelId)!.push(widgetIndex);
                     }
                 });
 
-                // Create diagnostics for duplicate channels
-                for (const [channelId, lineNumbers] of channelMap) {
-                    if (lineNumbers.length > 1) {
-                        console.log(`Found duplicate channel: ${channelId} on lines: ${lineNumbers.join(', ')}`);
-                        // This channel is duplicated
-                        for (const lineNumber of lineNumbers) {
-                            const lineContent = editor.getText().split('\n')[lineNumber];
-                            const range = new vscode.Range(lineNumber, 0, lineNumber, lineContent.length);
-                            const diagnostic = new vscode.Diagnostic(
-                                range,
-                                `Duplicate channel "${channelId}": Channel IDs must be unique`,
-                                vscode.DiagnosticSeverity.Error
-                            );
+                console.log(`ExtensionUtils: propsIdMap:`, Array.from(propsIdMap.entries()).map(([id, indices]) => `${id}: [${indices.join(',')}]`).join('; '));
+                console.log(`ExtensionUtils: channelIdMap:`, Array.from(channelIdMap.entries()).map(([id, indices]) => `${id}: [${indices.join(',')}]`).join('; '));
+
+                // Helper function to find all line numbers where an ID appears
+                const findAllIdLineNumbers = (id: string, isChannelId: boolean): number[] => {
+                    const text = editor.getText();
+                    const lines = text.split('\n');
+                    const lineNumbers: number[] = [];
+                    const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        if (isChannelId) {
+                            // For channel IDs, look for "id": "value" within channels array
+                            if (line.includes('"channels"') || (i > 0 && lines[i - 1].includes('"channels"'))) {
+                                const idPattern = new RegExp(`"id"\\s*:\\s*"${escapedId}"`, 'i');
+                                if (idPattern.test(line)) {
+                                    lineNumbers.push(i);
+                                }
+                            }
+                        } else {
+                            // For props.id, avoid matching channel IDs
+                            const idPattern = new RegExp(`^[^"]*"id"\\s*:\\s*"${escapedId}"`, 'i');
+                            if (idPattern.test(line) && !lines[i - 1]?.includes('"channels"')) {
+                                lineNumbers.push(i);
+                            }
+                        }
+                    }
+                    return lineNumbers.length > 0 ? lineNumbers : [cabbageStartIndex];
+                };
+
+                // Check for duplicate props.id
+                for (const [propsId, indices] of propsIdMap) {
+                    if (indices.length > 1) {
+                        const message = `Duplicate widget ID "${propsId}": Found in ${indices.length} widgets (indices: ${indices.join(', ')})`;
+                        console.log(message);
+                        Commands.getOutputChannel().appendLine(message);
+
+                        const lineNumbers = findAllIdLineNumbers(propsId, false);
+                        lineNumbers.forEach(lineNumber => {
+                            const line = editor.lineAt(lineNumber);
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                            const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
                             diagnostics.push(diagnostic);
+                        });
+                    }
+                }
+
+                // Check for duplicate channel IDs
+                for (const [channelId, indices] of channelIdMap) {
+                    if (indices.length > 1) {
+                        const message = `Duplicate channel ID "${channelId}": Found in ${indices.length} widgets (indices: ${indices.join(', ')})`;
+                        console.log(message);
+                        Commands.getOutputChannel().appendLine(message);
+
+                        const lineNumbers = findAllIdLineNumbers(channelId, true);
+                        lineNumbers.forEach(lineNumber => {
+                            const line = editor.lineAt(lineNumber);
+                            const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                            const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                            diagnostics.push(diagnostic);
+                        });
+                    }
+                }
+
+                // Check for collisions between props.id and channel IDs across different widgets
+                for (const [channelId, channelIndices] of channelIdMap) {
+                    if (propsIdMap.has(channelId)) {
+                        const propsIndices = propsIdMap.get(channelId)!;
+                        const hasCollision = channelIndices.some(ci =>
+                            propsIndices.some(pi => ci !== pi)
+                        );
+
+                        if (hasCollision) {
+                            const message = `ID collision "${channelId}": Used as channel ID in widgets ${channelIndices.join(', ')} and as widget ID in widgets ${propsIndices.join(', ')}`;
+                            console.log(message);
+                            Commands.getOutputChannel().appendLine(message);
+
+                            const lineNumbers = findAllIdLineNumbers(channelId, true);
+                            lineNumbers.forEach(lineNumber => {
+                                const line = editor.lineAt(lineNumber);
+                                const range = new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+                                const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                diagnostics.push(diagnostic);
+                            });
                         }
                     }
                 }
@@ -1463,14 +1716,9 @@ f0 z
                     console.log("Setting diagnostics and returning false");
                     Commands.setJSONDiagnostics(editor.uri, diagnostics);
                     // Scroll to the first error
-                    if (diagnostics.length > 0) {
-                        activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-                    }
-                    const duplicateChannels = Array.from(channelMap.keys()).filter(channelId => channelMap.get(channelId)!.length > 1);
-                    const errorMsg = `Duplicate channels found: ${duplicateChannels.join(', ')}`;
-                    Commands.getOutputChannel().appendLine(errorMsg);
+                    activeTextEditor.revealRange(diagnostics[0].range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
                     Commands.getOutputChannel().show();
-                    return false; // Don't proceed if there are duplicate channels
+                    return false; // Don't proceed if there are duplicates
                 }
 
                 console.log("No duplicates found, returning true");

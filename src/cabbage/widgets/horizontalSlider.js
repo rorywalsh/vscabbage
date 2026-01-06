@@ -84,6 +84,7 @@ export class HorizontalSlider {
     this.upListener = this.pointerUp.bind(this);
     this.startX = 0;
     this.startValue = 0;
+    this.dragOffset = 0; // Offset from thumb start when dragging
     this.vscode = null;
     this.isMouseDown = false;
     this.decimalPlaces = 0;
@@ -140,28 +141,57 @@ export class HorizontalSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
     textWidth += padding;
 
-    if (evt.offsetX >= textWidth && evt.offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
+    // Calculate offset relative to the widget div
+    const rect = this.widgetDiv.getBoundingClientRect();
+    const offsetX = evt.clientX - rect.left;
+
+    if (offsetX >= textWidth && offsetX <= textWidth + sliderWidth && evt.target.tagName !== "INPUT") {
       this.isMouseDown = true;
-      this.startX = evt.offsetX - textWidth;
-      console.log(`pointerDown: startX=${this.startX}, sliderWidth=${sliderWidth}`);
+      this.startX = offsetX - textWidth;
 
-      // Calculate the linear normalized position (0-1)
-      const linearNormalized = this.startX / sliderWidth;
-      console.log(`pointerDown: linearNormalized=${linearNormalized}`);
+      // Get current value before any changes
+      const currentValue = this.props.channels[0].range.value ?? range.defaultValue;
 
-      // Apply skew transformation for display value
-      const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
-      console.log(`pointerDown: skewedNormalized=${skewedNormalized}`);
+      // Calculate where the thumb currently is
+      const sliderControlHeight = Math.min(this.props.bounds.height, 60);
+      const thumbWidth = this.props.style.thumb.width === "auto" ? sliderControlHeight * 0.4 : this.props.style.thumb.width;
+      const linearValue = this.getLinearValue(currentValue);
+      const clampedLinearValue = CabbageUtils.clamp(linearValue, range.min, range.max);
+      const currentThumbPosition = Math.max(1, Math.min(
+        CabbageUtils.map(clampedLinearValue, range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1,
+        sliderWidth - thumbWidth
+      ));
 
-      // Convert to actual range values
-      let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
-      console.log(`pointerDown: skewedValue before rounding=${skewedValue}`);
+      // Check if click is on the thumb (with some tolerance)
+      const clickedOnThumb = this.startX >= currentThumbPosition && this.startX <= currentThumbPosition + thumbWidth;
 
-      // Apply increment snapping to the skewed value
-      skewedValue = Math.round(skewedValue / range.increment) * range.increment;
-      console.log(`pointerDown: skewedValue after rounding=${skewedValue}`);
+      if (clickedOnThumb) {
+        // Clicked on thumb - store the offset from thumb start for smooth dragging
+        this.dragOffset = this.startX - currentThumbPosition;
+      } else {
+        // Click on track - jump to that position and reset offset
+        this.dragOffset = thumbWidth / 2; // Center the thumb on the click position
 
-      this.props.value = skewedValue;
+        // Calculate the linear normalized position (0-1)
+        const linearNormalized = this.startX / sliderWidth;
+
+        // Apply skew transformation for display value
+        const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
+
+        // Convert to actual range values
+        let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
+
+        // Apply increment snapping to the skewed value
+        skewedValue = Math.round(skewedValue / range.increment) * range.increment;
+
+        this.props.channels[0].range.value = skewedValue;
+        CabbageUtils.updateInnerHTML(this.props, this);
+
+        // Send denormalized value directly to backend
+        const valueToSend = skewedValue;
+        const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" };
+        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+      }
 
       // Capture pointer to ensure we receive pointerup even if pointer leaves element
       this.widgetDiv.setPointerCapture(evt.pointerId);
@@ -174,17 +204,7 @@ export class HorizontalSlider {
       window.addEventListener("pointermove", this.boundPointerMove);
       window.addEventListener("pointerup", this.boundPointerUp);
 
-      this.startValue = this.props.value;
-      CabbageUtils.updateInnerHTML(this.props, this);
-
-      // Send denormalized value directly to backend
-      const valueToSend = skewedValue;
-      const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
-      console.log(`pointerDown: sending valueToSend=${valueToSend}`);
-
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-
-
+      this.startValue = this.props.channels[0].range.value;
     }
 
   }
@@ -211,7 +231,7 @@ export class HorizontalSlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
+      popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
       const sliderTop = rect.top + this.props.bounds.top; // Top position of the slider
@@ -271,13 +291,15 @@ export class HorizontalSlider {
   }
 
   addEventListeners(widgetDiv) {
+    this.widgetDiv = widgetDiv;
+    this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
     widgetDiv.HorizontalSliderInstance = this;
   }
 
-  pointerMove({ clientX }) {
+  pointerMove(evt) {
     if (!this.props.visible) {
       return '';
     }
@@ -303,11 +325,14 @@ export class HorizontalSlider {
     const sliderWidth = this.props.bounds.width - textWidth - valueTextBoxWidth - padding;
     textWidth += padding;
 
-    // Get the bounding rectangle of the slider
-    const sliderRect = CabbageUtils.getWidgetDiv(this.props).getBoundingClientRect();
+    // Get the bounding rectangle of the slider using the stored widgetDiv
+    const sliderRect = this.widgetDiv.getBoundingClientRect();
 
     // Calculate the relative position of the mouse pointer within the slider bounds
-    let offsetX = clientX - sliderRect.left - textWidth;
+    let offsetX = evt.clientX - sliderRect.left - textWidth;
+
+    // Apply the drag offset so the thumb follows where you grabbed it
+    offsetX = offsetX - this.dragOffset;
 
     // Clamp the mouse position to stay within the bounds of the slider
     offsetX = CabbageUtils.clamp(offsetX, 0, sliderWidth);
@@ -319,24 +344,23 @@ export class HorizontalSlider {
     const skewedNormalized = Math.pow(linearNormalized, 1 / range.skew);
 
     // Convert to actual range values
-    const linearValue = linearNormalized * (range.max - range.min) + range.min;
     let skewedValue = skewedNormalized * (range.max - range.min) + range.min;
 
     // Apply increment snapping to the skewed value
     skewedValue = Math.round(skewedValue / range.increment) * range.increment;
 
+    // Clamp to range
+    skewedValue = CabbageUtils.clamp(skewedValue, range.min, range.max);
+
     // Store the skewed value for display
     this.props.value = skewedValue;
-
-    console.log(`pointerMove: offsetX=${offsetX}, linearNormalized=${linearNormalized}, skewedValue=${skewedValue}`);
 
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props, this);
 
     // Send denormalized value directly to backend
     const valueToSend = skewedValue;
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
-    console.log(`pointerMove: sending valueToSend=${valueToSend}`);
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" }
     if (this.props.automatable) {
       Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
     }
@@ -353,7 +377,7 @@ export class HorizontalSlider {
       const inputValue = parseFloat(evt.target.value);
       if (!isNaN(inputValue) && inputValue >= range.min && inputValue <= range.max) {
         // Store the input value as the skewed value (what user sees)
-        this.props.value = inputValue;
+        this.props.channels[0].range.value = inputValue;
 
         // Convert to linear space for Cabbage
         const linearValue = this.getLinearValue(inputValue);
@@ -369,7 +393,7 @@ export class HorizontalSlider {
           paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
           channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
-          channelType: "number"
+          channelType: this.props.channels[0].type || "number"
         };
 
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -381,6 +405,13 @@ export class HorizontalSlider {
   getInnerHTML() {
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const currentValue = this.props.value ?? range.defaultValue;
+
+    // Ensure currentValue is valid
+    if (isNaN(currentValue) || currentValue === null || currentValue === undefined) {
+      this.props.value = range.defaultValue;
+      return this.getInnerHTML();
+    }
+
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
@@ -430,11 +461,23 @@ export class HorizontalSlider {
     const trackY = (this.props.bounds.height - trackWidth) / 2;
     const thumbY = (this.props.bounds.height - thumbHeight) / 2;
 
+    // Calculate thumb position with safety checks
+    const linearValue = this.getLinearValue(currentValue);
+    const clampedLinearValue = CabbageUtils.clamp(linearValue, range.min, range.max);
+    const thumbPosition = Math.max(1, Math.min(
+      CabbageUtils.map(clampedLinearValue, range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1,
+      sliderWidth - thumbWidth
+    ));
+    const fillWidth = Math.max(0, Math.min(
+      CabbageUtils.map(clampedLinearValue, range.min, range.max, 0, sliderWidth),
+      sliderWidth - 2
+    ));
+
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
         <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackWidth}" rx="2" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
-        <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth))}" height="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
-  <rect x="${CabbageUtils.map(this.getLinearValue(currentValue), range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.borderRadius}" ry="${this.props.style.thumb.borderRadius}" fill="${this.props.style.thumb.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+        <rect x="1" y="${trackY}" width="${fillWidth}" height="${trackWidth}" rx="2" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
+  <rect x="${thumbPosition}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.borderRadius}" ry="${this.props.style.thumb.borderRadius}" fill="${this.props.style.thumb.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
       </svg>
     `;
 
@@ -447,7 +490,7 @@ export class HorizontalSlider {
     ` : '';
 
     return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible ? 'block' : 'none'};">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
         ${textElement}
         ${sliderElement}
         ${valueTextElement}

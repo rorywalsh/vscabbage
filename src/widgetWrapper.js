@@ -4,6 +4,7 @@
 
 import { CabbageUtils } from './cabbage/utils.js';
 import { getCabbageMode } from './cabbage/sharedState.js';
+import { widgetClipboard } from './widgetClipboard.js';
 
 // At the beginning of the file
 let interactPromise;
@@ -39,6 +40,7 @@ export class WidgetWrapper {
         // Bind the drag end listener
         this.widgets = widgets; // All widgets in the UI
         this.vscode = vscode; // VSCode API for messaging
+        this.updateTimer = null; // Timer for debouncing updates on mouse release
 
         // Add global event listeners for context menu handling
         this.setupGlobalEventListeners();
@@ -69,52 +71,11 @@ export class WidgetWrapper {
             mousePosition.y = event.clientY;
         });
 
-        // Handle right-click context menu for selected widgets
-        document.addEventListener('contextmenu', (event) => {
-            // Only allow the custom selection context menu when in draggable/edit mode
-            try {
-                if (getCabbageMode() !== 'draggable') {
-                    return; // suppress context menu when not editable
-                }
-            } catch (ex) {
-                // If shared state isn't available, silently continue
-            }
-            const draggableElement = event.target.closest('.draggable');
-            if (draggableElement) {
-                console.log('Cabbage: Right-click detected on draggable element:', draggableElement.id);
-                console.log('Cabbage: Selected elements count:', this.selectedElements.size);
-                console.log('Cabbage: Selected element IDs:', Array.from(this.selectedElements).map(el => el.id));
-
-                // Check if the clicked element is selected or if there are selected elements
-                const isClickedElementSelected = this.selectedElements.has(draggableElement);
-                const hasSelectedElements = this.selectedElements.size > 0;
-
-                console.log('Cabbage: Is clicked element selected:', isClickedElementSelected);
-                console.log('Cabbage: Has selected elements:', hasSelectedElements);
-
-                // For now, show context menu if there are any selected elements
-                // Later we can make it more specific to only show when clicking on selected elements
-                if (hasSelectedElements) {
-                    // Show context menu for selected widgets
-                    console.log('Cabbage: Showing context menu for selected widgets:', Array.from(this.selectedElements).map(el => el.id));
-
-                    // Create custom context menu positioned at mouse location
-                    this.showSelectionContextMenu(mousePosition.x, mousePosition.y);
-                    event.preventDefault(); // Prevent default context menu
-                    return false;
-                } else {
-                    console.log('Cabbage: No selected elements, preventing context menu');
-                    // Prevent context menu on non-selected draggable elements
-                    event.preventDefault();
-                    return false;
-                }
-            }
-        });
+        // Context menu is handled by eventHandlers.js
 
         // Handle mouse down to prevent dragging when right-clicking on selected elements
         document.addEventListener('mousedown', (event) => {
-            // Hide custom context menu on any mouse down
-            this.hideCustomContextMenu();
+            // Context menu hiding is handled by eventHandlers.js
         });
 
         // Re-enable dragging when Alt is released (keep for other functionality)
@@ -126,134 +87,13 @@ export class WidgetWrapper {
             }
         });
 
-        // Hide context menu when clicking elsewhere
+        // Hide context menu when clicking elsewhere - handled by eventHandlers.js
         document.addEventListener('click', () => {
-            this.hideCustomContextMenu();
+            // Context menu hiding is handled by eventHandlers.js
         });
     }
 
-    /**
-     * Shows a custom context menu for selected widgets at the specified position.
-     * @param {number} x - The x coordinate for the menu position
-     * @param {number} y - The y coordinate for the menu position
-     */
-    showSelectionContextMenu(x, y) {
-        // Remove any existing context menu
-        this.hideCustomContextMenu();
 
-        const selectedCount = this.selectedElements.size;
-        const isMultipleSelection = selectedCount > 1;
-
-        // Create custom context menu
-        const contextMenu = document.createElement('div');
-        contextMenu.id = 'custom-context-menu';
-        contextMenu.style.cssText = `
-            position: fixed;
-            top: ${y}px;
-            left: ${x}px;
-            background: var(--vscode-menu-background, #ffffff);
-            border: 1px solid var(--vscode-menu-border, #ccc);
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            z-index: 999999;
-            min-width: 180px;
-            padding: 4px 0;
-            font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
-            font-size: 13px;
-            color: var(--vscode-menu-foreground, #333);
-        `;
-
-        // Add context menu items based on selection
-        const menuItems = [];
-
-        if (isMultipleSelection) {
-            // Menu items for multiple selection
-            menuItems.push(
-                { label: `Group ${selectedCount} Widgets`, action: () => this.groupSelectedWidgets() },
-                { label: 'Align Left', action: () => this.alignSelectedWidgets('left') },
-                { label: 'Align Right', action: () => this.alignSelectedWidgets('right') },
-                { label: 'Align Top', action: () => this.alignSelectedWidgets('top') },
-                { label: 'Align Bottom', action: () => this.alignSelectedWidgets('bottom') },
-                { label: 'Distribute Horizontally', action: () => this.distributeSelectedWidgets('horizontal') },
-                { label: 'Distribute Vertically', action: () => this.distributeSelectedWidgets('vertical') },
-                { label: '---', action: null }, // Separator
-                { label: `Copy ${selectedCount} Widgets`, action: () => this.copySelectedWidgets() },
-                { label: `Delete ${selectedCount} Widgets`, action: () => this.deleteSelectedWidgets() }
-            );
-        } else {
-            // Menu items for single selection
-            const singleElement = Array.from(this.selectedElements)[0];
-            menuItems.push(
-                { label: 'Copy Widget', action: () => this.copySelectedWidgets() },
-                { label: 'Duplicate Widget', action: () => this.duplicateWidget(singleElement) },
-                { label: 'Delete Widget', action: () => this.deleteSelectedWidgets() },
-                { label: '---', action: null }, // Separator
-                { label: 'Bring to Front', action: () => this.bringToFront(singleElement) },
-                { label: 'Send to Back', action: () => this.sendToBack(singleElement) }
-            );
-        }
-
-        menuItems.forEach(item => {
-            if (item.label === '---') {
-                // Add separator
-                const separator = document.createElement('div');
-                separator.style.cssText = `
-                    height: 1px;
-                    background: var(--vscode-menu-separatorBackground, #e5e5e5);
-                    margin: 4px 0;
-                `;
-                contextMenu.appendChild(separator);
-                return;
-            }
-
-            const menuItem = document.createElement('div');
-            menuItem.textContent = item.label;
-            menuItem.style.cssText = `
-                padding: 6px 12px;
-                cursor: pointer;
-                transition: background-color 0.1s ease;
-            `;
-
-            menuItem.addEventListener('mouseenter', () => {
-                menuItem.style.backgroundColor = 'var(--vscode-menu-selectionBackground, #e6f3ff)';
-            });
-
-            menuItem.addEventListener('mouseleave', () => {
-                menuItem.style.backgroundColor = 'transparent';
-            });
-
-            menuItem.addEventListener('click', () => {
-                if (item.action) {
-                    item.action();
-                }
-                this.hideCustomContextMenu();
-            });
-
-            contextMenu.appendChild(menuItem);
-        });
-
-        // Add to document
-        document.body.appendChild(contextMenu);
-
-        // Adjust position if menu would go off-screen
-        const rect = contextMenu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            contextMenu.style.left = (x - rect.width) + 'px';
-        }
-        if (rect.bottom > window.innerHeight) {
-            contextMenu.style.top = (y - rect.height) + 'px';
-        }
-    }
-
-    /**
-     * Hides the custom context menu.
-     */
-    hideCustomContextMenu() {
-        const existingMenu = document.getElementById('custom-context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-    }
 
     /**
      * Context menu action: Copy selected widgets
@@ -261,10 +101,39 @@ export class WidgetWrapper {
     copySelectedWidgets() {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
         console.log('Cabbage: Copy selected widgets:', selectedIds);
-        // Implement copy functionality here
+
+        // Get widget properties for selected widgets
+        const widgetProps = [];
+        selectedIds.forEach(id => {
+            const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === id);
+            if (widget) {
+                widgetProps.push(widget.props);
+            }
+        });
+
+        // Store in clipboard
+        widgetClipboard.copy(widgetProps);
+        console.log(`Cabbage: Copied ${widgetProps.length} widget(s) to clipboard`);
+    }
+
+    /**
+     * Context menu action: Paste widgets from clipboard
+     */
+    pasteSelectedWidgets() {
+        console.log('Cabbage: Paste widgets from clipboard');
+
+        if (!widgetClipboard.hasData()) {
+            console.warn('Cabbage: No widgets in clipboard to paste');
+            return;
+        }
+
+        // Prepare widgets for pasting (with unique IDs and offset positions)
+        const pastedWidgets = widgetClipboard.prepareForPaste(this.widgets, 20, 20);
+
+        // Send paste event to backend
         this.updatePanelCallback(this.vscode, {
-            eventType: "copySelection",
-            selection: selectedIds,
+            eventType: "pasteSelection",
+            widgets: pastedWidgets,
             bounds: {}
         }, this.widgets);
     }
@@ -391,15 +260,20 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx * slowFactor, dy * slowFactor);
         });
+
+        // NOTE: We don't update the code editor during drag movement to avoid
+        // creating excessive undo history entries. Updates happen only on dragend.
     }
 
     /**
      * Handles the end of a drag event.
+     * Debounces updates to avoid flooding the editor undo history.
      * @param {Object} event - The event object containing drag data.
      */
     dragEndListener(event) {
         const { dx, dy } = event;
 
+        // Update all selected elements' positions immediately for visual feedback
         this.selectedElements.forEach(element => {
             const x = (parseFloat(element.getAttribute('data-x')) || 0) + dx;
             const y = (parseFloat(element.getAttribute('data-y')) || 0) + dy;
@@ -411,14 +285,37 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx, dy);
 
-            this.updatePanelCallback(this.vscode, {
-                eventType: "move", // Event type for movement
-                name: element.id, // Name of the element moved
-                bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
-            }, this.widgets);
-
-            console.warn(`Cabbage: Drag ended for element ${element.id}: x=${x}, y=${y}`); // Logging drag end details
+            console.log(`Cabbage: dragEndListener - element ${element.id} moved to x=${x}, y=${y}`);
         });
+
+        // Clear any pending update timer
+        if (this.updateTimer) {
+            console.log('Cabbage: Clearing previous update timer');
+            clearTimeout(this.updateTimer);
+        }
+
+        // Debounce the update to VSCode - only send after 150ms of no drag events
+        // This prevents flooding the undo history with intermediate positions
+        console.log('Cabbage: Setting update timer for 150ms');
+        this.updateTimer = setTimeout(() => {
+            console.log('Cabbage: Timer fired, sending updates to VSCode');
+            console.log('Cabbage: updatePanelCallback type:', typeof this.updatePanelCallback);
+            console.log('Cabbage: Number of selected elements:', this.selectedElements.size);
+
+            this.selectedElements.forEach(element => {
+                const x = parseFloat(element.getAttribute('data-x')) || 0;
+                const y = parseFloat(element.getAttribute('data-y')) || 0;
+
+                console.log(`Cabbage: Calling updatePanelCallback for ${element.id} at x=${x}, y=${y}`);
+                this.updatePanelCallback(this.vscode, {
+                    eventType: "move", // Event type for movement
+                    name: element.id, // Name of the element moved
+                    bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
+                }, this.widgets);
+
+                console.log(`Cabbage: Position update sent for ${element.id}: x=${x}, y=${y}`);
+            });
+        }, 150);
     }
 
     /**
@@ -439,7 +336,7 @@ export class WidgetWrapper {
 
         // Move each child widget
         parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
             const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 const childX = (parseFloat(childElement.getAttribute('data-x')) || 0) + deltaX;
@@ -474,8 +371,16 @@ export class WidgetWrapper {
                 element = element.parentElement;
             }
 
+
             if (widgetId) {
-                this.updatePanelCallback(this.vscode, { eventType: "click", name: widgetId, bounds: {} }, this.widgets);
+                // Collect all selected widget IDs for multi-widget editing
+                const selectedIds = Array.from(this.selectedElements).map(el => el.id);
+                this.updatePanelCallback(this.vscode, {
+                    eventType: "click",
+                    name: widgetId,
+                    selection: selectedIds.length > 0 ? selectedIds : [widgetId],
+                    bounds: {}
+                }, this.widgets);
             }
         }).resizable({
             edges: { left: false, right: true, bottom: true, top: false }, // Resize edges configuration
@@ -500,15 +405,26 @@ export class WidgetWrapper {
                     // If this element has children (grouped widgets), resize them too
                     this.resizeChildWidgets(target, event.rect.width, event.rect.height);
 
+                    // NOTE: We don't update the code editor during resize to avoid
+                    // creating excessive undo history entries. Updates happen only on resize end.
+
+                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
+                    target.setAttribute('data-x', x); // Update data-x attribute
+                    target.setAttribute('data-y', y); // Update data-y attribute
+                },
+                end: (event) => {
+                    // Update code editor only at the end of resize
+                    const target = event.target;
+                    let x = (parseFloat(target.getAttribute('data-x')) || 0);
+                    let y = (parseFloat(target.getAttribute('data-y')) || 0);
+
                     this.updatePanelCallback(this.vscode, {
                         eventType: "resize", // Event type for resizing
                         name: event.target.id, // Name of the resized element
                         bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
                     }, this.widgets);
 
-                    target.style.transform = `translate(${x}px, ${y}px)`; // Apply the translation
-                    target.setAttribute('data-x', x); // Update data-x attribute
-                    target.setAttribute('data-y', y); // Update data-y attribute
+                    console.log(`Cabbage: Resize ended for element ${target.id}: w=${event.rect.width}, h=${event.rect.height}`);
                 }
             },
             modifiers: [
@@ -617,7 +533,7 @@ export class WidgetWrapper {
 
         // Update each child widget using original relative bounds when available
         parentWidget.props.children.forEach(childProps => {
-            const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
             const childElement = document.getElementById(childChannelId);
             if (childElement) {
                 // Prefer stored original bounds (created at grouping time) to avoid compounded scaling

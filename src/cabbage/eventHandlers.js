@@ -13,6 +13,8 @@ import { cabbageMode, vscode, widgets, postMessageToVSCode } from "./sharedState
 
 // Imports utility and property panel modules
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
+import { widgetClipboard } from "../widgetClipboard.js";
+import { screenToFormCoordinates } from "../cabbage/zoom.js";
 
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -38,7 +40,7 @@ if (vscode !== null) {
     propertyPanelPromise = import("../propertyPanel.js")
         .then(module => {
             console.log("Cabbage: PropertyPanel module loaded:", module);
-            PropertyPanel = loadPropertyPanel();
+            PropertyPanel = module.default || module.PropertyPanel;
             console.log("Cabbage: PropertyPanel assigned:", PropertyPanel);
             return PropertyPanel;
         })
@@ -61,10 +63,13 @@ export let selectedElements = new Set();
  * @param {HTMLElement} widgetDiv - The widget element being clicked.
  */
 export async function handlePointerDown(e, widgetDiv) {
-    if (e.altKey || e.shiftKey) {
+    // Cmd/Meta key: toggle widget in/out of selection (multi-select)
+    // Shift key: reserved for drag-to-select
+    // No modifier: exclusive selection (replace existing selection)
+    if (e.metaKey || e.ctrlKey) {
         widgetDiv.classList.toggle('selected');
         updateSelectedElements(widgetDiv);
-    } else if (!widgetDiv.classList.contains('selected')) {
+    } else if (!e.shiftKey && !widgetDiv.classList.contains('selected')) {
         // Clear all other selections and select the clicked widget exclusively
         selectedElements.forEach(element => element.classList.remove('selected'));
         selectedElements.clear();
@@ -79,9 +84,12 @@ export async function handlePointerDown(e, widgetDiv) {
         if (PropertyPanel && cabbageMode === 'draggable') {
             const PP = await loadPropertyPanel();
             if (PP && typeof PP.updatePanel === 'function') {
+                // Collect all selected widget IDs for multi-widget editing
+                const selectedIds = Array.from(selectedElements).map(el => el.id);
                 await PP.updatePanel(vscode, {
                     eventType: "click",
                     name: foundId,
+                    selection: selectedIds.length > 0 ? selectedIds : [foundId],
                     bounds: {}
                 }, widgets);
             } else {
@@ -118,6 +126,9 @@ async function groupSelectedWidgets() {
         console.warn("Cabbage: Need at least 2 widgets to group");
         return;
     }
+
+    // Ensure PropertyPanel is loaded for minimization
+    await loadPropertyPanel();
 
     console.log("Cabbage: Grouping", selectedElements.size, "widgets");
 
@@ -238,14 +249,25 @@ async function groupSelectedWidgets() {
             height: widget.props.bounds.height
         };
 
+        // Minimize the current props to strip defaults and runtime properties
+        // This ensures children only include non-default properties from the current state
+        let minimizedProps = widget.props;
+        if (PropertyPanel && typeof PropertyPanel.minimizePropsForWidget === 'function') {
+            minimizedProps = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+            // Also apply exclusions to remove runtime properties like parameterIndex, value, etc.
+            minimizedProps = PropertyPanel.applyExcludes(minimizedProps, PropertyPanel.defaultExcludeKeys);
+        } else {
+            console.warn("Cabbage: PropertyPanel.minimizePropsForWidget not available, using full props");
+        }
+
         const childProps = {
-            ...widget.props,
-            bounds: relativeBounds,
-            parentChannel: containerId
+            ...minimizedProps,
+            bounds: relativeBounds
         };
 
-        // Remove parentChannel if it exists (shouldn't for top-level widgets)
+        // Remove properties that shouldn't be in children
         delete childProps.parentChannel;
+        delete childProps.currentCsdFile;
 
         containerWidget.props.children.push(childProps);
 
@@ -262,6 +284,11 @@ async function groupSelectedWidgets() {
         }
     });
 
+    // Store the minimized children for sending to VSCode (before insertChildWidgets expands them)
+    // Also store them on the widget so future updates (like moves) use the minimized version
+    const minimizedChildren = JSON.parse(JSON.stringify(containerWidget.props.children));
+    containerWidget.serializedChildren = minimizedChildren;
+
     // Update the container's HTML to reflect it now has children (this will update styling)
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
     const containerDiv = document.getElementById(containerChannelId);
@@ -270,7 +297,8 @@ async function groupSelectedWidgets() {
         const containerInstance = containerDiv.cabbageInstance || widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === containerChannelId);
         if (containerInstance && typeof containerInstance.getInnerHTML === 'function') {
             containerDiv.innerHTML = containerInstance.getInnerHTML();
-            console.log("Cabbage: Updated container HTML to reflect children");
+            // Also store minimized children on the instance used for updates
+            containerInstance.serializedChildren = minimizedChildren;
         }
 
         // Use insertChildWidgets to properly render the children
@@ -280,10 +308,32 @@ async function groupSelectedWidgets() {
         console.error("Cabbage: Container div not found:", containerChannelId);
     }
 
+
     // Update the CSD file with the modified container (now with children)
+    // Send only the essential delta: id, type, and children
+    // The extension's deepMerge will preserve all other existing properties
+    // Use the minimized children we stored earlier, not the expanded ones from insertChildWidgets
+    const containerUpdatePayload = {
+        id: containerWidget.props.id,
+        type: containerWidget.props.type,
+        children: minimizedChildren
+    };
+
+    // Include channels for identification
+    if (containerWidget.props.channels) {
+        containerUpdatePayload.channels = containerWidget.props.channels.map(c => ({ id: c.id }));
+    }
+
     postMessageToVSCode({
         command: 'updateWidgetProps',
-        text: JSON.stringify(containerWidget.props)
+        text: JSON.stringify(containerUpdatePayload)
+    });
+
+    // Ensure all references to this container in the widgets array have the minimized children
+    widgets.forEach(w => {
+        if (w.props.id === containerWidget.props.id || CabbageUtils.getChannelId(w.props, 0) === containerId) {
+            w.serializedChildren = minimizedChildren;
+        }
     });
 
     // Clear selection
@@ -318,6 +368,13 @@ async function ungroupSelectedWidgets() {
 
     console.log("Cabbage: Ungrouping container", CabbageUtils.getChannelId(containerWidget.props, 0), "with", containerWidget.props.children.length, "children");
 
+    // Load PropertyPanel for minimization
+    const PP = await loadPropertyPanel();
+    if (!PP) {
+        console.error('Cabbage: PropertyPanel not available for ungrouping');
+        return;
+    }
+
     // First, remove existing child DOM elements from the container and re-parent them to MainForm
     const mainForm = document.getElementById('MainForm');
     if (!mainForm) {
@@ -327,7 +384,8 @@ async function ungroupSelectedWidgets() {
 
     // Process each child widget
     const childrenPromises = containerWidget.props.children.map(async (childProps) => {
-        const childChannelId = CabbageUtils.getChannelId(childProps, 0);
+        // Use getWidgetDivId to ensure we find the correct DOM element (prioritizes props.id)
+        const childChannelId = CabbageUtils.getWidgetDivId(childProps);
         const existingChildDiv = document.getElementById(childChannelId);
 
         // Calculate absolute position
@@ -371,23 +429,58 @@ async function ungroupSelectedWidgets() {
         delete topLevelProps.parentChannel;
 
         // Find and update the existing child widget in the widgets array
-        const existingChildWidget = widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === childChannelId);
+        const existingChildWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
         if (existingChildWidget) {
             // Update existing widget props - merge the absolute bounds and remove parentChannel
             existingChildWidget.props.bounds = absoluteBounds;
             delete existingChildWidget.props.parentChannel;
             console.log(`Cabbage: Updated existing child widget ${childChannelId} in widgets array - removed parentChannel and updated bounds`);
+
+            // Minimize props before sending to VS Code
+            try {
+                let minimized = PP.minimizePropsForWidget(existingChildWidget.props, existingChildWidget);
+                minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                const payload = JSON.stringify(minimized);
+                console.log('Cabbage: Minimized ungroup payload for', childChannelId, ':', payload.substring(0, 200));
+
+                postMessageToVSCode({
+                    command: 'updateWidgetProps',
+                    text: payload
+                });
+            } catch (e) {
+                console.error('Cabbage: Failed to minimize props for ungrouped widget:', e);
+                // Fallback to full props if minimization fails
+                postMessageToVSCode({
+                    command: 'updateWidgetProps',
+                    text: JSON.stringify(existingChildWidget.props)
+                });
+            }
         } else {
             // Insert as new widget (shouldn't normally happen, but handle it)
             console.log(`Cabbage: Child widget ${childChannelId} not found in widgets array, inserting new`);
             const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
-        }
 
-        // Update the CSD file with the new top-level widget
-        postMessageToVSCode({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(topLevelProps)
-        });
+            // For newly inserted widgets, minimize before sending
+            const inserted = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
+            if (inserted) {
+                try {
+                    let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
+                    minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                    postMessageToVSCode({
+                        command: 'updateWidgetProps',
+                        text: JSON.stringify(minimized)
+                    });
+                } catch (e) {
+                    console.error('Cabbage: Failed to minimize props for newly inserted ungrouped widget:', e);
+                    postMessageToVSCode({
+                        command: 'updateWidgetProps',
+                        text: JSON.stringify(inserted.props)
+                    });
+                }
+            }
+        }
 
         return topLevelProps;
     });
@@ -402,9 +495,17 @@ async function ungroupSelectedWidgets() {
     const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
 
     // Update the CSD file with the container (now without children)
+    // Send a minimal update to avoid writing default properties to the CSD
+    const containerUpdatePayload = {
+        id: containerWidget.props.id,
+        type: containerWidget.props.type,
+        children: [], // Explicitly empty the children
+        channels: containerWidget.props.channels ? containerWidget.props.channels.map(c => ({ id: c.id })) : []
+    };
+
     postMessageToVSCode({
         command: 'updateWidgetProps',
-        text: JSON.stringify(containerWidget.props)
+        text: JSON.stringify(containerUpdatePayload)
     });
 
     console.log("Cabbage: Container", containerChannelId, "now has no children and remains as a top-level widget");
@@ -412,9 +513,177 @@ async function ungroupSelectedWidgets() {
     // Clear selection
     selectedElements.forEach(element => element.classList.remove('selected'));
     selectedElements.clear();
-
     console.log("Cabbage: Successfully ungrouped container:", containerChannelId);
 }
+
+/**
+ * Duplicates selected widgets
+ */
+async function duplicateSelectedWidgets() {
+    console.log('Cabbage: duplicateSelectedWidgets called');
+    if (selectedElements.size === 0) {
+        console.warn('Cabbage: No widgets selected to duplicate');
+        return;
+    }
+
+    const widgetProps = [];
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            widgetProps.push(widget.props);
+        }
+    });
+
+    console.log(`Cabbage: Found ${widgetProps.length} widgets to duplicate`);
+
+    // Prepare widgets with unique IDs and offset positions
+    // Temporarily store in clipboard to use the prepareForPaste logic
+    try {
+        console.log('Cabbage: Copying widgets to clipboard');
+        widgetClipboard.copy(widgetProps);
+        console.log('Cabbage: Preparing widgets for paste');
+        const preparedWidgets = widgetClipboard.prepareForPaste(widgets, 20, 20);
+        console.log(`Cabbage: Prepared ${preparedWidgets.length} widget(s) for duplication`);
+
+        // Load PropertyPanel for minimization
+        console.log('Cabbage: Loading PropertyPanel');
+        const PP = await loadPropertyPanel();
+        if (!PP) {
+            console.error('Cabbage: PropertyPanel not available for duplication');
+            return;
+        }
+        console.log('Cabbage: PropertyPanel loaded successfully');
+
+        // Create each duplicated widget
+        for (let i = 0; i < preparedWidgets.length; i++) {
+            const widgetProps = preparedWidgets[i];
+            const channelId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
+            console.log(`Cabbage: [${i + 1}/${preparedWidgets.length}] Creating duplicated widget:`, channelId);
+
+            try {
+                // Insert the widget into the DOM and widgets array
+                console.log(`Cabbage: Inserting widget ${channelId}`);
+                await WidgetManager.insertWidget(widgetProps.type, widgetProps, WidgetManager.getCurrentCsdPath());
+                console.log(`Cabbage: Widget ${channelId} inserted`);
+
+                // Find the inserted widget instance in the widgets array
+                // Since the ID might have changed, look for the most recently added widget with matching bounds
+                const inserted = widgets.find(w =>
+                    w.props &&
+                    w.props.bounds &&
+                    widgetProps.bounds &&
+                    w.props.bounds.left === widgetProps.bounds.left &&
+                    w.props.bounds.top === widgetProps.bounds.top &&
+                    (w.props.id === channelId || CabbageUtils.getChannelId(w.props, 0) === channelId)
+                );
+
+                if (inserted) {
+                    console.log(`Cabbage: Found inserted widget instance for ${channelId}`);
+                    try {
+                        // Use PropertyPanel's minimization logic to get only non-default props
+                        let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
+                        minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+                        const payload = JSON.stringify(minimized);
+                        console.log('Cabbage: Minimized payload for duplicated widget:', channelId, payload.substring(0, 200));
+
+                        // Send to VSCode
+                        const msg = { command: 'updateWidgetProps', text: payload };
+                        postMessageToVSCode(msg);
+                        // Retry once shortly after to guard against ordering races
+                        setTimeout(() => postMessageToVSCode(msg), 200);
+
+                        console.log('Cabbage: Sent duplicated widget to VSCode:', channelId);
+                    } catch (e) {
+                        console.error('Cabbage: Failed to minimize props for duplicated widget:', e);
+                        // Fallback to full props if minimization fails
+                        const fallback = JSON.stringify(inserted.props);
+                        postMessageToVSCode({ command: 'updateWidgetProps', text: fallback });
+                    }
+                } else {
+                    console.error('Cabbage: Could not find inserted widget instance for:', channelId);
+                }
+            } catch (widgetError) {
+                console.error(`Cabbage: Error duplicating widget ${channelId}:`, widgetError);
+                // Continue with next widget instead of crashing
+            }
+        }
+
+        console.log(`Cabbage: Successfully duplicated ${preparedWidgets.length} widget(s)`);
+
+        // Select all the newly created widgets so they can be moved as a group
+        if (preparedWidgets.length > 0) {
+            console.log('Cabbage: Selecting newly duplicated widgets');
+
+            // Clear current selection
+            selectedElements.clear();
+            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+
+            // Select all the newly duplicated widgets
+            preparedWidgets.forEach(widgetProps => {
+                const widgetId = widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0);
+                const widgetDiv = document.getElementById(widgetId);
+
+                if (widgetDiv) {
+                    widgetDiv.classList.add('selected');
+                    selectedElements.add(widgetDiv);
+                    console.log('Cabbage: Selected duplicated widget:', widgetId);
+                } else {
+                    console.warn('Cabbage: Could not find duplicated widget div for selection:', widgetId);
+                }
+            });
+
+            console.log(`Cabbage: Selected ${selectedElements.size} duplicated widget(s)`);
+        }
+    } catch (error) {
+        console.error('Cabbage: Error in duplicateSelectedWidgets:', error);
+        console.error('Cabbage: Stack trace:', error.stack);
+    }
+}
+
+/**
+ * Deletes selected widgets
+ */
+async function deleteSelectedWidgets() {
+    if (selectedElements.size === 0) {
+        console.warn('Cabbage: No widgets selected to delete');
+        return;
+    }
+
+    const channelsToDelete = [];
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            const channelId = CabbageUtils.getChannelId(widget.props, 0);
+            channelsToDelete.push(channelId);
+        }
+    });
+
+    console.log(`Cabbage: Deleting ${channelsToDelete.length} widget(s):`, channelsToDelete);
+
+    // Send removeWidgets command to VS Code
+    postMessageToVSCode({
+        command: 'removeWidgets',
+        channels: channelsToDelete
+    });
+
+    // Remove widgets from DOM and widgets array
+    selectedElements.forEach(el => {
+        const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+        if (widget) {
+            const index = widgets.indexOf(widget);
+            if (index > -1) {
+                widgets.splice(index, 1);
+            }
+        }
+        el.remove();
+    });
+
+    // Clear selection
+    selectedElements.clear();
+    console.log(`Cabbage: Successfully deleted ${channelsToDelete.length} widget(s)`);
+}
+
 
 /**
  * Aligns or distributes selected widgets based on the specified type.
@@ -526,19 +795,41 @@ async function alignSelectedWidgets(type) {
         });
     }
 
+    // Load PropertyPanel for minimization
+    const PP = await loadPropertyPanel();
+    if (!PP) {
+        console.error('Cabbage: PropertyPanel not available for alignment');
+        return;
+    }
+
     // Apply updates
-    updates.forEach(item => {
+    for (const item of updates) {
         // Update DOM
         item.element.style.transform = `translate(${item.widget.props.bounds.left}px, ${item.widget.props.bounds.top}px)`;
         item.element.setAttribute('data-x', item.widget.props.bounds.left);
         item.element.setAttribute('data-y', item.widget.props.bounds.top);
 
-        // Send to VS Code
-        postMessageToVSCode({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(item.widget.props)
-        });
-    });
+        // Minimize props before sending to VS Code
+        try {
+            let minimized = PP.minimizePropsForWidget(item.widget.props, item.widget);
+            minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+
+            const payload = JSON.stringify(minimized);
+            console.log('Cabbage: Minimized alignment payload:', payload.substring(0, 200));
+
+            postMessageToVSCode({
+                command: 'updateWidgetProps',
+                text: payload
+            });
+        } catch (e) {
+            console.error('Cabbage: Failed to minimize props for aligned widget:', e);
+            // Fallback to full props if minimization fails
+            postMessageToVSCode({
+                command: 'updateWidgetProps',
+                text: JSON.stringify(item.widget.props)
+            });
+        }
+    }
 
     console.log(`Cabbage: Aligned ${updates.length} widgets (${type})`);
 }
@@ -554,31 +845,29 @@ export function setupFormHandlers() {
     // Create a dynamic context menu for grouping and ungrouping widgets
     const groupContextMenu = document.createElement("div");
     groupContextMenu.id = "dynamicContextMenu";
-    groupContextMenu.style.position = "absolute";
+    groupContextMenu.className = "wrapper"; // Use wrapper class for styling
+    groupContextMenu.style.position = "fixed";
     groupContextMenu.style.visibility = "hidden";
-    groupContextMenu.style.backgroundColor = "#fff";
-    groupContextMenu.style.border = "1px solid #ccc";
-    groupContextMenu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
     groupContextMenu.style.zIndex = 10001; // Higher than other elements
-    groupContextMenu.style.borderRadius = "4px";
     groupContextMenu.style.minWidth = "160px";
     groupContextMenu.style.display = "flex";
     groupContextMenu.style.flexDirection = "column";
 
+    // Create content container to match CSS selectors (.content .menuItem)
+    const contentContainer = document.createElement("div");
+    contentContainer.className = "content";
+    contentContainer.style.padding = "5px"; // Add some padding similar to .menu
+    groupContextMenu.appendChild(contentContainer);
+
     // Helper to create menu options
     const createMenuOption = (text, onClick) => {
         const opt = document.createElement("div");
-        opt.innerText = text;
-        opt.style.padding = "8px 12px";
-        opt.style.cursor = "pointer";
-        opt.style.color = "#000";
-        opt.style.backgroundColor = "#fff";
-        opt.style.border = "none";
-        opt.style.textAlign = "left";
-        opt.style.fontSize = "14px";
-        opt.style.fontFamily = "Arial, sans-serif";
-        opt.addEventListener("mouseenter", () => { opt.style.backgroundColor = "#f0f0f0"; });
-        opt.addEventListener("mouseleave", () => { opt.style.backgroundColor = "#fff"; });
+        opt.className = "menuItem"; // Use menuItem class
+
+        const span = document.createElement("span");
+        span.innerText = text;
+        opt.appendChild(span);
+
         opt.addEventListener("click", (e) => {
             e.stopPropagation();
             groupContextMenu.style.visibility = "hidden";
@@ -616,17 +905,28 @@ export function setupFormHandlers() {
     const distributeHorizontallyOption = createMenuOption("Distribute Horizontally", () => alignSelectedWidgets('distributeHorizontally'));
     const distributeVerticallyOption = createMenuOption("Distribute Vertically", () => alignSelectedWidgets('distributeVertically'));
 
-    // Append menu options
-    groupContextMenu.appendChild(groupOption);
-    groupContextMenu.appendChild(unGroupOption);
-    groupContextMenu.appendChild(createSeparator());
-    groupContextMenu.appendChild(alignLeftOption);
-    groupContextMenu.appendChild(alignRightOption);
-    groupContextMenu.appendChild(alignTopOption);
-    groupContextMenu.appendChild(alignBottomOption);
-    groupContextMenu.appendChild(createSeparator());
-    groupContextMenu.appendChild(distributeHorizontallyOption);
-    groupContextMenu.appendChild(distributeVerticallyOption);
+    // Duplicate Option
+    const duplicateOption = createMenuOption("Duplicate", async () => await duplicateSelectedWidgets());
+
+    // Delete Option
+    const deleteOption = createMenuOption("Delete", async () => await deleteSelectedWidgets());
+
+    // Append menu options to the content container
+    contentContainer.appendChild(duplicateOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(deleteOption);
+    contentContainer.appendChild(groupOption);
+    contentContainer.appendChild(unGroupOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(alignLeftOption);
+    contentContainer.appendChild(alignRightOption);
+    contentContainer.appendChild(alignTopOption);
+    contentContainer.appendChild(alignBottomOption);
+    contentContainer.appendChild(createSeparator());
+    contentContainer.appendChild(distributeHorizontallyOption);
+    contentContainer.appendChild(distributeVerticallyOption);
+
+
 
     // Append context menu to the document body
     document.body.appendChild(groupContextMenu);
@@ -634,6 +934,11 @@ export function setupFormHandlers() {
     // Reference to the main context menu and the form element
     const contextMenu = document.querySelector(".wrapper");
     const form = document.getElementById('MainForm');
+
+    // Ensure contextMenu also uses fixed positioning
+    if (contextMenu) {
+        contextMenu.style.position = "fixed";
+    }
 
     console.log("Cabbage: Setting up context menu handlers");
     console.log("Cabbage: form element:", form);
@@ -673,16 +978,46 @@ export function setupFormHandlers() {
                     return;
                 }
 
-                // Calculate correct context menu position
+                // Get LeftPanel position for correct context menu placement
+                const leftPanel = document.getElementById('LeftPanel');
+                const panelRect = leftPanel ? leftPanel.getBoundingClientRect() : { left: 0, top: 0 };
+
+                console.log('Cabbage: Context menu positioning debug:', {
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    pageX: e.pageX,
+                    pageY: e.pageY,
+                    panelTop: panelRect.top,
+                    panelLeft: panelRect.left,
+                    scrollY: window.scrollY,
+                    scrollX: window.scrollX,
+                    targetElement: e.target.tagName,
+                    currentTargetElement: e.currentTarget ? e.currentTarget.id : 'none'
+                });
+
+                // For fixed positioning, use clientX/Y directly
+                // These are always relative to the viewport, regardless of transforms
                 let x = e.clientX, y = e.clientY,
                     winWidth = window.innerWidth,
                     winHeight = window.innerHeight,
                     cmWidth = contextMenu.offsetWidth,
                     cmHeight = contextMenu.offsetHeight;
 
-                // Ensure the menu does not overflow the window bounds
-                x = x > winWidth - cmWidth ? winWidth - cmWidth - 5 : x;
-                y = y > winHeight - cmHeight ? winHeight - cmHeight - 5 : y;
+                console.log('Cabbage: Menu dimensions:', { cmWidth, cmHeight, winWidth, winHeight });
+                console.log('Cabbage: Overflow check - y + cmHeight:', y + cmHeight, 'winHeight:', winHeight, 'would adjust:', y + cmHeight > winHeight);
+
+                // Smart overflow protection: flip menu position if it would extend off-screen
+                // For X: if menu would go off right edge, shift it left
+                if (x + cmWidth > winWidth) {
+                    x = winWidth - cmWidth - 5;
+                }
+
+                // For Y: if menu would go off bottom edge, position it ABOVE the cursor
+                if (y + cmHeight > winHeight) {
+                    y = Math.max(5, y - cmHeight); // Show above cursor, but not above viewport
+                }
+
+                console.log('Cabbage: Final menu position:', { x, y });
 
                 contextMenu.style.left = `${x}px`;
                 contextMenu.style.top = `${y}px`;
@@ -718,7 +1053,9 @@ export function setupFormHandlers() {
                 groupContextMenu.style.left = `${x}px`;
                 groupContextMenu.style.top = `${y}px`;
 
-                mouseDownPosition = { x: x, y: y };
+                // Store FORM coordinates (accounting for zoom/pan) for widget insertion
+                const formCoords = screenToFormCoordinates(e.clientX, e.clientY);
+                mouseDownPosition = { x: formCoords.x, y: formCoords.y };
 
                 // Show appropriate menu based on mode and selection
                 // Check if the right-click is on the form background (not on a widget)
@@ -732,7 +1069,7 @@ export function setupFormHandlers() {
                     let iterations = 0;
                     const maxIterations = 20;
 
-                    while (element && element !== formDiv && iterations < maxIterations) {
+                    while (element && element !== form && iterations < maxIterations) {
                         iterations++;
                         console.log("Cabbage: Iteration", iterations, "element:", element.tagName, "classList:", element.classList);
 
@@ -779,7 +1116,12 @@ export function setupFormHandlers() {
 
                         // Enable/Disable Group/Ungroup
                         const setOptionState = (opt, enabled) => {
-                            opt.style.color = enabled ? "#000" : "#999";
+                            const isDark = document.body.classList.contains('vscode-dark');
+                            if (isDark) {
+                                opt.style.color = enabled ? "#999" : "#000";
+                            } else {
+                                opt.style.color = enabled ? "#000" : "#999";
+                            }
                             opt.style.cursor = enabled ? "pointer" : "not-allowed";
                             opt.style.pointerEvents = enabled ? "auto" : "none";
                         };
@@ -793,6 +1135,14 @@ export function setupFormHandlers() {
 
                         [alignLeftOption, alignRightOption, alignTopOption, alignBottomOption].forEach(opt => setOptionState(opt, canAlign));
                         [distributeHorizontallyOption, distributeVerticallyOption].forEach(opt => setOptionState(opt, canDistribute));
+
+                        // Enable/Disable Duplicate
+                        const canDuplicate = selectedElements.size > 0;
+                        setOptionState(duplicateOption, canDuplicate);
+
+                        // Enable/Disable Delete
+                        const canDelete = selectedElements.size > 0;
+                        setOptionState(deleteOption, canDelete);
 
                         groupContextMenu.style.visibility = "visible";
                     } else {
@@ -833,20 +1183,30 @@ export function setupFormHandlers() {
                         e.stopImmediatePropagation();
                         e.stopPropagation();
 
+                        // Only handle widget insertion menu items (from contextMenu), not action menu items (from groupContextMenu)
+                        // Check if this menu item is a child of the widget insertion menu
+                        let parent = e.target.closest('.wrapper');
+                        if (parent && parent.id === 'dynamicContextMenu') {
+                            // This is an action menu item (Duplicate, Group, etc.), not a widget insertion
+                            console.log('Cabbage: Action menu item clicked, ignoring in widget insertion handler');
+                            return;
+                        }
+
                         // Only allow inserting widgets while in draggable/edit mode
                         if (cabbageMode !== 'draggable') {
                             console.warn('Cabbage: Insert widget prevented when not in draggable mode');
                             return;
                         }
 
-                        const type = e.target.innerHTML.replace(/(<([^>]+)>)/ig, ''); // Clean up HTML
+                        const type = e.target.innerHTML.replace(/(\<([^\>]+)\>)/ig, ''); // Clean up HTML
                         console.warn("Cabbage: Adding widget of type:", type);
                         contextMenu.style.visibility = "hidden";
 
                         // Insert new widget and update the editor
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
                         console.log("Cabbage: Inserting widget with uniqueId:", uniqueId);
-                        await WidgetManager.insertWidget(type, { id: uniqueId, top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
+                        // Only assign channel ID, not widget.id (avoid redundancy when they match)
+                        await WidgetManager.insertWidget(type, { channels: [{ id: uniqueId }], top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
                         // insertWidget pushes the widget instance into the shared
                         // `widgets` array. Locate the instance so we can access
                         // `originalProps`. Fall back to the inserted props if
@@ -921,13 +1281,17 @@ export function setupFormHandlers() {
                 groupContextMenu.style.visibility = "hidden";
 
                 const clickedElement = event.target;
-                const selectionColour = CabbageColours.invertColor(clickedElement.getAttribute('fill'));
+                // Only invert color for SVG elements that have a fill attribute
+                const fillColor = clickedElement.getAttribute ? clickedElement.getAttribute('fill') : null;
+                const selectionColour = fillColor ? CabbageColours.invertColor(fillColor) : '#4a90e2';
                 const formRect = form.getBoundingClientRect();
                 offsetX = formRect.left;
                 offsetY = formRect.top;
 
-                // Selection logic for multi-select using Shift/Alt keys
-                if ((event.shiftKey || event.altKey) && event.target.id === "MainForm") {
+                // Selection logic for multi-select using Shift key (drag-to-select)
+                // Cmd/Meta is used for toggling individual widget selection
+                if (event.shiftKey && !event.metaKey && !event.ctrlKey) {
+                    // Start drag-to-select - works anywhere on the form
                     isSelecting = true;
                     startX = event.clientX - offsetX;
                     startY = event.clientY - offsetY;
@@ -945,20 +1309,24 @@ export function setupFormHandlers() {
                     form.appendChild(selectionBox);
                 } else if ((clickedElement.classList.contains('draggable') || clickedElement.classList.contains('nonDraggable')) && event.target.id !== "MainForm") {
                     // Handle individual widget selection and toggling
-                    if (!event.shiftKey && !event.altKey) {
-                        if (!selectedElements.has(clickedElement)) {
-                            selectedElements.forEach(element => element.classList.remove('selected'));
-                            selectedElements.clear();
-                            selectedElements.add(clickedElement);
-                        }
-                        clickedElement.classList.add('selected');
-                    } else {
+                    // Cmd/Meta key: toggle widget in/out of selection (multi-select)
+                    // No modifier: exclusive selection (replace existing selection)
+                    if (event.metaKey || event.ctrlKey) {
+                        // Toggle this widget in the current selection
                         clickedElement.classList.toggle('selected');
                         if (clickedElement.classList.contains('selected')) {
                             selectedElements.add(clickedElement);
                         } else {
                             selectedElements.delete(clickedElement);
                         }
+                    } else if (!event.shiftKey) {
+                        // Exclusive selection (clear others unless already selected)
+                        if (!selectedElements.has(clickedElement)) {
+                            selectedElements.forEach(element => element.classList.remove('selected'));
+                            selectedElements.clear();
+                            selectedElements.add(clickedElement);
+                        }
+                        clickedElement.classList.add('selected');
                     }
                 }
 
@@ -987,8 +1355,8 @@ export function setupFormHandlers() {
                     selectedElements.clear();
                 }
 
-                // In the part where PropertyPanel is used:
-                if (!event.shiftKey && !event.altKey && cabbageMode === 'draggable') {
+                // Update PropertyPanel (but not during shift-drag selection or cmd-toggle)
+                if (!event.shiftKey && !event.metaKey && !event.ctrlKey && cabbageMode === 'draggable') {
                     try {
                         const PP = await loadPropertyPanel();
                         if (PP && typeof PP.updatePanel === 'function') {

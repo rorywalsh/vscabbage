@@ -39,6 +39,7 @@ export class Button {
         "borderWidth": 0,
         "fontSize": "auto",
         "borderColor": "#dddddd",
+        "fontFamily": "Verdana",
 
         "on": {
           "backgroundColor": "#3d800a",
@@ -62,6 +63,17 @@ export class Button {
         "text": {
           "on": "On",
           "off": "Off"
+        },
+        "align": "center"
+      },
+
+      "svg": {
+        "markup": "",
+        "padding": {
+          "top": 5,
+          "right": 5,
+          "bottom": 5,
+          "left": 5
         }
       }
     };
@@ -96,24 +108,24 @@ export class Button {
     console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
-    if (this.props.value === null) {
-      this.props.value = range.defaultValue;
+    if (this.props.channels[0].range.value === null) {
+      this.props.channels[0].range.value = range.defaultValue;
     }
 
     // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
     if (this.props.radioGroup && this.props.radioGroup !== -1) {
-      if (this.props.value === range.min) {
-        this.props.value = range.max;
+      if (this.props.channels[0].range.value === range.min) {
+        this.props.channels[0].range.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
       }
       // If already max, do nothing (stay selected)
     } else {
       // Normal toggle behavior for buttons not in radioGroup
-      this.props.value = (this.props.value === range.min ? range.max : range.min);
+      this.props.channels[0].range.value = (this.props.channels[0].range.value === range.min ? range.max : range.min);
     }
 
     CabbageUtils.updateInnerHTML(this.props, this);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.value }
+    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value }
     console.log(msg);
 
     Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
@@ -124,7 +136,7 @@ export class Button {
     if (!this.props.active) {
       return '';
     }
-    this.isMouseOver = true;
+    this.isMouseInside = true;
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -132,7 +144,7 @@ export class Button {
     if (!this.props.active) {
       return '';
     }
-    this.isMouseOver = false;
+    this.isMouseInside = false;
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -171,7 +183,7 @@ export class Button {
 
   getInnerHTML() {
     // Use defaultValue for visual state when value is null
-    const currentValue = this.props.value !== null ? this.props.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
+    const currentValue = this.props.channels[0].range.value !== null ? this.props.channels[0].range.value : CabbageUtils.getChannelRange(this.props, 0, 'click').defaultValue;
 
     const alignMap = {
       'left': 'start',
@@ -180,14 +192,15 @@ export class Button {
       'right': 'end',
     };
 
-    const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
+    const textAlign = this.props.label.align || 'center';
+    const svgAlign = alignMap[textAlign] || 'middle';
     const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.style.fontSize;
     const padding = 5;
 
     let textX;
-    if (this.props.style.textAlign === 'left') {
+    if (textAlign === 'left') {
       textX = this.props.style.borderRadius + padding;
-    } else if (this.props.style.textAlign === 'right') {
+    } else if (textAlign === 'right') {
       textX = this.props.bounds.width - this.props.style.borderRadius - padding;
     } else {
       textX = this.props.bounds.width / 2;
@@ -202,27 +215,73 @@ export class Button {
     const baseColour = isOn ? this.props.style.on.backgroundColor : this.props.style.off.backgroundColor;
     const baseTextColour = isOn ? this.props.style.on.textColor : this.props.style.off.textColor;
 
-    // Apply hover or active state if applicable
-    let currentColour = baseColour;
+    // Determine overlay colors for hover/active states
+    let overlayColour = null;
     let textColour = baseTextColour;
 
     if (this.isMouseDown && this.props.style.active.backgroundColor) {
-      currentColour = this.props.style.active.backgroundColor;
+      overlayColour = this.props.style.active.backgroundColor;
       textColour = this.props.style.active.textColor;
     } else if (this.isMouseInside && this.props.style.hover.backgroundColor) {
-      currentColour = this.props.style.hover.backgroundColor;
+      overlayColour = this.props.style.hover.backgroundColor;
       textColour = this.props.style.hover.textColor;
     }
 
-    return `
+    // Base button SVG - always draw the base state (on/off)
+    let buttonHtml = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" 
-           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
-        <rect x="0" y="0" width="100%" height="100%" fill="${currentColour}" stroke="${this.props.style.borderColor}"
-          stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>
+           width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
+        <rect x="0" y="0" width="100%" height="100%" fill="${baseColour}" stroke="${this.props.style.borderColor}"
+          stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>`;
+
+    // Add overlay rect for hover/active state if present
+    if (overlayColour) {
+      buttonHtml += `
+        <rect x="0" y="0" width="100%" height="100%" fill="${overlayColour}"
+          rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}"></rect>`;
+    }
+
+    // Add text on top
+    buttonHtml += `
         <text x="${textX}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
           fill="${textColour}" text-anchor="${svgAlign}" dominant-baseline="middle">${buttonText}</text>
       </svg>
     `;
+
+    // If svg.markup is provided, add it as an overlay
+    if (this.props.svg && this.props.svg.markup) {
+      // Extract viewBox from original SVG if present, otherwise use button bounds
+      const viewBoxMatch = this.props.svg.markup.match(/viewBox=["']([^"']+)["']/);
+      const viewBox = viewBoxMatch ? viewBoxMatch[1] : `0 0 ${this.props.bounds.width} ${this.props.bounds.height}`;
+
+      const preserveAspectRatioMatch = this.props.svg.markup.match(/preserveAspectRatio=["']([^"']+)["']/);
+      const preserveAspectRatio = preserveAspectRatioMatch ? preserveAspectRatioMatch[1] : 'xMidYMid meet';
+
+      // Extract inner SVG content without outer <svg> tags
+      const innerSvgContent = this.props.svg.markup.replace(/<svg[^>]*>|<\/svg>/g, '');
+
+      // Get padding values
+      const paddingTop = this.props.svg.padding?.top || 0;
+      const paddingRight = this.props.svg.padding?.right || 0;
+      const paddingBottom = this.props.svg.padding?.bottom || 0;
+      const paddingLeft = this.props.svg.padding?.left || 0;
+
+      // Calculate SVG dimensions accounting for padding
+      const svgWidth = this.props.bounds.width - paddingLeft - paddingRight;
+      const svgHeight = this.props.bounds.height - paddingTop - paddingBottom;
+
+      // Add overlay SVG with padding
+      buttonHtml += `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${svgWidth}" height="${svgHeight}" preserveAspectRatio="${preserveAspectRatio}" opacity="${this.props.style.opacity}"
+           style="position: absolute; top: ${paddingTop}px; left: ${paddingLeft}px; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'};">
+        <g style="all: initial;">
+          ${innerSvgContent}
+        </g>
+      </svg>
+      `;
+    }
+
+    return buttonHtml;
   }
 }
 

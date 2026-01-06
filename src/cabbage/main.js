@@ -12,6 +12,8 @@ import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
 import { discoverAndRegisterCustomWidgets } from "./widgetDiscovery.js";
+import { initializeZoom } from "./zoom.js";
+import { keyboardMidiInput } from "./keyboardMidiInput.js";
 
 
 // Update the vscode assignment
@@ -30,6 +32,12 @@ const rightPanel = document.getElementById('RightPanel');
 // Set initial class and visibility for left and right panels
 if (leftPanel) { leftPanel.className = "full-height-div nonDraggable"; }
 if (rightPanel) { rightPanel.style.visibility = "hidden"; }
+
+// Initialize zoom and pan functionality
+initializeZoom();
+
+// Initialize keyboard MIDI input for performance testing
+keyboardMidiInput.init();
 
 // Notify the plugin that Cabbage is ready to load
 CabbageUtils.showOverlay();
@@ -78,12 +86,22 @@ CabbageUtils.showOverlay();
                 await widgetWrappers.interactPromise;
 
                 console.log('Cabbage: Initialization complete');
+
+                // Send message to indicate UI is ready to receive widget data
+                Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
             } catch (error) {
                 console.error("Cabbage: Error loading modules in main.js:", error);
                 console.error("Cabbage: Error stack:", error.stack);
             }
         } else {
             console.log("Cabbage: Running outside of VSCode environment");
+            // For plugin environment, send cabbageIsReadyToLoad via window.sendMessageFromUI
+            console.log("Cabbage: Sending cabbageIsReadyToLoad to plugin backend");
+            if (typeof window.sendMessageFromUI === 'function') {
+                window.sendMessageFromUI({ command: 'cabbageIsReadyToLoad' });
+            } else {
+                console.error('Cabbage: window.sendMessageFromUI is not available');
+            }
         }
     } catch (error) {
         console.error('Cabbage: Fatal error in main.js async IIFE:', error);
@@ -94,8 +112,20 @@ CabbageUtils.showOverlay();
     console.error('Cabbage: Rejection stack:', error.stack);
 });
 
-//send message to Cabbage to indicate that the UI is ready to load
-Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
+// Add key listener for save command (Ctrl+S or Cmd+S)
+window.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        console.log('Cabbage: Save shortcut triggered from webview');
+        // Send save command to VS Code extension
+        if (vscode) {
+            vscode.postMessage({
+                command: 'saveFromUIEditor',
+                lastSavedFileName: '' // Extension will determine the file
+            });
+        }
+    }
+});
 
 /**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
@@ -115,39 +145,12 @@ window.addEventListener('message', async (event) => {
         }
     }
 
-    // console.log('Cabbage: main.js: received message:', message.command, message);
-    const mainForm = document.getElementById('MainForm'); // Get the MainForm element
-
-    // Set up MutationObserver to watch for changes to MainForm
-    if (mainForm && !mainForm._mutationObserver) {
-        console.log('Cabbage: Setting up MutationObserver on MainForm');
-        // Add a unique identifier to track if MainForm gets replaced
-        mainForm.setAttribute('data-instance-id', Date.now().toString());
-        console.log('Cabbage: MainForm instance ID:', mainForm.getAttribute('data-instance-id'));
-        mainForm._mutationObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                    console.log('Cabbage: MainForm childList mutation detected!');
-                    console.trace('Mutation trace:');
-                    console.log('Added nodes:', mutation.addedNodes.length);
-                    mutation.addedNodes.forEach((node, index) => {
-                        console.log(`Added node ${index}: ${node.tagName} id=${node.id}`);
-                    });
-                    console.log('Removed nodes:', mutation.removedNodes.length);
-                    mutation.removedNodes.forEach((node, index) => {
-                        console.log(`Removed node ${index}: ${node.tagName} id=${node.id}`);
-                    });
-                } else if (mutation.type === 'attributes') {
-                    console.log('Cabbage: MainForm attribute mutation:', mutation.attributeName);
-                }
-            });
-        });
-        mainForm._mutationObserver.observe(mainForm, {
-            childList: true,
-            attributes: true,
-            subtree: false
-        });
+    // Log all incoming messages to help debug
+    if (message.command === 'batchWidgetUpdate') {
+        console.log(`[main.js] Received ${message.command} with ${message.widgets ? message.widgets.length : 0} widgets`);
     }
+
+    const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
     // Handle different commands based on the message received
     switch (message.command) {
@@ -168,6 +171,16 @@ window.addEventListener('message', async (event) => {
                 try {
                     const parsedData = JSON.parse(updateMsg.widgetJson);
                     updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
+
+                    // Log genTable updates with samples info
+                    if (parsedData.type === 'genTable') {
+                        console.log(`Webview: widgetUpdate for genTable ${updateMsg.id}, hasSamples=${parsedData.hasOwnProperty('samples')}, samplesLength=${parsedData.samples?.length || 0}`);
+                        if (parsedData.samples && parsedData.samples.length > 0) {
+                            console.log(`Webview: ✓ genTable ${updateMsg.id} received ${parsedData.samples.length} samples`);
+                        } else {
+                            console.log(`Webview: ✗ genTable ${updateMsg.id} has NO samples data`);
+                        }
+                    }
                 } catch (e) {
                     console.error("Failed to parse widgetJson for id:", e);
                 }
@@ -177,13 +190,24 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+            break;
 
-            // Add a 5-second delay to check DOM structure after widget creation
-            // setTimeout(() => {
-            //     console.log('Cabbage: DOM structure after 5 seconds:');
-            //     // ... (logging code commented out)
-            // }, 5000);
+        // Batch widget update for efficient preset loading
+        case 'batchWidgetUpdate':
+            console.log(`main.js batchWidgetUpdate: processing ${message.widgets.length} widgets`);
+            console.log(`main.js batchWidgetUpdate: first widget:`, message.widgets[0]);
+            CabbageUtils.hideOverlay();
 
+            // Process all widgets in the batch
+            for (const widgetData of message.widgets) {
+                console.log(`main.js batchWidgetUpdate: updating widget id=${widgetData.id}, hasWidgetJson=${!!widgetData.widgetJson}, widgetJsonType=${typeof widgetData.widgetJson}`);
+                const updateMsg = {
+                    id: widgetData.id,
+                    widgetJson: widgetData.widgetJson
+                };
+                await WidgetManager.updateWidget(updateMsg);
+            }
+            console.log(`main.js batchWidgetUpdate: completed updating ${message.widgets.length} widgets`);
             break;
 
         // Called when the host triggers a parameter change in the UI
@@ -204,7 +228,6 @@ window.addEventListener('message', async (event) => {
                         continue;
                     }
                     if (channel.parameterIndex === parameterMessage.paramIdx) {
-                        console.log(`main.js parameterChange: updating widget ${CabbageUtils.getChannelId(widget.props, i)} (${widget.props.type}) channel[${i}] with value ${parameterMessage.value}`);
                         const updateMsg = {
                             id: channel.id,
                             channel: channel.id,
@@ -221,13 +244,23 @@ window.addEventListener('message', async (event) => {
         case 'onFileChanged':
             console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
+
+            // Clear pending widgets map to prevent race conditions during rebuild
+            if (WidgetManager.pendingWidgets) {
+                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets`);
+                WidgetManager.pendingWidgets.clear();
+            }
+
+            // Clear the widgets array BEFORE removing MainForm
+            // This prevents updateWidget from finding widgets in the array during rebuild
+            widgets.length = 0;
+
+            // Remove the MainForm element (this automatically removes all child widgets)
             if (mainForm) {
-                mainForm.remove(); // Remove the MainForm element from the DOM
+                mainForm.remove();
             } else {
                 console.error("MainForm not found");
             }
-            widgets.length = 0; // Clear the widgets array
-            // currentFileName = message.lastSavedFileName; // Update the current file name
 
             // Update child widget pointer events for performance mode
             updateChildWidgetPointerEvents('nonDraggable');
@@ -270,15 +303,21 @@ window.addEventListener('message', async (event) => {
                 });
             });
 
-            // Remove the MainForm element and clear the widget array
+            // Clear pending widgets map to prevent race conditions during rebuild
+            if (WidgetManager.pendingWidgets) {
+                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets before edit mode`);
+                WidgetManager.pendingWidgets.clear();
+            }
+
+            // Clear the widgets array BEFORE removing MainForm
+            widgets.length = 0;
+
+            // Remove the MainForm element (this automatically removes all child widgets)
             if (mainForm) {
                 mainForm.remove();
             } else {
                 console.error("MainForm not found");
             }
-
-            //now clear all widgets
-            widgets.length = 0;
 
             // Update each widget after clearing the form
             widgetUpdatesMessages.forEach(msg => WidgetManager.updateWidget(msg));

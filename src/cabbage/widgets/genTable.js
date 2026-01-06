@@ -18,18 +18,7 @@ export class GenTable {
                 "width": 200,
                 "height": 100
             },
-            "channels": [
-                {
-                    "id": "gentableStart",
-                    "event": "valueChanged",
-                    "range": { "min": 0, "max": -1 }
-                },
-                {
-                    "id": "gentableLength",
-                    "event": "valueChanged",
-                    "range": { "min": 0, "max": -1 }
-                }
-            ],
+            "channels": [],
             "visible": true,
             "active": true,
             "automatable": false,
@@ -40,9 +29,11 @@ export class GenTable {
                 "opacity": 1,
                 "borderRadius": 4,
                 "borderWidth": 1,
-                "borderColor": "#dddddd",
-                "fill": "#93d200",
-                "background": "#00000022",
+                "borderColor": "#dddddd11",
+                "strokeColor": "#dddddd",
+                "strokeWidth": 1,
+                "fillColor": "#ffffff11",
+                "backgroundColor": "#00000000",
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
@@ -52,7 +43,7 @@ export class GenTable {
             "label": { "text": "" },
             "range": {
                 "x": { "start": 0, "end": -1 },
-                "y": { "min": -1.0, "max": 1.0 }
+                "y": { "min": -1.04, "max": 1.04 }
             },
             "id": "",
             "file": "",
@@ -76,8 +67,23 @@ export class GenTable {
         // Cache for the waveform rendering (for performance)
         this.waveformCanvas = null;
         this.waveformCtx = null;
-        // Wrap props with reactive proxy to unify visible/active handling
-        this.props = CabbageUtils.createReactiveProps(this, this.props);
+
+        // Wrap props with reactive proxy to watch for samples changes
+        this.props = CabbageUtils.createReactiveProps(this, this.props, {
+            watchKeys: ['samples', 'totalSamples'],
+            onPropertyChange: (change) => {
+                // Redraw when samples array changes
+                console.log(`Cabbage: GenTable reactive prop changed:`, change.key, `samples.length=${this.props.samples?.length}, canvas=${!!this.canvas}, waveformCanvas=${!!this.waveformCanvas}`);
+                if (change.key === 'samples' || change.key === 'totalSamples') {
+                    if (this.canvas && this.waveformCanvas) {
+                        console.log(`Cabbage: GenTable calling updateCanvas() due to ${change.key} change`);
+                        this.updateCanvas();
+                    } else {
+                        console.warn(`Cabbage: GenTable cannot updateCanvas - canvas=${!!this.canvas}, waveformCanvas=${!!this.waveformCanvas}`);
+                    }
+                }
+            }
+        });
     }
 
 
@@ -328,6 +334,16 @@ export class GenTable {
         return `<div id="${channelId}" style="width:${this.props.bounds.width}px; height:${this.props.bounds.height}px;"></div>`;
     }
 
+    /**
+     * Called by PropertyPanel when properties change
+     * This is the method the property panel expects for gentable widgets
+     */
+    updateTable() {
+        if (this.canvas && this.waveformCanvas) {
+            this.updateCanvas();
+        }
+    }
+
     updateCanvas() {
         // Resize both canvases
         this.canvas.width = Number(this.props.bounds.width);
@@ -342,31 +358,31 @@ export class GenTable {
         // verify that pixel->sample mapping is actually non-linear at runtime.
         try {
             const useLog = (this.props.style && this.props.style.logarithmic);
-            if (useLog && !this._gentableLogged) {
+            if (useLog && !this.gentableLogged) {
                 const w = Number(this.props.bounds.width) || 1;
                 const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
                 const map = (x) => this.pixelToSample(x);
                 // mark as logged for a short period to avoid noisy output
-                this._gentableLogged = true;
-                setTimeout(() => { this._gentableLogged = false; }, 3000);
+                this.gentableLogged = true;
+                setTimeout(() => { this.gentableLogged = false; }, 3000);
             }
             // One-time props dump to help diagnose whether style.logarithmic
             // is actually present on the widget props at render time. This
             // is guarded so it only prints briefly and won't spam the console.
-            if (!this._gentablePropsLogged) {
+            if (!this.gentablePropsLogged) {
                 try {
 
                 } catch (e) {
                     console.warn('Cabbage: Failed to log GenTable props', e);
                 }
-                this._gentablePropsLogged = true;
+                this.gentablePropsLogged = true;
                 // Allow a single reprint after a short delay (in case props update)
-                setTimeout(() => { this._gentablePropsLogged = false; }, 5000);
+                setTimeout(() => { this.gentablePropsLogged = false; }, 5000);
             }
             // Targeted mapping output: print whether logarithmic mode is enabled
             // and a few pixel->sample mappings so we can verify the mapping math
             // at runtime even when the props object prints as a Proxy.
-            if (!this._gentableMapLogged) {
+            if (!this.gentableMapLogged) {
                 try {
                     const w = Number(this.props.bounds.width) || 1;
                     const totalSamples = this.props.totalSamples || this.props.samples.length || 0;
@@ -378,8 +394,8 @@ export class GenTable {
                 } catch (e) {
                     console.warn('Cabbage: GenTable mapping log failed', e);
                 }
-                this._gentableMapLogged = true;
-                setTimeout(() => { this._gentableMapLogged = false; }, 3000);
+                this.gentableMapLogged = true;
+                setTimeout(() => { this.gentableMapLogged = false; }, 3000);
             }
         } catch (e) {
             console.warn('Cabbage: GenTable debug logging failed', e);
@@ -392,6 +408,25 @@ export class GenTable {
         // Draw selection overlay if there's an active selection
         if (this.selectionStart !== null && this.selectionEnd !== null) {
             this.drawSelectionOverlay();
+        }
+
+        // Draw rounded background border on the main canvas so it appears
+        // above the waveform and selection overlay. Use `borderColor`/`borderWidth`.
+        const bgBorderWidth2 = Number((this.props.style && (typeof this.props.style.borderWidth !== 'undefined')) ? this.props.style.borderWidth : 0);
+        const bgBorderColor2 = (this.props.style && this.props.style.borderColor) || 'rgba(0,0,0,0)';
+        if (bgBorderWidth2 > 0) {
+            this.ctx.save();
+            this.ctx.strokeStyle = bgBorderColor2;
+            this.ctx.lineWidth = bgBorderWidth2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(Number(this.props.style.borderRadius), 0);
+            this.ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(this.props.bounds.width, this.props.bounds.height, 0, this.props.bounds.height, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(0, this.props.bounds.height, 0, 0, Number(this.props.style.borderRadius));
+            this.ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.style.borderRadius));
+            this.ctx.closePath();
+            this.ctx.stroke();
+            this.ctx.restore();
         }
 
         // Update DOM with the canvas
@@ -408,7 +443,7 @@ export class GenTable {
             // Add event listeners
             this.addEventListeners(widgetElement);
         } else {
-            console.log(`Cabbage: Element: ${channelId} not found.`);
+            console.log(`Cabbage: Element: ${this.props.channels[0].id} not found.`);
         }
     }
 
@@ -416,11 +451,11 @@ export class GenTable {
      * Renders the waveform (background, samples, text) to the offscreen canvas
      * This is the expensive operation that we cache
      * 
-     * Color scheme:
-     * - shape.background: Widget background (behind waveform)
-     * - shape.fill: Waveform shape fill color
-     * - shape.borderColor: Outline color around waveform
-     * - shape.borderWidth: Outline thickness
+    // Color scheme:
+    // - shape.backgroundColor: Widget background (behind waveform)
+    // - shape.fillColor: Waveform shape fill color
+    // - shape.borderColor / shape.borderWidth: Border drawn around the rounded background
+    // - shape.strokeColor / shape.strokeWidth: Outline stroke used for the waveform itself
      */
     renderWaveformToCache() {
         const ctx = this.waveformCtx;
@@ -444,8 +479,12 @@ export class GenTable {
         const yMin = (this.props.range && this.props.range.y && typeof this.props.range.y.min !== 'undefined') ? this.props.range.y.min : -1.0;
         const yMax = (this.props.range && this.props.range.y && typeof this.props.range.y.max !== 'undefined') ? this.props.range.y.max : 1.0;
 
+        // Calculate border inset to prevent waveform from overlapping the border
+        const borderInset = Number((this.props.style && (typeof this.props.style.borderWidth !== 'undefined')) ? this.props.style.borderWidth : 0);
+
         // Draw background with rounded corners
-        ctx.fillStyle = this.props.style.background;
+        // Prefer the new `backgroundColor` key but fall back to the old `background`
+        ctx.fillStyle = (this.props.style && (this.props.style.backgroundColor || this.props.style.background)) || 'rgba(0,0,0,0)';
         ctx.beginPath();
         ctx.moveTo(Number(this.props.style.borderRadius), 0);
         ctx.arcTo(this.props.bounds.width, 0, this.props.bounds.width, this.props.bounds.height, Number(this.props.style.borderRadius));
@@ -454,6 +493,25 @@ export class GenTable {
         ctx.arcTo(0, 0, this.props.bounds.width, 0, Number(this.props.style.borderRadius));
         ctx.closePath();
         ctx.fill();
+
+        // Set up clipping region inset by border width so waveform doesn't overlap the border area
+        ctx.save();
+        if (borderInset > 0) {
+            const insetRadius = Math.max(0, Number(this.props.style.borderRadius) - borderInset);
+            ctx.beginPath();
+            ctx.moveTo(borderInset + insetRadius, borderInset);
+            ctx.arcTo(this.props.bounds.width - borderInset, borderInset, this.props.bounds.width - borderInset, this.props.bounds.height - borderInset, insetRadius);
+            ctx.arcTo(this.props.bounds.width - borderInset, this.props.bounds.height - borderInset, borderInset, this.props.bounds.height - borderInset, insetRadius);
+            ctx.arcTo(borderInset, this.props.bounds.height - borderInset, borderInset, borderInset, insetRadius);
+            ctx.arcTo(borderInset, borderInset, this.props.bounds.width - borderInset, borderInset, insetRadius);
+            ctx.closePath();
+            ctx.clip();
+        }
+
+        // Background border drawing moved to `updateCanvas()` so it is painted
+        // on the main canvas after the waveform and selection overlays. This
+        // ensures the border appears above the waveform rather than being
+        // obscured by it.
 
         // Only draw waveform if we have samples
         if (this.props.samples.length === 0) {
@@ -466,7 +524,23 @@ export class GenTable {
         // mode we will map pixels to sample indices individually using
         // sampleToPixel/pixelToSample helpers.
         const samplesPerPixel = this.props.samples.length / this.props.bounds.width;
-        const centerY = this.props.bounds.height / 2;
+
+        // Determine the baseline Y position for filled waveforms based on the Y range
+        // For positive-only ranges (e.g., 0..1), fill from bottom
+        // For negative-only ranges (e.g., -1..0), fill from top
+        // For mixed ranges (e.g., -1..1), fill from center
+        let baselineY;
+        if (yMin >= 0) {
+            // Positive-only range: baseline at bottom (height)
+            baselineY = this.props.bounds.height;
+        } else if (yMax <= 0) {
+            // Negative-only range: baseline at top (0)
+            baselineY = 0;
+        } else {
+            // Mixed range: baseline at center
+            baselineY = this.props.bounds.height / 2;
+        }
+
         // Y-axis logarithmic support (optional): enable by setting style.logarithmicY = true
         // Enable logarithmic Y if either explicit logarithmicY is set, or the
         // general `logarithmic` flag is true (so `logarithmic:true` toggles both axes).
@@ -502,7 +576,7 @@ export class GenTable {
             }
 
             // Mixed-sign range: preserve symmetric behavior around centerValue
-            const cY = height / 2;
+            const cY = this.props.bounds.height / 2;
             const centerValue = (yMin + yMax) / 2;
             let delta = val - centerValue;
             if (delta === 0) return cY;
@@ -517,7 +591,8 @@ export class GenTable {
         // Draw waveform with min/max peaks for better visualization
         if (Number(this.props.fill) === 1) {
             // Draw filled waveform from center line to amplitudes
-            ctx.fillStyle = this.props.style.fill;
+            // Prefer `fillColor`, fall back to legacy `fill` color key
+            ctx.fillStyle = (this.props.style && (this.props.style.fillColor || this.props.style.fill)) || '#000000';
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
                 let startIdx, endIdx;
                 const useLog3 = (this.props.style && this.props.style.logarithmic);
@@ -544,20 +619,25 @@ export class GenTable {
                     }
                 }
 
-                // For filled waveform, fill from center to the amplitude extremes
+                // For filled waveform, fill from baseline to the amplitude extremes
                 const maxY = valueToPixel(maxVal);
                 const minY = valueToPixel(minVal);
-                const topFill = Math.min(centerY, maxY, minY);
-                const bottomFill = Math.max(centerY, maxY, minY);
+                const topFill = Math.min(baselineY, maxY, minY);
+                const bottomFill = Math.max(baselineY, maxY, minY);
                 const fillHeight = Math.max(1, bottomFill - topFill);
                 ctx.fillRect(x, topFill, 1, fillHeight);
             }
         }
 
         // Draw outline stroke on top
-        if (Number(this.props.style.borderWidth) > 0) {
-            ctx.strokeStyle = this.props.style.borderColor;
-            ctx.lineWidth = Number(this.props.style.borderWidth);
+        // Check strokeWidth first (primary), then fall back to borderWidth for legacy support
+        const outlineWidth = Number((this.props.style && (typeof this.props.style.strokeWidth !== 'undefined')) ? this.props.style.strokeWidth : (this.props.style.borderWidth || 0));
+        if (outlineWidth > 0) {
+            // Use `strokeColor`/`strokeWidth` for the waveform outline if provided,
+            // otherwise fall back to legacy `borderColor`/`borderWidth`.
+            const outlineColor = (this.props.style && (this.props.style.strokeColor || this.props.style.borderColor)) || '#000000';
+            ctx.strokeStyle = outlineColor;
+            ctx.lineWidth = outlineWidth;
             ctx.beginPath();
 
             for (let x = 0; x < Number(this.props.bounds.width); x++) {
@@ -594,6 +674,9 @@ export class GenTable {
 
         // Note: red diagnostic tick lines removed — enable visual diagnostics
         // via console mapping logs if needed.
+
+        // Restore context (remove clipping)
+        ctx.restore();
 
         // Draw text on top of everything
         this.drawText(ctx);

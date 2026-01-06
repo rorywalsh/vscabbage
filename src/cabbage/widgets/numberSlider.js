@@ -81,7 +81,7 @@ export class NumberSlider {
     pointerDown(event) {
         const channelId = CabbageUtils.getChannelId(this.props);
         const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
-        console.log(`NumberSlider pointerDown:`, { channel: channelId, value: this.props.value, visible: this.props.visible, range, parameterIndex: this.parameterIndex });
+        console.log(`NumberSlider pointerDown:`, { channel: channelId, value: range.value, visible: this.props.visible, range, parameterIndex: this.parameterIndex });
         // Don't perform slider actions in edit mode (draggable mode)
         if (getCabbageMode() === 'draggable') {
             return;
@@ -89,7 +89,7 @@ export class NumberSlider {
 
         this.isDragging = true;
         this.startY = event.clientY;
-        this.startValue = this.props.value;
+        this.startValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
         // Validate startValue to prevent NaN
         if (isNaN(this.startValue) || this.startValue === null || this.startValue === undefined) {
             console.warn('Invalid startValue in numberSlider pointerDown, using default', this.startValue);
@@ -144,21 +144,21 @@ export class NumberSlider {
             const newSkewedValue = this.getSkewedValue(newLinearValue);
 
             // Apply increment snapping to the skewed value
-            const oldValue = this.props.value;
-            this.props.value = Math.round(newSkewedValue / increment) * increment;
-            this.props.value = Math.min(range.max, Math.max(range.min, this.props.value));
+            const oldValue = range.value;
+            range.value = Math.round(newSkewedValue / increment) * increment;
+            range.value = Math.min(range.max, Math.max(range.min, range.value));
 
             // Prevent NaN in value
-            if (isNaN(this.props.value)) {
+            if (isNaN(range.value)) {
                 console.error('NumberSlider value is NaN, setting to min');
-                this.props.value = range.min;
+                range.value = range.min;
             }
 
-            // console.log(`NumberSlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, newSkewedValue=${newSkewedValue}, final value=${this.props.value} (was ${oldValue})`);
+            // console.log(`NumberSlider pointerMove: startValue=${this.startValue}, newLinearValue=${newLinearValue}, newSkewedValue=${newSkewedValue}, final value=${range.value} (was ${oldValue})`);
 
             // Send denormalized value to backend
-            console.log(`NumberSlider sending value: ${this.props.value} (range: ${range.min}-${range.max})`);
-            const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: this.props.value };
+            console.log(`NumberSlider sending value: ${range.value} (range: ${range.min}-${range.max})`);
+            const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: range.value };
 
             Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
@@ -184,7 +184,8 @@ export class NumberSlider {
         const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = this.props.value.toFixed(this.decimalPlaces);
+        const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
+        input.value = currentValue.toFixed(this.decimalPlaces);
         input.style.position = 'absolute';
         input.style.top = '50%';
         input.style.left = '50%';
@@ -200,9 +201,9 @@ export class NumberSlider {
             if (e.key === 'Enter') {
                 const newValue = parseFloat(input.value);
                 if (!isNaN(newValue) && newValue >= range.min && newValue <= range.max) {
-                    this.props.value = newValue;
+                    range.value = newValue;
                     // Send denormalized value to backend
-                    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: this.props.value };
+                    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: range.value };
                     if (this.props.automatable) {
                         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
                     }
@@ -245,15 +246,15 @@ export class NumberSlider {
             'right': 'flex-end',
         };
         const flexAlign = alignMap[this.props.style.textAlign] || 'center';
-        const currentValue = this.props.value === null ? range.defaultValue : this.props.value;
+        const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
         const html = `
-            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible ? 'auto' : 'none'};">
+            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
-                        pointer-events="${this.props.visible ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
+                        pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
                 </svg>
     
                 <!-- Text using foreignObject for consistent rendering -->

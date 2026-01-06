@@ -2,8 +2,6 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("Cabbage: Loading widgetManager.js...");
-
 // Import necessary modules and utilities
 import { widgetConstructors, getWidgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
@@ -11,6 +9,7 @@ import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { handleRadioGroup } from "./radioGroup.js";
+import { PropertyPanel } from "../propertyPanel.js";
 
 /**
  * WidgetManager class handles the creation, insertion, and management of widgets.
@@ -137,30 +136,58 @@ export class WidgetManager {
             widgetDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, widgetDiv));
         }
 
-        // Assign properties to the widget
-        if (props.top !== undefined && props.left !== undefined) {
-            widget.props.bounds = widget.props.bounds || {};
-            widget.props.bounds.top = props.top;
-            widget.props.bounds.left = props.left;
-            delete props.top;
-            delete props.left;
-        }
+        // Store top/left if provided (will be applied after deepMerge)
+        const explicitTop = props.top;
+        const explicitLeft = props.left;
+
+        // Remove from props to prevent them being merged incorrectly
+        if (explicitTop !== undefined) delete props.top;
+        if (explicitLeft !== undefined) delete props.left;
 
         // Deep merge props instead of shallow assign to preserve nested object properties
         this.deepMerge(widget.props, props);
 
-        // Only set the first channel's id to match the widget id if the channel doesn't already have an id
-        // This preserves custom channel IDs while ensuring new widgets have matching IDs
-        if (props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
-            // Only update if the channel ID is not explicitly provided in props
-            if (!props.channels || !props.channels[0] || !props.channels[0].id) {
-                widget.props.channels[0].id = props.id;
+        // NOW apply explicit position AFTER merge to ensure it overrides defaults
+        if (explicitTop !== undefined && explicitLeft !== undefined) {
+            widget.props.bounds = widget.props.bounds || {};
+            widget.props.bounds.top = explicitTop;
+            widget.props.bounds.left = explicitLeft;
+            console.log(`Cabbage: insertWidget - Applied explicit position: top=${explicitTop}, left=${explicitLeft}`);
+        }
+
+        // For comboBox with populate, set automatable to false (plugins can't handle dynamic ranges)
+        if (widget.props.type === 'comboBox' && widget.props.populate?.directory) {
+            widget.props.automatable = false;
+            if (widget.props.channels && widget.props.channels[0]) {
+                widget.props.channels[0].type = "string";
+            }
+        }
+
+        // Clean up redundant IDs: if widget has both id and channels[0].id, prefer channels[0].id
+        if (widget.props.id && Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
+            if (widget.props.channels[0].id) {
+                // Channel has its own ID, remove redundant widget.id
+                if (widget.props.id === widget.props.channels[0].id) {
+                    delete widget.props.id;
+                }
+            } else {
+                // Channel doesn't have ID, use widget.id for the channel
+                widget.props.channels[0].id = widget.props.id;
+                delete widget.props.id;
             }
         }
 
         // Recalculate derived properties after merging props
         if (Array.isArray(widget.props.channels) && widget.props.channels.length > 0) {
-            const rng = (widget.props.channels[0].range) ? widget.props.channels[0].range : CabbageUtils.getDefaultRange('drag');
+            // Ensure channel has a complete range object with value initialized
+            if (!widget.props.channels[0].range) {
+                widget.props.channels[0].range = CabbageUtils.getDefaultRange('drag');
+            }
+            // Initialize value from defaultValue if not set
+            if (widget.props.channels[0].range.value === undefined || widget.props.channels[0].range.value === null) {
+                widget.props.channels[0].range.value = widget.props.channels[0].range.defaultValue;
+            }
+            const rng = widget.props.channels[0].range;
             widget.decimalPlaces = CabbageUtils.getDecimalPlaces(rng.increment);
         }
 
@@ -171,17 +198,27 @@ export class WidgetManager {
             // Store the raw defaults on the instance so other components (e.g. PropertyPanel)
             // can compare and strip default-valued properties when minimizing props.
             widget.rawDefaults = defaultProps;
-            const minimalProps = { ...props };
-            // If insert used top/left which were moved into widget.props.bounds and removed from props,
-            // inject bounds from the instance so minimization preserves position for newly-inserted widgets.
-            if ((!minimalProps.bounds || Object.keys(minimalProps.bounds).length === 0) && widget.props && widget.props.bounds) {
-                minimalProps.bounds = { ...widget.props.bounds };
-            }
-            const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
-            excludeFromJson.forEach(prop => delete minimalProps[prop]);
-            for (let key in defaultProps) {
-                if (this.deepEqual(minimalProps[key], defaultProps[key]) && key !== 'type') {
-                    delete minimalProps[key];
+
+            // Use PropertyPanel.minimizePropsForWidget if available for consistent minimization logic
+            let minimalProps;
+            if (typeof PropertyPanel !== 'undefined' && typeof PropertyPanel.minimizePropsForWidget === 'function') {
+                // Create a temp props object with position from widget.props if not in original props
+                const propsToMinimize = { ...widget.props };
+                minimalProps = PropertyPanel.minimizePropsForWidget(propsToMinimize, widget);
+            } else {
+                // Fallback to simple minimization
+                minimalProps = { ...props };
+                // If insert used top/left which were moved into widget.props.bounds and removed from props,
+                // inject bounds from the instance so minimization preserves position for newly-inserted widgets.
+                if ((!minimalProps.bounds || Object.keys(minimalProps.bounds).length === 0) && widget.props && widget.props.bounds) {
+                    minimalProps.bounds = { ...widget.props.bounds };
+                }
+                const excludeFromJson = ['samples', 'currentCsdFile', 'parameterIndex'];
+                excludeFromJson.forEach(prop => delete minimalProps[prop]);
+                for (let key in defaultProps) {
+                    if (this.deepEqual(minimalProps[key], defaultProps[key]) && key !== 'type') {
+                        delete minimalProps[key];
+                    }
                 }
             }
             widget.originalProps = JSON.parse(JSON.stringify(minimalProps));
@@ -190,23 +227,29 @@ export class WidgetManager {
             widget.originalProps = JSON.parse(JSON.stringify(props));
         }
 
-        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider", "button", "checkBox", "optionButton"].includes(type)) {
-            const interaction = (type === 'button' || type === 'checkBox' || type === 'optionButton') ? 'click' : 'drag';
-            const channels = Array.isArray(widget.props.channels) ? widget.props.channels : [];
-            const range = (channels[0] && channels[0].range) ? channels[0].range : CabbageUtils.getDefaultRange(interaction);
-            widget.props.value = (typeof range.defaultValue !== 'undefined') ? range.defaultValue : 0;
+        // If this widget has children in the original props (from the CSD file),
+        // store them as serializedChildren so they remain minimized during updates
+        if (props.children && Array.isArray(props.children) && props.children.length > 0) {
+            widget.serializedChildren = JSON.parse(JSON.stringify(props.children));
         }
 
-        // Handle combobox default value for indexOffset compatibility
-        if (type === "comboBox" && widget.props.indexOffset && widget.props.value === null) {
-            widget.props.value = 1; // Cabbage2 comboboxes default to index 1
-        }
+        // Note: We no longer initialize widget.props.value - widgets read from channels[].range.value directly
 
         if (!widget.props.currentCsdFile) {
             widget.props.currentCsdFile = currentCsdFile;
         }
+
+        // Duplicate check is now performed in updateWidget before insertion begins
+        // This prevents race conditions with pendingWidgets tracking
+
         // Add the widget to the global widgets array
-        console.log("Cabbage: Pushing widget to widgets array", widget, `parentChannel: ${widget.props.parentChannel || 'none'}`);
+        console.log("Cabbage: Pushing widget to widgets array", {
+            type: widget.props.type,
+            id: widgetId,
+            parentChannel: widget.props.parentChannel || 'none',
+            currentArraySize: widgets.length,
+            allExistingIds: widgets.map(w => w.props.id || w.props.channels?.[0]?.id)
+        });
         widgets.push(widget);
 
 
@@ -265,6 +308,56 @@ export class WidgetManager {
     }
 
     /**
+     * Check if a widget with the given ID already exists
+     * @param {string} widgetId - The ID to check
+     * @param {object} props - The props of the widget being inserted
+     * @returns {object} - { isDuplicate: boolean, reason: string, existingWidget: object }
+     */
+    static checkForDuplicateWidget(widgetId, props) {
+        // Check 1: Look for existing widget in the widgets array
+        const existingInArray = widgets.find(w => {
+            const wId = w.props.id || (w.props.channels?.[0]?.id);
+            return wId === widgetId;
+        });
+
+        if (existingInArray) {
+            return {
+                isDuplicate: true,
+                reason: `Widget with ID "${widgetId}" already exists in widgets array`,
+                existingWidget: existingInArray
+            };
+        }
+
+        // Check 2: Look for existing DOM element with this ID
+        const existingInDOM = document.getElementById(widgetId);
+        if (existingInDOM && existingInDOM.cabbageInstance) {
+            return {
+                isDuplicate: true,
+                reason: `DOM element with ID "${widgetId}" already exists`,
+                existingWidget: existingInDOM.cabbageInstance
+            };
+        }
+
+        // Check 3: Check if any widget has this ID in their channels array
+        const existingWithChannelId = widgets.find(w => {
+            if (Array.isArray(w.props.channels)) {
+                return w.props.channels.some(ch => ch.id === widgetId);
+            }
+            return false;
+        });
+
+        if (existingWithChannelId) {
+            return {
+                isDuplicate: true,
+                reason: `Widget "${existingWithChannelId.props.id || existingWithChannelId.props.channels?.[0]?.id}" already has a channel with ID "${widgetId}"`,
+                existingWidget: existingWithChannelId
+            };
+        }
+
+        return { isDuplicate: false };
+    }
+
+    /**
      * Sets up a widget for performance mode by adding appropriate event 
      * listeners as the widget level.
      * @param {object} widget - The widget to set up.
@@ -294,14 +387,22 @@ export class WidgetManager {
         if (form) {
             console.log(`Cabbage: appendToMainForm - Found MainForm tagName=${form.tagName}, appending widget id=${widgetDiv.id}`);
         } else {
-            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id} to body`);
+            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id}`);
         }
         if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
             // MainForm is an HTML element - append to it
             form.appendChild(widgetDiv);
         } else {
-            // MainForm not found or is an SVG rect - append to document body
-            document.body.appendChild(widgetDiv);
+            // MainForm not found or is an SVG rect - append to appropriate container
+            // For plugin mode, use zoom-wrapper if available, otherwise body
+            const zoomWrapper = document.getElementById('zoom-wrapper');
+            if (zoomWrapper) {
+                console.log(`Cabbage: Appending ${widgetDiv.id} to zoom-wrapper`);
+                zoomWrapper.appendChild(widgetDiv);
+            } else {
+                console.log(`Cabbage: Appending ${widgetDiv.id} to body`);
+                document.body.appendChild(widgetDiv);
+            }
         }
 
         // Diagnostic: log current MainForm child count and visible child IDs
@@ -575,7 +676,13 @@ export class WidgetManager {
 
         // Set zIndex based on widget index property, ensuring widgets appear above the main form (zIndex: 0)
         const baseZIndex = 1000; // Base zIndex higher than main form
-        const widgetIndex = typeof props?.zIndex === 'number' ? props.zIndex : 0;
+        let widgetIndex = 0;
+        if (props?.zIndex !== undefined && props?.zIndex !== null) {
+            const parsed = parseInt(props.zIndex, 10);
+            if (!isNaN(parsed)) {
+                widgetIndex = parsed;
+            }
+        }
         widgetDiv.style.zIndex = (baseZIndex + widgetIndex).toString();
     }
 
@@ -619,13 +726,13 @@ export class WidgetManager {
             console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
             return;
         }
-        //console.log(`WidgetManager.updateWidget: Called with obj:`, JSON.stringify(obj, null, 2));
+        console.log(`WidgetManager.updateWidget: Called with obj.id=${obj.id}, hasWidgetJson=${!!obj.widgetJson}, hasValue=${!!obj.value}`);
         // Extract channel ID for logging
         const channelStr = obj.id;
         //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
         // Check if 'widgetJson' exists, otherwise use 'value'
         const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
-        //console.log(`WidgetManager.updateWidget: Parsed data:`, data);
+        console.log(`WidgetManager.updateWidget: Parsed data type=${typeof data}, isObject=${typeof data === 'object'}`);
 
         // Determine the channel to use for finding the widget
         // If data is a primitive (number, string), use obj.id directly
@@ -639,7 +746,7 @@ export class WidgetManager {
                 (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
                 w.props.id === channelToFind;
         });
-        //console.log(`WidgetManager.updateWidget: Found widget:`, widget ? `type=${widget.props.type}, channel=${CabbageUtils.getChannelId(widget.props, 0)}` : 'null');
+        console.log(`WidgetManager.updateWidget: Found widget for ${channelToFind}:`, widget ? `type=${widget.props.type}` : 'NOT FOUND');
         let widgetFound = false;
 
         // Check if this is a child widget
@@ -649,6 +756,7 @@ export class WidgetManager {
         }
 
         if (widget) {
+            console.log(`WidgetManager.updateWidget: Inside widget branch, hasValue=${obj.hasOwnProperty('value')}, hasWidgetJson=${obj.hasOwnProperty('widgetJson')}`);
             const channelId = CabbageUtils.getWidgetDivId(widget.props, 0);
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
@@ -743,8 +851,10 @@ export class WidgetManager {
                                 console.warn(`WidgetManager: Could not find channel index for ${channelToFind} in widget ${widget.props.type}`);
                             }
                         } else {
-                            // Single-channel widget - update widget.props.value
-                            widget.props.value = newValue;
+                            // Single-channel widget - update channels[0].range.value
+                            if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
+                                widget.props.channels[0].range.value = newValue;
+                            }
                         }
 
                         // Call getInnerHTML to refresh the widget's display
@@ -768,31 +878,11 @@ export class WidgetManager {
                 return; // Early return
             }
 
+            console.log(`WidgetManager.updateWidget: Reached deepMerge section for ${widget.props.type}, widgetJson present`);
             //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
-            // Save current value for sliders to prevent accidental null resets during visibility changes
-            let savedSliderValue;
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                savedSliderValue = widget.props.value;
-            }
-            // Update widget properties
+            // Update widget properties - deepMerge handles channels[].range.value automatically
             //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
             WidgetManager.deepMerge(widget.props, data);
-            // Restore value if accidentally set to null
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                if (widget.props.value === null && savedSliderValue !== null && savedSliderValue !== undefined) {
-                    widget.props.value = savedSliderValue;
-                    // console.log(`WidgetManager.updateWidget: restored slider value from null to ${savedSliderValue} for ${widget.props.type}`);
-                }
-            }
-
-            // Ensure slider values are not null or NaN
-            if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                const range = CabbageUtils.getChannelRange(widget.props, 0);
-                if (widget.props.value === null || isNaN(widget.props.value)) {
-                    widget.props.value = range.defaultValue;
-                }
-                // Note: Values from backend are already in full range, no normalization needed
-            }
             widgetFound = true;
             if (widget.props.type === "form") {
                 // Special handling for form widget
@@ -812,7 +902,11 @@ export class WidgetManager {
             else {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
+                console.log(`WidgetManager.updateWidget: widgetDiv lookup for ${channelId}: ${widgetDiv ? 'FOUND' : 'NULL'}`);
                 if (widgetDiv) {
+                    // Update styles (position, size, zIndex) immediately
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+
                     // Special-case for widgets that manage their own canvas (e.g. genTable, eqController).
                     // Do not clobber the inner DOM. Ensure the inner placeholder exists and
                     // then call the widget's update method which will reuse/append the canvas.
@@ -879,6 +973,7 @@ export class WidgetManager {
 
                         try {
                             if (typeof widget.updateCanvas === 'function') {
+                                console.log(`WidgetManager: Calling updateCanvas for ${widget.props.type} id=${widget.props.id}, samples=${widget.props.samples?.length || 0}`);
                                 widget.updateCanvas();
                             }
                         } catch (e) {
@@ -886,7 +981,9 @@ export class WidgetManager {
                         }
                     } else {
                         // Default behavior for widgets that render their HTML via getInnerHTML
+                        console.log(`WidgetManager.updateWidget: About to update innerHTML for ${widget.props.type} id=${widget.props.id}`);
                         widgetDiv.innerHTML = widget.getInnerHTML();
+                        console.log(`WidgetManager.updateWidget: innerHTML updated for ${widget.props.type}`);
 
                         // Update wrapper styles (respect parent-relative positioning)
                         let propsForStyling = widget.props;
@@ -916,19 +1013,16 @@ export class WidgetManager {
                                 if (childDiv) {
                                     const absoluteLeft = widget.props.bounds.left + childProps.bounds.left;
                                     const absoluteTop = widget.props.bounds.top + childProps.bounds.top;
-                                    // Update child widget styles consistently
-                                    const childWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === CabbageUtils.getWidgetDivId(childProps));
-                                    if (childWidget) {
-                                        WidgetManager.updateWidgetStyles(childDiv, {
-                                            ...childWidget.props,
-                                            bounds: {
-                                                ...childWidget.props.bounds,
-                                                left: absoluteLeft,
-                                                top: absoluteTop
-                                            }
-                                        });
-                                    }
-                                    console.log(`Cabbage: Updated child ${CabbageUtils.getWidgetDivId(childProps)} position to (${absoluteLeft}, ${absoluteTop})`);
+                                    // Update child widget styles using childProps directly
+                                    // (child widgets are not in the widgets array, they're only in parent.children)
+                                    WidgetManager.updateWidgetStyles(childDiv, {
+                                        ...childProps,
+                                        bounds: {
+                                            ...childProps.bounds,
+                                            left: absoluteLeft,
+                                            top: absoluteTop
+                                        }
+                                    });
                                 }
                             });
                         }
@@ -979,25 +1073,12 @@ export class WidgetManager {
                     const instance = childDiv.cabbageInstance || Object.values(childDiv).find(v => v && typeof v.getInnerHTML === 'function');
                     if (instance) {
                         WidgetManager.deepMerge(instance.props, childProps);
-                        // Ensure slider values are not null or NaN
-                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
-                            if (instance.props.value === null || isNaN(instance.props.value)) {
-                                instance.props.value = instance.props.range.defaultValue;
-                            }
-                        }
                         childDiv.innerHTML = instance.getInnerHTML();
                         console.warn("Cabbage: Updated child widget instance", obj.id, instance.props.value);
                     } else {
                         // Fallback: create a temporary widget instance to render HTML
                         const tempWidget = await WidgetManager.createWidget(childProps.type);
                         WidgetManager.deepMerge(tempWidget.props, childProps);
-                        // Ensure slider values are not null
-                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(childProps.type)) {
-                            if (tempWidget.props.value === null) {
-                                const range = CabbageUtils.getChannelRange(tempWidget.props, 0);
-                                tempWidget.props.value = range.defaultValue;
-                            }
-                        }
                         childDiv.innerHTML = tempWidget.getInnerHTML();
                         console.warn("Cabbage: Updated temporary child widget", obj.id);
                     }
@@ -1030,6 +1111,29 @@ export class WidgetManager {
                     console.log(`WidgetManager.updateWidget: Parsed props for new widget. Type: ${p.type}, ID: ${widgetId}`);
                     console.log(`WidgetManager.updateWidget: Pending widgets map size: ${WidgetManager.pendingWidgets.size}`);
 
+                    // Check for duplicates BEFORE starting insertion
+                    if (widgetId) {
+                        const existingWidget = widgets.find(w => {
+                            const wId = w.props.id || (w.props.channels?.[0]?.id);
+                            return wId === widgetId;
+                        });
+
+                        const existingDOM = document.getElementById(widgetId);
+
+                        if (existingWidget || (existingDOM && existingDOM.cabbageInstance)) {
+                            console.warn(`WidgetManager.updateWidget: Widget ${widgetId} already exists, skipping duplicate insertion`);
+                            console.warn(`  - Found in widgets array: ${!!existingWidget}`);
+                            console.warn(`  - Found in DOM: ${!!existingDOM}`);
+                            if (existingDOM) {
+                                console.warn(`  - DOM element parent: ${existingDOM.parentElement?.id || existingDOM.parentElement?.tagName}`);
+                                console.warn(`  - DOM element has cabbageInstance: ${!!existingDOM.cabbageInstance}`);
+                            }
+                            console.warn(`  - widgets.length: ${widgets.length}`);
+                            console.warn(`  - MainForm exists: ${!!document.getElementById('MainForm')}`);
+                            return;
+                        }
+                    }
+
                     // Check for pending insertion to prevent race conditions
                     if (widgetId && WidgetManager.pendingWidgets.has(widgetId)) {
                         console.warn(`WidgetManager.updateWidget: RACE CONDITION DETECTED! Widget ${widgetId} is already being inserted. Waiting for promise...`);
@@ -1038,24 +1142,50 @@ export class WidgetManager {
                         return;
                     }
 
-                    console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
-
+                    // Track this insertion in pendingWidgets IMMEDIATELY to prevent TOCTOU race
+                    // This must happen BEFORE any await or async operation
+                    let resolveInsertion;
+                    const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
                     if (widgetId) {
-                        let resolveInsertion;
-                        const insertionPromise = new Promise(resolve => { resolveInsertion = resolve; });
                         WidgetManager.pendingWidgets.set(widgetId, insertionPromise);
                         console.log(`WidgetManager.updateWidget: Added ${widgetId} to pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
+                    }
 
-                        try {
-                            await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
-                        } finally {
+                    // If this is NOT a form widget and MainForm doesn't exist, queue it
+                    if (p.type !== 'form' && !document.getElementById('MainForm')) {
+                        if (!WidgetManager.pendingNonFormWidgets) {
+                            WidgetManager.pendingNonFormWidgets = [];
+                        }
+                        console.log(`WidgetManager.updateWidget: MainForm not found, queueing ${p.type} widget ${widgetId}`);
+                        WidgetManager.pendingNonFormWidgets.push(obj);
+                        // Clean up pending flag since we're queueing instead of inserting
+                        if (widgetId) {
+                            resolveInsertion();
+                            WidgetManager.pendingWidgets.delete(widgetId);
+                        }
+                        return;
+                    }
+
+                    console.log(`WidgetManager.updateWidget: Creating new widget of type ${p.type}`);
+
+                    try {
+                        await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
+
+                        // If this was a form widget and we have queued widgets, process them now
+                        if (p.type === 'form' && WidgetManager.pendingNonFormWidgets && WidgetManager.pendingNonFormWidgets.length > 0) {
+                            console.log(`WidgetManager.updateWidget: MainForm created, processing ${WidgetManager.pendingNonFormWidgets.length} queued widgets`);
+                            const queuedWidgets = WidgetManager.pendingNonFormWidgets;
+                            WidgetManager.pendingNonFormWidgets = [];
+                            for (const queuedMessage of queuedWidgets) {
+                                await WidgetManager.updateWidget(queuedMessage);
+                            }
+                        }
+                    } finally {
+                        if (widgetId) {
                             resolveInsertion();
                             WidgetManager.pendingWidgets.delete(widgetId);
                             console.log(`WidgetManager.updateWidget: Removed ${widgetId} from pendingWidgets. Map size now: ${WidgetManager.pendingWidgets.size}`);
                         }
-                    } else {
-                        console.warn('WidgetManager.updateWidget: No widgetId found, cannot track pending insertion.');
-                        await WidgetManager.insertWidget(p.type, p, obj.currentCsdPath);
                     }
                 }
                 else {

@@ -13,6 +13,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     TARGET_CSS_DIR_FX="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffect/"
     TARGET_DIR="/Users/rwalsh/Library/CabbageAudio/CabbagePluginSynth/cabbage/"
     TARGET_CSS_DIR="/Users/rwalsh/Library/CabbageAudio/CabbagePluginSynth/"
+    TARGET_DIR_FXd="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffectd/cabbage/"
+    TARGET_CSS_DIR_FXd="/Users/rwalsh/Library/CabbageAudio/CabbagePluginEffectd/"
 else
     # Linux-specific directory
     TARGET_DIR_FX="$HOME/.config/CabbageAudio/CabbagePluginEffect/cabbage/"
@@ -61,6 +63,17 @@ cp -rfv ./src/cabbage/* "$TARGET_DIR_FXd"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FX"
 cp -rfv ./media/cabbage.css "$TARGET_CSS_DIR_FXd"
+
+# Copy propertyPanel.js and widgetWrapper.js to the parent of the target cabbage directory
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR"
+cp -fv ./src/widgetClipboard.js "$TARGET_CSS_DIR"
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR_FX"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR_FX"
+cp -fv ./src/widgetClipboard.js "$TARGET_CSS_DIR_FX"
+cp -fv ./src/propertyPanel.js "$TARGET_CSS_DIR_FXd"
+cp -fv ./src/widgetWrapper.js "$TARGET_CSS_DIR_FXd"
+cp -fv ./src/widgetClipboard.js "$TARGET_CSS_DIR_FXd"
 
 # Copy only the contents of ./src/cabbage (excluding its widgets subfolder)
 if [ -d "./src/cabbage" ]; then

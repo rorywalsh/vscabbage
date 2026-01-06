@@ -17,7 +17,7 @@ export class PropertyPanel {
      * extension when sending minimized updates.
      * @type {string[]}
      */
-    static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value'];
+    static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value', 'range.value'];
 
     /**
      * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
@@ -47,9 +47,79 @@ export class PropertyPanel {
     static applyExcludes(obj, keys) {
         try {
             if (!obj || typeof obj !== 'object') return obj;
-            keys.forEach(k => {
-                if (k in obj) delete obj[k];
+
+            // Separate simple keys (top-level) and deep keys (dot notation)
+            const simpleKeys = keys.filter(k => !k.includes('.'));
+            const deepKeys = keys.filter(k => k.includes('.'));
+
+            // 1. Handle simple keys (Shallow delete - existing behavior)
+            simpleKeys.forEach(k => {
+                if (k in obj) {
+                    delete obj[k];
+                }
             });
+
+            // Also recursively delete simple keys from nested objects and arrays
+            const deleteFromNested = (target, keyToDelete) => {
+                if (!target || typeof target !== 'object') return;
+
+                if (Array.isArray(target)) {
+                    target.forEach(item => {
+                        if (item && typeof item === 'object' && keyToDelete in item) {
+                            delete item[keyToDelete];
+                        }
+                        deleteFromNested(item, keyToDelete);
+                    });
+                } else {
+                    Object.values(target).forEach(value => {
+                        if (value && typeof value === 'object') {
+                            if (keyToDelete in value) {
+                                delete value[keyToDelete];
+                            }
+                            deleteFromNested(value, keyToDelete);
+                        }
+                    });
+                }
+            };
+
+            simpleKeys.forEach(k => {
+                deleteFromNested(obj, k);
+            });
+
+            // 2. Handle deep keys (Recursive delete)
+            if (deepKeys.length > 0) {
+                const stripDeep = (target, parentKey, childKey) => {
+                    if (!target || typeof target !== 'object') return;
+
+                    if (Array.isArray(target)) {
+                        target.forEach(item => stripDeep(item, parentKey, childKey));
+                        return;
+                    }
+
+                    // If we found the parent key, delete the child from it
+                    if (parentKey in target) {
+                        const parentObj = target[parentKey];
+                        if (parentObj && typeof parentObj === 'object' && childKey in parentObj) {
+                            delete parentObj[childKey];
+                        }
+                    }
+
+                    // Recurse into children
+                    Object.values(target).forEach(value => {
+                        if (value && typeof value === 'object') {
+                            stripDeep(value, parentKey, childKey);
+                        }
+                    });
+                };
+
+                deepKeys.forEach(key => {
+                    const [parent, child] = key.split('.');
+                    if (parent && child) {
+                        stripDeep(obj, parent, child);
+                    }
+                });
+            }
+
         } catch (e) {
             console.error('PropertyPanel.applyExcludes failed:', e);
         }
@@ -70,6 +140,17 @@ export class PropertyPanel {
             const defaults = widget.rawDefaults || {};
             // Deep clone the props to avoid mutating live state
             const clone = JSON.parse(JSON.stringify(props));
+
+            // If the widget has pre-minimized children (from grouping), use those instead
+            // of the runtime-expanded children that are in props.children
+            if (widget.serializedChildren && Array.isArray(widget.serializedChildren)) {
+                clone.children = JSON.parse(JSON.stringify(widget.serializedChildren));
+            }
+
+            // Track which top-level properties existed in the original CSD file
+            // This is used to determine which properties should be sent as null when they revert to defaults
+            const originalProps = widget.originalProps || {};
+            const originalTopLevelKeys = new Set(Object.keys(originalProps));
 
             const strip = (obj, defs) => {
                 if (!obj || !defs) return;
@@ -110,6 +191,7 @@ export class PropertyPanel {
                             }
                         } else {
                             strip(v, dv);
+                            // After stripping nested properties, check if the object is now empty
                             if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
                                 delete obj[k];
                             }
@@ -120,6 +202,60 @@ export class PropertyPanel {
             };
 
             strip(clone, defaults);
+
+            // Remove items array if populate exists (comboBox should not have both populate and items)
+            // Check on the original props, not the clone, since populate may have been stripped
+            if (props.populate && props.populate.directory && props.populate.directory !== '') {
+                if (clone.items) {
+                    delete clone.items;
+                    console.log('PropertyPanel.minimizePropsForWidget: removed items array (populate.directory is set)');
+                }
+            }
+
+            // After stripping, check for properties (both top-level and nested) that were deleted but existed in original CSD.
+            // Send these as null to signal explicit deletion to the backend.
+            const restoreDeletedProperties = (cloneObj, originalObj, propsObj, path = []) => {
+                if (!originalObj || typeof originalObj !== 'object') return;
+
+                Object.keys(originalObj).forEach(key => {
+                    const fullPath = [...path, key];
+                    const pathString = fullPath.join('.');
+
+                    // Skip critical identity fields - these should never be set to null
+                    if (pathString === 'type' || pathString === 'id' || pathString === 'channels') return;
+
+                    // Get values from all three objects at this path
+                    const originalValue = originalObj[key];
+                    const cloneValue = cloneObj ? cloneObj[key] : undefined;
+                    const propsValue = propsObj ? propsObj[key] : undefined;
+
+                    if (pathString.includes('svg')) {
+                        console.log(`PropertyPanel: restoreDeletedProperties checking ${pathString}:`, {
+                            originalValue,
+                            cloneValue,
+                            propsValue,
+                            willSetNull: originalValue !== undefined && cloneValue === undefined && propsValue !== undefined
+                        });
+                    }
+
+                    // If the property existed in original and is now missing from clone (was stripped because it matches default)
+                    // but still exists in current props, set it to null to signal deletion
+                    if (originalValue !== undefined && cloneValue === undefined && propsValue !== undefined) {
+                        // For nested objects, we need to restore the parent structure
+                        if (!cloneObj) return;
+                        console.log(`PropertyPanel: Setting ${pathString} to null (existed in original, now matches default)`);
+                        cloneObj[key] = null;
+                    }
+                    // If it's an object in both original and clone, recurse into it
+                    else if (originalValue && typeof originalValue === 'object' && !Array.isArray(originalValue) &&
+                        cloneValue && typeof cloneValue === 'object' && !Array.isArray(cloneValue)) {
+                        restoreDeletedProperties(cloneValue, originalValue, propsValue, fullPath);
+                    }
+                });
+            };
+
+            restoreDeletedProperties(clone, originalProps, props);
+
             // Ensure critical identity fields aren't stripped completely.
             // If the widget had a type or id originally, ensure they remain in the
             // minimized payload so the extension can correctly identify the object.
@@ -129,11 +265,14 @@ export class PropertyPanel {
                 // default channel entry (which can cause malformed insertions
                 // when the receiver expects only non-default changes).
 
-                // Only omit default-matching channels for form widgets. Other
-                // widget types may use channels differently and should not have
+                // Only omit default-matching channels for form and genTable widgets.
+                // genTable uses its top-level id for communication, so default channels are redundant.
+                // Other widget types may use channels differently and should not have
                 // their channels stripped by this shortcut.
-                const isFormWidget = (props && props.type === 'form') || (widget && widget.props && widget.props.type === 'form');
-                if (isFormWidget && clone.channels && defaults.channels && Array.isArray(clone.channels) && Array.isArray(defaults.channels)) {
+                const widgetType = (props && props.type) || (widget && widget.props && widget.props.type);
+                const shouldStripDefaultChannels = widgetType === 'form' || widgetType === 'genTable';
+
+                if (shouldStripDefaultChannels && clone.channels && defaults.channels && Array.isArray(clone.channels) && Array.isArray(defaults.channels)) {
                     try {
                         // Consider channels equal if their contents other than `id` match the defaults.
                         // Some widget instances may have different ids (e.g. MainForm vs generated ids)
@@ -172,15 +311,37 @@ export class PropertyPanel {
                     clone.id = props.id;
                 }
 
-                // Defensive: if after minimization we have neither a type nor an id,
+                // Defensive: if after minimization we have neither a type nor an id (or channel id),
                 // that's an invalid payload to send — return the full props so the
                 // extension receives a complete object (and can validate/err).
-                if ((!clone.type || clone.type === '') && (!clone.id || clone.id === '')) {
-                    console.error('PropertyPanel.minimizePropsForWidget: minimized object has no type or id — returning full props to avoid invalid payload');
+                const hasChannelId = clone.channels && Array.isArray(clone.channels) && clone.channels.length > 0 && clone.channels[0]?.id;
+                if ((!clone.type || clone.type === '') && (!clone.id || clone.id === '') && !hasChannelId) {
+                    console.error('PropertyPanel.minimizePropsForWidget: minimized object has no type, id, or channel id — returning full props to avoid invalid payload');
                     return props;
                 }
             } catch (e) {
                 console.error('PropertyPanel.minimizePropsForWidget post-strip checks failed:', e);
+            }
+
+            // Remove redundant widget.id if it matches the first channel's id
+            // BUT only if channels array is still present after minimization
+            // (we need at least one identifier to find the widget in the CSD)
+            try {
+                if (clone.id && clone.channels && Array.isArray(clone.channels) && clone.channels.length > 0) {
+                    const firstChannelId = clone.channels[0]?.id;
+                    if (firstChannelId && clone.id === firstChannelId) {
+                        // Only remove id if channels will definitely be in the payload
+                        delete clone.id;
+                        console.log('PropertyPanel.minimizePropsForWidget: removed redundant widget.id (matches channels[0].id)');
+                    }
+                }
+                // If channels were stripped but we had an id, restore it so the widget can be found
+                else if (!clone.channels && props.id) {
+                    clone.id = props.id;
+                    console.log('PropertyPanel.minimizePropsForWidget: restored widget.id (channels were stripped)');
+                }
+            } catch (e) {
+                console.error('PropertyPanel.minimizePropsForWidget: failed to check redundant id', e);
             }
 
             return clone;
@@ -193,9 +354,22 @@ export class PropertyPanel {
     constructor(vscode, type, properties, widgets) {
         this.vscode = vscode;           // VSCode API instance
         this.type = type;               // Type of the widget
-        this.properties = properties;   // Properties of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
-        console.log('PropertyPanel: Constructor called for type:', type, 'channel:', CabbageUtils.getChannelId(properties, 0));
+        this.channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
+
+        // Handle multi-widget mode
+        if (type === 'multi' && Array.isArray(properties)) {
+            this.selectedWidgets = properties;  // Array of selected widget objects
+            this.properties = null;  // No single properties object
+            this.isMultiMode = true;
+            console.log('PropertyPanel: Constructor called for multi-widget mode with', this.selectedWidgets.length, 'widgets');
+        } else {
+            this.properties = properties;   // Properties of the single widget
+            this.selectedWidgets = null;
+            this.isMultiMode = false;
+            console.log('PropertyPanel: Constructor called for type:', type, 'channel:', CabbageUtils.getChannelId(properties, 0));
+        }
+
         // Create the panel and sections on initialization
         this.createPanel();
     }
@@ -230,17 +404,168 @@ export class PropertyPanel {
     } // end checkChannelUniqueness
 
     /**
+     * Shows a warning message at the top of the property panel.
+     * The warning automatically disappears after a few seconds.
+     * @param {string} message - The warning message to display
+     * @param {number} duration - Duration in milliseconds (default: 3000)
+     */
+    showWarning(message, duration = 3000) {
+        const panel = document.querySelector('.property-panel');
+        if (!panel) return;
+
+        // Remove any existing warning
+        const existingWarning = panel.querySelector('.property-panel-warning');
+        if (existingWarning) {
+            existingWarning.remove();
+        }
+
+        // Create warning element
+        const warning = document.createElement('div');
+        warning.classList.add('property-panel-warning', 'show');
+        warning.textContent = message;
+
+        // Insert at the top of the panel
+        panel.insertBefore(warning, panel.firstChild);
+
+        // Remove after duration
+        setTimeout(() => {
+            warning.classList.remove('show');
+            setTimeout(() => {
+                warning.remove();
+            }, 300); // Wait for fade-out animation
+        }, duration);
+    }
+
+    /**
+     * Handles live validation and debounced updates for channel ID inputs.
+     * Shows warnings immediately but debounces the actual update.
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} fullPath - The property path (e.g., 'channels[0].id')
+     * @param {number|null} channelIndex - The channel index if applicable
+     */
+    handleChannelIdInput(input, fullPath, channelIndex) {
+        const newChannel = input.value.trim();
+        const originalChannel = input.dataset.originalChannel;
+
+        // Find the widget
+        const widget = this.widgets.find(w => {
+            if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
+                return w.props.channels[channelIndex].id === originalChannel;
+            } else if (fullPath === 'id') {
+                return w.props.id === originalChannel;
+            } else if (fullPath === 'channel') {
+                return w.props.channel === originalChannel;
+            }
+            return false;
+        });
+
+        if (!widget) return;
+
+        // Immediate validation - show warning if duplicate
+        const existingDiv = document.getElementById(newChannel);
+        const isOwnWidgetId = widget.props.id === newChannel;
+        const isDuplicate = existingDiv && existingDiv.id !== originalChannel && !isOwnWidgetId;
+
+        if (isDuplicate && newChannel !== '') {
+            this.showWarning(`A widget with id '${newChannel}' already exists!`);
+        }
+
+        // Clear existing debounce timer for this input
+        const timerId = this.channelIdDebounceTimers.get(input);
+        if (timerId) {
+            clearTimeout(timerId);
+        }
+
+        // Don't update if duplicate or empty
+        if (isDuplicate || newChannel === '') {
+            return;
+        }
+
+        // Debounce the actual update
+        const newTimerId = setTimeout(() => {
+            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
+            this.channelIdDebounceTimers.delete(input);
+        }, 400); // 400ms debounce
+
+        this.channelIdDebounceTimers.set(input, newTimerId);
+    }
+
+    /**
+     * Commits a channel ID change after debounce or on Enter/Tab.
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} fullPath - The property path
+     * @param {number|null} channelIndex - The channel index if applicable
+     * @param {string} newChannel - The new channel ID
+     * @param {string} originalChannel - The original channel ID
+     * @param {Object} widget - The widget object
+     */
+    commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget) {
+        console.log('PropertyPanel: committing channel ID change from', originalChannel, 'to', newChannel);
+
+        // Save cursor position
+        const cursorPosition = input.selectionStart;
+        const inputId = input.id;
+
+        // Update the widget's id property in place
+        if (fullPath === 'id') {
+            widget.props.id = newChannel;
+        } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
+            widget.props.channels[channelIndex].id = newChannel;
+        }
+
+        // Update the widget div id to match the updated props
+        // This is necessary so that click events send the correct ID
+        const widgetDiv = document.getElementById(originalChannel);
+        if (widgetDiv) {
+            widgetDiv.id = newChannel;
+            console.log('PropertyPanel: updated DOM element ID from', originalChannel, 'to', newChannel);
+        } else {
+            console.warn('PropertyPanel: could not find DOM element with ID', originalChannel);
+        }
+
+        // Update the original channel reference
+        input.dataset.originalChannel = newChannel;
+
+        // Send update with old ID so extension can find and update the correct widget
+        try {
+            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+            this.vscode.postMessage({
+                command: 'updateWidgetProps',
+                text: PropertyPanel.safeSanitizeForPost(minimized),
+                oldId: originalChannel
+            });
+        } catch (e) {
+            console.error('PropertyPanel: failed to post id-change update', e);
+            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
+        }
+
+        // Rebuild the panel
+        this.rebuildPropertiesPanel();
+
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById(inputId);
+            if (newInput && newInput.tagName === 'INPUT') {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 10);
+    }
+
+    /**
      * Creates or rebuilds the panel DOM and attaches listeners.
      */
     createPanel() {
-        console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', CabbageUtils.getChannelId(this.properties, 0));
+        const channelInfo = this.isMultiMode ? 'multi-widget' : CabbageUtils.getChannelId(this.properties, 0);
+        console.log('PropertyPanel: createPanel called for type:', this.type, 'channel:', channelInfo);
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
 
         // Suppress input events while we build the panel to avoid firing
         // handleInputChange from initialization side-effects (color pickers, style updates, etc.)
-        this._suppressEvents = true;
+        this.suppressEvents = true;
 
         // Prevent scroll events from bubbling to the main webview
         if (!panel.hasAttribute('data-scroll-handler-attached')) {
@@ -265,25 +590,151 @@ export class PropertyPanel {
             panel.setAttribute('data-scroll-handler-attached', 'true');
         }
 
-        // Create a special section for type and channel
-        this.createSpecialSection(panel);
+        if (this.isMultiMode) {
+            // Multi-widget mode: show header and common properties
+            this.createMultiWidgetPanel(panel);
+        } else {
+            // Single widget mode: existing behavior
+            // Create a special section for type and channel
+            this.createSpecialSection(panel);
 
-        // Create sections based on the properties object
-        this.createSections(this.properties, panel);
-        this.createMiscSection(this.properties, panel);
+            // Create sections based on the properties object
+            this.createSections(this.properties, panel);
+            this.createMiscSection(this.properties, panel);
+        }
+
+        // Add a spacer at the bottom to ensure the last item is not obscured by scrollbars
+        const spacer = document.createElement('div');
+        spacer.style.height = '50px';
+        spacer.style.width = '100%';
+        panel.appendChild(spacer);
 
         // Mark inputs as initialized after a short delay and re-enable events.
         // This allows any component initialization (like color pickers) to complete
         // without triggering genuine change handlers.
         setTimeout(() => {
-            this._suppressEvents = false;
+            this.suppressEvents = false;
             const initables = document.querySelectorAll('.property-panel input, .property-panel select, .property-panel textarea');
             initables.forEach(i => i.dataset.initialized = 'true');
             console.log('PropertyPanel: inputs initialized, event suppression lifted');
         }, 60);
     }
 
-    /** 
+    /**
+     * Creates a multi-widget property panel showing common properties
+     * @param panel - The panel to which sections are appended
+     */
+    createMultiWidgetPanel(panel) {
+        // Track handled properties
+        this.handledProperties = new Set();
+
+        // Create header showing selection count
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 12px;
+            background: var(--vscode-editor-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            font-weight: bold;
+            text-align: center;
+        `;
+        header.textContent = `${this.selectedWidgets.length} Widgets Selected`;
+        panel.appendChild(header);
+
+        // Get common properties across all selected widgets
+        const commonProps = this.getCommonProperties();
+
+        // Create bounds section (most common property to edit)
+        if (commonProps.bounds) {
+            const boundsSection = this.createSection('Bounds');
+            Object.entries(commonProps.bounds.value || {}).forEach(([key, value]) => {
+                const isMixed = commonProps.bounds.mixed && commonProps.bounds.mixed.has(key);
+                this.addPropertyToSection(key, isMixed ? '' : value, boundsSection, 'bounds', isMixed);
+            });
+            panel.appendChild(boundsSection);
+            this.handledProperties.add('bounds');
+        }
+
+        // Create misc section for other common properties
+        const miscSection = this.createSection('Common Properties');
+        let hasCommonProps = false;
+
+        // Add zIndex if common
+        if (commonProps.zIndex !== undefined) {
+            const isMixed = commonProps.zIndex.mixed;
+            this.addPropertyToSection('zIndex', isMixed ? '' : commonProps.zIndex.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        // Add visible if common
+        if (commonProps.visible !== undefined) {
+            const isMixed = commonProps.visible.mixed;
+            this.addPropertyToSection('visible', isMixed ? '' : commonProps.visible.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        // Add active if common
+        if (commonProps.active !== undefined) {
+            const isMixed = commonProps.active.mixed;
+            this.addPropertyToSection('active', isMixed ? '' : commonProps.active.value, miscSection, '', isMixed);
+            hasCommonProps = true;
+        }
+
+        if (hasCommonProps) {
+            panel.appendChild(miscSection);
+        }
+    }
+
+    /**
+     * Gets common properties across all selected widgets
+     * @returns Object with common properties and mixed value indicators
+     */
+    getCommonProperties() {
+        if (!this.selectedWidgets || this.selectedWidgets.length === 0) {
+            return {};
+        }
+
+        const commonProps = {};
+        const firstWidget = this.selectedWidgets[0].props;
+
+        // Check bounds
+        if (firstWidget.bounds) {
+            const boundsCommon = { value: {}, mixed: new Set() };
+            ['left', 'top', 'width', 'height'].forEach(key => {
+                const firstValue = firstWidget.bounds[key];
+                const allSame = this.selectedWidgets.every(w => w.props.bounds && w.props.bounds[key] === firstValue);
+                boundsCommon.value[key] = firstValue;
+                if (!allSame) {
+                    boundsCommon.mixed.add(key);
+                }
+            });
+            commonProps.bounds = boundsCommon;
+        }
+
+        // Check zIndex
+        if (firstWidget.zIndex !== undefined) {
+            const firstValue = firstWidget.zIndex;
+            const allSame = this.selectedWidgets.every(w => w.props.zIndex === firstValue);
+            commonProps.zIndex = { value: firstValue, mixed: !allSame };
+        }
+
+        // Check visible
+        if (firstWidget.visible !== undefined) {
+            const firstValue = firstWidget.visible;
+            const allSame = this.selectedWidgets.every(w => w.props.visible === firstValue);
+            commonProps.visible = { value: firstValue, mixed: !allSame };
+        }
+
+        // Check active
+        if (firstWidget.active !== undefined) {
+            const firstValue = firstWidget.active;
+            const allSame = this.selectedWidgets.every(w => w.props.active === firstValue);
+            commonProps.active = { value: firstValue, mixed: !allSame };
+        }
+
+        return commonProps;
+    }
+
+    /**
      * Creates a special section for widget properties (Type and Channel).
      * @param panel - The panel to which the special section is appended.
      */
@@ -298,11 +749,9 @@ export class PropertyPanel {
         this.addPropertyToSection('type', this.type, specialSection);
         this.handledProperties.add('type'); // Mark as handled
 
-        // Add widget ID if it exists (top-level id)
-        if (this.properties.id) {
-            this.addPropertyToSection('id', this.properties.id, specialSection, '');
-            this.handledProperties.add('id'); // Mark as handled
-        }
+        // Always show widget ID field (even if empty) so users know it's available
+        this.addPropertyToSection('id', this.properties.id || '', specialSection, '');
+        this.handledProperties.add('id'); // Mark as handled
 
         panel.appendChild(specialSection); // Append special section to panel
 
@@ -333,6 +782,11 @@ export class PropertyPanel {
         const widget = this.widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === CabbageUtils.getChannelId(properties, 0));
         const hiddenProps = widget?.hiddenProps || ['parameterIndex', 'children', 'currentCsdFile', 'value'];
 
+        // For comboBox widgets with populate, hide items array
+        if (this.type === 'comboBox' && properties.populate) {
+            hiddenProps.push('items');
+        }
+
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps or already handled
             if (hiddenProps.includes(sectionName)) {
@@ -357,13 +811,16 @@ export class PropertyPanel {
                     }
 
                     // Check if the value is an object
-                    if (typeof value === 'object' && value !== null) {
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                         // Handle nested properties (like colour)
+                        console.log(`PropertyPanel: Processing nested object - sectionName: ${sectionName}, key: ${key}`);
                         Object.entries(value).forEach(([nestedKey, nestedValue]) => {
                             // Skip if this deeply nested property is in hiddenProps
                             if (hiddenProps.includes(`${sectionName}.${key}.${nestedKey}`)) {
                                 return;
                             }
+                            // Pass the full path including sectionName for proper property nesting
+                            console.log(`PropertyPanel: Adding nested property - key: ${key}.${nestedKey}, value: ${nestedValue}, path: '${sectionName}'`);
                             this.addPropertyToSection(`${key}.${nestedKey}`, nestedValue, sectionDiv, sectionName);
                         });
                     } else {
@@ -447,10 +904,10 @@ export class PropertyPanel {
     }
 
     /** 
- * Creates a miscellaneous section for properties not in a specific section.
- * @param properties - The properties object containing miscellaneous data.
- * @param panel - The panel to which the miscellaneous section is appended.
- */
+    * Creates a miscellaneous section for properties not in a specific section.
+    * @param properties - The properties object containing miscellaneous data.
+    * @param panel - The panel to which the miscellaneous section is appended.
+    */
     createMiscSection(properties, panel) {
         const miscSection = this.createSection('Misc');
 
@@ -617,12 +1074,12 @@ export class PropertyPanel {
     }
 
     /** 
- * Creates an input element based on the property key and value.
- * @param key - The property key to create the input for.
- * @param value - The initial value of the input.
- * @param path - The nested path for the property (optional).
- * @returns The created input element.
- */
+    * Creates an input element based on the property key and value.
+    * @param key - The property key to create the input for.
+    * @param value - The initial value of the input.
+    * @param path - The nested path for the property (optional).
+    * @returns The created input element.
+    */
     createInputElement(key, value, path = '') {
         let input;
         const fullPath = path ? `${path}.${key}` : key;
@@ -646,8 +1103,8 @@ export class PropertyPanel {
             return toggleContainer;
         }
 
-        // Handle file input
-        if (key.toLowerCase().includes('file') && key !== 'currentCsdFile') {
+        // Handle file input (but not fileType which is just a text filter)
+        if (key.toLowerCase().includes('file') && key !== 'currentCsdFile' && key !== 'fileType' && !key.toLowerCase().includes('filetype')) {
             input = document.createElement('select');
             input.classList.add('loading');
 
@@ -698,13 +1155,27 @@ export class PropertyPanel {
             const currentId = (fullPath === 'channel') ? value : (channelIndex !== null ? (Array.isArray(this.properties?.channels) && this.properties.channels[channelIndex] ? this.properties.channels[channelIndex].id : value) : (this.properties.id || value));
             input.value = currentId;
             input.dataset.originalChannel = currentId;
-            input.dataset.skipInputHandler = 'true';
+            input.dataset.channelIdInput = 'true'; // Mark as channel ID input
 
+            // Add live input handler for debounced updates and validation
+            input.addEventListener('input', (evt) => {
+                this.handleChannelIdInput(evt.target, fullPath, channelIndex);
+            });
+
+            // Keep Enter/Tab for immediate commit
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter' || evt.key === 'Tab') {
                     evt.preventDefault();
                     const newChannel = evt.target.value.trim();
                     const originalChannel = input.dataset.originalChannel;
+
+                    // Clear any pending debounce
+                    const timerId = this.channelIdDebounceTimers.get(input);
+                    if (timerId) {
+                        clearTimeout(timerId);
+                        this.channelIdDebounceTimers.delete(input);
+                    }
+
                     const widget = this.widgets.find(w => {
                         if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
                             return w.props.channels[channelIndex].id === originalChannel;
@@ -718,37 +1189,13 @@ export class PropertyPanel {
 
                     if (widget) {
                         // Check for uniqueness
+                        // Allow channel.id to match the widget's own top-level id
                         const existingDiv = document.getElementById(newChannel);
-                        if (existingDiv && existingDiv.id !== originalChannel) {
+                        const isOwnWidgetId = widget.props.id === newChannel;
+                        if (existingDiv && existingDiv.id !== originalChannel && !isOwnWidgetId) {
                             console.warn(`Cabbage: A widget with id '${newChannel}' already exists!`);
+                            this.showWarning(`A widget with id '${newChannel}' already exists!`);
                             return;
-                        }
-
-                        // Update the widget's id property in place
-                        if (fullPath === 'id') {
-                            widget.props.id = newChannel;
-                        } else if (channelIndex !== null && Array.isArray(widget.props.channels) && widget.props.channels[channelIndex]) {
-                            widget.props.channels[channelIndex].id = newChannel;
-                        }
-
-                        // Update the widget div id
-                        const widgetDiv = document.getElementById(originalChannel);
-                        if (widgetDiv) {
-                            widgetDiv.id = newChannel;
-                        }
-
-                        // Send update with old ID so extension can find and update the correct widget
-                        try {
-                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                            this.vscode.postMessage({
-                                command: 'updateWidgetProps',
-                                text: PropertyPanel.safeSanitizeForPost(minimized),
-                                oldId: originalChannel
-                            });
-                        } catch (e) {
-                            console.error('PropertyPanel: failed to post id-change update', e);
-                            this.vscode.postMessage({ command: 'updateWidgetProps', text: PropertyPanel.safeSanitizeForPost(widget.props), oldId: originalChannel });
                         }
 
                         // If the user pressed Tab we want to preserve tab order across the
@@ -762,9 +1209,8 @@ export class PropertyPanel {
                             let currIndex = focusables.indexOf(input);
                             if (currIndex === -1) currIndex = 0;
 
-                            // Rebuild the panel (this will recreate DOM nodes)
-                            this.rebuildPropertiesPanel();
-                            input.blur();
+                            // Commit the change immediately
+                            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
 
                             // After rebuild, attempt to focus the next or previous element in order
                             setTimeout(() => {
@@ -779,9 +1225,12 @@ export class PropertyPanel {
                                 }
                             }, 60);
                         } else {
-                            // Default Enter behaviour: rebuild and blur the input
-                            this.rebuildPropertiesPanel();
-                            input.blur();
+                            // Default Enter behaviour: commit and blur
+                            this.commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget);
+                            setTimeout(() => {
+                                const newInput = document.getElementById(input.id);
+                                if (newInput) newInput.blur();
+                            }, 10);
                         }
                     }
                     else {
@@ -864,12 +1313,17 @@ export class PropertyPanel {
                     this.handleInputChange(event); // Trigger change handler
                 });
             }
+            // Handle radioGroup as text input (not number)
+            else if (key.toLowerCase() === 'radiogroup') {
+                input = document.createElement('input');
+                input.type = 'text';
+                input.value = value; // Set the initial value
+            }
             // Handle numeric input for stroke width and other numeric properties
             else if (fullPath.includes("stroke.width") || typeof value === 'number') {
                 input = document.createElement('input');
                 input.type = 'number'; // Set input type to number
                 input.value = value; // Set the initial value
-                input.min = 0; // Set minimum value if applicable
             }
             // Handle font family selection
             else if (key.toLowerCase().includes("family")) {
@@ -893,7 +1347,16 @@ export class PropertyPanel {
             // Handle text alignment selection
             else if (key.toLowerCase() === 'align' || key.toLowerCase().endsWith('.align')) {
                 input = document.createElement('select');
-                const alignments = ['left', 'right', 'centre'];
+                let alignments = ['left', 'right', 'centre'];
+
+                // Special case for label.align on rotarySlider (vertical alignment)
+                if (this.type === 'rotarySlider' && fullPath === 'label.align') {
+                    alignments = ['auto', 'top', 'bottom'];
+                }
+                // Special case for label.align on button (horizontal alignment)
+                else if (this.type === 'button' && fullPath === 'label.align') {
+                    alignments = ['left', 'center', 'right'];
+                }
 
                 // Populate alignment options
                 alignments.forEach((align) => {
@@ -902,7 +1365,7 @@ export class PropertyPanel {
                     option.textContent = align;
                     input.appendChild(option);
                 });
-                input.value = value || 'centre'; // Set default value if none provided
+                input.value = value || alignments[0]; // Set default value if none provided
             }
             // Default case for text input
             else {
@@ -915,12 +1378,6 @@ export class PropertyPanel {
             }
         }
 
-        // Set input attributes and event listener for direct input elements
-        if (input && input.tagName === 'INPUT') {
-            input.id = key; // Use the key as ID directly (will be overridden in addPropertyToSection with full path)
-            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
-            input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
-        }
 
         return input; // Return the created input element
     }
@@ -935,7 +1392,7 @@ export class PropertyPanel {
      * @param section - The section to which the property is added.
      * @param path - The nested path for the property (optional).
      */
-    addPropertyToSection(key, value, section, path = '') {
+    addPropertyToSection(key, value, section, path = '', isMixed = false) {
         if (key === 'currentCsdFile' || key === 'value') {
             return;
         }
@@ -959,15 +1416,36 @@ export class PropertyPanel {
         const inputElement = this.createInputElement(key, value, path);
 
         // Find the actual input element (could be nested in a container like toggle switch)
-        const input = inputElement.tagName === 'INPUT' ? inputElement : inputElement.querySelector('input');
+        // Handle both INPUT and SELECT elements
+        let input = null;
+        if (inputElement.tagName === 'INPUT' || inputElement.tagName === 'SELECT') {
+            input = inputElement;
+        } else {
+            input = inputElement.querySelector('input, select');
+        }
 
         // Set the full property path as the input id
         if (input) {
             input.id = fullPropertyPath;
-            input.dataset.parent = CabbageUtils.getChannelId(this.properties, 0); // Set data attribute for parent channel
+            console.log(`PropertyPanel: Created input with id: ${fullPropertyPath}, parent: ${CabbageUtils.getWidgetDivId(this.properties)}`);
+
+            // For multi-widget mode, store selected widget IDs instead of single parent
+            if (this.isMultiMode) {
+                input.dataset.multiWidget = 'true';
+                input.dataset.selectedIds = JSON.stringify(this.selectedWidgets.map(w => w.props.id || CabbageUtils.getChannelId(w.props, 0)));
+            } else {
+                input.dataset.parent = CabbageUtils.getWidgetDivId(this.properties); // Set data attribute for parent widget
+            }
+
+            // Set placeholder for mixed values
+            if (isMixed && input.tagName === 'INPUT') {
+                input.placeholder = '(mixed)';
+                input.style.fontStyle = 'italic';
+            }
+
             input.addEventListener('input', this.handleInputChange.bind(this)); // Attach input event listener
-            if (input.type === 'checkbox') {
-                // Some browsers/extensions fire change more reliably for checkboxes
+            if (input.type === 'checkbox' || input.tagName === 'SELECT') {
+                // Some browsers/extensions fire change more reliably for checkboxes and selects
                 input.addEventListener('change', this.handleInputChange.bind(this));
             }
         }
@@ -1058,20 +1536,36 @@ export class PropertyPanel {
             return;
         }
 
+        // Channel ID inputs have their own handler (handleChannelIdInput)
+        if (input.dataset.channelIdInput === 'true') {
+            return;
+        }
+
         // Ignore events fired during panel initialization. Inputs are marked
         // as initialized shortly after createPanel finishes. Some UI
         // components (colour pickers, selects, etc.) may emit synthetic
         // input/change events while being constructed — we don't want those
         // to be treated as user edits.
-        if (this._suppressEvents || input.dataset.initialized !== 'true') {
+        if (this.suppressEvents || input.dataset.initialized !== 'true') {
             console.log('PropertyPanel: ignoring initialization input event for', input && input.id);
             return;
         }
 
         console.log('PropertyPanel: handleInputChange called for input.id:', input.id, 'type:', input.type, 'value:', input.value, 'checked:', input.checked);
 
+        // Handle multi-widget mode
+        if (input.dataset.multiWidget === 'true') {
+            this.handleMultiWidgetChange(input);
+            return;
+        }
+
         this.widgets.forEach((widget) => {
-            if (CabbageUtils.getChannelId(widget.props, 0) === input.dataset.parent) {
+            const widgetId = widget.props.id;
+            const channelId = widget.props.channels && widget.props.channels[0] ? widget.props.channels[0].id : null;
+            const parentId = input.dataset.parent;
+
+            // Match by either widget ID or channel ID
+            if (widgetId === parentId || channelId === parentId) {
                 const path = input.id;
                 const inputValue = input.value;
                 const isColorProperty = path.toLowerCase().includes('color');
@@ -1135,20 +1629,33 @@ export class PropertyPanel {
                 // Handle nested properties
                 this.setNestedProperty(widget.props, path, parsedValue);
 
-                console.log('PropertyPanel: updated range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                // Debug: Log the range property for debugging (handle both top-level and channel-level range)
+                if (path.includes('range')) {
+                    console.log('PropertyPanel: after setNestedProperty, widget.props.range:', JSON.stringify(widget.props.range, null, 2));
+                    if (widget.props.channels && widget.props.channels[0] && widget.props.channels[0].range) {
+                        console.log('PropertyPanel: after setNestedProperty, widget.props.channels[0].range:', JSON.stringify(widget.props.channels[0].range, null, 2));
+                    }
+                }
 
                 CabbageUtils.updateBounds(widget.props, input.id);
 
-                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+                const widgetDivId = CabbageUtils.getWidgetDivId(widget.props);
+                const widgetDiv = document.getElementById(widgetDivId);
+
                 if (widget.props['type'] === 'form') {
                     widget.updateSVG();
-                } else {
-                    console.trace("Widget Div:", widgetDiv);
+                } else if (typeof widget.updateCanvas === 'function') {
+                    widget.updateCanvas(); // Update canvas for canvas-based widgets
+                } else if (typeof widget.updateTable === 'function') {
+                    widget.updateTable(); // Backward compatibility
+                } else if (widgetDiv) {
                     widgetDiv.innerHTML = widget.getInnerHTML();
+                } else {
+                    console.warn('PropertyPanel: widgetDiv is null for', widgetDivId, '- cannot update innerHTML');
                 }
 
-                // Update widget styles if the index property changed (for z-index updates)
-                if (path === 'index') {
+                // Update widget styles if the index or zIndex property changed
+                if (path === 'index' || path === 'zIndex') {
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
                 }
 
@@ -1168,6 +1675,139 @@ export class PropertyPanel {
                     console.log('PropertyPanel: posting fallback updateWidgetProps textPreview:', String(fallback).slice(0, 200));
                     this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
                 }
+            }
+        });
+    }
+
+    /**
+     * Handles property changes for multiple selected widgets
+     * @param input - The input element that changed
+     */
+    handleMultiWidgetChange(input) {
+        const path = input.id;
+        const inputValue = input.value;
+
+        // Parse the value
+        let parsedValue;
+        if (input.type === 'checkbox') {
+            parsedValue = input.checked;
+        } else if (input.type === 'number') {
+            const n = Number(inputValue);
+            parsedValue = isNaN(n) ? inputValue : n;
+        } else if (!isNaN(inputValue) && inputValue !== '') {
+            parsedValue = Number(inputValue);
+        } else {
+            parsedValue = inputValue;
+        }
+
+        console.log(`PropertyPanel: Multi-widget update - setting ${path} to ${parsedValue} for ${this.selectedWidgets.length} widgets`);
+
+        // Update all selected widgets
+        this.selectedWidgets.forEach((widget, index) => {
+            const widgetId = widget.props.id || CabbageUtils.getChannelId(widget.props, 0);
+            console.log(`PropertyPanel: Processing widget ${index + 1}/${this.selectedWidgets.length}: ${widgetId}`);
+
+            // Update the property
+            this.setNestedProperty(widget.props, path, parsedValue);
+
+            // Update the visual display
+            const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+            if (widgetDiv) {
+                if (widget.props['type'] === 'form') {
+                    widget.updateSVG();
+                } else {
+                    widgetDiv.innerHTML = widget.getInnerHTML();
+                }
+
+                // Update widget styles if zIndex changed
+                if (path === 'index' || path === 'zIndex') {
+                    WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
+                }
+
+                // Update bounds if bounds property changed
+                CabbageUtils.updateBounds(widget.props, path);
+            }
+
+            // Send update to VSCode
+            try {
+                console.log(`PropertyPanel: Minimizing props for ${widgetId}, has rawDefaults: ${!!widget.rawDefaults}, has originalProps: ${!!widget.originalProps}`);
+                let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+
+                // For multi-widget updates, we need to ensure the property is sent regardless of whether
+                // it matches defaults, because we're explicitly changing it across multiple widgets
+                const pathParts = path.split('.');
+                if (pathParts.length > 0) {
+                    // Check if the property was stripped during minimization
+                    let minimizedValue = minimized;
+                    let wasStripped = false;
+
+                    for (let i = 0; i < pathParts.length; i++) {
+                        if (minimizedValue && typeof minimizedValue === 'object' && pathParts[i] in minimizedValue) {
+                            minimizedValue = minimizedValue[pathParts[i]];
+                        } else {
+                            wasStripped = true;
+                            break;
+                        }
+                    }
+
+                    // If it was stripped, we need to restore it or set it to null
+                    if (wasStripped) {
+                        // Check if it existed in originalProps
+                        let originalValue = widget.originalProps;
+                        let existedInOriginal = false;
+
+                        if (originalValue) {
+                            for (let i = 0; i < pathParts.length; i++) {
+                                if (originalValue && typeof originalValue === 'object' && pathParts[i] in originalValue) {
+                                    originalValue = originalValue[pathParts[i]];
+                                } else {
+                                    existedInOriginal = false;
+                                    break;
+                                }
+                            }
+                            if (originalValue !== undefined) {
+                                existedInOriginal = true;
+                            }
+                        }
+
+                        // Reconstruct the path in minimized
+                        let current = minimized;
+                        for (let i = 0; i < pathParts.length - 1; i++) {
+                            if (!current[pathParts[i]]) {
+                                current[pathParts[i]] = {};
+                            }
+                            current = current[pathParts[i]];
+                        }
+
+                        const finalKey = pathParts[pathParts.length - 1];
+
+                        if (existedInOriginal) {
+                            // Property existed in original CSD and was stripped because it matches default
+                            // Send null to remove it from the CSD
+                            current[finalKey] = null;
+                            console.log(`PropertyPanel: Setting ${path} to null (existed in original, now matches default)`);
+                        } else {
+                            // Property didn't exist in original CSD but we're setting it
+                            // Send the actual value
+                            current[finalKey] = parsedValue;
+                            console.log(`PropertyPanel: Restoring ${path} = ${parsedValue} (new property being set explicitly)`);
+                        }
+                    }
+                }
+
+                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                console.log(`PropertyPanel: Sending multi-widget update for ${widgetId}, payload size: ${textPayload.length} chars`);
+                console.log(`PropertyPanel: Payload preview: ${textPayload.substring(0, 200)}`);
+                this.vscode.postMessage({
+                    command: 'updateWidgetProps',
+                    text: textPayload,
+                });
+                console.log(`PropertyPanel: Successfully posted message for ${widgetId}`);
+            } catch (e) {
+                console.error(`PropertyPanel: failed to post multi-widget update for ${widgetId}`, e);
+                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
             }
         });
     }
@@ -1247,8 +1887,47 @@ export class PropertyPanel {
 
         // Iterate over the array of event objects
         events.forEach(eventObj => {
-            const { eventType, name, bounds } = eventObj; // Destructure event properties
+            const { eventType, name, bounds, widgets: pastedWidgets } = eventObj; // Destructure event properties
             console.log('PropertyPanel: processing event:', eventType, 'for widget:', name);
+
+
+            // Handle paste event specially - create new widgets
+            if (eventType === 'pasteSelection' && pastedWidgets) {
+                console.log(`PropertyPanel: Pasting ${pastedWidgets.length} widget(s)`);
+
+                pastedWidgets.forEach(widgetProps => {
+                    // Send widget creation message to VSCode
+                    const widgetJson = JSON.stringify(widgetProps);
+                    console.log('PropertyPanel: Creating pasted widget:', widgetProps.id || CabbageUtils.getChannelId(widgetProps, 0));
+
+                    this.vscode.postMessage({
+                        command: 'createWidget',
+                        widgetJson: widgetJson
+                    });
+                });
+
+                return; // Don't process further for paste events
+            }
+
+            // Check if multiple widgets are selected
+            const selection = eventObj.selection || [name];
+            if (selection.length > 1 && eventType === 'click') {
+                console.log(`PropertyPanel: Multiple widgets selected (${selection.length})`);
+
+                // Find all selected widgets
+                const selectedWidgets = selection.map(id =>
+                    widgets.find(w =>
+                        w.props.id === id ||
+                        CabbageUtils.getChannelId(w.props, 0) === id
+                    )
+                ).filter(w => w !== undefined);
+
+                if (selectedWidgets.length > 0) {
+                    // Create multi-widget property panel
+                    new PropertyPanel(this.vscode, 'multi', selectedWidgets, widgets);
+                }
+                return; // Don't process single widget logic
+            }
 
             console.log('PropertyPanel: searching for widget with name:', name);
             console.log('PropertyPanel: available widgets:', widgets.map(w => ({
@@ -1258,11 +1937,26 @@ export class PropertyPanel {
             })));
 
             widgets.forEach((widget, index) => {
-                const widgetChannelId = CabbageUtils.getChannelId(widget.props, 0);
-                console.log(`PropertyPanel: checking widget ${index}: channelId=${widgetChannelId}, name=${name}, match=${widgetChannelId === name}`);
+                const widgetId = widget.props.id;
+                let channelId = null;
+                try {
+                    channelId = CabbageUtils.getChannelId(widget.props, 0);
+                } catch (e) {
+                    // Widget might be invalid or have no channel, ignore
+                }
 
-                // Check for match by ID, or special case for MainForm by type
-                const isMatch = widgetChannelId === name || (name === 'MainForm' && widget.props.type === 'form');
+                console.log(`PropertyPanel: checking widget ${index}: id=${widgetId}, channelId=${channelId}, name=${name}`);
+
+                let isMatch = false;
+                if (widgetId) {
+                    isMatch = (String(widgetId) === String(name));
+                } else if (channelId) {
+                    isMatch = (String(channelId) === String(name));
+                }
+
+                if (!isMatch && name === 'MainForm' && widget.props.type === 'form') {
+                    isMatch = true;
+                }
 
                 if (isMatch) {
                     console.log('PropertyPanel: found matching widget, updating...');
@@ -1293,8 +1987,10 @@ export class PropertyPanel {
                         } else if (widget.props.type === "form") {
                             widget.updateSVG(); // Update SVG for form type
                         } else {
-                            const widgetDiv = CabbageUtils.getWidgetDiv(CabbageUtils.getChannelId(widget.props, 0));
-                            widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
+                            const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+                            if (widgetDiv) {
+                                widgetDiv.innerHTML = widget.getInnerHTML(); // Update HTML for other types
+                            }
                         }
                     }
                     console.log('PropertyPanel: creating new PropertyPanel instance for widget:', name);
@@ -1308,24 +2004,22 @@ export class PropertyPanel {
                     // (not just a click to open the panel). Clicks should open the panel
                     // without triggering an update that could insert default channel objects.
                     if (eventType !== 'click') {
-                        // Delay sending messages to VSCode to avoid slow responses
-                        setTimeout(() => {
-                            try {
-                                let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-                                minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
-                                const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
-                                console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
-                                this.vscode.postMessage({
-                                    command: 'updateWidgetProps',
-                                    text: textPayload,
-                                });
-                            } catch (e) {
-                                console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
-                                const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
-                                console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
-                                this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
-                            }
-                        }, (index + 1) * 150); // Delay increases with index
+                        // Send immediately - the extension's edit queue will handle sequencing
+                        try {
+                            let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                            minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+                            const textPayload = PropertyPanel.safeSanitizeForPost(minimized);
+                            console.log('PropertyPanel: posting updatePanel updateWidgetProps textPreview:', String(textPayload).slice(0, 200));
+                            this.vscode.postMessage({
+                                command: 'updateWidgetProps',
+                                text: textPayload,
+                            });
+                        } catch (e) {
+                            console.error('PropertyPanel: failed to post updatePanel updateWidgetProps', e);
+                            const fallback = PropertyPanel.safeSanitizeForPost(widget.props);
+                            console.log('PropertyPanel: posting fallback updatePanel updateWidgetProps textPreview:', String(fallback).slice(0, 200));
+                            this.vscode.postMessage({ command: 'updateWidgetProps', text: fallback });
+                        }
                     } else {
                         console.log('PropertyPanel: click event - not sending update to VSCode');
                     }

@@ -18,7 +18,8 @@ export class ComboBox {
                 {
                     "id": "comboBox",
                     "event": "valueChanged",
-                    "range": { "defaultValue": 0, "increment": 1, "max": 2, "min": 0, "skew": 1 }
+                    "range": { "defaultValue": 0, "increment": 1, "max": 2, "min": 0, "skew": 1 },
+                    "type": "number"
                 }
             ],
             "value": null,
@@ -27,7 +28,6 @@ export class ComboBox {
             "active": true,
             "automatable": true,
             "type": "comboBox",
-            "channelType": "number",
 
             "style": {
                 "opacity": 1,
@@ -46,17 +46,30 @@ export class ComboBox {
             "indexOffset": false,
             "populate": {
                 "directory": "",
-                "fileType": ""
+                "fileType": "",
+                "fullFileAndPath": false,
+                "order": "date",
+                "labelWhenEmpty": "No Files",
+                "defaultLabel": ""
             }
         };
 
         this.isMouseInside = false;
         this.isOpen = false;
+        this.defaultLabelCleared = false; // Track if defaultLabel has been cleared
         const itemsArray = this.getItemsArray();
-        const safeItems = itemsArray.length > 0 ? itemsArray : [''];
-        this.selectedItem = this.props.indexOffset
-            ? (this.props.value > 0 ? safeItems[this.props.value - 1] : safeItems[0])
-            : (this.props.value >= 0 ? safeItems[this.props.value] : safeItems[0]);
+
+        // Check if we should use defaultLabel initially
+        const hasDefaultLabel = this.props.populate?.defaultLabel && this.props.populate.defaultLabel !== '';
+        if (hasDefaultLabel) {
+            this.selectedItem = this.props.populate.defaultLabel;
+        } else {
+            // Use itemsArray directly since getItemsArray already handles empty case
+            this.selectedItem = this.props.indexOffset
+                ? (this.props.channels[0].range.value > 0 ? itemsArray[this.props.channels[0].range.value - 1] : itemsArray[0])
+                : (this.props.channels[0].range.value >= 0 ? itemsArray[this.props.channels[0].range.value] : itemsArray[0]);
+        }
+
         this.parameterIndex = 0;
         this.vscode = null;
         // Wrap props with reactive proxy to unify visible/active handling
@@ -89,19 +102,33 @@ export class ComboBox {
     }
 
     handleItemClick(item) {
+        // Clear defaultLabel when an actual item is selected
+        if (!this.defaultLabelCleared) {
+            this.defaultLabelCleared = true;
+        }
+
         this.selectedItem = item;
         const items = this.getItemsArray();
         const index = items.indexOf(this.selectedItem);
         const valueToSend = this.props.indexOffset ? index + 1 : index;
 
-        this.props.value = valueToSend;
+        this.props.channels[0].range.value = valueToSend;
+
+        // For non-automatable comboBox (e.g., with populate), send the selected item text as a string
+        // For automatable comboBox, send the numeric index
+        const isAutomatable = this.props.automatable === true || this.props.automatable === 1;
 
         const msg = {
-            paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
             channel: CabbageUtils.getChannelId(this.props),
-            value: this.props.value,
-            channelType: "number"
+            value: isAutomatable ? this.props.channels[0].range.value : this.selectedItem
         };
+
+        // Only include paramIdx and channelType for automatable widgets
+        if (isAutomatable) {
+            msg.paramIdx = CabbageUtils.getChannelParameterIndex(this.props, 0);
+            msg.channelType = this.props.channels[0].type || "number";
+        }
+
         Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
 
         this.isOpen = false;
@@ -136,28 +163,53 @@ export class ComboBox {
         const dropdownHeight = items.length * itemHeight;
 
         // Calculate the maximum width needed for all items
-        const fontSize = this.props.style.fontSize === "auto" ? this.props.bounds.height * 0.5 : this.props.style.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.style.fontSize;
         let maxWidth = rect.width;
+
+        // Create a canvas to measure text width
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext("2d");
+        ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;
+
         items.forEach(item => {
-            const textWidth = CabbageUtils.getStringWidth(item, {
-                font: {
-                    family: this.props.style.fontFamily,
-                    size: fontSize
-                }
-            });
-            // Add some padding
-            const itemWidth = textWidth + 20;
+            const textWidth = ctx.measureText(item).width;
+            // Add padding for better readability
+            const itemWidth = textWidth + 40;
             if (itemWidth > maxWidth) {
                 maxWidth = itemWidth;
             }
         });
 
+        // Calculate dropdown position with viewport bounds checking
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const maxDropdownHeight = Math.min(dropdownHeight, 300);
+
+        let dropdownLeft = rect.left;
+        let dropdownTop = rect.bottom;
+
+        // Check if dropdown extends beyond right edge
+        if (dropdownLeft + maxWidth > viewportWidth) {
+            // Align to right edge of comboBox, extending left
+            dropdownLeft = Math.max(0, rect.right - maxWidth);
+        }
+
+        // Check if dropdown extends beyond bottom edge
+        if (dropdownTop + maxDropdownHeight > viewportHeight) {
+            // Show above the comboBox instead
+            dropdownTop = rect.top - maxDropdownHeight;
+            // If still not enough space above, position at top of viewport
+            if (dropdownTop < 0) {
+                dropdownTop = 0;
+            }
+        }
+
         // Create dropdown container
         const dropdown = document.createElement('div');
         dropdown.id = `dropdown-${CabbageUtils.getWidgetDivId(this.props)}`;
         dropdown.style.position = 'fixed';
-        dropdown.style.left = `${rect.left}px`;
-        dropdown.style.top = `${rect.bottom}px`;
+        dropdown.style.left = `${dropdownLeft}px`;
+        dropdown.style.top = `${dropdownTop}px`;
         dropdown.style.width = `${maxWidth}px`;
         dropdown.style.height = `${dropdownHeight}px`;
         dropdown.style.zIndex = '9999';
@@ -165,7 +217,7 @@ export class ComboBox {
         dropdown.style.border = `${this.props.style.borderWidth}px solid ${this.props.style.borderColor}`;
         dropdown.style.borderRadius = `${this.props.style.borderRadius}px`;
         dropdown.style.overflowY = 'auto';
-        dropdown.style.maxHeight = `${Math.min(dropdownHeight, 300)}px`;
+        dropdown.style.maxHeight = `${maxDropdownHeight}px`;
 
         // Create dropdown items
         items.forEach((item, index) => {
@@ -231,7 +283,7 @@ export class ComboBox {
     }
 
     getItemsArray() {
-        if (!this.props.items) {
+        if (!this.props.items || (Array.isArray(this.props.items) && this.props.items.length === 0)) {
             return [''];
         }
         return Array.isArray(this.props.items)
@@ -242,11 +294,21 @@ export class ComboBox {
     getInnerHTML() {
         const items = this.getItemsArray();
 
-        // Ensure selectedItem is up-to-date with the current value
-        const safeItems = items.length > 0 ? items : [''];
-        this.selectedItem = this.props.indexOffset
-            ? (this.props.value > 0 ? (safeItems[this.props.value - 1] || safeItems[0]) : safeItems[0])
-            : (safeItems[this.props.value] || safeItems[0]);
+        // Check if we should show defaultLabel
+        const hasDefaultLabel = this.props.populate?.defaultLabel && this.props.populate.defaultLabel !== '';
+        console.log('ComboBox getInnerHTML: hasDefaultLabel=', hasDefaultLabel, 'defaultLabelCleared=', this.defaultLabelCleared, 'defaultLabel=', this.props.populate?.defaultLabel);
+
+        if (hasDefaultLabel && !this.defaultLabelCleared) {
+            this.selectedItem = this.props.populate.defaultLabel;
+        } else {
+            // Ensure selectedItem is up-to-date with the current value
+            // Use items directly since getItemsArray already handles empty case
+            this.selectedItem = this.props.indexOffset
+                ? (this.props.channels[0].range.value > 0 ? (items[this.props.channels[0].range.value - 1] || items[0]) : items[0])
+                : (items[this.props.channels[0].range.value] || items[0]);
+        }
+
+        console.log('ComboBox getInnerHTML: selectedItem=', this.selectedItem);
 
         const alignMap = {
             'left': 'start',
@@ -256,34 +318,58 @@ export class ComboBox {
         };
 
         const svgAlign = alignMap[this.props.style.textAlign] || this.props.style.textAlign;
-        const fontSize = this.props.style.fontSize === "auto" ? this.props.bounds.height * 0.5 : this.props.style.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.4 : this.props.style.fontSize;
 
         const arrowWidth = 10; // Width of the arrow
         const arrowHeight = 6; // Height of the arrow
-        const arrowX = this.props.bounds.width - arrowWidth - this.props.style.borderRadius / 2 - 10; // Decreasing arrowX value to move the arrow more to the left
+        const padding = 5;
+        const arrowX = this.props.bounds.width - arrowWidth - padding - 5;
         const arrowY = (this.props.bounds.height - arrowHeight) / 2; // Y-coordinate of the arrow
 
-        let selectedItemTextX;
-        if (svgAlign === 'middle') {
-            selectedItemTextX = (this.props.bounds.width - arrowWidth - this.props.style.borderRadius / 2) / 2;
-        } else {
-            const selectedItemWidth = CabbageUtils.getStringWidth(this.selectedItem, this.props);
-            const textPadding = svgAlign === 'start' ? - this.props.bounds.width * .1 : - this.props.bounds.width * .05;
-            selectedItemTextX = svgAlign === 'start' ? (this.props.bounds.width - this.props.style.borderRadius / 2) / 2 - selectedItemWidth / 2 + textPadding : (this.props.bounds.width - this.props.style.borderRadius / 2) / 2 + selectedItemWidth / 2 + textPadding;
+        // Calculate available width for text (leave room for arrow and padding)
+        const availableWidth = this.props.bounds.width - (arrowWidth + padding * 4);
+
+        // Measure text width
+        let displayText = this.selectedItem;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;
+        let textWidth = ctx.measureText(displayText).width;
+
+        let useLeftAlign = false;
+        if (textWidth > availableWidth) {
+            // Text is too wide, truncate and add ellipsis, force left align
+            useLeftAlign = true;
+            let truncated = displayText;
+            while (textWidth > availableWidth && truncated.length > 0) {
+                truncated = truncated.slice(0, -1);
+                textWidth = ctx.measureText(truncated + '...').width;
+            }
+            displayText = truncated + '...';
         }
-        const selectedItemTextY = this.props.bounds.height / 2;
+
+        // Use left alignment only if text was truncated, otherwise respect user's alignment
+        const actualAlign = useLeftAlign ? 'start' : svgAlign;
+        let selectedItemTextX;
+        if (actualAlign === 'middle') {
+            selectedItemTextX = this.props.bounds.width / 2;
+        } else if (actualAlign === 'start') {
+            selectedItemTextX = this.props.style.borderRadius + padding;
+        } else {
+            selectedItemTextX = this.props.bounds.width - arrowWidth - padding * 3;
+        }
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'};">
-                <rect x="${this.props.style.borderRadius / 2}" y="${this.props.style.borderRadius / 2}" width="${this.props.bounds.width - this.props.style.borderRadius}" height="${this.props.bounds.height - this.props.style.borderRadius * 2}" fill="${this.props.style.backgroundColor}" stroke="${this.props.style.borderColor}"
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
+                <rect x="0" y="0" width="100%" height="100%" fill="${this.props.style.backgroundColor}" stroke="${this.props.style.borderColor}"
                     stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
                        style="cursor: pointer;" pointer-events="all" 
                        onclick="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.style.borderColor}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
-                <text x="${selectedItemTextX}" y="${selectedItemTextY}" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
-                    fill="${this.props.style.fontColor}" text-anchor="${svgAlign}" alignment-baseline="middle"
-                    style="pointer-events: none;">${this.selectedItem}</text>
+                <text x="${selectedItemTextX}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
+                    fill="${this.props.style.fontColor}" text-anchor="${actualAlign}" dominant-baseline="middle"
+                    style="pointer-events: none;">${displayText}</text>
             </svg>
         `;
     }

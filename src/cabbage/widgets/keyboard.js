@@ -4,6 +4,7 @@
 
 import { CabbageUtils } from "../utils.js";
 import { Cabbage } from "../cabbage.js";
+import { keyboardMidiInput } from "../keyboardMidiInput.js";
 
 /**
  * MidiKeyboard class
@@ -20,6 +21,7 @@ export class MidiKeyboard {
       "channels": [
         { "id": "comboBox", "event": "valueChanged" }
       ],
+      
       "value": 36,
       "automatable": false,
       "active": true,
@@ -43,11 +45,21 @@ export class MidiKeyboard {
         "blackNote": "#000000"
       },
 
-      "octaves": -1
+      "octaves": -1,
+      "baseOctave": 3
     };
 
     this.isMouseDown = false; // Track the state of the mouse button
     this.octaveOffset = 3;
+    // When a keyboard widget exists we may want to set the computer-keyboard base octave
+    // Inform the global keyboardMidiInput so ASCII-key mappings follow this widget's baseOctave
+    try {
+      if (typeof this.props.baseOctave !== 'undefined' && keyboardMidiInput && typeof keyboardMidiInput.setBaseOctave === 'function') {
+        keyboardMidiInput.setBaseOctave(this.props.baseOctave);
+      }
+    } catch (e) {
+      // ignore if keyboardMidiInput not available yet
+    }
     this.noteMap = {};
     this.activeNotes = new Set(); // Track active notes
     this.vscode = null;
@@ -58,6 +70,16 @@ export class MidiKeyboard {
         // Re-render when bounds change to recalculate octaves
         if (prop === 'bounds' && this.widgetDiv) {
           CabbageUtils.updateInnerHTML(this.props, this);
+        }
+        // If baseOctave changes, inform the keyboardMidiInput so computer keyboard mapping updates
+        if (prop === 'baseOctave') {
+          try {
+            if (keyboardMidiInput && typeof keyboardMidiInput.setBaseOctave === 'function') {
+              keyboardMidiInput.setBaseOctave(value);
+            }
+          } catch (e) {
+            console.warn('Cabbage: Failed to set keyboard base octave', e);
+          }
         }
       }
     });
@@ -159,16 +181,25 @@ export class MidiKeyboard {
 
   changeOctave(offset) {
     this.octaveOffset += offset;
-    if (this.octaveOffset < 1) { this.octaveOffset = 1; } // Limit lower octave bound
-    if (this.octaveOffset > 6) { this.octaveOffset = 6; } // Limit upper octave bound
-    CabbageUtils.updateInnerHTML(this.props.channel, this);
+    // Allow octave offset to go as low as -2 (for C-2) and as high as 8 (for C8)
+    // This matches the noteMap range defined in the constructor
+    if (this.octaveOffset < -2) { this.octaveOffset = -2; }
+    if (this.octaveOffset > 8) { this.octaveOffset = 8; }
+    CabbageUtils.updateInnerHTML(this.props, this);
   }
 
   addVsCodeEventListeners(widgetDiv, vscode) {
     this.vscode = vscode;
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
-    this.addEventListeners(widgetDiv);
+
+    // Add pointer event listeners for keyboard keys
+    widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
+    widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
+    widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
+    widgetDiv.addEventListener("pointerenter", this.pointerEnter.bind(this), true);
+    widgetDiv.addEventListener("pointerleave", this.pointerLeave.bind(this), true);
+    document.addEventListener("midiEvent", this.midiMessageListener.bind(this));
 
     // Re-render after a short delay to ensure the div has its width CSS applied
     // This fixes the issue where octaves are calculated before the div width is set
@@ -178,6 +209,7 @@ export class MidiKeyboard {
   }
 
   addEventListeners(widgetDiv) {
+    this.widgetDiv = widgetDiv;
     this.addListeners(widgetDiv);
     CabbageUtils.updateInnerHTML(this.props, this);
   }
@@ -186,19 +218,16 @@ export class MidiKeyboard {
     console.log("Cabbage: Midi message listener");
     const detail = event.detail;
     const midiData = JSON.parse(detail.data);
-    console.log("Cabbage: Midi message listener", midiData);
     if (midiData.status == 144) {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
       key.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
-      console.log(`Key down: ${note} ${noteName}`);
     } else if (midiData.status === 128) {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
       key.setAttribute('fill', key.classList.contains('white-key') ? 'white' : 'black');
-      console.log(`Key up: ${note} ${noteName}`);
     }
   }
 
@@ -209,15 +238,6 @@ export class MidiKeyboard {
     widgetDiv.addEventListener("pointerenter", this.pointerEnter.bind(this), true);
     widgetDiv.addEventListener("pointerleave", this.pointerLeave.bind(this), true);
     document.addEventListener("midiEvent", this.midiMessageListener.bind(this));
-    widgetDiv.OctaveButton = this;
-  }
-
-  handleClickEvent(e) {
-    if (e.target.id == "octave-up") {
-      this.changeOctave(1);
-    } else {
-      this.changeOctave(-1);
-    }
   }
 
   getInnerHTML() {
@@ -285,17 +305,29 @@ export class MidiKeyboard {
 
     // Calculate the actual keyboard width based on number of white keys
     const keyboardWidth = totalWhiteKeys * whiteKeyWidth;
+    const containerId = `${this.props.id || this.props.channels?.[0]?.id || 'keyboard'}_container`;
+    const svgContainerId = `${this.props.id || this.props.channels?.[0]?.id || 'keyboard'}_svg`;
+
+    // Store widget instance on window for inline event handlers to access
+    const widgetId = this.props.id || this.props.channels?.[0]?.id || 'keyboard';
+    if (typeof window !== 'undefined') {
+      window[`__keyboard_${widgetId}`] = this;
+    }
 
     return `
-      <div id="${this.props.channel}" style="display: ${this.props.visible ? 'flex' : 'none'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
-        <button id="octave-down" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">-</button>
-        <div id="${this.props.channel}" style="flex-grow: 1; height: 100%;">
+      <div id="${containerId}" style="display: ${this.props.visible ? 'flex' : 'none'}; align-items: center; height: ${this.props.bounds.height * scaleFactor}px;">
+        <button id="octave-down" 
+                style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};"
+                onpointerdown="event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); console.log('Octave DOWN'); window.__keyboard_${widgetId}.changeOctave(-1); return false;">-</button>
+        <div id="${svgContainerId}" style="flex-grow: 1; height: 100%;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${keyboardWidth} ${this.props.bounds.height * scaleFactor}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}">
             ${whiteSvgKeys}
             ${blackSvgKeys}
           </svg>
         </div>
-        <button id="octave-up" style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};" onclick="document.getElementById('${this.props.channel}').OctaveButton.handleClickEvent(event)">+</button>
+        <button id="octave-up" 
+                style="width: ${buttonWidth}px; height: ${buttonHeight}px; background-color: ${this.props.style?.arrowBackgroundColor || this.props.color?.arrowBackground || '#0295cf'};"
+                onpointerdown="event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); console.log('Octave UP'); window.__keyboard_${widgetId}.changeOctave(1); return false;">+</button>
       </div>
     `;
   }
