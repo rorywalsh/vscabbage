@@ -704,28 +704,48 @@ be lost when working with the UI editor. -->\n`;
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
-                    // Build the new document text with the updated cabbage section
+                    // Build the updated cabbage section
                     const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedArray}</Cabbage>`;
-                    const newText = originalText.replace(cabbageMatch[0], updatedCabbageSection);
 
-                    // Replace the entire document to avoid positioning issues
+                    // Save cursor position before edit
+                    const savedSelection = textEditor?.selection;
+                    const savedVisibleRange = textEditor?.visibleRanges[0];
+
+                    // Calculate the range of the Cabbage section to replace
+                    const matchStartOffset = originalText.indexOf(cabbageMatch[0]);
+                    const matchEndOffset = matchStartOffset + cabbageMatch[0].length;
+                    const matchStartPos = document.positionAt(matchStartOffset);
+                    const matchEndPos = document.positionAt(matchEndOffset);
+                    const cabbageRange = new vscode.Range(matchStartPos, matchEndPos);
+
+                    // Replace only the Cabbage section, not the entire document
                     const workspaceEdit = new vscode.WorkspaceEdit();
                     workspaceEdit.replace(
                         document.uri,
-                        new vscode.Range(0, 0, document.lineCount, 0),
-                        newText
+                        cabbageRange,
+                        updatedCabbageSection
                     );
 
                     const success = await vscode.workspace.applyEdit(workspaceEdit);
+
+                    // Restore cursor position after edit
+                    if (success && textEditor && savedSelection) {
+                        textEditor.selection = savedSelection;
+                        if (savedVisibleRange) {
+                            textEditor.revealRange(savedVisibleRange, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+                        }
+                    }
                     if (!success && retryCount > 0) {
                         // If the edit failed, wait a bit and try again
                         await new Promise(resolve => setTimeout(resolve, 100));
-                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1);
+                        return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1, oldId);
                     }
 
                     // Attempt to highlight the updated object
                     if (textEditor) {
-                        const cabbageStartIndex = newText.indexOf('<Cabbage>');
+                        // Get the updated document text to find the Cabbage section
+                        const updatedText = document.getText();
+                        const cabbageStartIndex = updatedText.indexOf('<Cabbage>');
                         ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageStartIndex, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
                     }
                 }

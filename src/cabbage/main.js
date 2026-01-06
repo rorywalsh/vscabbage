@@ -95,6 +95,13 @@ CabbageUtils.showOverlay();
             }
         } else {
             console.log("Cabbage: Running outside of VSCode environment");
+            // For plugin environment, send cabbageIsReadyToLoad via window.sendMessageFromUI
+            console.log("Cabbage: Sending cabbageIsReadyToLoad to plugin backend");
+            if (typeof window.sendMessageFromUI === 'function') {
+                window.sendMessageFromUI({ command: 'cabbageIsReadyToLoad' });
+            } else {
+                console.error('Cabbage: window.sendMessageFromUI is not available');
+            }
         }
     } catch (error) {
         console.error('Cabbage: Fatal error in main.js async IIFE:', error);
@@ -164,7 +171,7 @@ window.addEventListener('message', async (event) => {
                 try {
                     const parsedData = JSON.parse(updateMsg.widgetJson);
                     updateMsg.id = parsedData.id || (parsedData.channels && parsedData.channels.length > 0 && parsedData.channels[0].id);
-                    
+
                     // Log genTable updates with samples info
                     if (parsedData.type === 'genTable') {
                         console.log(`Webview: widgetUpdate for genTable ${updateMsg.id}, hasSamples=${parsedData.hasOwnProperty('samples')}, samplesLength=${parsedData.samples?.length || 0}`);

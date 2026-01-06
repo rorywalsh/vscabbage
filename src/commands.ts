@@ -1245,7 +1245,7 @@ export class Commands {
                                     if (msg.hasOwnProperty('widgetJson')) {
                                         let id = msg['id'];
                                         console.log(`Extension: widgetUpdate - id from msg=${id}, widgetJson length=${msg['widgetJson']?.length}`);
-                                        
+
                                         // Always parse and log the widget data
                                         try {
                                             const parsed = JSON.parse(msg['widgetJson']);
@@ -1259,7 +1259,7 @@ export class Commands {
                                         } catch (e) {
                                             console.error('Extension: Failed to parse widgetJson:', e);
                                         }
-                                        
+
                                         panel.webview.postMessage({
                                             command: 'widgetUpdate',
                                             id: id,
