@@ -2195,94 +2195,96 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
     /**
      * Generates a custom index.html with only the specified widget imports
-     * @param usedWidgets Set of widget types to include in the imports
-     * @returns HTML string with only the used widget script tags
+     * Note: Widget script tags are NOT included because widgetTypes.js uses ES6 static imports.
+     * The individual widget script tags in older index.html files were never actually used.
+     * @param usedWidgets Set of widget types to include in the imports (not used for generated HTML)
+     * @returns HTML string without widget script tags
      */
     private static generateIndexHtmlForWidgets(usedWidgets: Set<string>): string {
-        // Generate script tags only for used widgets
-        const widgetScripts = Array.from(usedWidgets)
-            .map(widgetType => `<script type="module" src="cabbage/widgets/${widgetType}.js"></script>`)
-            .join('\n');
+        // Note: Widget script tags are NOT needed because widgetTypes.js imports all built-in widgets statically
+        // The usedWidgets set is extracted but not used in index.html generation
+        const validWidgets = Array.from(usedWidgets).filter(w => w && w.trim());
+        
+        Commands.vscodeOutputChannel.appendLine(`Export: Found ${validWidgets.length} used widget types: ${Array.from(validWidgets).join(', ')}`);
 
-        return `
-    <!DOCTYPE html>
+        return `<!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Welcome to Cabbage</title>
-<link rel="stylesheet" href="cabbage.css">
-<style>
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        cursor: default;
-        -webkit-touch-callout: none;
-        -webkit-tap-highlight-color: transparent;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Cabbage</title>
+    <link rel="stylesheet" href="cabbage.css">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            cursor: default;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    *,
-    *::before,
-    *::after {
-        user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        cursor: inherit;
-    }
+        *,
+        *::before,
+        *::after {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            cursor: inherit;
+        }
 
-    input,
-    textarea {
-        user-select: text;
-        -webkit-user-select: text;
-        -moz-user-select: text;
-        -ms-user-select: text;
-        cursor: text;
-    }
+        input,
+        textarea {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            cursor: text;
+        }
 
-    .full-height-div {
-        height: 100vh;
-    }
+        .full-height-div {
+            height: 100vh;
+        }
 
-    #LeftPanel {
-        overflow: hidden;
-        position: relative;
-    }
+        #LeftPanel {
+            overflow: hidden;
+            position: relative;
+        }
 
-    #parent {
-        display: flex;
-        flex-direction: row;
-    }
+        #parent {
+            display: flex;
+            flex-direction: row;
+        }
 
-    #LeftPanel {
-        flex: 1;
-        order: 1;
-    }
-</style>
+        #LeftPanel {
+            flex: 1;
+            order: 1;
+        }
+    </style>
 </head>
+
 <body>
-<div id="parent" class="full-height-div">
-    <div id="LeftPanel" class="full-height-div">
-        <!-- Widgets will be dynamically added here -->
+    <div id="parent" class="full-height-div">
+        <div id="LeftPanel" class="full-height-div">
+            <!-- Widgets will be dynamically added here -->
+        </div>
+        <span class="popup" id="popupValue">50</span>
     </div>
-    <span class="popup" id="popupValue">50</span>
-</div>
 
-${widgetScripts}
-<script type="module" src="cabbage/utils.js"></script>
-<script type="module" src="cabbage/cabbage.js"></script>
-<script type="module" src="cabbage/main.js"></script>
-
-<span class="popup" id="popupValue">50</span>
+    <script type="module" src="cabbage/utils.js"></script>
+    <script type="module" src="cabbage/cabbage.js"></script>
+    <script type="module" src="cabbage/main.js"></script>
 </body>
+
 </html>`;
     }
 
@@ -2305,17 +2307,35 @@ ${widgetScripts}
             }
 
             const cabbageCode = match[1].trim();
-            const widgets = JSON.parse(cabbageCode);
+            
+            // Try to parse JSON
+            let widgets: any;
+            try {
+                widgets = JSON.parse(cabbageCode);
+            } catch (parseError) {
+                Commands.vscodeOutputChannel.appendLine(`Export: Failed to parse Cabbage JSON: ${parseError}`);
+                Commands.vscodeOutputChannel.appendLine(`Export: Cabbage code (first 500 chars): ${cabbageCode.substring(0, 500)}`);
+                return widgetTypes;
+            }
 
             if (Array.isArray(widgets)) {
                 for (const widget of widgets) {
-                    if (widget.type) {
-                        widgetTypes.add(widget.type);
+                    if (widget && widget.type) {
+                        const widgetType = String(widget.type).trim();
+                        if (widgetType) {
+                            widgetTypes.add(widgetType);
+                            Commands.vscodeOutputChannel.appendLine(`Export: Found widget type: ${widgetType}`);
+                        }
                     }
                 }
+            } else {
+                Commands.vscodeOutputChannel.appendLine('Export: Cabbage section is not a JSON array');
             }
 
-            Commands.vscodeOutputChannel.appendLine(`Export: Found ${widgetTypes.size} widget types: ${Array.from(widgetTypes).join(', ')}`);
+            Commands.vscodeOutputChannel.appendLine(`Export: Total widget types found: ${widgetTypes.size}`);
+            if (widgetTypes.size > 0) {
+                Commands.vscodeOutputChannel.appendLine(`Export: Widget types: ${Array.from(widgetTypes).join(', ')}`);
+            }
         } catch (e) {
             Commands.vscodeOutputChannel.appendLine(`Export: Error parsing Cabbage JSON: ${e}`);
         }
@@ -2347,19 +2367,30 @@ ${widgetScripts}
             'groupBox', 'checkBox', 'csoundOutput', 'textEditor', 'xyPad'
         ];
 
-        // Find the built-in source directory (the one containing vscabbage/src)
-        const builtInSourceDir = allJsSourceDirs.find(dir => dir.includes('vscabbage/src'));
+        // Find the built-in source directory (the one from VS Code extension or config)
+        // It should be the path to the cabbage directory itself
+        const builtInSourceDir = allJsSourceDirs.find(dir => {
+            // Check if this looks like a built-in directory (from vscabbage extension)
+            return dir.includes('vscabbage') || dir.includes('extension');
+        });
 
         if (!builtInSourceDir) {
-            Commands.vscodeOutputChannel.appendLine('Export: WARNING - Could not find built-in widget directory');
-            return;
+            Commands.vscodeOutputChannel.appendLine('Export: WARNING - Could not find built-in widget directory. Using first available directory.');
+            // Fallback: just use the first directory if we can't find by name
+            if (allJsSourceDirs.length === 0) {
+                Commands.vscodeOutputChannel.appendLine('Export: ERROR - No widget directories available');
+                return;
+            }
         }
+        
+        const effectiveBuiltInSourceDir = builtInSourceDir || allJsSourceDirs[0];
 
         // Copy ALL built-in widgets (required by widgetTypes.js)
         Commands.vscodeOutputChannel.appendLine(`Export: Copying all ${builtInWidgets.length} built-in widgets...`);
         for (const widgetType of builtInWidgets) {
             const widgetFileName = `${widgetType}.js`;
-            const widgetPath = path.join(builtInSourceDir, 'cabbage', 'widgets', widgetFileName);
+            // effectiveBuiltInSourceDir is the cabbage directory itself
+            const widgetPath = path.join(effectiveBuiltInSourceDir, 'widgets', widgetFileName);
 
             if (fs.existsSync(widgetPath)) {
                 await fs.promises.copyFile(
@@ -2368,7 +2399,7 @@ ${widgetScripts}
                 );
                 Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (built-in)`);
             } else {
-                Commands.vscodeOutputChannel.appendLine(`Export:   ✗ ${widgetType} (built-in not found)`);
+                Commands.vscodeOutputChannel.appendLine(`Export:   ✗ ${widgetType} (built-in not found at ${widgetPath})`);
             }
         }
 
@@ -2384,9 +2415,9 @@ ${widgetScripts}
 
                 // Check custom directories (skip the built-in directory)
                 for (const jsSourceDir of allJsSourceDirs) {
-                    if (jsSourceDir === builtInSourceDir) continue; // Skip built-in
+                    if (jsSourceDir === effectiveBuiltInSourceDir) continue; // Skip built-in
 
-                    const widgetPath = path.join(jsSourceDir, 'cabbage', 'widgets', widgetFileName);
+                    const widgetPath = path.join(jsSourceDir, 'widgets', widgetFileName);
 
                     if (fs.existsSync(widgetPath)) {
                         await fs.promises.copyFile(
@@ -2445,13 +2476,15 @@ ${widgetScripts}
         await fs.promises.mkdir(resourcesDir, { recursive: true });
         console.log('Cabbage: Created resources directory:', resourcesDir);
 
-        // Extract used widgets from CSD content
+        // Extract used widgets from CSD content (for logging/tracking purposes)
+        // Note: We don't actually filter widgets in the generated HTML anymore since
+        // widgetTypes.js uses ES6 static imports for all built-in widgets
         const usedWidgets = Commands.extractUsedWidgets(csdContent);
         console.log(`Cabbage: Found ${usedWidgets.size} used widgets:`, Array.from(usedWidgets));
 
-        // Generate custom index.html with only used widgets
+        // Generate index.html (includes only main.js, not individual widgets)
         const customIndexHtml = Commands.generateIndexHtmlForWidgets(usedWidgets);
-        Commands.vscodeOutputChannel.appendLine(`Export: Generated custom index.html with ${usedWidgets.size} widget imports`);
+        Commands.vscodeOutputChannel.appendLine(`Export: Generated index.html`);
 
         // Get paths
         const jsSourcePath = Commands.getJsSourcePath();
@@ -2460,14 +2493,18 @@ ${widgetScripts}
         const settings = await Settings.getCabbageSettings();
         const jsSourceDirs = settings['currentConfig']?.['jsSourceDir'] || [];
         const customWidgetDirs: string[] = Array.isArray(jsSourceDirs) ? jsSourceDirs : [];
+        
+        // Include the built-in widget directory so copyUsedWidgets can find it
+        const allJsSourceDirs = [jsSourcePath, ...customWidgetDirs];
 
-        Commands.vscodeOutputChannel.appendLine(`Export: Checking ${customWidgetDirs.length} widget directories: ${JSON.stringify(customWidgetDirs)}`);
+        Commands.vscodeOutputChannel.appendLine(`Export: Checking ${allJsSourceDirs.length} widget directories: ${JSON.stringify(allJsSourceDirs)}`);
 
         // Copy core cabbage files (excluding widgets directory)
         await Commands.copyCabbageCore(jsSourcePath, cabbageDestDir);
 
-        // Copy only used widgets (checks all jsSourceDir directories)
-        await Commands.copyUsedWidgets(usedWidgets, customWidgetDirs, cabbageDestDir);
+        // Copy ALL built-in widgets (required by widgetTypes.js static imports)
+        // Also copy any custom widgets that are used
+        await Commands.copyUsedWidgets(usedWidgets, allJsSourceDirs, cabbageDestDir);
 
         // Copy CSS file
         const cssPath = Commands.getCabbageCssPath();
@@ -2475,16 +2512,34 @@ ${widgetScripts}
         const cssDestPath = path.join(resourcesDir, cssFileName);
         await fs.promises.copyFile(cssPath, cssDestPath);
         console.log('Cabbage: Copied CSS file');
+        Commands.vscodeOutputChannel.appendLine('Export: Copied CSS file');
 
-        // Create index.html with custom widget imports
+        // Copy helper JS files (propertyPanel, widgetWrapper, widgetClipboard)
+        // These are needed by main.js when running in VS Code mode (guarded by acquireVsCodeApi check)
+        const srcDir = path.dirname(jsSourcePath); // Go up from cabbage/ to src/
+        const helperFiles = ['propertyPanel.js', 'widgetWrapper.js', 'widgetClipboard.js'];
+        for (const helperFile of helperFiles) {
+            const helperSrcPath = path.join(srcDir, helperFile);
+            if (fs.existsSync(helperSrcPath)) {
+                const helperDestPath = path.join(resourcesDir, helperFile);
+                await fs.promises.copyFile(helperSrcPath, helperDestPath);
+                Commands.vscodeOutputChannel.appendLine(`Export: Copied ${helperFile}`);
+            } else {
+                Commands.vscodeOutputChannel.appendLine(`Export: Warning - ${helperFile} not found at ${helperSrcPath}`);
+            }
+        }
+
+        // Create index.html with main.js module entry point
         const indexHtmlPath = path.join(resourcesDir, 'index.html');
         await fs.promises.writeFile(indexHtmlPath, customIndexHtml);
-        console.log('Cabbage: Created custom index.html');
+        console.log('Cabbage: Created index.html at:', indexHtmlPath);
+        Commands.vscodeOutputChannel.appendLine(`Export: Created index.html at: ${indexHtmlPath}`);
 
         // Create CSD file
         const csdPath = path.join(resourcesDir, `${projectName}.csd`);
         await fs.promises.writeFile(csdPath, csdContent);
         console.log('Cabbage: Created CSD file');
+        Commands.vscodeOutputChannel.appendLine(`Export: Created CSD file at: ${csdPath}`);
     }
 
     /**
