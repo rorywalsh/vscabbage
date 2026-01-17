@@ -110,6 +110,31 @@ export class Settings {
         return ''; // Return an empty string if the extension is not found
     }
 
+    static getCabbageProBinaryPath(type: string): string {
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
+
+        if (proBinaryPath === '') {
+            return '';
+        }
+
+        switch (type) {
+            case 'CabbageProPluginEffect':
+                return path.join(proBinaryPath, 'VST3', 'CabbagePluginEffect.vst3');
+            case 'CabbageProPluginSynth':
+                return path.join(proBinaryPath, 'VST3', 'CabbagePluginSynth.vst3');
+            case 'CabbageProAUv2Effect':
+                return path.join(proBinaryPath, 'AU', 'CabbagePluginEffectAUv2.component');
+            case 'CabbageProAUv2Synth':
+                return path.join(proBinaryPath, 'AU', 'CabbagePluginSynthAUv2.component');
+            case 'CabbageProCLI':
+                const cliName = os.platform() === 'win32' ? 'cabbagepro-cli.exe' : 'cabbagepro-cli';
+                return path.join(proBinaryPath, 'cli', cliName);
+            default:
+                return '';
+        }
+    }
+
     static async getCabbageSettings() {
         // Get the current user's home directory
         const homeDir = os.homedir();
@@ -715,6 +740,38 @@ export class Settings {
         if (cabbagePath && cabbagePath.length > 0) {
             // Use the correct key name that matches your package.json configuration
             await config.update('pathToCabbageBinary', cabbagePath[0].fsPath, vscode.ConfigurationTarget.Global);
+        }
+    }
+
+    static async setupCabbageProBinaries() {
+        const config = vscode.workspace.getConfiguration('cabbage');
+
+        const proBinaryPath = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select CabbagePro binaries folder (containing VST3, AU, and cli folders)'
+        });
+
+        if (proBinaryPath && proBinaryPath.length > 0) {
+            const selectedPath = proBinaryPath[0].fsPath;
+
+            // Verify the folder contains expected pro binaries
+            const fs = require('fs');
+            const path = require('path');
+            const cliPath = path.join(selectedPath, 'cli');
+
+            if (!fs.existsSync(cliPath)) {
+                vscode.window.showErrorMessage('Selected folder does not appear to contain CabbagePro binaries. Expected cli/ subfolder.');
+                return;
+            }
+
+            await config.update('pathToCabbageProBinary', selectedPath, vscode.ConfigurationTarget.Global);
+
+            // Set context to enable pro commands
+            vscode.commands.executeCommand('setContext', 'cabbage.proEnabled', true);
+
+            vscode.window.showInformationMessage('CabbagePro binaries configured successfully! Pro export commands are now available.');
         }
     }
 

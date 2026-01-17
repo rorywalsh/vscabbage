@@ -531,6 +531,41 @@ export async function activate(context: vscode.ExtensionContext):
             }));
     }
 
+    // CabbagePro commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.setupCabbageProBinaries', async () => {
+            await Settings.setupCabbageProBinaries();
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportProVST3Effect', async () => {
+            await Commands.exportProInstrument('VST3Effect');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportProVST3Synth', async () => {
+            await Commands.exportProInstrument('VST3Synth');
+        }));
+
+    if (os.platform() === 'darwin') {
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportProAUEffect', async () => {
+                await Commands.exportProInstrument('AUv2Effect');
+            }));
+
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportProAUSynth', async () => {
+                await Commands.exportProInstrument('AUv2Synth');
+            }));
+    }
+
+    // Check if pro binaries are configured and set context
+    const config = vscode.workspace.getConfiguration('cabbage');
+    const proBinaryPath = config.get<string>('pathToCabbageProBinary') || '';
+    if (proBinaryPath !== '') {
+        vscode.commands.executeCommand('setContext', 'cabbage.proEnabled', true);
+    }
+
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.expandCabbageJSON', Commands.expandCabbageJSON));
 

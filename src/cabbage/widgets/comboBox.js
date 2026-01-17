@@ -45,7 +45,7 @@ export class ComboBox {
             "items": ["One", "Two", "Three"],
             "indexOffset": false,
             "populate": {
-                "directory": "",
+                "directories": [""],
                 "fileType": "",
                 "fullFileAndPath": false,
                 "order": "date",
@@ -159,6 +159,9 @@ export class ComboBox {
 
         const rect = widgetDiv.getBoundingClientRect();
         const items = this.getItemsArray();
+        items.forEach(item => {
+            console.log('ComboBox createDropdown: item=', item);
+        });
         const itemHeight = this.props.bounds.height * 0.8;
         const dropdownHeight = items.length * itemHeight;
 
@@ -172,7 +175,9 @@ export class ComboBox {
         ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;
 
         items.forEach(item => {
-            const textWidth = ctx.measureText(item).width;
+            // Measure the display text (formatted), not the raw item
+            const displayText = this.getDisplayText(item);
+            const textWidth = ctx.measureText(displayText).width;
             // Add padding for better readability
             const itemWidth = textWidth + 40;
             if (itemWidth > maxWidth) {
@@ -247,7 +252,8 @@ export class ComboBox {
                 this.handleItemClick(item);
             };
 
-            itemDiv.textContent = item;
+            // Use getDisplayText to format the item for display
+            itemDiv.textContent = this.getDisplayText(item);
             dropdown.appendChild(itemDiv);
         });
 
@@ -291,6 +297,34 @@ export class ComboBox {
             : this.props.items.split(",").map(item => item.trim());
     }
 
+    /**
+     * Formats an item for display based on fullFileAndPath setting
+     * If fullFileAndPath is false, strips path and extension to show only filename
+     * @param {string} item - The full item path/string
+     * @returns {string} - Formatted display string
+     */
+    getDisplayText(item) {
+        const fullPath = this.props.populate?.fullFileAndPath;
+
+        // If fullFileAndPath is true or undefined, return as-is
+        if (fullPath === true || fullPath === undefined) {
+            return item;
+        }
+
+        // If fullFileAndPath is false, extract filename without extension
+        if (fullPath === false) {
+            // Handle both forward and backslashes
+            const lastSlash = Math.max(item.lastIndexOf('/'), item.lastIndexOf('\\'));
+            const filename = lastSlash >= 0 ? item.substring(lastSlash + 1) : item;
+
+            // Remove extension
+            const lastDot = filename.lastIndexOf('.');
+            return lastDot > 0 ? filename.substring(0, lastDot) : filename;
+        }
+
+        return item;
+    }
+
     getInnerHTML() {
         const items = this.getItemsArray();
 
@@ -329,8 +363,8 @@ export class ComboBox {
         // Calculate available width for text (leave room for arrow and padding)
         const availableWidth = this.props.bounds.width - (arrowWidth + padding * 4);
 
-        // Measure text width
-        let displayText = this.selectedItem;
+        // Format the display text based on fullFileAndPath setting
+        let displayText = this.getDisplayText(this.selectedItem);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         ctx.font = `${fontSize}px ${this.props.style.fontFamily}`;

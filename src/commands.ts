@@ -2156,6 +2156,290 @@ include $(SYSTEM_FILES_DIR)/Makefile
     }
 
     /**
+     * Export instrument with Pro encryption support
+     */
+    static async exportProInstrument(type: string) {
+        await Commands.copyProPluginBinaryFile(type);
+    }
+
+    /**
+     * Copies and configures a Pro VST3 plugin with encryption support
+     */
+    static async copyProPluginBinaryFile(type: string): Promise<void> {
+        const filters: Record<string, string[]> = type.includes('AUv2')
+            ? { 'AUv2 Plugin': ['component'] }
+            : { 'VST3 Plugin': ['vst3'] };
+
+        const fileUri = await vscode.window.showSaveDialog({
+            saveLabel: 'Save Pro Plugin',
+            filters
+        });
+
+        if (!fileUri) {
+            console.log('Cabbage: No file selected.');
+            return;
+        }
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found');
+            return;
+        }
+
+        // Ask if user wants to encrypt the CSD file
+        const encryptChoice = await vscode.window.showQuickPick(['Yes', 'No'], {
+            placeHolder: 'Encrypt CSD file for distribution?'
+        });
+
+        const shouldEncrypt = encryptChoice === 'Yes';
+
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const destinationPath = fileUri.fsPath;
+        const pluginName = path.basename(destinationPath, type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+
+        // Get Pro binary path
+        let binaryFile = '';
+        switch (type) {
+            case 'VST3Effect':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProPluginEffect');
+                break;
+            case 'VST3Synth':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProPluginSynth');
+                break;
+            case 'AUv2Effect':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProAUv2Effect');
+                break;
+            case 'AUv2Synth':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProAUv2Synth');
+                break;
+            default:
+                vscode.window.showErrorMessage('Invalid plugin type for pro export');
+                return;
+        }
+
+        if (!fs.existsSync(binaryFile)) {
+            vscode.window.showErrorMessage(`Pro binary not found at: ${binaryFile}. Please check your CabbagePro binaries setup.`);
+            return;
+        }
+
+        // Check if destination exists
+        if (fs.existsSync(destinationPath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Folder ${pluginName} already exists. Do you want to replace it?`,
+                'Yes', 'No'
+            );
+            if (overwrite !== 'Yes') {
+                console.log('Cabbage: Operation cancelled by user');
+                return;
+            }
+            await fs.promises.rm(destinationPath, { recursive: true });
+        }
+
+        try {
+            this.vscodeOutputChannel.appendLine('');
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
+            this.vscodeOutputChannel.appendLine(`Export Pro: Starting plugin export - ${pluginName}`);
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
+
+            // Read CSD content
+            const csdFilePath = editor.document.fileName;
+            let csdContent = await fs.promises.readFile(csdFilePath, 'utf8');
+            this.vscodeOutputChannel.appendLine(`Export Pro: Read CSD file (${csdContent.length} bytes)`);
+
+            // Setup resources directory
+            let resourcesDir = '';
+            if (config.get<boolean>('bundleResources')) {
+                resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
+            } else {
+                resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
+            }
+
+            // If encrypting, create encrypted CSD file
+            if (shouldEncrypt) {
+                // Extract pluginId from Cabbage section
+                const { content: cabbageContent } = Commands.getCabbageContent(editor);
+                if (!cabbageContent) {
+                    vscode.window.showErrorMessage('No Cabbage section found - cannot encrypt');
+                    return;
+                }
+
+                let cabbageWidgets;
+                try {
+                    cabbageWidgets = JSON.parse(cabbageContent);
+                } catch (error) {
+                    vscode.window.showErrorMessage('Failed to parse Cabbage JSON content');
+                    return;
+                }
+
+                const formWidget = cabbageWidgets.find((widget: any) => widget.type === 'form');
+                if (!formWidget || !formWidget.pluginId) {
+                    vscode.window.showErrorMessage('No pluginId found in form widget. Required for encryption.');
+                    return;
+                }
+
+                const pluginId = formWidget.pluginId;
+                this.vscodeOutputChannel.appendLine(`Export Pro: Using pluginId for encryption: ${pluginId}`);
+
+                // Call cabbagepro-cli to encrypt
+                const cliPath = Settings.getCabbageProBinaryPath('CabbageProCLI');
+                if (!fs.existsSync(cliPath)) {
+                    vscode.window.showErrorMessage(`CabbagePro CLI not found at: ${cliPath}`);
+                    return;
+                }
+
+                const tempCsdPath = csdFilePath;
+                const encryptedCsdPath = tempCsdPath.replace(/\.csd$/, '.ecsd');
+
+                const encryptCmd = `"${cliPath}" encrypt --input "${tempCsdPath}" --output "${encryptedCsdPath}" --plugin-id "${pluginId}"`;
+                this.vscodeOutputChannel.appendLine(`Export Pro: Encrypting CSD file...`);
+
+                await new Promise<void>((resolve, reject) => {
+                    const cp = require('child_process');
+                    cp.exec(encryptCmd, (error: any, stdout: string, stderr: string) => {
+                        if (error) {
+                            this.vscodeOutputChannel.appendLine(`Encryption error: ${error.message}`);
+                            reject(error);
+                            return;
+                        }
+                        if (stderr) {
+                            this.vscodeOutputChannel.appendLine(`Encryption stderr: ${stderr}`);
+                        }
+                        if (stdout) {
+                            this.vscodeOutputChannel.appendLine(`Encryption stdout: ${stdout}`);
+                        }
+                        resolve();
+                    });
+                });
+
+                // Read encrypted file
+                csdContent = await fs.promises.readFile(encryptedCsdPath, 'utf8');
+                this.vscodeOutputChannel.appendLine(`Export Pro: CSD encrypted (${csdContent.length} bytes encrypted)`);
+
+                // Clean up encrypted temp file
+                await fs.promises.unlink(encryptedCsdPath);
+            }
+
+            // Setup project resources
+            const indexDotHtml = ExtensionUtils.getIndexHtml();
+            await Commands.setupProjectResources(resourcesDir, indexDotHtml, csdContent, pluginName);
+            this.vscodeOutputChannel.appendLine('Export Pro: Plugin resources setup complete');
+
+            // If encrypted, rename the .csd to .ecsd
+            if (shouldEncrypt) {
+                const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
+                const ecsdPath = path.join(resourcesDir, `${pluginName}.ecsd`);
+                if (fs.existsSync(csdPath)) {
+                    await fs.promises.rename(csdPath, ecsdPath);
+                    this.vscodeOutputChannel.appendLine('Export Pro: Renamed .csd to .ecsd for encrypted file');
+                }
+            }
+
+            // Copy the pro plugin binary
+            if (os.platform() === 'darwin') {
+                await Commands.copyDirectory(binaryFile, destinationPath);
+                this.vscodeOutputChannel.appendLine('Export Pro: Pro plugin binary copied');
+
+                // Rename executable
+                const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
+                let originalFilePath = '';
+                switch (type) {
+                    case 'VST3Effect':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffect');
+                        break;
+                    case 'VST3Synth':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynth');
+                        break;
+                    case 'AUv2Effect':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffectAUv2');
+                        break;
+                    case 'AUv2Synth':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynthAUv2');
+                        break;
+                }
+
+                const newFilePath = path.join(macOSDirPath, pluginName);
+                await fs.promises.rename(originalFilePath, newFilePath);
+                this.vscodeOutputChannel.appendLine(`Export Pro: Executable renamed to ${pluginName}`);
+
+                // Update plist
+                const plistFilePath = path.join(destinationPath, 'Contents', 'Info.plist');
+                if (fs.existsSync(plistFilePath)) {
+                    const plistData = await fs.promises.readFile(plistFilePath, 'utf8');
+                    const parser = new xml2js.Parser();
+                    const builder = new xml2js.Builder();
+
+                    parser.parseString(plistData, async (err, result) => {
+                        if (err) {
+                            this.vscodeOutputChannel.appendLine(`Error parsing plist: ${err}`);
+                            return;
+                        }
+
+                        const dict = result.plist.dict[0];
+                        const updatePlistKey = (keyName: string, newValue: string) => {
+                            const keyIndex = dict.key.indexOf(keyName);
+                            if (keyIndex !== -1) {
+                                if (dict.string && dict.string[keyIndex] !== undefined) {
+                                    dict.string[keyIndex] = newValue;
+                                }
+                            } else {
+                                if (!dict.key) dict.key = [];
+                                if (!dict.string) dict.string = [];
+                                dict.key.push(keyName);
+                                dict.string.push(newValue);
+                            }
+                        };
+
+                        updatePlistKey('CFBundleExecutable', pluginName);
+                        updatePlistKey('CFBundleName', pluginName);
+                        updatePlistKey('CFBundleIdentifier', `com.cabbageaudio.${pluginName.toLowerCase()}`);
+
+                        const updatedPlist = builder.buildObject(result);
+                        await fs.promises.writeFile(plistFilePath, updatedPlist);
+                        this.vscodeOutputChannel.appendLine('Export Pro: Info.plist updated');
+
+                        // Sign the plugin
+                        await Commands.signPlugin(destinationPath, pluginName);
+                    });
+                }
+            } else {
+                // Windows/Linux
+                await Commands.copyDirectory(binaryFile, destinationPath);
+
+                let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
+                if (!fs.existsSync(win64DirPath)) {
+                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
+                }
+                if (!fs.existsSync(win64DirPath)) {
+                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
+                }
+
+                if (fs.existsSync(win64DirPath)) {
+                    const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
+                    const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
+                    if (fs.existsSync(originalFilePath)) {
+                        await fs.promises.rename(originalFilePath, newFilePath);
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Executable renamed to ${pluginName}`);
+                    }
+                }
+            }
+
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
+            this.vscodeOutputChannel.appendLine(`Export Pro: Plugin successfully exported to: ${destinationPath}`);
+            if (shouldEncrypt) {
+                this.vscodeOutputChannel.appendLine(`Export Pro: CSD file encrypted for distribution`);
+            }
+            this.vscodeOutputChannel.appendLine('='.repeat(60));
+
+            vscode.window.showInformationMessage(`Pro plugin exported successfully${shouldEncrypt ? ' with encrypted CSD' : ''}!`);
+
+        } catch (err) {
+            this.vscodeOutputChannel.appendLine(`Export Pro: Error during export: ${err}`);
+            vscode.window.showErrorMessage(`Error during pro plugin export: ${err}`);
+            throw err;
+        }
+    }
+
+    /**
      * Gets the path to the Cabbage JS source directory based on configuration
      */
     private static getJsSourcePath(): string {
@@ -2204,7 +2488,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // Note: Widget script tags are NOT needed because widgetTypes.js imports all built-in widgets statically
         // The usedWidgets set is extracted but not used in index.html generation
         const validWidgets = Array.from(usedWidgets).filter(w => w && w.trim());
-        
+
         Commands.vscodeOutputChannel.appendLine(`Export: Found ${validWidgets.length} used widget types: ${Array.from(validWidgets).join(', ')}`);
 
         return `<!DOCTYPE html>
@@ -2307,7 +2591,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
             }
 
             const cabbageCode = match[1].trim();
-            
+
             // Try to parse JSON
             let widgets: any;
             try {
@@ -2382,7 +2666,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 return;
             }
         }
-        
+
         const effectiveBuiltInSourceDir = builtInSourceDir || allJsSourceDirs[0];
 
         // Copy ALL built-in widgets (required by widgetTypes.js)
@@ -2493,7 +2777,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const settings = await Settings.getCabbageSettings();
         const jsSourceDirs = settings['currentConfig']?.['jsSourceDir'] || [];
         const customWidgetDirs: string[] = Array.isArray(jsSourceDirs) ? jsSourceDirs : [];
-        
+
         // Include the built-in widget directory so copyUsedWidgets can find it
         const allJsSourceDirs = [jsSourcePath, ...customWidgetDirs];
 
