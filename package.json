@@ -77,6 +77,11 @@
           "default": "",
           "description": "Path to Cabbage service app. Leave empty to use default location\nor use command palette to browse for custom build directory."
         },
+        "cabbage.pathToCabbageProBinary": {
+          "type": "string",
+          "default": "",
+          "description": "Path to CabbagePro binaries folder. Set this to enable pro export features\nwith encrypted CSD file support."
+        },
         "cabbage.pathToJsSourceWindows": {
           "type": "string",
           "default": "",
@@ -315,6 +320,35 @@
         "command": "cabbage.exportAUSynth",
         "title": "Export as AUv2 Synth",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.setupCabbageProBinaries",
+        "title": "Setup Pro Binaries",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportProVST3Effect",
+        "title": "Export as VST3 Effect (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled"
+      },
+      {
+        "command": "cabbage.exportProVST3Synth",
+        "title": "Export as VST3 Synth (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled"
+      },
+      {
+        "command": "cabbage.exportProAUEffect",
+        "title": "Export as AUv2 Effect (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled"
+      },
+      {
+        "command": "cabbage.exportProAUSynth",
+        "title": "Export as AUv2 Synth (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled"
       },
       {
         "command": "cabbage.expandCabbageJSON",
