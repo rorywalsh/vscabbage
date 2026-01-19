@@ -2254,7 +2254,12 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
             }
 
-            // If encrypting, create encrypted CSD file
+            // Setup project resources (for both encrypted and unencrypted)
+            const indexDotHtml = ExtensionUtils.getIndexHtml();
+            await Commands.setupProjectResources(resourcesDir, indexDotHtml, csdContent, pluginName);
+            this.vscodeOutputChannel.appendLine('Export Pro: Plugin resources setup complete');
+
+            // If encrypting, create .cabz archive with encrypted resources
             if (shouldEncrypt) {
                 // Extract pluginId from Cabbage section
                 const { content: cabbageContent } = Commands.getCabbageContent(editor);
@@ -2280,58 +2285,57 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 const pluginId = formWidget.pluginId;
                 this.vscodeOutputChannel.appendLine(`Export Pro: Using pluginId for encryption: ${pluginId}`);
 
-                // Call cabbagepro-cli to encrypt
+                // Call cabbagepro-cli export to create encrypted .cabz archive
                 const cliPath = Settings.getCabbageProBinaryPath('CabbageProCLI');
                 if (!fs.existsSync(cliPath)) {
                     vscode.window.showErrorMessage(`CabbagePro CLI not found at: ${cliPath}`);
                     return;
                 }
 
-                const tempCsdPath = csdFilePath;
-                const encryptedCsdPath = tempCsdPath.replace(/\.csd$/, '.ecsd');
+                const cabzOutputPath = path.join(resourcesDir, `${pluginName}.cabz`);
+                const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
 
-                const encryptCmd = `"${cliPath}" encrypt --input "${tempCsdPath}" --output "${encryptedCsdPath}" --plugin-id "${pluginId}"`;
-                this.vscodeOutputChannel.appendLine(`Export Pro: Encrypting CSD file...`);
+                // Process package.include entries if present
+                if (formWidget.package && Array.isArray(formWidget.package.include) && formWidget.package.include.length > 0) {
+                    const csdDir = path.dirname(csdFilePath);
+                    const success = await Commands.processPackageIncludes(formWidget.package.include, csdDir, resourcesDir);
+                    if (!success) {
+                        return;
+                    }
+                }
+
+                // Print folder tree of resources directory for verification
+                this.vscodeOutputChannel.appendLine(`\nExport Pro: Resources directory structure:`);
+                this.vscodeOutputChannel.appendLine(`${resourcesDir}`);
+                await Commands.printFolderTree(resourcesDir);
+                this.vscodeOutputChannel.appendLine('');
+
+                const exportCmd = `"${cliPath}" export --csd "${csdPath}" --resources-dir "${resourcesDir}" --output "${cabzOutputPath}" --plugin-id "${pluginId}" --verbose`;
+                this.vscodeOutputChannel.appendLine(`Export Pro: Creating encrypted .cabz archive...`);
+                this.vscodeOutputChannel.appendLine(`Export Pro: Command: ${exportCmd}`);
 
                 await new Promise<void>((resolve, reject) => {
                     const cp = require('child_process');
-                    cp.exec(encryptCmd, (error: any, stdout: string, stderr: string) => {
+                    cp.exec(exportCmd, (error: any, stdout: string, stderr: string) => {
                         if (error) {
-                            this.vscodeOutputChannel.appendLine(`Encryption error: ${error.message}`);
+                            this.vscodeOutputChannel.appendLine(`Export error: ${error.message}`);
                             reject(error);
                             return;
                         }
                         if (stderr) {
-                            this.vscodeOutputChannel.appendLine(`Encryption stderr: ${stderr}`);
+                            this.vscodeOutputChannel.appendLine(`Export stderr: ${stderr}`);
                         }
                         if (stdout) {
-                            this.vscodeOutputChannel.appendLine(`Encryption stdout: ${stdout}`);
+                            this.vscodeOutputChannel.appendLine(`Export stdout:\n${stdout}`);
                         }
                         resolve();
                     });
                 });
 
-                // Read encrypted file
-                csdContent = await fs.promises.readFile(encryptedCsdPath, 'utf8');
-                this.vscodeOutputChannel.appendLine(`Export Pro: CSD encrypted (${csdContent.length} bytes encrypted)`);
+                this.vscodeOutputChannel.appendLine(`Export Pro: Created encrypted .cabz archive at: ${cabzOutputPath}`);
 
-                // Clean up encrypted temp file
-                await fs.promises.unlink(encryptedCsdPath);
-            }
-
-            // Setup project resources
-            const indexDotHtml = ExtensionUtils.getIndexHtml();
-            await Commands.setupProjectResources(resourcesDir, indexDotHtml, csdContent, pluginName);
-            this.vscodeOutputChannel.appendLine('Export Pro: Plugin resources setup complete');
-
-            // If encrypted, rename the .csd to .ecsd
-            if (shouldEncrypt) {
-                const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
-                const ecsdPath = path.join(resourcesDir, `${pluginName}.ecsd`);
-                if (fs.existsSync(csdPath)) {
-                    await fs.promises.rename(csdPath, ecsdPath);
-                    this.vscodeOutputChannel.appendLine('Export Pro: Renamed .csd to .ecsd for encrypted file');
-                }
+                // The .cabz file now contains the encrypted .ecsd and all resources
+                // The plugin will extract this at runtime to a temp directory
             }
 
             // Copy the pro plugin binary
@@ -2750,6 +2754,108 @@ include $(SYSTEM_FILES_DIR)/Makefile
         }
 
         Commands.vscodeOutputChannel.appendLine('Export: Copied core cabbage framework files');
+    }
+
+    /**
+     * Processes package.include entries and copies files to the destination directory.
+     * Each entry must be an object with { src: string, dest: string }
+     * - src: source path (absolute or relative to CSD directory), can include glob patterns
+     * - dest: destination path (must be relative), where files will be placed
+     *
+     * @param packageInclude - Array of { src, dest } objects
+     * @param csdDir - Directory containing the CSD file (for resolving relative paths)
+     * @param destDir - Destination directory where files will be copied
+     * @returns true if successful, false if there was a validation error
+     */
+    private static async processPackageIncludes(
+        packageInclude: Array<{ src: string; dest: string }>,
+        csdDir: string,
+        destDir: string
+    ): Promise<boolean> {
+        const glob = require('glob');
+
+        Commands.vscodeOutputChannel.appendLine(`Export: Processing package.include entries...`);
+
+        for (const entry of packageInclude) {
+            // Validate entry format
+            if (!entry || typeof entry !== 'object' || !entry.src || !entry.dest) {
+                Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest }. Skipping: ${JSON.stringify(entry)}`);
+                continue;
+            }
+
+            const { src, dest } = entry;
+
+            // Validate dest is not an absolute path
+            if (path.isAbsolute(dest)) {
+                vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${dest}"`);
+                return false;
+            }
+
+            // Resolve src - could be absolute or relative to CSD directory
+            const resolvedSrc = path.isAbsolute(src) ? src : path.join(csdDir, src);
+
+            Commands.vscodeOutputChannel.appendLine(`Export: Processing { src: "${src}", dest: "${dest}" }`);
+
+            // Check if src is a directory (no glob pattern)
+            const hasGlobPattern = src.includes('*');
+            let matchedFiles: string[];
+
+            if (!hasGlobPattern && fs.existsSync(resolvedSrc) && fs.statSync(resolvedSrc).isDirectory()) {
+                // It's a directory - match all files recursively
+                matchedFiles = glob.sync(path.join(resolvedSrc, '**/*'), { nodir: true });
+            } else {
+                // It's a glob pattern or a single file
+                matchedFiles = glob.sync(resolvedSrc, { nodir: true });
+            }
+
+            Commands.vscodeOutputChannel.appendLine(`Export: Found ${matchedFiles.length} files`);
+
+            // Get the base directory for calculating relative paths within the source
+            const srcBase = hasGlobPattern
+                ? resolvedSrc.split('*')[0].replace(/\/+$/, '')
+                : resolvedSrc;
+
+            for (const srcFile of matchedFiles) {
+                // Calculate the relative path from the source base
+                const relativeFromSrc = path.relative(srcBase, srcFile);
+
+                // Combine with the destination path
+                const destFile = path.join(destDir, dest, relativeFromSrc);
+                const destFileDir = path.dirname(destFile);
+
+                // Create destination directory if needed
+                await fs.promises.mkdir(destFileDir, { recursive: true });
+
+                // Copy the file
+                await fs.promises.copyFile(srcFile, destFile);
+                Commands.vscodeOutputChannel.appendLine(`Export:   ${path.join(dest, relativeFromSrc)}`);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Prints a folder tree structure to the output channel
+     */
+    private static async printFolderTree(dir: string, prefix: string = ''): Promise<void> {
+        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+        const sorted = entries.sort((a, b) => {
+            // Directories first, then files
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.name.localeCompare(b.name);
+        });
+        for (let i = 0; i < sorted.length; i++) {
+            const entry = sorted[i];
+            const isLast = i === sorted.length - 1;
+            const connector = isLast ? '└── ' : '├── ';
+            const childPrefix = isLast ? '    ' : '│   ';
+            Commands.vscodeOutputChannel.appendLine(`${prefix}${connector}${entry.name}`);
+            if (entry.isDirectory()) {
+                await Commands.printFolderTree(path.join(dir, entry.name), prefix + childPrefix);
+            }
+        }
     }
 
     /**
@@ -3291,6 +3397,32 @@ i2 5 z
             await Commands.setupProjectResources(resourcesDir, indexDotHtml, csdContent, pluginName);
 
             this.vscodeOutputChannel.appendLine('Export: Plugin resources setup complete');
+
+            // Process package.include if present in form widget
+            if (editor) {
+                const { content: cabbageContent } = Commands.getCabbageContent(editor);
+                if (cabbageContent) {
+                    try {
+                        const cabbageWidgets = JSON.parse(cabbageContent);
+                        const formWidget = cabbageWidgets.find((widget: any) => widget.type === 'form');
+                        if (formWidget?.package && Array.isArray(formWidget.package.include) && formWidget.package.include.length > 0) {
+                            const csdDir = path.dirname(editor.document.fileName);
+                            const success = await Commands.processPackageIncludes(formWidget.package.include, csdDir, resourcesDir);
+                            if (!success) {
+                                return;
+                            }
+
+                            // Print folder tree for verification
+                            this.vscodeOutputChannel.appendLine(`\nExport: Resources directory structure:`);
+                            this.vscodeOutputChannel.appendLine(`${resourcesDir}`);
+                            await Commands.printFolderTree(resourcesDir);
+                            this.vscodeOutputChannel.appendLine('');
+                        }
+                    } catch (error) {
+                        this.vscodeOutputChannel.appendLine(`Export: Warning - Could not parse Cabbage JSON for package.include: ${error}`);
+                    }
+                }
+            }
 
             // Copy the plugin
             if (os.platform() === 'darwin') {
