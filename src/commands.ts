@@ -2292,7 +2292,44 @@ include $(SYSTEM_FILES_DIR)/Makefile
                     return;
                 }
 
-                const cabzOutputPath = path.join(resourcesDir, `${pluginName}.cabz`);
+                // Determine cabz output path - use custom directory if specified in package.cabzOutputDir
+                let cabzOutputPath: string;
+
+                // Debug logging to help troubleshoot cabzOutputDir issues
+                this.vscodeOutputChannel.appendLine(`Export Pro: Checking for custom cabz output directory...`);
+                if (formWidget) {
+                    if (formWidget.package) {
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Found package configuration: ${JSON.stringify(formWidget.package)}`);
+                        if (formWidget.package.cabzOutputDir) {
+                            this.vscodeOutputChannel.appendLine(`Export Pro: Found cabzOutputDir: "${formWidget.package.cabzOutputDir}"`);
+                        } else {
+                            this.vscodeOutputChannel.appendLine(`Export Pro: 'cabzOutputDir' property not found in package object`);
+                        }
+                    } else {
+                        this.vscodeOutputChannel.appendLine(`Export Pro: 'package' object not found in form widget`);
+                    }
+                }
+
+                if (formWidget.package && formWidget.package.cabzOutputDir) {
+                    const customDir = String(formWidget.package.cabzOutputDir).trim();
+                    // Resolve path: if absolute use as-is, if relative resolve from CSD file directory
+                    const resolvedDir = path.isAbsolute(customDir)
+                        ? path.normalize(customDir)
+                        : path.resolve(path.dirname(csdFilePath), customDir);
+
+                    // Ensure the directory exists
+                    try {
+                        await fs.promises.mkdir(resolvedDir, { recursive: true });
+                        cabzOutputPath = path.join(resolvedDir, `${pluginName}.cabz`);
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Using custom cabz output directory: ${resolvedDir}`);
+                    } catch (err) {
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Failed to create custom directory '${resolvedDir}': ${err}`);
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Falling back to default resources directory`);
+                        cabzOutputPath = path.join(resourcesDir, `${pluginName}.cabz`);
+                    }
+                } else {
+                    cabzOutputPath = path.join(resourcesDir, `${pluginName}.cabz`);
+                }
                 const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
 
                 // Process package.include entries if present
@@ -3633,6 +3670,15 @@ i2 5 z
      * @throws {Error} If there are issues with file system operations
      */
     static async copyDirectory(src: string, dest: string): Promise<void> {
+        // Check if source is a file (e.g., single .vst3 file on Windows)
+        const srcStat = await fs.promises.stat(src);
+
+        if (srcStat.isFile()) {
+            // If source is a file, just copy it directly
+            await fs.promises.copyFile(src, dest);
+            return;
+        }
+
         // Ensure the destination folder exists
         await fs.promises.mkdir(dest, { recursive: true });
 
