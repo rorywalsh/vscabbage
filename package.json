@@ -82,6 +82,12 @@
           "default": "",
           "description": "Path to CabbagePro binaries folder. Set this to enable pro export features\nwith encrypted CSD file support."
         },
+        "cabbage.useProCabbageApp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use Pro version of CabbageApp for development. When enabled, uses the CabbageApp from the Pro binaries folder instead of the public version.",
+          "when": "cabbage.proEnabled"
+        },
         "cabbage.pathToJsSourceWindows": {
           "type": "string",
           "default": "",
