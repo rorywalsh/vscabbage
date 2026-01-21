@@ -852,7 +852,17 @@ export class Commands {
      * @returns 
      */
     static async manageServer() {
-        const command = Settings.getCabbageBinaryPath('CabbageApp');
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
+        const useProCabbageApp = config.get<boolean>("useProCabbageApp", true);
+
+        // Check if Pro binary path is set and valid, and user wants to use Pro CabbageApp
+        let command: string;
+        if (proBinaryPath && proBinaryPath.trim() !== '' && useProCabbageApp) {
+            command = Settings.getCabbageProBinaryPath('CabbageApp');
+        } else {
+            command = Settings.getCabbageBinaryPath('CabbageApp');
+        }
 
         // Check and update file permissions if necessary (macOS only)
         if (process.platform === 'darwin') {
@@ -1115,7 +1125,17 @@ export class Commands {
      * @returns 
      */
     static async startCabbageProcess() {
-        const command = Settings.getCabbageBinaryPath('CabbageApp');
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
+        const useProCabbageApp = config.get<boolean>("useProCabbageApp", true);
+
+        // Check if Pro binary path is set and valid, and user wants to use Pro CabbageApp
+        let command: string;
+        if (proBinaryPath && proBinaryPath.trim() !== '' && useProCabbageApp) {
+            command = Settings.getCabbageProBinaryPath('CabbageApp');
+        } else {
+            command = Settings.getCabbageBinaryPath('CabbageApp');
+        }
 
         // Spawn CabbageApp without port number - it will use stdin/stdout pipes
         const process = cp.spawn(command, [], {

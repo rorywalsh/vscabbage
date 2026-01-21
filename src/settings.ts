@@ -119,6 +119,8 @@ export class Settings {
         }
 
         switch (type) {
+            case 'CabbageApp':
+                return path.join(proBinaryPath, 'CabbageServiceApp', 'CabbageApp');
             case 'CabbageProPluginEffect':
                 return path.join(proBinaryPath, 'VST3', 'CabbagePluginEffect.vst3');
             case 'CabbageProPluginSynth':
