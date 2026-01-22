@@ -974,6 +974,14 @@ function isCsoundInPath(): boolean {
  * adhoc signed, we sign it again.
  */
 function onInstall() {
+    // Return early if users is working with Cabbage Pro binaries
+    const config = vscode.workspace.getConfiguration('cabbage');
+    const proBinaryPath = config.get<string>('pathToCabbageProBinary') || '';
+    const usePro = config.get<boolean>('useProCabbageApp') || false;
+    if (proBinaryPath && usePro) {
+        return;
+    }
+    console.log('Cabbage: Running installation checks for pro failed');
     // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already
     // signed
     if (process.platform === 'darwin') {

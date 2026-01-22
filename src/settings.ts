@@ -120,7 +120,8 @@ export class Settings {
 
         switch (type) {
             case 'CabbageApp':
-                return path.join(proBinaryPath, 'CabbageServiceApp', 'CabbageApp');
+                const binaryName = os.platform() === 'win32' ? 'CabbageApp.exe' : 'CabbageApp';
+                return path.join(proBinaryPath, 'CabbageServiceApp', binaryName);
             case 'CabbageProPluginEffect':
                 return path.join(proBinaryPath, 'VST3', 'CabbagePluginEffect.vst3');
             case 'CabbageProPluginSynth':
