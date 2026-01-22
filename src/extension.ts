@@ -374,9 +374,6 @@ export async function activate(context: vscode.ExtensionContext):
     context.subscriptions.push(vscode.commands.registerCommand(
         'cabbage.selectAudioInputDevice', async () => {
             await Commands.withServerRestart(() => Settings.selectAudioDevice('input'));
-            // clear sound file config when selecting live audio input
-            await context.globalState.update('soundFileInput', undefined);
-            Commands.sendFileToChannel(context, '', -1);
         }));
 
     context.subscriptions.push(vscode.commands.registerCommand(
@@ -620,18 +617,6 @@ export async function activate(context: vscode.ExtensionContext):
 
     // utility function to send text to Cabbage instrument overriding the current
     // realtime audio inputs
-    context.subscriptions.push(vscode.commands.registerCommand(
-        'cabbage.sendFileToChannel1and2', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, uri.fsPath, 12);
-        }));
-    context.subscriptions.push(vscode.commands.registerCommand(
-        'cabbage.sendFileToChannel1', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, uri.fsPath, 1);
-        }));
-    context.subscriptions.push(vscode.commands.registerCommand(
-        'cabbage.sendFileToChannel2', (uri: vscode.Uri) => {
-            Commands.sendFileToChannel(context, uri.fsPath, 2);
-        }));
 
     // Register the commands for creating new Cabbage files
     context.subscriptions.push(
@@ -910,19 +895,6 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         if (config.get("clearConsoleOnCompile")) {
             vscodeOutputChannel.clear();
         }
-
-        // Send any saved sound file inputs to channels after a delay
-        const soundFileInput = context.globalState.get<{ [key: number]: string }>(
-            'soundFileInput', {});
-        setTimeout(() => {
-            for (const [channel, file] of Object.entries(soundFileInput)) {
-                if (Number(channel) > 0) {
-                    vscode.window.showInformationMessage(
-                        `Routing ${file} to channel ${channel}`);
-                }
-                Commands.sendFileToChannel(context, file, Number(channel));
-            }
-        }, 2000);
 
         const panel = Commands.getPanel();
         if (panel) {
