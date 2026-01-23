@@ -102,6 +102,8 @@ export class ComboBox {
     }
 
     handleItemClick(item) {
+        console.log('ComboBox handleItemClick called with item:', item);
+
         // Clear defaultLabel when an actual item is selected
         if (!this.defaultLabelCleared) {
             this.defaultLabelCleared = true;
@@ -114,22 +116,30 @@ export class ComboBox {
 
         this.props.channels[0].range.value = valueToSend;
 
-        // For non-automatable comboBox (e.g., with populate), send the selected item text as a string
-        // For automatable comboBox, send the numeric index
         const isAutomatable = this.props.automatable === true || this.props.automatable === 1;
+        const paramIdx = CabbageUtils.getChannelParameterIndex(this.props, 0);
+        const channelType = this.props.channels[0].type || "number";
+
+        console.log('ComboBox handleItemClick: isAutomatable=', isAutomatable, 'paramIdx=', paramIdx, 'channelType=', channelType, 'value=', valueToSend);
+
+        // Determine value to send based on channel type:
+        // - For numeric channels: always send the numeric index
+        // - For string channels: send the selected item text
+        const valueForMessage = (channelType === "string") ? this.selectedItem : this.props.channels[0].range.value;
 
         const msg = {
             channel: CabbageUtils.getChannelId(this.props),
-            value: isAutomatable ? this.props.channels[0].range.value : this.selectedItem
+            value: valueForMessage
         };
 
-        // Only include paramIdx and channelType for automatable widgets
-        if (isAutomatable) {
-            msg.paramIdx = CabbageUtils.getChannelParameterIndex(this.props, 0);
-            msg.channelType = this.props.channels[0].type || "number";
+        // Only include paramIdx and channelType for automatable widgets with valid parameter index
+        if (isAutomatable && paramIdx >= 0) {
+            msg.paramIdx = paramIdx;
+            msg.channelType = channelType;
         }
 
-        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+        console.log('ComboBox handleItemClick: sending message:', JSON.stringify(msg), 'automatable:', this.props.automatable);
+        Cabbage.sendChannelUpdate(msg, this.vscode, isAutomatable && paramIdx >= 0);
 
         this.isOpen = false;
         this.removeDropdown();

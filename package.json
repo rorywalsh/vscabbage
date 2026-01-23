@@ -31,34 +31,8 @@
           "when": "editorTextFocus",
           "group": "navigation"
         }
-      ],
-      "explorer/context": [
-        {
-          "submenu": "cabbageSubmenu",
-          "group": "cabbage.myGroup"
-        }
-      ],
-      "cabbageSubmenu": [
-        {
-          "command": "cabbage.sendFileToChannel1and2",
-          "group": "cabbage.myGroup"
-        },
-        {
-          "command": "cabbage.sendFileToChannel1",
-          "group": "cabbage.myGroup"
-        },
-        {
-          "command": "cabbage.sendFileToChannel2",
-          "group": "cabbage.myGroup"
-        }
       ]
     },
-    "submenus": [
-      {
-        "label": "Send audio file to..",
-        "id": "cabbageSubmenu"
-      }
-    ],
     "configuration": {
       "title": "Cabbage",
       "properties": {
@@ -82,10 +56,16 @@
           "default": "",
           "description": "Path to CabbagePro binaries folder. Set this to enable pro export features\nwith encrypted CSD file support."
         },
-        "cabbage.useProCabbageApp": {
+        "cabbage.proAppEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Use Pro version of CabbageApp for development. When enabled, uses the CabbageApp from the Pro binaries folder instead of the public version.",
+          "when": "cabbage.proEnabled"
+        },
+        "cabbage.proPluginsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use Pro version of Cabbage plugins for development. When enabled, uses the Pro plugin binaries instead of the public versions.",
           "when": "cabbage.proEnabled"
         },
         "cabbage.pathToJsSourceWindows": {
@@ -151,11 +131,6 @@
           "default": 4,
           "description": "Set the number of pixels to move by when dragging an element."
         },
-        "cabbage.autoPlaySoundfileInput": {
-          "type": "boolean",
-          "default": true,
-          "description": "If sound file input is selected, play automatically when instrument is started."
-        },
         "cabbage.logVerbose": {
           "type": "boolean",
           "default": false,
@@ -174,11 +149,6 @@
           ],
           "default": "right",
           "description": "Position of the property panel in the webview."
-        },
-        "cabbage.bundleResources": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable to bundle resources into plugin directory when exporting. Otherwise, all resources will be placed into the CabbageAudio resources folder."
         },
         "cabbage.saveExternalJSON": {
           "type": "boolean",
@@ -336,25 +306,25 @@
         "command": "cabbage.exportProVST3Effect",
         "title": "Export as VST3 Effect (Pro)",
         "category": "Cabbage",
-        "enablement": "cabbage.proEnabled"
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },
       {
         "command": "cabbage.exportProVST3Synth",
         "title": "Export as VST3 Synth (Pro)",
         "category": "Cabbage",
-        "enablement": "cabbage.proEnabled"
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },
       {
         "command": "cabbage.exportProAUEffect",
         "title": "Export as AUv2 Effect (Pro)",
         "category": "Cabbage",
-        "enablement": "cabbage.proEnabled"
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },
       {
         "command": "cabbage.exportProAUSynth",
         "title": "Export as AUv2 Synth (Pro)",
         "category": "Cabbage",
-        "enablement": "cabbage.proEnabled"
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },
       {
         "command": "cabbage.expandCabbageJSON",

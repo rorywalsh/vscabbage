@@ -783,11 +783,11 @@ export class Commands {
     static async manageServer() {
         const config = vscode.workspace.getConfiguration("cabbage");
         const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
-        const useProCabbageApp = config.get<boolean>("useProCabbageApp", true);
+        const proAppEnabled = config.get<boolean>("proAppEnabled", true);
 
         // Check if Pro binary path is set and valid, and user wants to use Pro CabbageApp
         let command: string;
-        if (proBinaryPath && proBinaryPath.trim() !== '' && useProCabbageApp) {
+        if (proBinaryPath && proBinaryPath.trim() !== '' && proAppEnabled) {
             command = Settings.getCabbageProBinaryPath('CabbageApp');
         } else {
             command = Settings.getCabbageBinaryPath('CabbageApp');
@@ -1056,11 +1056,11 @@ export class Commands {
     static async startCabbageProcess() {
         const config = vscode.workspace.getConfiguration("cabbage");
         const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
-        const useProCabbageApp = config.get<boolean>("useProCabbageApp", true);
+        const proAppEnabled = config.get<boolean>("proAppEnabled", true);
 
         // Check if Pro binary path is set and valid, and user wants to use Pro CabbageApp
         let command: string;
-        if (proBinaryPath && proBinaryPath.trim() !== '' && useProCabbageApp) {
+        if (proBinaryPath && proBinaryPath.trim() !== '' && proAppEnabled) {
             command = Settings.getCabbageProBinaryPath('CabbageApp');
         } else {
             command = Settings.getCabbageBinaryPath('CabbageApp');

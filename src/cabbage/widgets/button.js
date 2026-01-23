@@ -81,7 +81,6 @@ export class Button {
     this.vscode = null;
     this.isMouseDown = false;
     this.isMouseInside = false;
-    this.parameterIndex = 0;
     // Wrap props with reactive proxy to unify visible/active handling
     this.props = CabbageUtils.createReactiveProps(this, this.props);
 

@@ -45,7 +45,6 @@ export class OptionButton {
     this.isMouseDown = false;
     this.isMouseInside = false;
     this.parameterIndex = 0;
-    this.currentIndex = 0;
     // Wrap props with reactive proxy to unify visible/active handling
     this.props = CabbageUtils.createReactiveProps(this, this.props);
   }
@@ -69,8 +68,8 @@ export class OptionButton {
 
     this.isMouseDown = true;
     const itemsLength = this.getItems().length;
-    this.currentIndex = (this.currentIndex + 1) % itemsLength;
-    this.props.channels[0].range.value = this.currentIndex;
+    const currentValue = this.props.channels[0].range.value || 0;
+    this.props.channels[0].range.value = (currentValue + 1) % itemsLength;
 
     CabbageUtils.updateInnerHTML(this.props, this, evt.currentTarget);
     console.log('Cabbage: CurrentText', this.props.currentText);
@@ -162,7 +161,10 @@ export class OptionButton {
     const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? this.props.bounds.height * 0.5 : this.props.style.fontSize;
     const padding = 5;
     const items = this.getItems();
-    const currentText = items[this.currentIndex];
+
+    // Use channel value as the single source of truth
+    const currentIndex = this.props.channels[0].range.value || 0;
+    const currentText = items[currentIndex] || items[0];
 
     let textX;
     if (this.props.style.textAlign === 'left') {

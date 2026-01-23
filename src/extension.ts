@@ -949,8 +949,8 @@ function onInstall() {
     // Return early if users is working with Cabbage Pro binaries
     const config = vscode.workspace.getConfiguration('cabbage');
     const proBinaryPath = config.get<string>('pathToCabbageProBinary') || '';
-    const usePro = config.get<boolean>('useProCabbageApp') || false;
-    if (proBinaryPath && usePro) {
+    const proAppEnabled = config.get<boolean>('proAppEnabled') || false;
+    if (proBinaryPath && proAppEnabled) {
         return;
     }
     console.log('Cabbage: Running installation checks for pro failed');
