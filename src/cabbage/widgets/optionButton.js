@@ -76,9 +76,8 @@ export class OptionButton {
 
     const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value, channelType: this.props.channels[0].type || "number" };
     console.log('Sending parameter update:', msg);
-    if (this.props.automatable) {
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-    }
+    // Always send channel update - automatable flag determines if it goes via parameterChange or channelData
+    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
   }
 
   getItems() {
