@@ -213,5 +213,38 @@ export class Cabbage {
     }
   }
 
+  /**
+   * Request a resize of the plugin GUI window.
+   * This is only supported in plugin mode (CLAP/VST3/AUv2).
+   * The host may accept or reject the resize request.
+   *
+   * @param {number} width - The requested width in pixels
+   * @param {number} height - The requested height in pixels
+   * @param {object} vscode - The vscode API object (null for plugin mode)
+   *
+   * The response will be sent via hostMessageCallback with:
+   * {command: "resizeResponse", accepted: boolean, width: number, height: number}
+   */
+  static requestResize(width, height, vscode = null) {
+    const msg = {
+      command: "requestResize",
+      width: width,
+      height: height
+    };
+
+    if (vscode !== null) {
+      // In VS Code extension mode, resize is not supported via this mechanism
+      console.warn('Cabbage: requestResize is not supported in VS Code extension mode');
+      return;
+    }
+    else {
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
+    }
+  }
+
 
 }
