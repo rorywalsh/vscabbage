@@ -777,7 +777,6 @@ export class WidgetManager {
                         //console.log(`WidgetManager.updateWidget: xyPad - channelStr=${channelStr}, xChannelId=${xChannelId}, yChannelId=${yChannelId}, isX=${isXChannel}, isY=${isYChannel}`);
 
                         if (isXChannel || isYChannel) {
-                            widget.isUpdatingFromBackend = true;
                             const axis = isXChannel ? 'x' : 'y';
                             const range = CabbageUtils.getChannelRange(widget.props, isXChannel ? 0 : 1);
                             //console.log(`WidgetManager.updateWidget: xyPad - axis=${axis}, range=`, range);
@@ -805,7 +804,6 @@ export class WidgetManager {
                             if (widgetDiv) {
                                 widgetDiv.innerHTML = widget.getInnerHTML();
                             }
-                            widget.isUpdatingFromBackend = false;
                         }
                     }
                     return; // Early return for xyPad
@@ -816,8 +814,6 @@ export class WidgetManager {
                     //console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
                     if (obj.value != null) {
                         // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
-                        // Set flag to indicate this is a programmatic update from backend
-                        widget.isUpdatingFromBackend = true;
                         let newValue = obj.value;
                         // For sliders, handle value conversion
                         if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
@@ -867,8 +863,6 @@ export class WidgetManager {
                             // Canvas widget - call its update method to redraw with new value
                             widget.updateCanvas();
                         }
-                        // Clear the flag after update is complete
-                        widget.isUpdatingFromBackend = false;
                     } else {
                         console.log(`Skipping value update because obj.value is null/undefined: ${obj.value}`);
                     }
