@@ -132,50 +132,24 @@ export class Cabbage {
     }
   }
 
-  static sendCustomCommand(command, vscode = null, additionalData = {}) {
-    const msg = {
-      command: command,
-      text: JSON.stringify(additionalData)
-    };
 
-    if (vscode !== null) {
-      vscode.postMessage(msg);
-    }
-    else {
-      if (typeof window.sendMessageFromUI === 'function') {
-        console.log('Cabbage: Calling window.sendMessageFromUI with:', msg);
-        try {
-          const result = window.sendMessageFromUI(msg);
-          console.log('Cabbage: sendMessageFromUI returned:', result);
-        } catch (err) {
-          console.error('Cabbage: sendMessageFromUI threw error:', err);
-          console.error('Cabbage: Error stack:', err.stack);
-        }
-      } else {
-        console.error('Cabbage: window.sendMessageFromUI is not available yet. Message:', msg);
-        console.error('Cabbage: typeof window.sendMessageFromUI:', typeof window.sendMessageFromUI);
-        console.error('Cabbage: window.sendMessageFromUI value:', window.sendMessageFromUI);
-      }
-    }
+  /**
+   * Signal that the UI is ready to load and initialize.
+   *
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   * @param {Object} additionalData - Additional initialization data
+   */
+  static isReadyToLoad(vscode = null, additionalData = {}) {
+    this.sendCustomCommand("isReadyToLoad", vscode);
   }
-
-  static sendWidgetUpdate(widget, vscode = null) {
-    const msg = {
-      command: "widgetStateUpdate",
-      obj: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
-    };
-    if (vscode !== null) {
-      vscode.postMessage(msg);
-    }
-    else {
-      if (typeof window.sendMessageFromUI === 'function') {
-        window.sendMessageFromUI(msg);
-      } else {
-        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
-      }
-    }
-  }
-
+  /**
+   * Send a MIDI message from the UI to the Cabbage backend.
+   *
+   * @param {number} statusByte - MIDI status byte
+   * @param {number} dataByte1 - First MIDI data byte
+   * @param {number} dataByte2 - Second MIDI data byte
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   */
   static sendMidiMessageFromUI(statusByte, dataByte1, dataByte2, vscode = null) {
     var message = {
       "statusByte": statusByte,
@@ -200,10 +174,27 @@ export class Cabbage {
     }
   }
 
+  /**
+   * Handle incoming MIDI messages from the backend.
+   *
+   * @param {number} statusByte - MIDI status byte
+   * @param {number} dataByte1 - First MIDI data byte
+   * @param {number} dataByte2 - Second MIDI data byte
+   */
   static MidiMessageFromHost(statusByte, dataByte1, dataByte2) {
     console.log("Cabbage: Got MIDI Message" + statusByte + ":" + dataByte1 + ":" + dataByte2);
   }
 
+  /**
+   * Trigger a native file open dialog for file selection widgets.
+   *
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   * @param {string} channel - The associated channel name
+   * @param {Object} options - Dialog options
+   * @param {string} [options.directory] - Starting directory path
+   * @param {string} [options.filters="*"] - File filters (e.g., "*.wav;*.aiff")
+   * @param {boolean} [options.openAtLastKnownLocation=true] - Whether to open at last known location
+   */
   static triggerFileOpenDialog(vscode, channel, options = {}) {
     var message = {
       "channel": channel,
@@ -228,6 +219,13 @@ export class Cabbage {
     }
   }
 
+  /**
+   * Open a URL or file in the system's default application.
+   *
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   * @param {string} url - URL to open
+   * @param {string} file - File path to open
+   */
   static openUrl(vscode, url, file) {
     var message = {
       "url": url,
@@ -285,12 +283,7 @@ export class Cabbage {
 
 
   /**
-     * Internal: Send channel data directly to Csound without DAW automation involvement.
-     * Use `sendControlData()` instead - it will route here automatically for non-automatable widgets.
-     *
-     * Used for non-automatable widgets like buttons, file selectors, or
-     * any widget that sends string data. The value is sent directly to Csound's
-     * channel system and is not recorded by DAW automation.
+     * Send channel data directly to Csound without DAW automation involvement.
      *
      * @param {string} channel - The Csound channel name
      * @param {number|string} data - The data to send (number or string)
@@ -325,6 +318,64 @@ export class Cabbage {
         window.sendMessageFromUI(msg);
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
+    }
+  }
+
+  /**
+   * Send a widget state update to the Cabbage backend (used by property panel).
+   *
+   * @private
+   * @param {Object} widget - The widget configuration object to update
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   */
+  static sendWidgetUpdate(widget, vscode = null) {
+    const msg = {
+      command: "widgetStateUpdate",
+      obj: JSON.stringify(CabbageUtils.sanitizeForEditor(widget))
+    };
+    if (vscode !== null) {
+      vscode.postMessage(msg);
+    }
+    else {
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
+    }
+  }
+
+  /**
+   * Send a custom command to the Cabbage backend.
+   *
+   * @param {string} command - The command name to send
+   * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+   * @param {Object} additionalData - Additional data to include in the command
+   */
+  static sendCustomCommand(command, vscode = null, additionalData = {}) {
+    const msg = {
+      command: command,
+      text: JSON.stringify(additionalData)
+    };
+
+    if (vscode !== null) {
+      vscode.postMessage(msg);
+    }
+    else {
+      if (typeof window.sendMessageFromUI === 'function') {
+        console.log('Cabbage: Calling window.sendMessageFromUI with:', msg);
+        try {
+          const result = window.sendMessageFromUI(msg);
+          console.log('Cabbage: sendMessageFromUI returned:', result);
+        } catch (err) {
+          console.error('Cabbage: sendMessageFromUI threw error:', err);
+          console.error('Cabbage: Error stack:', err.stack);
+        }
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available yet. Message:', msg);
+        console.error('Cabbage: typeof window.sendMessageFromUI:', typeof window.sendMessageFromUI);
+        console.error('Cabbage: window.sendMessageFromUI value:', window.sendMessageFromUI);
       }
     }
   }
