@@ -200,11 +200,11 @@ export class GenTable {
         const lengthChannel = CabbageUtils.getChannelId(this.props, 1);
 
         if (startChannel) {
-            Cabbage.sendChannelData(startChannel, startSample, this.vscode);
+            Cabbage.sendControlData(startChannel, startSample, this.vscode);
         }
 
         if (lengthChannel) {
-            Cabbage.sendChannelData(lengthChannel, lengthSamples, this.vscode);
+            Cabbage.sendControlData(lengthChannel, lengthSamples, this.vscode);
         }
 
 

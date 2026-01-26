@@ -275,9 +275,7 @@ export class HorizontalRangeSlider {
     const valueToSend = this.props.channels[0].range.value;
     console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" }
-
-    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+    Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), valueToSend, this.vscode);
 
   }
 

@@ -155,17 +155,13 @@ export class VerticalSlider {
       window.addEventListener("pointerup", this.boundPointerUp);
       CabbageUtils.updateInnerHTML(this.props, this);
 
-      console.log('VerticalSlider pointerDown: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
-      console.log('VerticalSlider pointerMove: parameterIndex =', this.parameterIndex, 'automatable =', this.props.automatable);
       // Send denormalized value directly to backend
       const valueToSend = this.props.channels[0].range.value;
       if (isNaN(valueToSend) || !isFinite(valueToSend)) {
         console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
         return;
       }
-      const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
-      console.log('VerticalSlider pointerMove sending:', msg);
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+      Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), valueToSend, this.vscode);
 
     }
   }

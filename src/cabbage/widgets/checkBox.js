@@ -93,9 +93,7 @@ export class Checkbox {
     }
 
     CabbageUtils.updateInnerHTML(this.props, this);
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value };
-
-    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+    Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), this.props.channels[0].range.value, this.vscode);
 
   }
 

@@ -158,9 +158,7 @@ export class NumberSlider {
 
             // Send denormalized value to backend
             console.log(`NumberSlider sending value: ${range.value} (range: ${range.min}-${range.max})`);
-            const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: range.value };
-
-            Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+            Cabbage.sendControlData(channelId, range.value, this.vscode);
 
             this.updateSliderValue();
         }
@@ -203,10 +201,7 @@ export class NumberSlider {
                 if (!isNaN(newValue) && newValue >= range.min && newValue <= range.max) {
                     range.value = newValue;
                     // Send denormalized value to backend
-                    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: channelId, value: range.value };
-                    if (this.props.automatable) {
-                        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-                    }
+                    Cabbage.sendControlData(channelId, range.value, this.vscode);
                     this.updateSliderValue();
                 } else {
                     alert(`Please enter a value between ${range.min} and ${range.max}`);
