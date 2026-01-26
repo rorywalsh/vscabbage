@@ -18,7 +18,9 @@
  * accordingly:
  * - Automatable channels -> DAW parameter system -> Csound
  * - Non-automatable channels -> Csound directly
- *
+ * **Thread Safety**: This function is asynchronous and does NOT block the audio thread.
+ * Parameter updates are queued and processed safely without interrupting real-time audio processing.
+ * 
  * ### Backend -> UI (Incoming)
  * The backend sends messages via `hostMessageCallback()`. Values received from the host
  * are in their full range (e.g., 20-20000 Hz for a filter frequency slider).
