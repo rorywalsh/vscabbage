@@ -36,13 +36,8 @@ export function handleRadioGroup(radioGroup, activeWidgetId) {
             if (widgetDiv) {
                 widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 // Send update to host
-                const msg = {
-                    paramIdx: CabbageUtils.getChannelParameterIndex(groupWidget.props, 0),
-                    channel: channelId,
-                    value: 0
-                };
-                console.log(`Cabbage: Sending channel update for ${channelId}:`, msg);
-                Cabbage.sendChannelUpdate(msg, groupWidget.vscode || null, groupWidget.props.automatable);
+                console.log(`Cabbage: Sending channel update for ${channelId}:`, 0);
+                Cabbage.sendControlData({ channel: channelId, value: 0, gesture: "complete" }, groupWidget.vscode || null);
             }
         }
     });

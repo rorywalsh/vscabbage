@@ -369,31 +369,15 @@ export class XyPad {
         // Send X channel update
         const xCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
         if (xCh) {
-            const msgX = {
-                paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
-                channel: xCh.id,
-                value: xToSend,
-                channelType: "number"
-            };
-            console.log("XyPad sending X update:", msgX, "vscode:", this.vscode);
-
-            Cabbage.sendChannelUpdate(msgX, this.vscode, this.props.automatable);
-
+            console.log("XyPad sending X update:", xCh.id, xToSend, "vscode:", this.vscode);
+            Cabbage.sendControlData({ channel: xCh.id, value: xToSend, gesture: "value" }, this.vscode);
         }
 
         // Send Y channel update
         const yCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
         if (yCh) {
-            const msgY = {
-                paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 1),
-                channel: yCh.id,
-                value: yToSend,
-                channelType: "number"
-            };
-            console.log("XyPad sending Y update:", msgY, "vscode:", this.vscode);
-            if (this.props.automatable) {
-                Cabbage.sendChannelUpdate(msgY, this.vscode, this.props.automatable);
-            }
+            console.log("XyPad sending Y update:", yCh.id, yToSend, "vscode:", this.vscode);
+            Cabbage.sendControlData({ channel: yCh.id, value: yToSend, gesture: "value" }, this.vscode);
         }
     }
 

@@ -3009,13 +3009,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // Make handleValueChange available globally
         window.handleValueChange = (newValue, sliderId) => {
             console.log(\`Slider \${sliderId} changed to:\`, newValue);
-            const msg = {
-                paramIdx: sliderId === 'slider1' ? 0 : 1,
-                channel: sliderId,
-                value: parseFloat(newValue),
-            };
-            const automatable = 1;
-            Cabbage.sendChannelUpdate(msg, null, automatable);
+            Cabbage.sendControlData({ channel: sliderId, value: parseFloat(newValue), gesture: "complete" }, null);
         };
 
         const handleMessage = async (event) => {

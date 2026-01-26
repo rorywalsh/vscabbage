@@ -807,11 +807,10 @@ export class CabbageUtils {
    * Handles mouse move events for widgets, supporting both mouseMoveX/Y and mouseDragX/Y channels.
    * @param {Event} evt - The pointer event
    * @param {Object} props - Widget properties
-   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {number} parameterIndex - Parameter index for the widget (deprecated - backend handles routing)
    * @param {Object} vscode - VSCode API instance
-   * @param {boolean} automatable - Whether the widget is automatable
    */
-  static handleMouseMove(evt, props, parameterIndex, vscode, automatable) {
+  static handleMouseMove(evt, props, parameterIndex, vscode) {
     const rect = evt.currentTarget.getBoundingClientRect();
     const nx = (evt.clientX - rect.left) / rect.width;
     const ny = (evt.clientY - rect.top) / rect.height;
@@ -827,8 +826,7 @@ export class CabbageUtils {
           console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragX);
           return;
         }
-        const msgX = { paramIdx: dragX.parameterIndex, channel: dragX.id, value: scaledValue, channelType: "number" };
-        Cabbage.sendChannelUpdate(msgX, vscode, automatable);
+        Cabbage.sendControlData({ channel: dragX.id, value: scaledValue, gesture: "value" }, vscode);
       }
       if (dragY) {
         const scaledValue = ny * (dragY.range.max - dragY.range.min) + dragY.range.min;
@@ -837,8 +835,7 @@ export class CabbageUtils {
           console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragY);
           return;
         }
-        const msgY = { paramIdx: dragY.parameterIndex, channel: dragY.id, value: scaledValue, channelType: "number" };
-        Cabbage.sendChannelUpdate(msgY, vscode, automatable);
+        Cabbage.sendControlData({ channel: dragY.id, value: scaledValue, gesture: "value" }, vscode);
       }
     } else {
       // Mouse movement without button pressed
@@ -851,8 +848,7 @@ export class CabbageUtils {
           console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveX);
           return;
         }
-        const msgX = { paramIdx: moveX.parameterIndex, channel: moveX.id, value: scaledValue, channelType: "number" };
-        Cabbage.sendChannelUpdate(msgX, vscode, automatable);
+        Cabbage.sendControlData({ channel: moveX.id, value: scaledValue, gesture: "complete" }, vscode);
       }
       if (moveY) {
         const scaledValue = ny * (moveY.range.max - moveY.range.min) + moveY.range.min;
@@ -861,8 +857,7 @@ export class CabbageUtils {
           console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveY);
           return;
         }
-        const msgY = { paramIdx: moveY.parameterIndex, channel: moveY.id, value: scaledValue, channelType: "number" };
-        Cabbage.sendChannelUpdate(msgY, vscode, automatable);
+        Cabbage.sendControlData({ channel: moveY.id, value: scaledValue, gesture: "complete" }, vscode);
       }
     }
   }
@@ -871,12 +866,11 @@ export class CabbageUtils {
    * Handles mouse down events for widgets, supporting mouse press and value changed events.
    * @param {Event} evt - The pointer event
    * @param {Object} props - Widget properties
-   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {number} parameterIndex - Parameter index for the widget (deprecated - backend handles routing)
    * @param {Object} vscode - VSCode API instance
-   * @param {boolean} automatable - Whether the widget is automatable
    * @param {Function} onDragStart - Optional callback for when drag starts
    */
-  static handleMouseDown(evt, props, parameterIndex, vscode, automatable, onDragStart = null) {
+  static handleMouseDown(evt, props, parameterIndex, vscode, onDragStart = null) {
     // Left press
     const pressCh = CabbageUtils.getChannelByEvent(props, 'mousePressLeft', 'click');
     if (pressCh) {
@@ -885,8 +879,7 @@ export class CabbageUtils {
         console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', pressCh);
         return;
       }
-      const msg = { paramIdx: pressCh.parameterIndex, channel: pressCh.id, value: 1, channelType: "number" };
-      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+      Cabbage.sendControlData({ channel: pressCh.id, value: 1, gesture: "begin" }, vscode);
     }
     // Click shorthand
     const clickCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'click');
@@ -896,10 +889,8 @@ export class CabbageUtils {
         console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', clickCh);
         return;
       }
-      const msg = { paramIdx: clickCh.parameterIndex, channel: clickCh.id, value: 1, channelType: "number" };
-      Cabbage.sendChannelUpdate(msg, vscode, automatable);
-      const msgOff = { paramIdx: clickCh.parameterIndex, channel: clickCh.id, value: 0, channelType: "number" };
-      Cabbage.sendChannelUpdate(msgOff, vscode, automatable);
+      Cabbage.sendControlData({ channel: clickCh.id, value: 1, gesture: "complete" }, vscode);
+      Cabbage.sendControlData({ channel: clickCh.id, value: 0, gesture: "complete" }, vscode);
     }
     // Value changed toggle
     const valueCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'valueChanged');
@@ -910,8 +901,7 @@ export class CabbageUtils {
         console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', valueCh);
         return;
       }
-      const msg = { paramIdx: valueCh.parameterIndex, channel: valueCh.id, value: props.value, channelType: "number" };
-      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+      Cabbage.sendControlData({ channel: valueCh.id, value: props.value, gesture: "complete" }, vscode);
     }
 
     // Call optional drag start callback
@@ -924,16 +914,14 @@ export class CabbageUtils {
    * Handles mouse up events for widgets, supporting mouse release events.
    * @param {Event} evt - The pointer event
    * @param {Object} props - Widget properties
-   * @param {number} parameterIndex - Parameter index for the widget
+   * @param {number} parameterIndex - Parameter index for the widget (deprecated - backend handles routing)
    * @param {Object} vscode - VSCode API instance
-   * @param {boolean} automatable - Whether the widget is automatable
    * @param {Function} onDragEnd - Optional callback for when drag ends
    */
-  static handleMouseUp(evt, props, parameterIndex, vscode, automatable, onDragEnd = null) {
+  static handleMouseUp(evt, props, parameterIndex, vscode, onDragEnd = null) {
     const relCh = CabbageUtils.getChannelByEvent(props, 'mouseReleaseLeft', 'click');
     if (relCh) {
-      const msg = { paramIdx: parameterIndex, channel: relCh.id, value: 0, channelType: "number" };
-      Cabbage.sendChannelUpdate(msg, vscode, automatable);
+      Cabbage.sendControlData({ channel: relCh.id, value: 0, gesture: "end" }, vscode);
     }
 
     // Call optional drag end callback

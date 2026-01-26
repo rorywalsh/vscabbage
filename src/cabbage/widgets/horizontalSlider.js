@@ -189,8 +189,13 @@ export class HorizontalSlider {
 
         // Send denormalized value directly to backend
         const valueToSend = skewedValue;
-        const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" };
-        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+        Cabbage.sendControlData({
+          channel: CabbageUtils.getChannelId(this.props),
+          value: valueToSend,
+          gesture: "value",
+          automatable: this.props.automatable,
+          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+        }, this.vscode);
       }
 
       // Capture pointer to ensure we receive pointerup even if pointer leaves element
@@ -360,10 +365,13 @@ export class HorizontalSlider {
 
     // Send denormalized value directly to backend
     const valueToSend = skewedValue;
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: this.props.channels[0].type || "number" }
-    if (this.props.automatable) {
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-    }
+    Cabbage.sendControlData({
+      channel: CabbageUtils.getChannelId(this.props),
+      value: valueToSend,
+      gesture: "complete",
+      automatable: this.props.automatable,
+      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+    }, this.vscode);
   }
 
   handleInputChange(evt) {
@@ -389,14 +397,13 @@ export class HorizontalSlider {
 
         // Send denormalized value directly to backend
         const valueToSend = inputValue;
-        const msg = {
-          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
+        Cabbage.sendControlData({
           channel: CabbageUtils.getChannelId(this.props),
           value: valueToSend,
-          channelType: this.props.channels[0].type || "number"
-        };
-
-        Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+          gesture: "complete",
+          automatable: this.props.automatable,
+          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+        }, this.vscode);
 
       }
     }

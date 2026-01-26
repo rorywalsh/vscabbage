@@ -93,7 +93,7 @@ export class Checkbox {
     }
 
     CabbageUtils.updateInnerHTML(this.props, this);
-    Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), this.props.channels[0].range.value, this.vscode);
+    Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value }, this.vscode);
 
   }
 

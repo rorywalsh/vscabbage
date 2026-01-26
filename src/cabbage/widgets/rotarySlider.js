@@ -186,6 +186,12 @@ export class RotarySlider {
     // Remove bound handlers if present
     if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
     if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
+
+    if (this.isMouseDown) {
+      const range = CabbageUtils.getChannelRange(this.props, 0);
+      const valueToSend = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
+      Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "end" }, this.vscode);
+    }
     this.isMouseDown = false;
     this.isDragging = false;
   }
@@ -237,6 +243,8 @@ export class RotarySlider {
     if (!this.boundPointerUp) this.boundPointerUp = upHandler;
     window.addEventListener("pointermove", this.boundPointerMove);
     window.addEventListener("pointerup", this.boundPointerUp);
+
+    Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: this.startValue, gesture: "begin" }, this.vscode);
   }
 
   mouseEnter(evt) {
@@ -381,16 +389,7 @@ export class RotarySlider {
     widgetDiv.innerHTML = this.getInnerHTML();
 
     // Send denormalized value directly to backend
-    const valueToSend = snappedSkewedValue;
-
-    const msg = {
-      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
-      channel: CabbageUtils.getChannelId(this.props),
-      value: valueToSend,
-      channelType: "number"
-    };
-    console.log("Cabbage: Sending value update", msg);
-    Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
+    Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: snappedSkewedValue, gesture: "value" }, this.vscode);
 
   }  // Add this helper method to convert between linear and skewed values
   getSkewedValue(linearValue) {
@@ -469,16 +468,7 @@ export class RotarySlider {
         widgetDiv.querySelector('input').focus();
 
         // Send denormalized value directly to backend
-        const valueToSend = inputValue;
-        const msg = {
-          paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0),
-          channel: CabbageUtils.getChannelId(this.props),
-          value: valueToSend,
-          channelType: "number"
-        };
-        if (this.props.automatable) {
-          Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-        }
+        Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: inputValue }, this.vscode);
       }
     } else if (evt.key === 'Escape') {
       const widgetDiv = CabbageUtils.getWidgetDiv(this.props);

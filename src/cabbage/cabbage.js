@@ -11,7 +11,7 @@
  * There are two communication directions:
  *
  * ### UI -> Backend (Outgoing)
- * Use `sendControlData(channel, value)` to send widget value changes to the backend.
+ * Use `sendControlData({ channel, value, gesture })` to send widget value changes to the backend.
  * Values should be sent in their full range (e.g., 20-20000 Hz for a filter
  * frequency slider). The backend handles all value normalization needed by the host DAW.
  * The backend automatically determines whether the channel is automatable and routes
@@ -106,15 +106,18 @@ export class Cabbage {
    * **When NOT to use**: Do not call this when handling incoming `parameterChange` messages
    * from the backend. Those messages are for display updates only.
    *
-   * @param {string} channel - The channel name
-   * @param {number|string} value - The value to send in its natural/meaningful range (e.g., 20-20000 Hz for filter frequency). The backend handles all normalization needed by the host DAW.
+   * @param {Object} data - The control data to send
+   * @param {string} data.channel - The channel name
+   * @param {number|string} data.value - The value to send in its natural/meaningful range (e.g., 20-20000 Hz for filter frequency). The backend handles all normalization needed by the host DAW. This value can be a number or string depending on the widget type.
+   * @param {string} [data.gesture="complete"] - The gesture type: "begin" (start of interaction), "value" (during interaction), "end" (end of continuous interaction), or "complete" (discrete action e.g. button click).
    * @param {Object|null} vscode - VS Code API object (null for plugin mode)
    */
-  static sendControlData(channel, value, vscode = null) {
+  static sendControlData({ channel, value, gesture = "complete" }, vscode = null) {
     const msg = {
       command: "controlData",
       channel: channel,
-      value: value
+      value: value,
+      gesture: gesture
     };
 
     if (vscode !== null) {
@@ -281,4 +284,48 @@ export class Cabbage {
   }
 
 
+  /**
+     * Internal: Send channel data directly to Csound without DAW automation involvement.
+     * Use `sendControlData()` instead - it will route here automatically for non-automatable widgets.
+     *
+     * Used for non-automatable widgets like buttons, file selectors, or
+     * any widget that sends string data. The value is sent directly to Csound's
+     * channel system and is not recorded by DAW automation.
+     *
+     * @param {string} channel - The Csound channel name
+     * @param {number|string} data - The data to send (number or string)
+     * @param {Object|null} vscode - VS Code API object (null for plugin mode)
+     */
+  static sendChannelData(channel, data, vscode = null) {
+    var message = {
+      "channel": channel
+    };
+
+    // Determine if data is a string or number and set appropriate property
+    if (typeof data === "string") {
+      message.stringData = data;
+    } else if (typeof data === "number") {
+      message.floatData = data;
+    } else {
+      console.warn("Cabbage: sendChannelData received unsupported data type:", typeof data);
+      return;
+    }
+
+    const msg = {
+      command: "channelData",
+      obj: JSON.stringify(message)
+    };
+
+    console.log("Cabbage: sending channel data from UI", message);
+    if (vscode !== null) {
+      vscode.postMessage(msg);
+    }
+    else {
+      if (typeof window.sendMessageFromUI === 'function') {
+        window.sendMessageFromUI(msg);
+      } else {
+        console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
+      }
+    }
+  }
 }

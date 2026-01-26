@@ -127,19 +127,8 @@ export class ComboBox {
         // - For string channels: send the selected item text
         const valueForMessage = (channelType === "string") ? this.selectedItem : this.props.channels[0].range.value;
 
-        const msg = {
-            channel: CabbageUtils.getChannelId(this.props),
-            value: valueForMessage
-        };
-
-        // Only include paramIdx and channelType for automatable widgets with valid parameter index
-        if (isAutomatable && paramIdx >= 0) {
-            msg.paramIdx = paramIdx;
-            msg.channelType = channelType;
-        }
-
-        console.log('ComboBox handleItemClick: sending message:', JSON.stringify(msg), 'automatable:', this.props.automatable);
-        Cabbage.sendChannelUpdate(msg, this.vscode, isAutomatable && paramIdx >= 0);
+        console.log('ComboBox handleItemClick: sending control data for channel:', CabbageUtils.getChannelId(this.props), 'value:', valueForMessage);
+        Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueForMessage, gesture: "complete" }, this.vscode);
 
         this.isOpen = false;
         this.removeDropdown();

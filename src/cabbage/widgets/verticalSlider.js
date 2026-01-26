@@ -106,6 +106,13 @@ export class VerticalSlider {
 
     if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
     if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
+
+    if (this.isMouseDown) {
+      const valueToSend = this.props.channels[0].range.value;
+      if (!isNaN(valueToSend) && isFinite(valueToSend)) {
+        Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "end" }, this.vscode);
+      }
+    }
     this.isMouseDown = false;
   }
 
@@ -161,7 +168,7 @@ export class VerticalSlider {
         console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
         return;
       }
-      Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), valueToSend, this.vscode);
+      Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "begin" }, this.vscode);
 
     }
   }
@@ -327,11 +334,19 @@ export class VerticalSlider {
       console.error('VerticalSlider pointerMove: Invalid value to send:', valueToSend, 'range:', range);
       return;
     }
-    const msg = { paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0), channel: CabbageUtils.getChannelId(this.props), value: valueToSend, channelType: "number" };
-    console.log('VerticalSlider pointerMove sending:', msg);
-    if (this.props.automatable) {
-      Cabbage.sendChannelUpdate(msg, this.vscode, this.props.automatable);
-    }
+    console.log('VerticalSlider pointerMove sending:', {
+      channel: CabbageUtils.getChannelId(this.props),
+      value: valueToSend,
+      automatable: this.props.automatable,
+      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+    });
+    Cabbage.sendControlData({
+      channel: CabbageUtils.getChannelId(this.props),
+      value: valueToSend,
+      gesture: "value",
+      automatable: this.props.automatable,
+      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+    }, this.vscode);
   }
 
   getInnerHTML() {

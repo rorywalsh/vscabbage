@@ -109,6 +109,11 @@ export class HorizontalRangeSlider {
 
     if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
     if (this.boundPointerUp) window.removeEventListener("pointerup", this.boundPointerUp);
+
+    if (this.isMouseDown) {
+      const valueToSend = this.props.channels[0].range.value;
+      Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "end" }, this.vscode);
+    }
     this.isMouseDown = false;
   }
 
@@ -150,6 +155,8 @@ export class HorizontalRangeSlider {
       this.props.channels[0].range.value = Math.round(this.props.channels[0].range.value / range.increment) * range.increment;
       this.startValue = this.props.channels[0].range.value;
       CabbageUtils.updateInnerHTML(this.props, this);
+
+      Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value, gesture: "begin" }, this.vscode);
     }
   }
 
@@ -275,7 +282,7 @@ export class HorizontalRangeSlider {
     const valueToSend = this.props.channels[0].range.value;
     console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
-    Cabbage.sendControlData(CabbageUtils.getChannelId(this.props), valueToSend, this.vscode);
+    Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "value" }, this.vscode);
 
   }
 

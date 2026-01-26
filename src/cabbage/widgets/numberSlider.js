@@ -103,6 +103,8 @@ export class NumberSlider {
         if (!this.boundPointerUp) this.boundPointerUp = upHandler;
         window.addEventListener("pointermove", this.boundPointerMove);
         window.addEventListener("pointerup", this.boundPointerUp);
+
+        Cabbage.sendControlData({ channel: channelId, value: this.startValue, gesture: "begin" }, this.vscode);
     }
 
     pointerMove(event) {
@@ -158,13 +160,19 @@ export class NumberSlider {
 
             // Send denormalized value to backend
             console.log(`NumberSlider sending value: ${range.value} (range: ${range.min}-${range.max})`);
-            Cabbage.sendControlData(channelId, range.value, this.vscode);
+            Cabbage.sendControlData({ channel: channelId, value: range.value, gesture: "value" }, this.vscode);
 
             this.updateSliderValue();
         }
     }
 
     pointerUp(event) {
+        if (this.isDragging) {
+            const channelId = CabbageUtils.getChannelId(this.props);
+            const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
+            const valueToSend = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
+            Cabbage.sendControlData({ channel: channelId, value: valueToSend, gesture: "end" }, this.vscode);
+        }
         this.isDragging = false;
         // remove the bound handlers
         if (this.boundPointerMove) window.removeEventListener("pointermove", this.boundPointerMove);
@@ -201,7 +209,7 @@ export class NumberSlider {
                 if (!isNaN(newValue) && newValue >= range.min && newValue <= range.max) {
                     range.value = newValue;
                     // Send denormalized value to backend
-                    Cabbage.sendControlData(channelId, range.value, this.vscode);
+                    Cabbage.sendControlData({ channel: channelId, value: range.value }, this.vscode);
                     this.updateSliderValue();
                 } else {
                     alert(`Please enter a value between ${range.min} and ${range.max}`);
