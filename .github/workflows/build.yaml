@@ -2,8 +2,8 @@ name: Build and Package Extensions
 
 #Current Csound7 release...
 env:
-  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-macos-7.0.0-beta.12.zip"
-  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-windows-7.0.0-beta.12.zip"
+  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.12/csound-macos-7.0.0-beta.12.zip"
+  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.12/csound-windows-7.0.0-beta.12.zip"
 
 on:
   push:
