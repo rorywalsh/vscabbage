@@ -101,6 +101,8 @@ export class Settings {
                     return path.join(binaryPath, 'CabbagePluginEffectAUv2.component');
                 case 'CabbageAUv2Synth':
                     return path.join(binaryPath, 'CabbagePluginSynthAUv2.component');
+                case 'CabbageAUv2MidiFx':
+                    return path.join(binaryPath, 'CabbagePluginMidiFxAUv2.component');
                 // case 'CabbageStandaloneApp':
                 //     return path.join(binaryPath, 'CabbageStandaloneApp.app');
                 default:
@@ -130,6 +132,8 @@ export class Settings {
                 return path.join(proBinaryPath, 'AU', 'CabbagePluginEffectAUv2.component');
             case 'CabbageProAUv2Synth':
                 return path.join(proBinaryPath, 'AU', 'CabbagePluginSynthAUv2.component');
+            case 'CabbageProAUv2MidiFx':
+                return path.join(proBinaryPath, 'AU', 'CabbagePluginMidiFxAUv2.component');
             case 'CabbageProCLI':
                 const cliName = os.platform() === 'win32' ? 'cabbagepro-cli.exe' : 'cabbagepro-cli';
                 return path.join(proBinaryPath, 'cli', cliName);

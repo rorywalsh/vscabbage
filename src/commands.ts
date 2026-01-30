@@ -2161,6 +2161,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
             case 'AUv2Synth':
                 binaryFile = Settings.getCabbageProBinaryPath('CabbageProAUv2Synth');
                 break;
+            case 'AUv2MidiFx':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProAUv2MidiFx');
+                break;
             default:
                 vscode.window.showErrorMessage('Invalid plugin type for pro export');
                 return;
@@ -3336,6 +3339,9 @@ i2 5 z
                 break;
             case 'AUv2Synth':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Synth');
+                break;
+            case 'AUv2MidiFx':
+                binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2MidiFx');
                 break;
             case 'Standalone':
                 //todo

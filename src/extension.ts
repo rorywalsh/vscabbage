@@ -526,6 +526,10 @@ export async function activate(context: vscode.ExtensionContext):
             vscode.commands.registerCommand('cabbage.exportAUEffect', async () => {
                 await Commands.exportInstrument('AUv2Effect');
             }));
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportAUMidiFx', async () => {
+                await Commands.exportInstrument('AUv2MidiFx');
+            }));
     }
 
     // CabbagePro commands
@@ -553,6 +557,10 @@ export async function activate(context: vscode.ExtensionContext):
         context.subscriptions.push(
             vscode.commands.registerCommand('cabbage.exportProAUSynth', async () => {
                 await Commands.exportProInstrument('AUv2Synth');
+            }));
+        context.subscriptions.push(
+            vscode.commands.registerCommand('cabbage.exportProAUMidiFx', async () => {
+                await Commands.exportProInstrument('AUv2MidiFx');
             }));
     }
 
