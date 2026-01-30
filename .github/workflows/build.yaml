@@ -2,8 +2,8 @@ name: Build and Package Extensions
 
 #Current Csound7 release...
 env:
-  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-macos-7.0.0-beta.10.zip"
-  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-windows-7.0.0-beta.10.zip"
+  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-macos-7.0.0-beta.12.zip"
+  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.10/csound-windows-7.0.0-beta.12.zip"
 
 on:
   push:
@@ -141,6 +141,7 @@ jobs:
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
           ls cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release
           ls cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release
+          ls cabbage3/build/CabbagePluginMidiFxAUv2/CabbagePluginMidiFxAUv2_assets/Release
 
 
       - uses: actions/upload-artifact@v4
@@ -180,7 +181,13 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
-
+      - name: Upload Cabbage build files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginMidiFxAUv2.component
+          path: cabbage3/build/CabbagePluginMidiFxAUv2/CabbagePluginMidiFxAUv2_assets/Release/CabbagePluginMidiFxAUv2.component
+          retention-days: 1
+          if-no-files-found: ignore
 
 
       # Checkout source code for vscabbage
@@ -233,6 +240,13 @@ jobs:
         with:
           name: CabbagePluginSynthAUv2.component
           path: "./src/CabbageBinaries/CabbagePluginSynthAUv2.component"
+        continue-on-error: true
+
+      - name: Downloading CabbageAUv2MidiFx
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginMidiFxAUv2.component
+          path: "./src/CabbageBinaries/CabbagePluginMidiFxAUv2.component"
         continue-on-error: true
 
       - name: Downloading CabbageAUv2Effect

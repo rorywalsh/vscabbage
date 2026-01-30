@@ -269,7 +269,9 @@ export class RotarySlider {
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
     if (popup && this.props.popup) {
-      popup.textContent = parseFloat(this.props.value ?? range.defaultValue).toFixed(this.decimalPlaces);
+      const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
+      popup.textContent = parseFloat(currentValue).toFixed(this.decimalPlaces);
+
 
       // Calculate the position for the popup
       const sliderLeft = this.props.bounds.left;
