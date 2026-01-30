@@ -298,6 +298,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.exportAUMidiFx",
+        "title": "Export as AUv2 MidiFx",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.setupCabbageProBinaries",
         "title": "Setup Pro Binaries",
         "category": "Cabbage"
@@ -323,6 +328,12 @@
       {
         "command": "cabbage.exportProAUSynth",
         "title": "Export as AUv2 Synth (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
+      },
+      {
+        "command": "cabbage.exportProAUMidiFx",
+        "title": "Export as AUv2 MidiFx (Pro)",
         "category": "Cabbage",
         "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },
