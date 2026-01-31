@@ -2169,9 +2169,28 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 return;
         }
 
+        // Debug: Log binary file path and check if it exists
+        this.vscodeOutputChannel.appendLine(`Export Pro: Binary type: ${type}`);
+        this.vscodeOutputChannel.appendLine(`Export Pro: Binary file path: ${binaryFile}`);
         if (!fs.existsSync(binaryFile)) {
-            vscode.window.showErrorMessage(`Pro binary not found at: ${binaryFile}. Please check your CabbagePro binaries setup.`);
+            this.vscodeOutputChannel.appendLine(`Export Pro: ERROR - Binary file does not exist: ${binaryFile}`);
+            // List contents of the binary directory for debugging
+            const binaryDir = path.dirname(binaryFile);
+            if (fs.existsSync(binaryDir)) {
+                const contents = fs.readdirSync(binaryDir);
+                this.vscodeOutputChannel.appendLine(`Export Pro: Contents of ${binaryDir}:`);
+                contents.forEach(item => {
+                    const itemPath = path.join(binaryDir, item);
+                    const isDir = fs.statSync(itemPath).isDirectory();
+                    this.vscodeOutputChannel.appendLine(`  ${isDir ? '[DIR]' : '[FILE]'} ${item}`);
+                });
+            } else {
+                this.vscodeOutputChannel.appendLine(`Export Pro: ERROR - Binary directory does not exist: ${binaryDir}`);
+            }
+            vscode.window.showErrorMessage(`Pro binary not found at: ${binaryFile}. Please check your CabbagePro binaries setup. Check the output channel for details.`);
             return;
+        } else {
+            this.vscodeOutputChannel.appendLine(`Export Pro: Binary file exists: ${binaryFile}`);
         }
 
         // Check if destination exists
@@ -2347,6 +2366,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
                         break;
                     case 'AUv2Synth':
                         originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynthAUv2');
+                        break;
+                    case 'AUv2MidiFx':
+                        originalFilePath = path.join(macOSDirPath, 'CabbagePluginMidiFxAUv2');
                         break;
                 }
 
@@ -3351,6 +3373,40 @@ i2 5 z
                 break;
         }
 
+        // Debug: Log binary file path and check if it exists
+        this.vscodeOutputChannel.appendLine(`Export: Binary type: ${type}`);
+        this.vscodeOutputChannel.appendLine(`Export: Binary file path: ${binaryFile}`);
+        if (fs.existsSync(binaryFile)) {
+            this.vscodeOutputChannel.appendLine(`Export: Binary file exists: ${binaryFile}`);
+        } else {
+            this.vscodeOutputChannel.appendLine(`Export: ERROR - Binary file does not exist: ${binaryFile}`);
+            // List contents of the binary directory for debugging
+            const binaryDir = path.dirname(binaryFile);
+            if (fs.existsSync(binaryDir)) {
+                const contents = fs.readdirSync(binaryDir);
+                this.vscodeOutputChannel.appendLine(`Export: Contents of ${binaryDir}:`);
+                contents.forEach(item => {
+                    const itemPath = path.join(binaryDir, item);
+                    const isDir = fs.statSync(itemPath).isDirectory();
+                    this.vscodeOutputChannel.appendLine(`  ${isDir ? '[DIR]' : '[FILE]'} ${item}`);
+                });
+            } else {
+                this.vscodeOutputChannel.appendLine(`Export: ERROR - Binary directory does not exist: ${binaryDir}`);
+            }
+
+            // Check if using default path and suggest solutions
+            const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+            const defaultBinaryPath = extension ? path.join(extension.extensionPath, 'src', 'CabbageBinaries') : '';
+            if (binaryPath === '' || binaryPath === defaultBinaryPath) {
+                this.vscodeOutputChannel.appendLine(`Export: Using default binary path. The ${type} binary may not be included in the extension.`);
+                this.vscodeOutputChannel.appendLine(`Export: You can set a custom binary path in VS Code settings (cabbage.pathToCabbageBinary) to point to a directory containing the required binaries.`);
+                vscode.window.showErrorMessage(`Binary file not found: ${binaryFile}. The ${type} binary may not be included with the extension. Check VS Code settings for a custom binary path.`);
+            } else {
+                vscode.window.showErrorMessage(`Binary file not found: ${binaryFile}. Check the output channel for details.`);
+            }
+            return;
+        }
+
         // Check if destination folder exists and ask for overwrite permission
         if (fs.existsSync(destinationPath)) {
             const overwrite = await vscode.window.showWarningMessage(
@@ -3431,6 +3487,9 @@ i2 5 z
                             break;
                         case 'AUv2Synth':
                             originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynthAUv2');
+                            break;
+                        case 'AUv2MidiFx':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginMidiFxAUv2');
                             break;
                         default:
                             originalFilePath = '';
@@ -3530,7 +3589,16 @@ i2 5 z
 
                     // Path to the binary that needs patching
                     const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
-                    const originalBinaryName = type === 'AUv2Effect' ? 'CabbagePluginEffectAUv2' : 'CabbagePluginSynthAUv2';
+                    let originalBinaryName: string;
+                    if (type === 'AUv2Effect') {
+                        originalBinaryName = 'CabbagePluginEffectAUv2';
+                    } else if (type === 'AUv2Synth') {
+                        originalBinaryName = 'CabbagePluginSynthAUv2';
+                    } else if (type === 'AUv2MidiFx') {
+                        originalBinaryName = 'CabbagePluginMidiFxAUv2';
+                    } else {
+                        throw new Error(`Unknown AUv2 type: ${type}`);
+                    }
                     const binaryPath = path.join(macOSDirPath, originalBinaryName);
                     const newBinaryPath = path.join(macOSDirPath, pluginName);
 
