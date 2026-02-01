@@ -97,6 +97,10 @@ export class Settings {
                     return path.join(binaryPath, 'CabbagePluginEffect.vst3');
                 case 'CabbagePluginSynth':
                     return path.join(binaryPath, 'CabbagePluginSynth.vst3');
+                case 'CabbagePluginCLAPEffect':
+                    return path.join(binaryPath, 'CabbagePluginEffect.clap');
+                case 'CabbagePluginCLAPSynth':
+                    return path.join(binaryPath, 'CabbagePluginSynth.clap');
                 case 'CabbageAUv2Effect':
                     return path.join(binaryPath, 'CabbagePluginEffectAUv2.component');
                 case 'CabbageAUv2Synth':
@@ -128,6 +132,10 @@ export class Settings {
                 return path.join(proBinaryPath, 'VST3', 'CabbagePluginEffect.vst3');
             case 'CabbageProPluginSynth':
                 return path.join(proBinaryPath, 'VST3', 'CabbagePluginSynth.vst3');
+            case 'CabbageProPluginCLAPEffect':
+                return path.join(proBinaryPath, 'CLAP', 'CabbagePluginEffect.clap');
+            case 'CabbageProPluginCLAPSynth':
+                return path.join(proBinaryPath, 'CLAP', 'CabbagePluginSynth.clap');
             case 'CabbageProAUv2Effect':
                 return path.join(proBinaryPath, 'AU', 'CabbagePluginEffectAUv2.component');
             case 'CabbageProAUv2Synth':

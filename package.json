@@ -288,6 +288,16 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.exportCLAPEffect",
+        "title": "Export as CLAP Effect",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportCLAPSynth",
+        "title": "Export as CLAP Synth",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.exportAUEffect",
         "title": "Export as AUv2 Effect",
         "category": "Cabbage"
@@ -316,6 +326,18 @@
       {
         "command": "cabbage.exportProVST3Synth",
         "title": "Export as VST3 Synth (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
+      },
+      {
+        "command": "cabbage.exportProCLAPEffect",
+        "title": "Export as CLAP Effect (Pro)",
+        "category": "Cabbage",
+        "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
+      },
+      {
+        "command": "cabbage.exportProCLAPSynth",
+        "title": "Export as CLAP Synth (Pro)",
         "category": "Cabbage",
         "enablement": "cabbage.proEnabled && cabbage.proPluginsEnabled"
       },

@@ -2117,7 +2117,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
     static async copyProPluginBinaryFile(type: string): Promise<void> {
         const filters: Record<string, string[]> = type.includes('AUv2')
             ? { 'AUv2 Plugin': ['component'] }
-            : { 'VST3 Plugin': ['vst3'] };
+            : type.includes('CLAP')
+                ? { 'CLAP Plugin': ['clap'] }
+                : { 'VST3 Plugin': ['vst3'] };
 
         const fileUri = await vscode.window.showSaveDialog({
             saveLabel: 'Save Pro Plugin',
@@ -2144,7 +2146,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         const config = vscode.workspace.getConfiguration('cabbage');
         const destinationPath = fileUri.fsPath;
-        const pluginName = path.basename(destinationPath, type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        const pluginName = path.basename(destinationPath,
+            type.includes('CLAP') ? '.clap' :
+                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
 
         // Get Pro binary path
         let binaryFile = '';
@@ -2154,6 +2158,12 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 break;
             case 'VST3Synth':
                 binaryFile = Settings.getCabbageProBinaryPath('CabbageProPluginSynth');
+                break;
+            case 'CLAPEffect':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProPluginCLAPEffect');
+                break;
+            case 'CLAPSynth':
+                binaryFile = Settings.getCabbageProBinaryPath('CabbageProPluginCLAPSynth');
                 break;
             case 'AUv2Effect':
                 binaryFile = Settings.getCabbageProBinaryPath('CabbageProAUv2Effect');
@@ -3279,7 +3289,9 @@ i2 5 z
     static async copyPluginBinaryFile(type: string): Promise<void> {
         const filters: Record<string, string[]> = type.includes('AUv2')
             ? { 'AUv2 Plugin': ['component'] }
-            : { 'VST3 Plugin': ['vst3'] };
+            : type.includes('CLAP')
+                ? { 'CLAP Plugin': ['clap'] }
+                : { 'VST3 Plugin': ['vst3'] };
 
         const fileUri = await vscode.window.showSaveDialog({
             saveLabel: 'Save Plugin',
@@ -3300,7 +3312,9 @@ i2 5 z
         const config = vscode.workspace.getConfiguration('cabbage');
         const destinationPath = fileUri.fsPath;
         const indexDotHtml = ExtensionUtils.getIndexHtml();
-        const pluginName = path.basename(destinationPath, type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        const pluginName = path.basename(destinationPath,
+            type.includes('CLAP') ? '.clap' :
+                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
         let jsSource = "";
         if (os.platform() === 'win32') {
             jsSource = config.get<string>('pathToJsSourceWindows') || '';
@@ -3355,6 +3369,12 @@ i2 5 z
                 break;
             case 'VST3Synth':
                 binaryFile = Settings.getCabbageBinaryPath('CabbagePluginSynth');
+                break;
+            case 'CLAPEffect':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginCLAPEffect');
+                break;
+            case 'CLAPSynth':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginCLAPSynth');
                 break;
             case 'AUv2Effect':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Effect');
@@ -3468,7 +3488,7 @@ i2 5 z
 
             // Copy the plugin
             if (os.platform() === 'darwin') {
-                if (type.includes('VST3')) {
+                if (type.includes('VST3') || type.includes('CLAP')) {
                     await Commands.copyDirectory(binaryFile, destinationPath);
                     console.log('Cabbage: Plugin successfully copied to:', destinationPath);
 
@@ -3477,9 +3497,11 @@ i2 5 z
                     let originalFilePath = '';
                     switch (type) {
                         case 'VST3Effect':
+                        case 'CLAPEffect':
                             originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffect');
                             break;
                         case 'VST3Synth':
+                        case 'CLAPSynth':
                             originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynth');
                             break;
                         case 'AUv2Effect':

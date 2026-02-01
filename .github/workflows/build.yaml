@@ -165,6 +165,20 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect.clap
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.clap
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth.clap
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.clap
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Upload Cabbage build files as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -233,6 +247,20 @@ jobs:
         with:
           name: CabbagePluginSynth.vst3
           path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginEffect CLAP
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect.clap
+          path: "./src/CabbageBinaries/CabbagePluginEffect.clap"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginSynth CLAP
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth.clap
+          path: "./src/CabbageBinaries/CabbagePluginSynth.clap"
         continue-on-error: false
 
       - name: Downloading CabbageAUv2Synth
@@ -354,6 +382,8 @@ jobs:
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
 
       - name: Upload CabbageApp
         uses: actions/upload-artifact@v4
@@ -384,6 +414,22 @@ jobs:
           name: CabbagePluginSynth_x64.vst3
           # path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release/CabbagePluginSynth.vst3
           path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageCLAPEffect
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect_x64.clap
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageCLAPSynth
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth_x64.clap
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
           retention-days: 1
           if-no-files-found: ignore
 
@@ -436,6 +482,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth_x64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageCLAPEffect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect_x64.clap
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageCLAPSynth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth_x64.clap
           path: "./src/CabbageBinaries"
         continue-on-error: true
 

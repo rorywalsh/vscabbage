@@ -509,6 +509,15 @@ export async function activate(context: vscode.ExtensionContext):
         }));
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportCLAPEffect', async () => {
+            await Commands.exportInstrument('CLAPEffect');
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportCLAPSynth', async () => {
+            await Commands.exportInstrument('CLAPSynth');
+        }));
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.createVanillaVST3Effect', async () => {
             await Commands.createVanillaProject('VST3Effect');
         }));
@@ -546,6 +555,16 @@ export async function activate(context: vscode.ExtensionContext):
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.exportProVST3Synth', async () => {
             await Commands.exportProInstrument('VST3Synth');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportProCLAPEffect', async () => {
+            await Commands.exportProInstrument('CLAPEffect');
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportProCLAPSynth', async () => {
+            await Commands.exportProInstrument('CLAPSynth');
         }));
 
     if (os.platform() === 'darwin') {
