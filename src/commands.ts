@@ -2893,9 +2893,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const usedWidgets = Commands.extractUsedWidgets(csdContent);
         console.log(`Cabbage: Found ${usedWidgets.size} used widgets:`, Array.from(usedWidgets));
 
-        // Generate index.html (includes only main.js, not individual widgets)
-        const customIndexHtml = Commands.generateIndexHtmlForWidgets(usedWidgets);
-        Commands.vscodeOutputChannel.appendLine(`Export: Generated index.html`);
+        // Use provided index.html content if supplied, otherwise generate default
+        const customIndexHtml = indexHtmlContent || Commands.generateIndexHtmlForWidgets(usedWidgets);
+        Commands.vscodeOutputChannel.appendLine(`Export: ${indexHtmlContent ? 'Using provided' : 'Generated'} index.html`);
 
         // Get paths
         const jsSourcePath = Commands.getJsSourcePath();
@@ -3030,10 +3030,8 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
 <body>
     <div class="container">
-        <input type="range" id="slider1" min="0" max="1000" value="0" step="1"
-            oninput="window.handleValueChange(this.value, 'slider1')">
-        <input type="range" id="slider2" min="0" max="1000" value="0" step="1"
-            oninput="window.handleValueChange(this.value, 'slider2')">
+        <input type="range" id="slider1" min="0" max="1000" value="0" step="1">
+        <input type="range" id="slider2" min="0" max="1000" value="0" step="1">
     </div>
 
     <script type="module">
@@ -3041,46 +3039,106 @@ include $(SYSTEM_FILES_DIR)/Makefile
         import { Cabbage } from './cabbage/cabbage.js';
         /* Notify Cabbage that the UI is ready to load */
         Cabbage.sendCustomCommand('cabbageIsReadyToLoad', null);
-        // Make handleValueChange available globally
-        window.handleValueChange = (newValue, sliderId) => {
-            console.log(\`Slider \${sliderId} changed to:\`, newValue);
-            Cabbage.sendControlData({ channel: sliderId, value: parseFloat(newValue), gesture: "complete" }, null);
+
+        // Track dragging state for each slider to prevent fighting with incoming updates
+        const isDragging = {
+            slider1: false,
+            slider2: false
         };
+
+        // Setup slider event handlers
+        const setupSlider = (sliderId) => {
+            const slider = document.getElementById(sliderId);
+
+            slider.addEventListener('pointerdown', () => {
+                isDragging[sliderId] = true;
+                // Send gesture begin
+                Cabbage.sendControlData({
+                    channel: sliderId,
+                    value: parseFloat(slider.value),
+                    gesture: "begin"
+                }, null);
+            });
+
+            slider.addEventListener('input', () => {
+                if (isDragging[sliderId]) {
+                    console.log(\`Slider \${sliderId} changed to:\`, slider.value);
+                    // Send value update during drag
+                    Cabbage.sendControlData({
+                        channel: sliderId,
+                        value: parseFloat(slider.value),
+                        gesture: "value"
+                    }, null);
+                }
+            });
+
+            slider.addEventListener('pointerup', () => {
+                isDragging[sliderId] = false;
+                // Send gesture end
+                Cabbage.sendControlData({
+                    channel: sliderId,
+                    value: parseFloat(slider.value),
+                    gesture: "end"
+                }, null);
+            });
+
+            // Handle case where pointer leaves while dragging
+            slider.addEventListener('pointercancel', () => {
+                isDragging[sliderId] = false;
+            });
+        };
+
+        setupSlider('slider1');
+        setupSlider('slider2');
 
         const handleMessage = async (event) => {
             console.log("Message received:", event.data);
             let obj = event.data;
 
+            // Handle nested data field if present
+            const data = obj.data || obj;
+
             let slider;
+            let sliderId;
             if (obj.command === "parameterChange") {
-                // For parameterChange messages, find slider by paramIdx
-                slider = obj.paramIdx === 0 ? document.getElementById('slider1') : document.getElementById('slider2');
+                // For parameterChange messages, find slider by paramIdx (from data field)
+                sliderId = data.paramIdx === 0 ? 'slider1' : 'slider2';
+                slider = document.getElementById(sliderId);
             } else {
                 // For other messages, find slider by id
-                slider = document.getElementById(obj.id);
+                sliderId = data.id || obj.id;
+                slider = document.getElementById(sliderId);
             }
 
             if (slider) {
                 switch (obj.command) {
                     case "parameterChange":
-                        console.log(\`Parameter change for \${obj.paramIdx}:\`, obj);
-                        slider.value = obj.value;
+                        // Only update display if user isn't actively dragging
+                        if (!isDragging[sliderId]) {
+                            console.log(\`Parameter change for param \${data.paramIdx}:\`, data);
+                            slider.value = data.value;
+                        } else {
+                            console.log(\`Ignoring parameter change - user is dragging \${sliderId}\`);
+                        }
                         break;
                     case "widgetUpdate":
-                        if (obj.value !== undefined) {
-                            console.log(\`Updating \${obj.id} to value:\`, obj.value);
-                            slider.value = obj.value;
-                        }
-                        else if (obj.widgetJson !== undefined) {
-                            let widgetObj = JSON.parse(obj.widgetJson);
-                            let bounds = widgetObj.bounds;
-                            if (bounds) {
-                                slider.style.position = 'absolute';
-                                slider.style.top = bounds.top + 'px';
+                        // Only update if not dragging
+                        if (!isDragging[sliderId]) {
+                            if (data.value !== undefined) {
+                                console.log(\`Updating \${sliderId} to value:\`, data.value);
+                                slider.value = data.value;
                             }
-                            // Set value if the UI has just been reopened
-                            if (widgetObj.value !== undefined) {
-                                slider.value = widgetObj.value;
+                            else if (data.widgetJson !== undefined) {
+                                let widgetObj = JSON.parse(data.widgetJson);
+                                let bounds = widgetObj.bounds;
+                                if (bounds) {
+                                    slider.style.position = 'absolute';
+                                    slider.style.top = bounds.top + 'px';
+                                }
+                                // Set value if the UI has just been reopened
+                                if (widgetObj.value !== undefined) {
+                                    slider.value = widgetObj.value;
+                                }
                             }
                         }
                         break;
