@@ -813,27 +813,9 @@ export class WidgetManager {
                 if (!(["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type) && widget.isDragging)) {
                     //console.log(`WidgetManager.updateWidget: Updating value for ${widget.props.type}, not dragging`);
                     if (obj.value != null) {
-                        // console.log(`Processing value update for ${widget.props.type}: ${obj.value}`);
-                        let newValue = obj.value;
-                        // For sliders, handle value conversion
-                        if (["rotarySlider", "horizontalSlider", "verticalSlider", "numberSlider", "horizontalRangeSlider"].includes(widget.props.type)) {
-                            //console.log(`WidgetManager.updateWidget: Converting slider value ${obj.value}`);
-                            const range = CabbageUtils.getChannelRange(widget.props, 0);
-                            if (!isNaN(obj.value) && obj.value >= 0 && obj.value <= 1) {
-                                // Assume received value is linear normalized [0,1], convert to skewed
-                                const skewedNormalized = Math.pow(obj.value, range.skew);
-                                newValue = range.min + skewedNormalized * (range.max - range.min);
-                                // console.log(`WidgetManager.updateWidget: Converted linear ${obj.value} to skewed ${newValue}`);
-                            } else if (!isNaN(obj.value) && (obj.value < 0 || obj.value > 1)) {
-                                // Assume received value is already skewed
-                                newValue = obj.value;
-                                //console.log(`WidgetManager.updateWidget: Value ${obj.value} assumed skewed`);
-                            } else {
-                                //console.log(`WidgetManager.updateWidget: Invalid value ${obj.value}, skipping`);
-                                return; // Skip update for invalid values
-                            }
-                        }
-                        // console.log(`WidgetManager.updateWidget: updating ${widget.props.type} value from ${widget.props.value} to ${newValue}`);
+                        // Values from backend are always in full range (not normalized)
+                        // as per architecture documented in cabbage.js and CLAUDE.md
+                        const newValue = obj.value;
 
                         // For multi-channel widgets, find which channel to update
                         if (widget.props.channels && Array.isArray(widget.props.channels) && widget.props.channels.length > 1) {

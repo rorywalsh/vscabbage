@@ -411,11 +411,11 @@ export class HorizontalSlider {
 
   getInnerHTML() {
     const range = CabbageUtils.getChannelRange(this.props, 0);
-    const currentValue = this.props.value ?? range.defaultValue;
+    const currentValue = this.props.channels[0].range.value ?? range.defaultValue;
 
     // Ensure currentValue is valid
     if (isNaN(currentValue) || currentValue === null || currentValue === undefined) {
-      this.props.value = range.defaultValue;
+      this.props.channels[0].range.value = range.defaultValue;
       return this.getInnerHTML();
     }
 
