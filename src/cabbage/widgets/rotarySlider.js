@@ -530,6 +530,7 @@ export class RotarySlider {
     // console.log(`RotarySlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.thumb.opacity}`);
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
+
     const popup = document.getElementById('popupValue');
     if (popup) {
       popup.textContent = this.props.valueText.prefix + parseFloat(currentValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;

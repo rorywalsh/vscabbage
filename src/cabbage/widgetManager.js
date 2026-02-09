@@ -859,6 +859,7 @@ export class WidgetManager {
             // Update widget properties - deepMerge handles channels[].range.value automatically
             //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
             WidgetManager.deepMerge(widget.props, data);
+
             widgetFound = true;
             if (widget.props.type === "form") {
                 // Special handling for form widget
