@@ -81,7 +81,6 @@ export class InfoButton extends Button {
         if (!this.props.active) {
             return '';
         }
-        console.log("Cabbage: InfoButton pointerDown");
         this.isMouseDown = true;
         this.props.value = 1;
 

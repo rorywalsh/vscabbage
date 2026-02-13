@@ -1165,11 +1165,9 @@ ${JSON.stringify(props, null, 4)}
 </div>
   <script type="module" src="${widgetWrapper}"></script>
   <script>
-    console.log('Cabbage: HTML loaded, about to load main.js from:', '${mainJS}');
   </script>
   <script type="module" src="${mainJS}"></script>
   <script>
-    console.log('Cabbage: Script tag for main.js was added to DOM');
     // Theme change handling
     window.addEventListener('message', event => {
       const message = event.data;
@@ -1835,7 +1833,6 @@ ${csoundSection}`;
                     const widgetInfo = this.extractWidgetInfoFromFile(content);
                     if (widgetInfo && !builtInWidgets.has(widgetInfo.widgetType)) {
                         widgets.push({ filename: fileName, className: widgetInfo.className, widgetType: widgetInfo.widgetType });
-                        console.log(`Cabbage: Found custom widget: ${widgetInfo.widgetType} in ${fileName}`);
                     }
                 } catch (err) {
                     // keep silent for read errors to avoid spamming extension host logs

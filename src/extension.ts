@@ -882,7 +882,6 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         // Clear any previous diagnostics if both validations pass
         Commands.clearJSONDiagnostics(editor.uri);
 
-        console.log('Cabbage: onCompileInstrument: Entering performance mode');
         setCabbageMode('play');
         const config = vscode.workspace.getConfiguration('cabbage');
 
@@ -909,10 +908,8 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         // Send message to webview to enter performance mode
         const performancePanel = Commands.getPanel();
         if (performancePanel) {
-            console.log('Cabbage: Sending onEnterPerformanceMode message to webview');
             performancePanel.webview.postMessage({ command: 'onEnterPerformanceMode' });
         } else {
-            console.log('Cabbage: No panel found to send performance mode message');
         }
 
         // Notify backend via stdin/stdout pipes
@@ -980,7 +977,6 @@ function onInstall() {
     if (proBinaryPath && proAppEnabled) {
         return;
     }
-    console.log('Cabbage: Running installation checks for pro failed');
     // Ad-hoc sign the CsoundLib64.framework if running on macOS and not already
     // signed
     if (process.platform === 'darwin') {

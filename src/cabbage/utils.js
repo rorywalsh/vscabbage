@@ -233,7 +233,6 @@ export class CabbageUtils {
       // Construct the URL with the correct encoding
       const baseUrl = 'https://file%2B.vscode-resource.vscode-cdn.net';
       const fullUrl = `${baseUrl}${currentCsdPath}/media/${fileName}`;
-      console.log('Cabbage: fullUrl', fullUrl);
       return fullUrl;
     }
   }
@@ -768,12 +767,10 @@ export class CabbageUtils {
     const element = document.getElementById(channelId);
 
     if (!element) {
-      console.log('Cabbage: Element not found for channel:', channelId);
       return;
     }
 
     if (!props || !props.bounds) {
-      console.log('Cabbage: Widget has no bounds; skipping updateBounds for channel:', channelId);
       return;
     }
 
@@ -782,21 +779,17 @@ export class CabbageUtils {
         element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
         element.setAttribute('data-x', props.bounds.left);
         element.setAttribute('data-y', props.bounds.top);
-        console.log('Cabbage: Updated left to:', props.bounds.left);
         break;
       case 'bounds.top':
         element.style.transform = `translate(${props.bounds.left}px, ${props.bounds.top}px)`;
         element.setAttribute('data-x', props.bounds.left);
         element.setAttribute('data-y', props.bounds.top);
-        console.log('Cabbage: Updated top to:', props.bounds.top);
         break;
       case 'bounds.width':
         element.style.width = props.bounds.width + "px";
-        console.log('Cabbage: Updated width to:', props.bounds.width);
         break;
       case 'bounds.height':
         element.style.height = props.bounds.height + "px";
-        console.log('Cabbage: Updated height to:', props.bounds.height);
         break;
       default:
         break;

@@ -25,8 +25,11 @@ import { CabbageUtils } from "../utils.js";
  * 3. Update the props object with your widget's default properties
  * 4. Implement the getInnerHTML() method to return your widget's HTML/SVG
  * 5. Add any custom event listeners in addEventListeners() if needed
- * 6. Update the JSDoc comments to reflect your widget's purpose
- * 7. Test in VS Code, then copy to cabbage/widgets folder for plugin distribution
+ * 6. If your widget receives value updates from Csound (via cabbageSetValue):
+ *    - Access the value using: this.props.channels[0].range.value
+ *    - For canvas widgets, implement updateCanvas() to redraw when value changes
+ * 7. Update the JSDoc comments to reflect your widget's purpose
+ * 8. Test in VS Code, then copy to cabbage/widgets folder for plugin distribution
  */
 export class CustomWidgetTemplate {
     /**
@@ -44,10 +47,15 @@ export class CustomWidgetTemplate {
          * @property {number} bounds.width - Width of the widget
          * @property {number} bounds.height - Height of the widget
          * @property {Array} channels - Array of channel objects for data binding
+         * @property {Object} channels[].range - Channel range (required for value updates)
+         * @property {number} channels[].range.min - Minimum value
+         * @property {number} channels[].range.max - Maximum value
+         * @property {number} channels[].range.value - Current value
+         * @property {number} channels[].range.defaultValue - Default value
          * @property {number} index - Unique index for the widget instance
          * @property {boolean} visible - Whether the widget is visible
          * @property {boolean} active - Whether the widget is interactive
-         * @property {boolean} automatable - Whether the widget can be automated
+         * @property {boolean} automatable - Whether the widget can be automated (enables DAW automation)
          * @property {string} type - The type identifier for the widget
          * @property {Object} style - Styling properties
          * @property {number} style.opacity - Opacity (0-1)
@@ -63,7 +71,19 @@ export class CustomWidgetTemplate {
                 "width": 100,
                 "height": 30
             },
-            "channels": [{ "id": "customWidget", "event": "valueChanged" }],
+            "channels": [{
+                "id": "customWidget",
+                "event": "valueChanged",
+                // IMPORTANT: The range object is required for value updates to work.
+                // The widgetManager updates channels[0].range.value when values arrive
+                // from the backend via cabbageSetValue. Without it, value updates fail silently.
+                "range": {
+                    "min": 0,
+                    "max": 1,
+                    "value": 0,
+                    "defaultValue": 0
+                }
+            }],
             "zIndex": 0,
             "visible": true,
             "active": true,

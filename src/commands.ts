@@ -272,7 +272,6 @@ export class Commands {
                 // string) and may include an optional 'oldId' for channel remapping.
                 if (getCabbageMode() !== "play") {
                     const rawText = message && message.text;
-                    console.log('Extension: Received updateWidgetProps from webview:', message && (message.oldId ? `(oldId:${message.oldId}) ` : '') + String(rawText).slice(0, 200));
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
                         // Queue the edit to prevent race conditions when multiple updates arrive simultaneously
                         Commands.editQueue = Commands.editQueue.then(async () => {
@@ -314,7 +313,6 @@ export class Commands {
                 break;
 
             case 'cabbageSetupComplete':
-                console.log("Extension: Received cabbageSetupComplete from webview");
                 const msg = {
                     command: "cabbageSetupComplete",
                     text: JSON.stringify({})
@@ -327,14 +325,11 @@ export class Commands {
                 break;
 
             case 'cabbageIsReadyToLoad':
-                console.log("Extension: Received cabbageIsReadyToLoad from webview");
                 // Forward to C++ backend - it will send widgets and queue table updates
-                console.log("Extension: Forwarding cabbageIsReadyToLoad to backend");
                 this.sendMessageToCabbageApp({
                     command: "cabbageIsReadyToLoad",
                     text: ""
                 });
-                console.log("Extension: cabbageIsReadyToLoad sent to backend, waiting for widget updates...");
                 break;
 
             case 'fileOpen':
@@ -409,7 +404,6 @@ export class Commands {
                     if (!documentToSave) {
                         // If not found in open documents, try to find it in the workspace (though we can only save open docs)
                         // Ideally, the document should be open if the webview is active.
-                        console.log(`Cabbage: Could not find open document for ${expectedFileName}`);
                     }
                 }
 
@@ -421,7 +415,6 @@ export class Commands {
                 if (documentToSave) {
                     try {
                         await documentToSave.save();
-                        console.log('Cabbage: File saved successfully:', documentToSave.fileName);
 
                         if (this.panel) {
                             this.panel.webview.postMessage({
@@ -454,7 +447,7 @@ export class Commands {
                         for (const widget of widgets) {
                             // Convert file system path to webview URI
                             const filePath = path.join(dir, widget.filename);
-                            const webviewUri = this.panel?.webview.asWebviewUri(vscode.Uri.file(filePath));
+                            const webviewUri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(filePath));
 
                             if (webviewUri) {
                                 // Use toString(true) to skip encoding, which prevents %2B instead of +
@@ -465,21 +458,20 @@ export class Commands {
                                     className: widget.className,
                                     webviewPath: uriString
                                 });
-                                console.log(`Cabbage: Custom widget ${widget.widgetType} webview path:`, uriString);
                             }
                         }
                     }
 
-                    if (this.panel) {
-                        this.panel.webview.postMessage({
+                    if (Commands.getPanel()) {
+                        Commands.getPanel()!.webview.postMessage({
                             command: 'customWidgetInfo',
                             widgets: allWidgets
                         });
                     }
                 } catch (error) {
                     console.error('Cabbage: Error getting custom widget info:', error);
-                    if (this.panel) {
-                        this.panel.webview.postMessage({
+                    if (Commands.getPanel()) {
+                        Commands.getPanel()!.webview.postMessage({
                             command: 'customWidgetInfo',
                             widgets: []
                         });
@@ -537,10 +529,8 @@ export class Commands {
                 break;
 
             default:
-                console.log('Cabbage: handleWebviewMessage default case, command:', message.command);
                 // Forward the message to CabbageApp via stdin
                 this.sendMessageToCabbageApp(message);
-                console.log('Cabbage: Message sent to CabbageApp via stdin', message);
         }
     }
 
@@ -637,18 +627,14 @@ export class Commands {
         // Note: getCustomWidgetDirectories returns paths to cabbage/widgets subdirectories,
         // but we need to add the root custom folder to localResourceRoots so the webview
         // can access the entire cabbage folder structure with relative imports
-        console.log('Cabbage: Getting custom widget directories...');
         try {
             const customWidgetDirs = await ExtensionUtils.getCustomWidgetDirectories();
-            console.log('Cabbage: Custom widget directories:', customWidgetDirs);
             for (const widgetsDir of customWidgetDirs) {
                 // Go up two levels: from cabbage/widgets to the root custom folder
                 const customRootDir = path.dirname(path.dirname(widgetsDir));
-                console.log('Cabbage: Adding custom root directory to localResourceRoots:', customRootDir);
                 if (fs.existsSync(customRootDir)) {
                     const uri = vscode.Uri.file(customRootDir);
                     localResources.push(uri);
-                    console.log('Cabbage: Added custom root directory to localResourceRoots:', uri.toString());
                 } else {
                     console.warn('Cabbage: Custom root directory does not exist:', customRootDir);
                 }
@@ -657,7 +643,6 @@ export class Commands {
             console.error('Cabbage: Error adding custom widget directories:', error);
         }
 
-        console.log('Cabbage: All local resource roots:', localResources.map(r => r.toString()));
 
         this.panel = vscode.window.createWebviewPanel(
             'cabbageUIEditor',
@@ -828,7 +813,6 @@ export class Commands {
      */
     static async onDidSave(editor: vscode.TextDocument, context: vscode.ExtensionContext) {
         this.compilationFailed = false;
-        console.log("Cabbage: onDidSave", editor.fileName);
 
         // Check if file needs .csd extension
         let finalFileName = editor.fileName;
@@ -897,7 +881,6 @@ export class Commands {
                 text: fileContent,
                 lastSavedFileName: finalFileName
             });            // Also send the file change notification to CabbageApp
-            console.log("Extension: Sending onFileChanged to backend for file:", finalFileName);
             this.sendMessageToCabbageApp({
                 command: "onFileChanged",
                 lastSavedFileName: finalFileName
@@ -906,15 +889,12 @@ export class Commands {
             // Wait a bit for compilation to start and check for immediate errors
             // If no errors after this delay, then reveal the panel
             setTimeout(() => {
-                console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
                 if (this.panel && !this.compilationFailed) {
-                    console.log('Cabbage: No errors detected, revealing panel');
                     this.panel.reveal(viewColumn, false);
 
                     // Also send onEnterPerformanceMode message
                     setTimeout(() => {
                         if (this.panel && !this.compilationFailed) {
-                            console.log('Cabbage: Sending onEnterPerformanceMode message');
                             this.panel.webview.postMessage({
                                 command: "onEnterPerformanceMode",
                                 text: ""
@@ -922,27 +902,23 @@ export class Commands {
                         }
                     }, 100);
                 } else {
-                    console.log('Cabbage: Errors detected, not revealing panel');
 
                     // Print diagnostic errors to console
                     const cabbageDiagnostics = this.diagnosticCollection.get(editor.uri);
                     const csoundDiagnostics = this.diagnosticCollectionCsound.get(editor.uri);
 
                     if (cabbageDiagnostics && cabbageDiagnostics.length > 0) {
-                        console.log('Cabbage: Cabbage JSON diagnostics:');
                         cabbageDiagnostics.forEach(diagnostic => {
                             console.log(`  ${diagnostic.severity === 0 ? 'Error' : 'Warning'}: ${diagnostic.message} at line ${diagnostic.range.start.line + 1}`);
                         });
                     }
 
                     if (csoundDiagnostics && csoundDiagnostics.length > 0) {
-                        console.log('Cabbage: Csound diagnostics:');
                         csoundDiagnostics.forEach(diagnostic => {
                             console.log(`  ${diagnostic.severity === 0 ? 'Error' : 'Warning'}: ${diagnostic.message} at line ${diagnostic.range.start.line + 1}`);
                         });
                     }
 
-                    console.log(`Cabbage: compilationFailed flag: ${this.compilationFailed}`);
                 }
             }, 100); // Wait 300ms for compilation to start and errors to appear
         } else {
@@ -992,7 +968,6 @@ export class Commands {
                     text: fileContent,
                     lastSavedFileName: finalFileName
                 });            // Also send the file change notification to CabbageApp
-                console.log("Extension: Sending onFileChanged to backend for file:", finalFileName);
                 this.sendMessageToCabbageApp({
                     command: "onFileChanged",
                     lastSavedFileName: finalFileName
@@ -1001,15 +976,12 @@ export class Commands {
                 // Wait a bit for compilation to start and check for immediate errors
                 // If no errors after this delay, then reveal the panel
                 setTimeout(() => {
-                    console.log(`Cabbage: Checking compilation status after delay, compilationFailed=${this.compilationFailed}`);
                     if (this.panel && !this.compilationFailed) {
-                        console.log('Cabbage: No errors detected, revealing panel');
                         this.panel.reveal(viewColumn, false);
 
                         // Also send onEnterPerformanceMode message
                         setTimeout(() => {
                             if (this.panel && !this.compilationFailed) {
-                                console.log('Cabbage: Sending onEnterPerformanceMode message');
                                 this.panel.webview.postMessage({
                                     command: "onEnterPerformanceMode",
                                     text: ""
@@ -1017,7 +989,6 @@ export class Commands {
                             }
                         }, 100);
                     } else {
-                        console.log('Cabbage: Errors detected, not revealing panel');
                     }
                 }, 200); // Wait 200ms for compilation to start and errors to appear
             }
@@ -1183,28 +1154,22 @@ export class Commands {
                     const jsonString = line.substring('CABBAGE_JSON:'.length);
                     try {
                         const msg = JSON.parse(jsonString);
-                        console.log('Extension: Received message from backend:', msg.command || 'unknown command');
 
                         // Handle widget update messages
                         if (msg.hasOwnProperty('command')) {
                             if (msg['command'] === 'widgetUpdate') {
                                 const panel = Commands.getPanel();
-                                console.log(`Extension: widgetUpdate message - hasWidgetJson=${msg.hasOwnProperty('widgetJson')}, id=${msg['id']}, panel=${!!panel}`);
                                 if (panel) {
                                     if (msg.hasOwnProperty('widgetJson')) {
                                         let id = msg['id'];
-                                        console.log(`Extension: widgetUpdate - id from msg=${id}, widgetJson length=${msg['widgetJson']?.length}`);
 
                                         // Always parse and log the widget data
                                         try {
                                             const parsed = JSON.parse(msg['widgetJson']);
                                             const widgetId = id || parsed.id || (parsed.channels && parsed.channels.length > 0 && parsed.channels[0].id);
-                                            console.log(`Extension: widgetUpdate - id=${widgetId}, type=${parsed.type}, hasSamples=${parsed.hasOwnProperty('samples')}, samplesLength=${parsed.samples?.length || 0}`);
-                                            if (parsed.samples && Array.isArray(parsed.samples) && parsed.samples.length > 0) {
-                                                console.log(`Extension: ✓ Received widgetUpdate for ${widgetId} with ${parsed.samples.length} samples`);
-                                            } else if (parsed.type === 'genTable') {
-                                                console.log(`Extension: ✗ genTable ${widgetId} has NO samples data`);
-                                            }
+                                            // if (parsed.samples && Array.isArray(parsed.samples) && parsed.samples.length > 0) {
+                                            // } else if (parsed.type === 'genTable') {
+                                            // }
                                         } catch (e) {
                                             console.error('Extension: Failed to parse widgetJson:', e);
                                         }
@@ -1226,7 +1191,6 @@ export class Commands {
                                 }
                             }
                             else if (msg['command'] === 'failedToCompile') {
-                                console.log("Extension: Received failedToCompile from backend");
                                 // Handle panel disposal
                                 let panel = Commands.getPanel();
                                 if (panel) {
@@ -1262,7 +1226,6 @@ export class Commands {
                                 }
                             }
                             // This is for debugging
-                            // console.log(`Cabbage: Processing line: "${line}"`);
                             // If the line begins with a warning or deprecation message,
                             // ignore it for error diagnostics. This avoids confusing
                             // earlier warning lines with later, real errors.
@@ -1333,7 +1296,6 @@ export class Commands {
                                         }
                                     }
                                 } catch (err) {
-                                    console.log('Cabbage: Error creating diagnostic:', err);
                                 }
 
                                 // Dispose panel on error
@@ -1858,21 +1820,17 @@ export class Commands {
                 if (!document) {
                     try {
                         document = await vscode.workspace.openTextDocument(uri);
-                        console.log(`Cabbage: Opened document for diagnostics: ${documentUri}`);
                     } catch (openErr) {
-                        console.log(`Cabbage: Failed to open document ${documentUri} for diagnostics:`, openErr);
                         return;
                     }
                 }
             } catch (error) {
-                console.log(`Cabbage: Error getting document from URI ${documentUri}:`, error);
                 return;
             }
         } else {
             // Fallback to active editor (for backward compatibility)
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
-                console.log('Cabbage: No active editor found for diagnostics');
                 return;
             }
             document = editor.document;
@@ -1880,16 +1838,13 @@ export class Commands {
 
         // Try to extract line number from error message first
         // Csound errors typically look like: "error: message at line X" or "line 512:"
-        console.log(`Cabbage: Creating diagnostic for error: "${errorLine}"`);
         const lineMatch = errorLine.match(/line\s*:?\s*(\d+)/i);
         if (lineMatch) {
-            console.log(`Cabbage: Extracted line number: ${lineMatch[1]}`);
             // Csound reports line numbers as 1-based. Convert to 0-based for
             // VS Code by subtracting 1.
             const reportedLine = parseInt(lineMatch[1], 10);
             const lineNumber = isNaN(reportedLine) ? NaN : reportedLine - 1;
             if (isNaN(lineNumber) || lineNumber < 0) {
-                console.log(`Cabbage: Invalid line number extracted: ${lineNumber}`);
                 return;
             }
 
@@ -1912,11 +1867,8 @@ export class Commands {
             // Add to diagnostic collection
             if (!this.diagnosticCollectionCsound) {
                 this.initialize();
-                console.log('Cabbage: Initialized diagnosticCollectionCsound');
             }
-            console.log(`Cabbage: About to set diagnostic for line ${lineNumber + 1}, range: ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}, message: "${errorLine.trim()}"`);
             this.diagnosticCollectionCsound.set(document.uri, [diagnostic]);
-            console.log(`Cabbage: Successfully set diagnostic for line ${lineNumber + 1}`);
             return;
         }
 
@@ -1933,7 +1885,6 @@ export class Commands {
 
         if (opcodeMatch) {
             const opcodeName = opcodeMatch[1];
-            console.log(`Cabbage: Extracted opcode name "${opcodeName}" from error: "${errorLine}"`);
 
             // Search for the first occurrence of this opcode in the document
             const text = document.getText();
@@ -1958,20 +1909,15 @@ export class Commands {
                     // Add to diagnostic collection
                     if (!this.diagnosticCollectionCsound) {
                         this.initialize();
-                        console.log('Cabbage: Initialized diagnosticCollectionCsound for opcode');
                     }
-                    console.log(`Cabbage: About to set diagnostic for opcode "${opcodeName}" at line ${i + 1}, range: ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}, message: "${errorLine.trim()}"`);
                     this.diagnosticCollectionCsound.set(document.uri, [diagnostic]);
-                    console.log(`Cabbage: Successfully set diagnostic for opcode "${opcodeName}" at line ${i + 1}`);
                     return;
                 }
             }
 
-            console.log(`Cabbage: Opcode "${opcodeName}" not found in document`);
             return;
         }
 
-        console.log(`Cabbage: Could not extract line number or opcode name from error: "${errorLine}"`);
 
         // Fallback: create a file-level diagnostic at the top of the document so
         // the user still sees a visible error (red squiggle) even if we couldn't
@@ -1980,7 +1926,6 @@ export class Commands {
         try {
             if (!this.diagnosticCollectionCsound) {
                 this.initialize();
-                console.log('Cabbage: Initialized diagnosticCollectionCsound for fallback');
             }
 
             const fallbackRange = new vscode.Range(0, 0, 0, Math.min(120, document.lineAt(0).text.length));
@@ -1995,13 +1940,10 @@ export class Commands {
             // file. Only set the fallback if no diagnostics exist yet.
             const existing = this.diagnosticCollectionCsound.get(document.uri);
             if (existing && existing.length > 0) {
-                console.log('Cabbage: Existing diagnostics present, skipping fallback top-level diagnostic');
             } else {
                 this.diagnosticCollectionCsound.set(document.uri, [fallbackDiag]);
-                console.log('Cabbage: Set fallback Csound diagnostic at top of document');
             }
         } catch (err) {
-            console.log('Cabbage: Failed to set fallback diagnostic:', err);
         }
     }
 
@@ -2127,7 +2069,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
         });
 
         if (!fileUri) {
-            console.log('Cabbage: No file selected.');
             return;
         }
 
@@ -2210,7 +2151,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 'Yes', 'No'
             );
             if (overwrite !== 'Yes') {
-                console.log('Cabbage: Operation cancelled by user');
                 return;
             }
             await fs.promises.rm(destinationPath, { recursive: true });
@@ -2885,13 +2825,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
     private static async setupProjectResources(resourcesDir: string, indexHtmlContent: string, csdContent: string, projectName: string): Promise<void> {
         // Create resources directory
         await fs.promises.mkdir(resourcesDir, { recursive: true });
-        console.log('Cabbage: Created resources directory:', resourcesDir);
 
         // Extract used widgets from CSD content (for logging/tracking purposes)
         // Note: We don't actually filter widgets in the generated HTML anymore since
         // widgetTypes.js uses ES6 static imports for all built-in widgets
         const usedWidgets = Commands.extractUsedWidgets(csdContent);
-        console.log(`Cabbage: Found ${usedWidgets.size} used widgets:`, Array.from(usedWidgets));
 
         // Use provided index.html content if supplied, otherwise generate default
         const customIndexHtml = indexHtmlContent || Commands.generateIndexHtmlForWidgets(usedWidgets);
@@ -2922,7 +2860,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const cssFileName = path.basename(cssPath);
         const cssDestPath = path.join(resourcesDir, cssFileName);
         await fs.promises.copyFile(cssPath, cssDestPath);
-        console.log('Cabbage: Copied CSS file');
         Commands.vscodeOutputChannel.appendLine('Export: Copied CSS file');
 
         // Copy helper JS files (propertyPanel, widgetWrapper, widgetClipboard)
@@ -2943,13 +2880,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // Create index.html with main.js module entry point
         const indexHtmlPath = path.join(resourcesDir, 'index.html');
         await fs.promises.writeFile(indexHtmlPath, customIndexHtml);
-        console.log('Cabbage: Created index.html at:', indexHtmlPath);
         Commands.vscodeOutputChannel.appendLine(`Export: Created index.html at: ${indexHtmlPath}`);
 
         // Create CSD file
         const csdPath = path.join(resourcesDir, `${projectName}.csd`);
         await fs.promises.writeFile(csdPath, csdContent);
-        console.log('Cabbage: Created CSD file');
         Commands.vscodeOutputChannel.appendLine(`Export: Created CSD file at: ${csdPath}`);
     }
 
@@ -2967,7 +2902,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
         });
 
         if (!fileUri) {
-            console.log('Cabbage: No file selected.');
             return;
         }
 
@@ -2995,7 +2929,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 'Yes', 'No'
             );
             if (overwrite !== 'Yes') {
-                console.log('Cabbage: Operation cancelled by user');
                 return;
             }
             // Remove existing directory
@@ -3225,7 +3158,6 @@ i2 5 z
             // Copy the plugin
             if (os.platform() === 'darwin') {
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                console.log('Cabbage: Vanilla plugin successfully copied to:', destinationPath);
 
                 // Rename the executable file inside the folder
                 const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
@@ -3312,11 +3244,8 @@ i2 5 z
                         return;
                     }
 
-                    console.log('Cabbage: win64DirPath:', win64DirPath);
                     const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                    console.log('Cabbage: originalFilePath:', originalFilePath);
                     const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
-                    console.log('Cabbage: newFilePath:', newFilePath);
                     await fs.promises.rename(originalFilePath, newFilePath);
                     console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
                     Commands.getOutputChannel().appendLine("Vanilla plugin successfully copied to:" + destinationPath);
@@ -3357,7 +3286,6 @@ i2 5 z
         });
 
         if (!fileUri) {
-            console.log('Cabbage: No file selected.');
             return;
         }
 
@@ -3492,7 +3420,6 @@ i2 5 z
                 'Yes', 'No'
             );
             if (overwrite !== 'Yes') {
-                console.log('Cabbage: Operation cancelled by user');
                 return;
             }
             // Remove existing directory
@@ -3548,7 +3475,6 @@ i2 5 z
             if (os.platform() === 'darwin') {
                 if (type.includes('VST3') || type.includes('CLAP')) {
                     await Commands.copyDirectory(binaryFile, destinationPath);
-                    console.log('Cabbage: Plugin successfully copied to:', destinationPath);
 
                     // Rename the executable file inside the folder
                     const macOSDirPath = path.join(destinationPath, 'Contents', 'MacOS');
@@ -3624,7 +3550,6 @@ i2 5 z
                 }
                 else if (type.includes('AUv2')) {
                     await Commands.copyDirectory(binaryFile, destinationPath);
-                    console.log('Cabbage: AUv2 Plugin successfully copied to:', destinationPath);
 
                     // Extract pluginId from the Cabbage content
                     const { content: cabbageContent } = Commands.getCabbageContent(editor);
@@ -3718,7 +3643,6 @@ i2 5 z
                     return;
                 }
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                // console.log('Cabbage: Plugin successfully copied to:', destinationPath);
                 // Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
 
                 // Rename the executable file inside the folder
@@ -3739,11 +3663,8 @@ i2 5 z
 
                 // Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
 
-                console.log('Cabbage: win64DirPath:', win64DirPath);
                 const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                console.log('Cabbage: originalFilePath:', originalFilePath);
                 const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
-                console.log('Cabbage: newFilePath:', newFilePath);
                 await fs.promises.rename(originalFilePath, newFilePath);
                 console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
 
@@ -3819,14 +3740,12 @@ i2 5 z
         const match = text.match(cabbageRegex);
 
         if (!match) {
-            console.log("Cabbage: No Cabbage section found in document");
             return false;
         }
 
         try {
             const cabbageContent = match[1].trim();
             let widgets = JSON.parse(cabbageContent);
-            console.log("Cabbage: Current widgets:", widgets.length);
 
             // Remove the widget with the specified channel
             const originalLength = widgets.length;

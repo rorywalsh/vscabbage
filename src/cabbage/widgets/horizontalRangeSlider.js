@@ -280,7 +280,6 @@ export class HorizontalRangeSlider {
 
     // Send denormalized value directly to backend
     const valueToSend = this.props.channels[0].range.value;
-    console.log("Cabbage: Sending value: " + valueToSend);
     // Post message if vscode is available
     Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: valueToSend, gesture: "value" }, this.vscode);
 

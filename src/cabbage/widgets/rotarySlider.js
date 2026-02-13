@@ -152,15 +152,12 @@ export class RotarySlider {
         this.imageWidth = img.width;
         this.imageHeight = img.height;
         this.isImageLoaded = true;
-        console.log("Cabbage: Loaded film strip image dimensions:", img.width, img.height);
         CabbageUtils.updateInnerHTML(this.props, this);
       };
 
       img.onerror = (error) => {
-        console.log("Cabbage: Error loading film strip image", error);
       };
     } catch (error) {
-      console.log("Cabbage: Failed to load film strip image:", error);
     }
 
   }

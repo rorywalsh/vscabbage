@@ -790,12 +790,10 @@ export class PropertyPanel {
         Object.entries(properties).forEach(([sectionName, sectionProperties]) => {
             // Skip if this property is in hiddenProps or already handled
             if (hiddenProps.includes(sectionName)) {
-                console.log("Cabbage: Cabbage: hidden props", hiddenProps, " section name", sectionName);
                 return;
             }
 
             if (this.handledProperties && this.handledProperties.has(sectionName)) {
-                console.log("Cabbage: Skipping already handled property:", sectionName);
                 return;
             }
 

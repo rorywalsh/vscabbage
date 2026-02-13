@@ -86,7 +86,6 @@ export class FileButton extends Button {
     if (!this.props.active) {
       return '';
     }
-    console.log("Cabbage: fileButton pointerDown");
     this.isMouseDown = true;
     this.props.value = 1;
 

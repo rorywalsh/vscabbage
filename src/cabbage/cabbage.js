@@ -88,7 +88,6 @@
  * @module Cabbage
  */
 
-console.log("Cabbage: loading cabbage.js");
 
 export class Cabbage {
 
@@ -182,7 +181,6 @@ export class Cabbage {
    * @param {number} dataByte2 - Second MIDI data byte
    */
   static MidiMessageFromHost(statusByte, dataByte1, dataByte2) {
-    console.log("Cabbage: Got MIDI Message" + statusByte + ":" + dataByte1 + ":" + dataByte2);
   }
 
   /**
@@ -309,7 +307,6 @@ export class Cabbage {
       obj: JSON.stringify(message)
     };
 
-    console.log("Cabbage: sending channel data from UI", message);
     if (vscode !== null) {
       vscode.postMessage(msg);
     }
@@ -364,10 +361,8 @@ export class Cabbage {
     }
     else {
       if (typeof window.sendMessageFromUI === 'function') {
-        console.log('Cabbage: Calling window.sendMessageFromUI with:', msg);
         try {
           const result = window.sendMessageFromUI(msg);
-          console.log('Cabbage: sendMessageFromUI returned:', result);
         } catch (err) {
           console.error('Cabbage: sendMessageFromUI threw error:', err);
           console.error('Cabbage: Error stack:', err.stack);

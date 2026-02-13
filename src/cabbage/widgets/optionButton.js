@@ -72,7 +72,6 @@ export class OptionButton {
     this.props.channels[0].range.value = (currentValue + 1) % itemsLength;
 
     CabbageUtils.updateInnerHTML(this.props, this, evt.currentTarget);
-    console.log('Cabbage: CurrentText', this.props.currentText);
 
     Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value }, this.vscode);
   }
@@ -124,7 +123,6 @@ export class OptionButton {
   }
 
   addVsCodeEventListeners(widgetDiv, vs) {
-    console.log("Cabbage: addVsCodeEventListeners");
     this.vscode = vs;
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';

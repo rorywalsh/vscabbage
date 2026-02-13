@@ -92,14 +92,12 @@ class KeyboardMidiInput {
             this.keyToNote[k] = v;
         });
         this.currentBaseOctave = octave;
-        console.log('Cabbage: keyboardMidiInput base octave set to', octave);
     }
 
     /**
      * Initialize keyboard listeners
      */
     init() {
-        console.log('Cabbage: KeyboardMidiInput initialized');
         document.addEventListener('keydown', this.handleKeyDown);
         document.addEventListener('keyup', this.handleKeyUp);
     }
@@ -137,7 +135,6 @@ class KeyboardMidiInput {
             e.preventDefault();
 
             const midiNote = this.keyToNote[key];
-            console.log(`Cabbage: Keyboard MIDI: Key '${key}' -> Note ${midiNote} ON`);
 
             // Send MIDI note on (0x90 = note on, channel 0)
             Cabbage.sendMidiMessageFromUI(0x90, midiNote, this.defaultVelocity, vscode);
@@ -163,7 +160,6 @@ class KeyboardMidiInput {
                 e.preventDefault();
 
                 const midiNote = this.keyToNote[key];
-                console.log(`Cabbage: Keyboard MIDI: Key '${key}' -> Note ${midiNote} OFF`);
 
                 // Send MIDI note off (0x80 = note off, channel 0)
                 Cabbage.sendMidiMessageFromUI(0x80, midiNote, 0, vscode);
@@ -175,7 +171,6 @@ class KeyboardMidiInput {
      * Release all active notes (useful when mode changes)
      */
     releaseAllNotes() {
-        console.log(`Cabbage: Releasing ${this.activeKeys.size} active keyboard MIDI notes`);
         this.activeKeys.forEach(key => {
             const midiNote = this.keyToNote[key];
             Cabbage.sendMidiMessageFromUI(0x80, midiNote, 0, vscode);

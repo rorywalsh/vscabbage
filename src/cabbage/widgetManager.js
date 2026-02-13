@@ -152,7 +152,6 @@ export class WidgetManager {
             widget.props.bounds = widget.props.bounds || {};
             widget.props.bounds.top = explicitTop;
             widget.props.bounds.left = explicitLeft;
-            console.log(`Cabbage: insertWidget - Applied explicit position: top=${explicitTop}, left=${explicitLeft}`);
         }
 
         // For comboBox with populate, set automatable to false (plugins can't handle dynamic ranges)
@@ -241,9 +240,8 @@ export class WidgetManager {
 
         // Duplicate check is now performed in updateWidget before insertion begins
         // This prevents race conditions with pendingWidgets tracking
-
-        // Add the widget to the global widgets array
         console.log("Cabbage: Pushing widget to widgets array", {
+            // Add the widget to the global widgets array
             type: widget.props.type,
             id: widgetId,
             parentChannel: widget.props.parentChannel || 'none',
@@ -385,9 +383,7 @@ export class WidgetManager {
     static appendToMainForm(widgetDiv) {
         const form = document.getElementById('MainForm');
         if (form) {
-            console.log(`Cabbage: appendToMainForm - Found MainForm tagName=${form.tagName}, appending widget id=${widgetDiv.id}`);
         } else {
-            console.log(`Cabbage: appendToMainForm - MainForm not found, appending widget id=${widgetDiv.id}`);
         }
         if (form && form.tagName && form.tagName.toLowerCase() !== 'rect') {
             // MainForm is an HTML element - append to it
@@ -397,10 +393,8 @@ export class WidgetManager {
             // For plugin mode, use zoom-wrapper if available, otherwise body
             const zoomWrapper = document.getElementById('zoom-wrapper');
             if (zoomWrapper) {
-                console.log(`Cabbage: Appending ${widgetDiv.id} to zoom-wrapper`);
                 zoomWrapper.appendChild(widgetDiv);
             } else {
-                console.log(`Cabbage: Appending ${widgetDiv.id} to body`);
                 document.body.appendChild(widgetDiv);
             }
         }
@@ -410,22 +404,14 @@ export class WidgetManager {
             const currentForm = document.getElementById('MainForm');
             if (currentForm) {
                 const ids = Array.from(currentForm.children).map(c => c.id || c.tagName);
-                console.log(`Cabbage: appendToMainForm - MainForm now has ${currentForm.childElementCount} children:`, ids);
             } else {
-                console.log('Cabbage: appendToMainForm - MainForm not present after append');
             }
             const found = document.getElementById(widgetDiv.id);
-            console.log(`Cabbage: appendToMainForm - element with id ${widgetDiv.id} in DOM?`, !!found);
         } catch (e) {
             console.error('Cabbage: appendToMainForm diagnostic failed', e);
         }
 
         // Log MainForm structure for debugging
-        console.log(`Cabbage: MainForm outerHTML:`, form.outerHTML.substring(0, 1000));
-        console.log(`Cabbage: MainForm in document.body?`, document.body.contains(form));
-        console.log(`Cabbage: MainForm.parentElement`, form.parentElement);
-        console.log(`Cabbage: widgetDiv.ownerDocument === document`, widgetDiv.ownerDocument === document);
-        console.log(`Cabbage: document.body.children.length`, document.body.children.length);
     }
 
     /**
@@ -434,9 +420,7 @@ export class WidgetManager {
      * @param {object} widget - The "form" widget to set up.
      */
     static setupFormWidget(widget) {
-        console.log("Cabbage: setupFormWidget called");
         let formDiv = document.getElementById('MainForm');
-        console.log("Cabbage: MainForm element:", formDiv ? "found" : "not found");
         if (!formDiv) {
             formDiv = document.createElement('div');
             formDiv.id = 'MainForm';
@@ -527,23 +511,18 @@ export class WidgetManager {
 
         // Populate the menu with widget types (works for both new and existing forms)
         if (vscode) {
-            console.log("Cabbage: Attempting to populate menu, vscode context:", !!vscode);
             const ulMenu = document.querySelector('.menu');
-            console.log("Cabbage: Menu element:", ulMenu);
             if (ulMenu) {
                 let menuItems = "";
                 const currentWidgetTypes = getWidgetTypes();
-                console.log("Cabbage: Widget types to add to menu:", currentWidgetTypes.length, currentWidgetTypes);
                 currentWidgetTypes.forEach((widgetType) => {
                     menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
                 });
                 ulMenu.innerHTML = menuItems;
-                console.log(`Cabbage: Populated context menu with ${currentWidgetTypes.length} widget types`);
             } else {
                 console.error("Cabbage: Could not find .menu element to populate");
             }
         } else {
-            console.log("Cabbage: Not in vscode context, skipping menu population");
         }
 
         // Set MainForm styles and properties
@@ -581,12 +560,10 @@ export class WidgetManager {
             return;
         }
 
-        console.log("Cabbage: Inserting", parentWidget.props.children.length, "child widgets for", CabbageUtils.getWidgetDivId(parentWidget.props));
 
         // Log parent container info
         if (parentDiv) {
             const parentStyle = window.getComputedStyle(parentDiv);
-            console.log(`Cabbage: Parent ${CabbageUtils.getWidgetDivId(parentWidget.props)} - position: ${parentStyle.position}, zIndex: ${parentStyle.zIndex}, display: ${parentStyle.display}, transform: ${parentStyle.transform}`);
         }
 
         for (const childProps of parentWidget.props.children) {
@@ -603,7 +580,6 @@ export class WidgetManager {
                 parentChannel: CabbageUtils.getWidgetDivId(parentWidget.props) // Mark as child
             };
 
-            console.log(`Cabbage: Inserting child ${childProps.channel} (type: ${childProps.type}) at position (${absoluteBounds.left}, ${absoluteBounds.top})`);
 
             // Insert the child widget
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);
@@ -613,7 +589,6 @@ export class WidgetManager {
             const childDiv = document.getElementById(childChannelId);
             if (childDiv) {
                 const computedStyle = window.getComputedStyle(childDiv);
-                console.log(`Cabbage: Child ${CabbageUtils.getWidgetDivId(childProps)} div found, innerHTML length: ${childDiv.innerHTML.length}, display: ${computedStyle.display}, position: ${computedStyle.position}, transform: ${computedStyle.transform}, zIndex: ${computedStyle.zIndex}`);
 
                 // Explicitly set position and transform for child widgets
                 childDiv.style.position = 'absolute';
@@ -641,7 +616,6 @@ export class WidgetManager {
 
                 // Log final position after style application
                 const finalStyle = window.getComputedStyle(childDiv);
-                console.log(`Cabbage: Child ${childProps.channel} final position: ${finalStyle.position}, transform: ${finalStyle.transform}, zIndex: ${finalStyle.zIndex}, pointerEvents: ${finalStyle.pointerEvents}`);
             } else {
                 console.error(`Cabbage: Child div for ${CabbageUtils.getWidgetDivId(childProps)} NOT FOUND!`);
             }
@@ -726,13 +700,13 @@ export class WidgetManager {
             console.error("WidgetManager.updateWidget: No 'id' in update message. Old 'channel' syntax is no longer supported.");
             return;
         }
-        console.log(`WidgetManager.updateWidget: Called with obj.id=${obj.id}, hasWidgetJson=${!!obj.widgetJson}, hasValue=${!!obj.value}`);
+        // console.log(`WidgetManager.updateWidget: Called with obj.id=${obj.id}, hasWidgetJson=${!!obj.widgetJson}, hasValue=${!!obj.value}`);
         // Extract channel ID for logging
         const channelStr = obj.id;
         //console.log(`WidgetManager.updateWidget: Extracted channelStr: ${channelStr}`);
         // Check if 'widgetJson' exists, otherwise use 'value'
         const data = obj.widgetJson ? JSON.parse(obj.widgetJson) : obj.value;
-        console.log(`WidgetManager.updateWidget: Parsed data type=${typeof data}, isObject=${typeof data === 'object'}`);
+        // console.log(`WidgetManager.updateWidget: Parsed data type=${typeof data}, isObject=${typeof data === 'object'}`);
 
         // Determine the channel to use for finding the widget
         // If data is a primitive (number, string), use obj.id directly
@@ -746,7 +720,7 @@ export class WidgetManager {
                 (w.props.channels && w.props.channels.some(c => WidgetManager.channelsMatch(c, channelToFind))) ||
                 w.props.id === channelToFind;
         });
-        console.log(`WidgetManager.updateWidget: Found widget for ${channelToFind}:`, widget ? `type=${widget.props.type}` : 'NOT FOUND');
+        // console.log(`WidgetManager.updateWidget: Found widget for ${channelToFind}:`, widget ? `type=${widget.props.type}` : 'NOT FOUND');
         let widgetFound = false;
 
         // Check if this is a child widget
@@ -756,7 +730,7 @@ export class WidgetManager {
         }
 
         if (widget) {
-            console.log(`WidgetManager.updateWidget: Inside widget branch, hasValue=${obj.hasOwnProperty('value')}, hasWidgetJson=${obj.hasOwnProperty('widgetJson')}`);
+            // console.log(`WidgetManager.updateWidget: Inside widget branch, hasValue=${obj.hasOwnProperty('value')}, hasWidgetJson=${obj.hasOwnProperty('widgetJson')}`);
             const channelId = CabbageUtils.getWidgetDivId(widget.props, 0);
             // console.log(`WidgetManager.updateWidget: channel=${obj.channel}, value=${obj.value}, widgetJson=${obj.widgetJson}, widget type=${widget.props.type}, isDragging=${widget.isDragging}`);
             // widget.props.currentCsdFile = obj.currentCsdPath;
@@ -824,7 +798,6 @@ export class WidgetManager {
                             if (channelIndex !== -1) {
                                 // Update the specific channel's value
                                 widget.props.channels[channelIndex].range.value = newValue;
-                                console.log(`WidgetManager: Updated multi-channel widget ${widget.props.type} channel[${channelIndex}] (${channelToFind}) to ${newValue}`);
                             } else {
                                 console.warn(`WidgetManager: Could not find channel index for ${channelToFind} in widget ${widget.props.type}`);
                             }
@@ -854,7 +827,7 @@ export class WidgetManager {
                 return; // Early return
             }
 
-            console.log(`WidgetManager.updateWidget: Reached deepMerge section for ${widget.props.type}, widgetJson present`);
+            // console.log(`WidgetManager.updateWidget: Reached deepMerge section for ${widget.props.type}, widgetJson present`);
             //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
             // Update widget properties - deepMerge handles channels[].range.value automatically
             //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
@@ -879,7 +852,7 @@ export class WidgetManager {
             else {
                 // Existing code for other widget types
                 const widgetDiv = CabbageUtils.getWidgetDiv(channelId);
-                console.log(`WidgetManager.updateWidget: widgetDiv lookup for ${channelId}: ${widgetDiv ? 'FOUND' : 'NULL'}`);
+                // console.log(`WidgetManager.updateWidget: widgetDiv lookup for ${channelId}: ${widgetDiv ? 'FOUND' : 'NULL'}`);
                 if (widgetDiv) {
                     // Update styles (position, size, zIndex) immediately
                     WidgetManager.updateWidgetStyles(widgetDiv, widget.props);
@@ -943,14 +916,12 @@ export class WidgetManager {
                                         top: absoluteTop
                                     }
                                 };
-                                console.log(`Cabbage: Child widget ${CabbageUtils.getWidgetDivId(widget.props)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
                             }
                         }
                         WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
 
                         try {
                             if (typeof widget.updateCanvas === 'function') {
-                                console.log(`WidgetManager: Calling updateCanvas for ${widget.props.type} id=${widget.props.id}, samples=${widget.props.samples?.length || 0}`);
                                 widget.updateCanvas();
                             }
                         } catch (e) {
@@ -958,9 +929,9 @@ export class WidgetManager {
                         }
                     } else {
                         // Default behavior for widgets that render their HTML via getInnerHTML
-                        console.log(`WidgetManager.updateWidget: About to update innerHTML for ${widget.props.type} id=${widget.props.id}`);
+                        // console.log(`WidgetManager.updateWidget: About to update innerHTML for ${widget.props.type} id=${widget.props.id}`);
                         widgetDiv.innerHTML = widget.getInnerHTML();
-                        console.log(`WidgetManager.updateWidget: innerHTML updated for ${widget.props.type}`);
+                        // console.log(`WidgetManager.updateWidget: innerHTML updated for ${widget.props.type}`);
 
                         // Update wrapper styles (respect parent-relative positioning)
                         let propsForStyling = widget.props;
@@ -977,7 +948,6 @@ export class WidgetManager {
                                         top: absoluteTop
                                     }
                                 };
-                                console.log(`Cabbage: Child widget ${CabbageUtils.getWidgetDivId(widget.props)} using absolute position (${absoluteLeft}, ${absoluteTop}) instead of relative (${widget.props.bounds.left}, ${widget.props.bounds.top})`);
                             }
                         }
                         WidgetManager.updateWidgetStyles(widgetDiv, propsForStyling);
@@ -1015,8 +985,7 @@ export class WidgetManager {
             const parentWithChild = widgets.find(w => w.props.children && Array.isArray(w.props.children) && w.props.children.some(c => CabbageUtils.getWidgetDivId(c) === obj.id));
             // console.log(`WidgetManager.updateWidget: Parent with child found:`, parentWithChild ? `type=${parentWithChild.props.type}` : 'null');
             if (parentWithChild) {
-                console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
-                // console.log(`Cabbage: Found child widget ${obj.id} in parent ${parentWithChild.props.channel}, updating child. Data:`, JSON.stringify(obj, null, 2));
+                // console.log(`WidgetManager.updateWidget: Updating child widget in parent ${parentWithChild.props.channel}`);
                 const childProps = parentWithChild.props.children.find(c => CabbageUtils.getWidgetDivId(c) === obj.id);
                 // console.log(`WidgetManager.updateWidget: Child props found:`, childProps);
 
@@ -1065,7 +1034,6 @@ export class WidgetManager {
                 widgetFound = true;
             } else {
                 // obj.id contains the identifier sent from the backend
-                console.log(`Cabbage: Widget with channel ${obj.id} not found - going to create it now`);
             }
         }
         // If the widget is not found, attempt to create a new widget from the provided data
@@ -1080,13 +1048,11 @@ export class WidgetManager {
 
             try {
                 let p = typeof data === 'string' ? JSON.parse(data) : data;
-                console.log(`WidgetManager.updateWidget: Parsed props for new widget:`, p);
+                //console.log(`WidgetManager.updateWidget: Parsed props for new widget:`, p);
 
                 // If the parsed data has a 'type' property, insert a new widget into the form
                 if (p.hasOwnProperty('type')) {
                     const widgetId = p.id || (p.channels && p.channels.length > 0 && p.channels[0].id);
-                    console.log(`WidgetManager.updateWidget: Parsed props for new widget. Type: ${p.type}, ID: ${widgetId}`);
-                    console.log(`WidgetManager.updateWidget: Pending widgets map size: ${WidgetManager.pendingWidgets.size}`);
 
                     // Check for duplicates BEFORE starting insertion
                     if (widgetId) {

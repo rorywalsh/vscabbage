@@ -58,7 +58,6 @@ export class GroupBox {
     }
 
     pointerDown() {
-        console.log("Cabbage: Label clicked!");
     }
 
     getInnerHTML() {

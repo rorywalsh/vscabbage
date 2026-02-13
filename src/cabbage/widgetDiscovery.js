@@ -36,13 +36,11 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
     const discoveredWidgets = [];
 
     if (!vscode) {
-        console.log('Cabbage: No VS Code API available, skipping custom widget discovery');
         return discoveredWidgets;
     }
 
     try {
         // Request custom widget information from the extension
-        console.log('Cabbage: Requesting custom widget information from extension...');
 
         // Create a promise that resolves when we receive the response
         // Wait for the extension to post custom widget info. Increase the
@@ -67,7 +65,7 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
                 // If we haven't resolved yet, resolve with empty array so the
                 // initialization can continue. Later messages will still be
                 // handled by the global listener below.
-                console.warn('Cabbage: Timed out waiting for customWidgetInfo from extension');
+                console.warn('Cabbage: Timed out waiting for customWidgetInfo from extension (10s timeout expired)');
                 resolve([]);
             }, 10000); // 10s
         });
@@ -78,10 +76,8 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
         });
 
         const widgetInfoList = await widgetInfoPromise;
-        console.log('Cabbage: Received custom widget info:', widgetInfoList);
 
         if (!widgetInfoList || widgetInfoList.length === 0) {
-            console.log('Cabbage: No custom widgets found');
             return discoveredWidgets;
         }
 
@@ -90,7 +86,6 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
             try {
                 const { widgetType, filename, className, webviewPath } = widgetInfo;
 
-                console.log(`Cabbage: Registering custom widget: ${widgetType} from ${webviewPath}`);
 
                 // Register the widget - the webviewPath is already a complete URI
                 // We just need to use the filename for the registry
@@ -102,7 +97,6 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
             }
         }
 
-        console.log(`Cabbage: Successfully discovered and registered ${discoveredWidgets.length} custom widgets`);
         // Also install a global listener so any future 'customWidgetInfo'
         // messages sent by the extension (for example, after the initial
         // timeout) will still be registered.
@@ -118,7 +112,6 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
                                 try {
                                     registerWidget(widgetType, webviewPath, className);
                                     discoveredWidgets.push(widgetType);
-                                    console.log(`Cabbage: Late-registered custom widget: ${widgetType}`);
                                 } catch (err) {
                                     console.error(`Cabbage: Failed to late-register widget ${widgetType}:`, err);
                                 }

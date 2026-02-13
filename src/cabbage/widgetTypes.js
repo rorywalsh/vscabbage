@@ -2,7 +2,6 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log("Cabbage: loading widgetTypes.js...");
 
 /**
  * Widget Type System - Hybrid Static/Dynamic Loading
@@ -101,7 +100,6 @@ async function getWidget(type) {
 	if (type in CUSTOM_WIDGET_REGISTRY) {
 		// Return from cache if already loaded
 		if (customWidgetCache[type]) {
-			console.log(`Cabbage: Custom widget "${type}" loaded from cache`);
 			return customWidgetCache[type];
 		}
 
@@ -111,14 +109,10 @@ async function getWidget(type) {
 			// Add cache-busting timestamp to ensure fresh code on reload
 			const modulePath = `${widgetInfo.file}?t=${Date.now()}`;
 
-			console.log(`Cabbage: Loading custom widget "${type}" from:`, modulePath);
-			console.log(`Cabbage: Expected class name:`, widgetInfo.class);
 
 			// Dynamic import of the custom widget module
 			const module = await import(modulePath);
 
-			console.log(`Cabbage: Loaded module for "${type}":`, module);
-			console.log(`Cabbage: Module keys:`, Object.keys(module));
 
 			// Extract the class from the module
 			const WidgetClass = module[widgetInfo.class];
@@ -127,7 +121,6 @@ async function getWidget(type) {
 				throw new Error(`Class "${widgetInfo.class}" not found in custom widget ${widgetInfo.file}`);
 			}
 
-			console.log(`Cabbage: Successfully loaded custom widget class "${widgetInfo.class}" for type "${type}"`);
 
 			// Cache for future use
 			customWidgetCache[type] = WidgetClass;
@@ -140,7 +133,6 @@ async function getWidget(type) {
 	}
 
 	// Widget type not found in registry - try auto-discovery (for plugin mode)
-	console.log(`Cabbage: Widget type "${type}" not registered, attempting auto-discovery...`);
 	// If the extension/webview is still populating the custom widget registry
 	// there may be a short window where the registry is empty. Wait a small
 	// amount of time for any late registrations to arrive before falling back
@@ -162,7 +154,6 @@ async function getWidget(type) {
 		try {
 			const widgetInfo = CUSTOM_WIDGET_REGISTRY[type];
 			const modulePath = `${widgetInfo.file}?t=${Date.now()}`;
-			console.log(`Cabbage: Loading late-registered custom widget "${type}" from:`, modulePath);
 			const module = await import(modulePath);
 			const WidgetClass = module[widgetInfo.class];
 			if (!WidgetClass) throw new Error(`Class "${widgetInfo.class}" not found in custom widget ${widgetInfo.file}`);
@@ -185,14 +176,12 @@ async function getWidget(type) {
 
 		for (const modulePath of possiblePaths) {
 			try {
-				console.log(`Cabbage: Trying to load widget from: ${modulePath}`);
 				const module = await import(`${modulePath}?t=${Date.now()}`);
 
 				// Try to find the class in the module
 				const WidgetClass = module[className] || module[type] || module.default;
 
 				if (WidgetClass) {
-					console.log(`Cabbage: Successfully auto-discovered widget "${type}" from ${modulePath}`);
 					// Cache it for future use
 					customWidgetCache[type] = WidgetClass;
 					// Also register it in the registry
@@ -201,7 +190,6 @@ async function getWidget(type) {
 				}
 			} catch (e) {
 				// Continue to next path
-				console.log(`Cabbage: Could not load from ${modulePath}:`, e.message);
 			}
 		}
 

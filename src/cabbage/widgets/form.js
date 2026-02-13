@@ -48,11 +48,9 @@ export class Form {
   }
 
   updateSVG() {
-    console.log("Cabbage: updateSVG called for form", this.props.id);
     // Select the parent div using the ui property if not empty, otherwise use id
     const channel = this.props.ui && this.props.ui !== '' ? this.props.ui : this.props.id;
     const parentDiv = document.getElementById(channel);
-    console.log("Cabbage: updateSVG parentDiv", parentDiv, "channel", channel);
 
     if (!parentDiv) {
       console.error(`Parent div with id ${channel} not found.`);
@@ -61,7 +59,6 @@ export class Form {
 
     // Check if an SVG element with the class 'widget-svg' already exists
     let svgElement = parentDiv.querySelector('.widget-svg');
-    console.log("Cabbage: updateSVG svgElement found", svgElement);
 
     if (svgElement) {
       // Update the existing SVG element's attributes
@@ -74,12 +71,9 @@ export class Form {
         rect.setAttribute('height', this.props.size.height);
         rect.setAttribute('fill', this.props.style.backgroundColor);
       }
-      console.log("Cabbage: updateSVG updated existing SVG");
     } else {
       // Add the SVG since it doesn't exist
-      console.log("Cabbage: updateSVG adding new SVG");
       parentDiv.insertAdjacentHTML('beforeend', this.getInnerHTML());
-      console.log("Cabbage: updateSVG added SVG, parentDiv children now", parentDiv.children.length);
     }
   }
 }

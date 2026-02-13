@@ -105,7 +105,6 @@ export class MidiKeyboard {
   pointerDown(e) {
     if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
       this.isMouseDown = true;
-      console.log("Cabbage: Key down:", e.target.dataset.note);
       this.noteOn(e.target, e);
     }
   }
@@ -172,11 +171,9 @@ export class MidiKeyboard {
   }
 
   octaveUpPointerDown(e) {
-    console.log('Cabbage: octaveUpPointerDown');
   }
 
   octaveDownPointerDown(e) {
-    console.log('Cabbage: octaveDownPointerDown');
   }
 
   changeOctave(offset) {
@@ -215,7 +212,6 @@ export class MidiKeyboard {
   }
 
   midiMessageListener(event) {
-    console.log("Cabbage: Midi message listener");
     const detail = event.detail;
     const midiData = JSON.parse(detail.data);
     if (midiData.status == 144) {

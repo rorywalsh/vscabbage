@@ -9,7 +9,6 @@
  * for the Cabbage UI editor.
  */
 
-console.log('Cabbage: Loading zoom.js');
 
 // Zoom state
 let zoomLevel = 1.0;
@@ -28,7 +27,6 @@ let scrollStartY = 0;
  * Initializes zoom and pan functionality on the LeftPanel
  */
 export function initializeZoom() {
-    console.log('Cabbage: Initializing zoom and pan functionality');
 
     const leftPanel = document.getElementById('LeftPanel');
     if (!leftPanel) {
@@ -53,7 +51,6 @@ export function initializeZoom() {
             if (mainForm.parentElement === leftPanel) {
                 leftPanel.removeChild(mainForm);
             } else if (mainForm.parentElement === document.body) {
-                console.log('Cabbage: MainForm found in body, moving to zoom-wrapper');
                 document.body.removeChild(mainForm);
             }
             wrapper.appendChild(mainForm);
@@ -67,14 +64,12 @@ export function initializeZoom() {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach((node) => {
                     if (node.id === 'MainForm') {
-                        console.log('Cabbage: MainForm recreated, moving to zoom-wrapper');
                         // Move it to the wrapper
                         const wrapper = document.getElementById('zoom-wrapper');
                         if (wrapper) {
                             if (node.parentElement === leftPanel) {
                                 leftPanel.removeChild(node);
                             } else if (node.parentElement === document.body) {
-                                console.log('Cabbage: MainForm found in body during mutation, moving');
                                 document.body.removeChild(node);
                             }
                             wrapper.appendChild(node);
@@ -100,7 +95,6 @@ export function initializeZoom() {
     // Apply initial zoom (at 100%) to set up negative margin for panning
     applyZoom(leftPanel);
 
-    console.log('Cabbage: Zoom and pan initialized successfully');
 }
 
 /**
@@ -123,7 +117,6 @@ function setupZoom(leftPanel) {
             // Apply zoom transform
             applyZoom(leftPanel);
 
-            console.log(`Cabbage: Zoom level: ${(zoomLevel * 100).toFixed(0)}%`);
         }
     }, { passive: false }); // passive: false allows preventDefault
 }
@@ -153,7 +146,6 @@ function applyZoom(leftPanel) {
     mainForm.style.width = `${scaledWidth}px`;
     mainForm.style.height = `${scaledHeight}px`;
 
-    console.log(`Cabbage: Applied zoom ${(zoomLevel * 100).toFixed(0)}%`);
 }
 
 /**
@@ -187,7 +179,6 @@ function setupPan(leftPanel) {
             // Change cursor to grabbing
             leftPanel.style.cursor = 'grabbing';
 
-            console.log('Cabbage: Started panning');
         }
     });
 
@@ -218,7 +209,6 @@ function setupPan(leftPanel) {
             // Reset cursor
             leftPanel.style.cursor = '';
 
-            console.log('Cabbage: Stopped panning');
         }
     });
 
@@ -263,7 +253,6 @@ export function setZoomLevel(level) {
  */
 export function resetZoom() {
     setZoomLevel(1.0);
-    console.log('Cabbage: Zoom reset to 100%');
 }
 
 /**
@@ -305,7 +294,6 @@ export function screenToFormCoordinates(screenX, screenY) {
     x = x / zoomLevel;
     y = y / zoomLevel;
 
-    console.log(`Cabbage: Converted screen (${screenX}, ${screenY}) to form (${x.toFixed(1)}, ${y.toFixed(1)}) [zoom: ${zoomLevel}, pan: ${translateMatch ? `(${translateMatch[1]}, ${translateMatch[2]})` : 'none'}]`);
 
     return { x: Math.round(x), y: Math.round(y) };
 }

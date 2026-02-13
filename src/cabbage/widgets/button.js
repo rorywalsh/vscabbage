@@ -104,7 +104,6 @@ export class Button {
       return '';
     }
 
-    console.log("Cabbage: pointerDown");
     this.isMouseDown = true;
     const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
     if (this.props.channels[0].range.value === null) {
@@ -160,7 +159,6 @@ export class Button {
   }
 
   addVsCodeEventListeners(widgetDiv, vs) {
-    console.log("Cabbage: addVsCodeEventListeners");
     this.vscode = vs;
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';

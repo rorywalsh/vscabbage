@@ -37,7 +37,6 @@ export function setVSCode(vsCodeInstance) {
     vscode = vsCodeInstance;
     // Flush any queued messages
     if (vscode && vscodeMessageQueue.length > 0) {
-        console.log(`Cabbage: Flushing ${vscodeMessageQueue.length} queued messages to VS Code`);
         while (vscodeMessageQueue.length > 0) {
             const m = vscodeMessageQueue.shift();
             try { vscode.postMessage(m); } catch (e) { console.error('Failed to flush queued message', e, m); }

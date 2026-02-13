@@ -100,7 +100,6 @@ export class WidgetWrapper {
      */
     copySelectedWidgets() {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Copy selected widgets:', selectedIds);
 
         // Get widget properties for selected widgets
         const widgetProps = [];
@@ -113,14 +112,12 @@ export class WidgetWrapper {
 
         // Store in clipboard
         widgetClipboard.copy(widgetProps);
-        console.log(`Cabbage: Copied ${widgetProps.length} widget(s) to clipboard`);
     }
 
     /**
      * Context menu action: Paste widgets from clipboard
      */
     pasteSelectedWidgets() {
-        console.log('Cabbage: Paste widgets from clipboard');
 
         if (!widgetClipboard.hasData()) {
             console.warn('Cabbage: No widgets in clipboard to paste');
@@ -143,7 +140,6 @@ export class WidgetWrapper {
      */
     deleteSelectedWidgets() {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Delete selected widgets:', selectedIds);
         // Implement delete functionality here
         this.updatePanelCallback(this.vscode, {
             eventType: "deleteSelection",
@@ -157,7 +153,6 @@ export class WidgetWrapper {
      */
     groupSelectedWidgets() {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log('Cabbage: Group selected widgets:', selectedIds);
         // Implement group functionality here
         this.updatePanelCallback(this.vscode, {
             eventType: "groupSelection",
@@ -171,7 +166,6 @@ export class WidgetWrapper {
      */
     alignSelectedWidgets(alignment) {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log(`Cabbage: Align selected widgets ${alignment}:`, selectedIds);
         // Implement alignment functionality here
         this.updatePanelCallback(this.vscode, {
             eventType: "alignSelection",
@@ -186,7 +180,6 @@ export class WidgetWrapper {
      */
     distributeSelectedWidgets(direction) {
         const selectedIds = Array.from(this.selectedElements).map(el => el.id);
-        console.log(`Cabbage: Distribute selected widgets ${direction}:`, selectedIds);
         // Implement distribution functionality here
         this.updatePanelCallback(this.vscode, {
             eventType: "distributeSelection",
@@ -200,7 +193,6 @@ export class WidgetWrapper {
      * Context menu action: Copy widget (legacy - keeping for single widget operations)
      */
     copyWidget(element) {
-        console.log('Cabbage: Copy widget:', element.id);
         // Implement copy functionality here
     }
 
@@ -208,7 +200,6 @@ export class WidgetWrapper {
      * Context menu action: Delete widget (legacy - now calls delete selection for single items)
      */
     deleteWidget(element) {
-        console.log('Cabbage: Delete widget:', element.id);
         // Use the selection-based delete method
         this.deleteSelectedWidgets();
     }
@@ -217,7 +208,6 @@ export class WidgetWrapper {
      * Context menu action: Duplicate widget
      */
     duplicateWidget(element) {
-        console.log('Cabbage: Duplicate widget:', element.id);
         // Implement duplicate functionality here
     }
 
@@ -225,7 +215,6 @@ export class WidgetWrapper {
      * Context menu action: Bring to front
      */
     bringToFront(element) {
-        console.log('Cabbage: Bring to front:', element.id);
         element.style.zIndex = '10000';
     }
 
@@ -233,7 +222,6 @@ export class WidgetWrapper {
      * Context menu action: Send to back
      */
     sendToBack(element) {
-        console.log('Cabbage: Send to back:', element.id);
         element.style.zIndex = '1';
     }
 
@@ -285,35 +273,27 @@ export class WidgetWrapper {
             // If this element has children (grouped widgets), move them too
             this.moveChildWidgets(element, dx, dy);
 
-            console.log(`Cabbage: dragEndListener - element ${element.id} moved to x=${x}, y=${y}`);
         });
 
         // Clear any pending update timer
         if (this.updateTimer) {
-            console.log('Cabbage: Clearing previous update timer');
             clearTimeout(this.updateTimer);
         }
 
         // Debounce the update to VSCode - only send after 150ms of no drag events
         // This prevents flooding the undo history with intermediate positions
-        console.log('Cabbage: Setting update timer for 150ms');
         this.updateTimer = setTimeout(() => {
-            console.log('Cabbage: Timer fired, sending updates to VSCode');
-            console.log('Cabbage: updatePanelCallback type:', typeof this.updatePanelCallback);
-            console.log('Cabbage: Number of selected elements:', this.selectedElements.size);
 
             this.selectedElements.forEach(element => {
                 const x = parseFloat(element.getAttribute('data-x')) || 0;
                 const y = parseFloat(element.getAttribute('data-y')) || 0;
 
-                console.log(`Cabbage: Calling updatePanelCallback for ${element.id} at x=${x}, y=${y}`);
                 this.updatePanelCallback(this.vscode, {
                     eventType: "move", // Event type for movement
                     name: element.id, // Name of the element moved
                     bounds: { x: x, y: y, w: -1, h: -1 } // Bounds of the element
                 }, this.widgets);
 
-                console.log(`Cabbage: Position update sent for ${element.id}: x=${x}, y=${y}`);
             });
         }, 150);
     }
@@ -346,7 +326,6 @@ export class WidgetWrapper {
                 childElement.setAttribute('data-x', childX);
                 childElement.setAttribute('data-y', childY);
 
-                console.log(`Cabbage: Moved child ${childChannelId} with parent ${parentElement.id}`);
             }
         });
     }
@@ -424,7 +403,6 @@ export class WidgetWrapper {
                         bounds: { x: x, y: y, w: event.rect.width, h: event.rect.height } // Updated bounds
                     }, this.widgets);
 
-                    console.log(`Cabbage: Resize ended for element ${target.id}: w=${event.rect.width}, h=${event.rect.height}`);
                 }
             },
             modifiers: [
@@ -529,7 +507,6 @@ export class WidgetWrapper {
         const scaleX = newWidth / groupBase.width;
         const scaleY = newHeight / groupBase.height;
 
-        console.log(`Cabbage: Resizing children of ${parentElement.id} by scale ${scaleX}, ${scaleY} (group base ${groupBase.width}x${groupBase.height})`);
 
         // Update each child widget using original relative bounds when available
         parentWidget.props.children.forEach(childProps => {
@@ -565,7 +542,6 @@ export class WidgetWrapper {
                 childProps.bounds.left = newChildX;
                 childProps.bounds.top = newChildY;
 
-                console.log(`Cabbage: Resized child ${childChannelId} to ${newChildWidth}x${newChildHeight} at ${newChildX},${newChildY}`);
             }
         });
 

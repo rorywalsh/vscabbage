@@ -14,19 +14,16 @@ import { CabbageUtils } from "../cabbage/utils.js";
 export function handleRadioGroup(radioGroup, activeWidgetId) {
     if (!radioGroup || radioGroup === -1) return;
 
-    console.log(`Cabbage: Handling radioGroup ${radioGroup} for widget ${activeWidgetId}`);
 
     // Find all widgets in the same radioGroup
     const groupWidgets = widgets.filter(widget =>
         widget.props.radioGroup == radioGroup && CabbageUtils.getWidgetDivId(widget.props) !== activeWidgetId
     );
 
-    console.log(`Cabbage: Found ${groupWidgets.length} other widgets in radioGroup ${radioGroup} to deactivate`);
 
     // Deactivate all other widgets in the group
     groupWidgets.forEach(groupWidget => {
         const channelId = CabbageUtils.getChannelId(groupWidget.props, 0);
-        console.log(`Cabbage: Deactivating widget ${CabbageUtils.getWidgetDivId(groupWidget.props)}, channel: ${channelId}, current value: ${groupWidget.props.value}`);
 
         if (groupWidget.props.value !== 0) {
             groupWidget.props.value = 0;
@@ -36,7 +33,6 @@ export function handleRadioGroup(radioGroup, activeWidgetId) {
             if (widgetDiv) {
                 widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 // Send update to host
-                console.log(`Cabbage: Sending channel update for ${channelId}:`, 0);
                 Cabbage.sendControlData({ channel: channelId, value: 0, gesture: "complete" }, groupWidget.vscode || null);
             }
         }

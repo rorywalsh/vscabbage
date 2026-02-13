@@ -173,7 +173,6 @@ export class Settings {
             return JSON.parse(fileContent); // Return the parsed JSON content if file exists
         } catch (error) {
             if (error instanceof Error && (error as any).code === 'FileNotFound') {
-                console.log('Cabbage: Settings file not found. Creating a new one with default settings.');
 
                 // Ensure the directory structure exists
                 const directoryUri = vscode.Uri.file(path.dirname(settingsPath));
@@ -230,9 +229,7 @@ export class Settings {
         const config = vscode.workspace.getConfiguration('cabbage');
         // Retrieve the current settings from your configuration file
         let settings = await Settings.getCabbageSettings();
-        console.log('Cabbage: Settings:', settings);
         let currentDevice = settings['currentConfig']['audio']['outputDevice'];
-        console.log('Cabbage: Current device:', currentDevice);
 
         const audioOutputDevices = settings['systemAudioMidiIOListing']['audioOutputDevices'];
 

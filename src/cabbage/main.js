@@ -2,7 +2,6 @@
 // Copyright (c) 2024 rory Walsh
 // See the LICENSE file for details.
 
-console.log('Cabbage: main.js START - top of file');
 
 
 import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
@@ -45,33 +44,30 @@ CabbageUtils.showOverlay();
 // Wrap async initialization in an IIFE with comprehensive error handling
 (async () => {
     try {
-        console.log('Cabbage: Starting async initialization in main.js');
 
         // Discover and register custom widgets before loading other modules
         if (typeof acquireVsCodeApi === 'function') {
-            console.log('Cabbage: Discovering custom widgets...');
             try {
                 const customWidgets = await discoverAndRegisterCustomWidgets(vscode);
                 if (customWidgets.length > 0) {
-                    console.log(`Cabbage: Registered ${customWidgets.length} custom widgets:`, customWidgets);
+                } else {
                 }
             } catch (error) {
                 console.error('Cabbage: Error during custom widget discovery:', error);
                 console.error('Cabbage: Error stack:', error.stack);
             }
+        } else {
         }
 
         // Check if running in VS Code context
         if (typeof acquireVsCodeApi === 'function') {
             try {
-                console.log("Cabbage: Loading modules in main.js");
                 // Load PropertyPanel and WidgetWrapper modules concurrently
                 const [propertyPanelModule, widgetWrapperModule] = await Promise.all([
                     import("../propertyPanel.js"),
                     import("../widgetWrapper.js")
                 ]);
 
-                console.log("Cabbage: Modules loaded in main.js:", { propertyPanelModule, widgetWrapperModule });
 
                 const { PropertyPanel } = propertyPanelModule;
                 const { WidgetWrapper, initializeInteract } = widgetWrapperModule;
@@ -85,7 +81,6 @@ CabbageUtils.showOverlay();
                 // You might want to wait for the interact script to load before proceeding
                 await widgetWrappers.interactPromise;
 
-                console.log('Cabbage: Initialization complete');
 
                 // Send message to indicate UI is ready to receive widget data
                 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
@@ -94,9 +89,7 @@ CabbageUtils.showOverlay();
                 console.error("Cabbage: Error stack:", error.stack);
             }
         } else {
-            console.log("Cabbage: Running outside of VSCode environment");
             // For plugin environment, send cabbageIsReadyToLoad via window.sendMessageFromUI
-            console.log("Cabbage: Sending cabbageIsReadyToLoad to plugin backend");
             if (typeof window.sendMessageFromUI === 'function') {
                 window.sendMessageFromUI({ command: 'cabbageIsReadyToLoad' });
             } else {
@@ -116,7 +109,6 @@ CabbageUtils.showOverlay();
 window.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault();
-        console.log('Cabbage: Save shortcut triggered from webview');
         // Send save command to VS Code extension
         if (vscode) {
             vscode.postMessage({
@@ -247,7 +239,6 @@ window.addEventListener('message', async (event) => {
 
             // Clear pending widgets map to prevent race conditions during rebuild
             if (WidgetManager.pendingWidgets) {
-                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets`);
                 WidgetManager.pendingWidgets.clear();
             }
 
@@ -277,7 +268,6 @@ window.addEventListener('message', async (event) => {
                 CabbageUtils.updateInnerHTML(fileData.channel, fileButtonWidget);
                 // Send the filename string to Csound via the channel
                 Cabbage.sendChannelData(fileData.channel, fileData.fileName, vscode);
-                console.log(`Cabbage: FileButton ${fileData.channel} selected file: ${fileData.fileName}`);
             }
             break;
 
@@ -305,7 +295,6 @@ window.addEventListener('message', async (event) => {
 
             // Clear pending widgets map to prevent race conditions during rebuild
             if (WidgetManager.pendingWidgets) {
-                console.log(`Cabbage: Clearing ${WidgetManager.pendingWidgets.size} pending widgets before edit mode`);
                 WidgetManager.pendingWidgets.clear();
             }
 
@@ -339,11 +328,9 @@ window.addEventListener('message', async (event) => {
 
         // Called when entering performance mode
         case 'onEnterPerformanceMode':
-            console.log('Cabbage: Received onEnterPerformanceMode message, setting mode to nonDraggable');
             setCabbageMode('nonDraggable'); // Set the mode to nonDraggable for performance mode
             // Update child widget pointer events for performance mode
             updateChildWidgetPointerEvents('nonDraggable');
-            console.log('Cabbage: Mode set to nonDraggable, mouse tracking should be active');
 
             // Hide the property panel when entering performance mode
             const propertyPanel = document.querySelector('.property-panel');
