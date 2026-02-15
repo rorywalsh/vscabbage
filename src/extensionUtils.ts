@@ -707,47 +707,51 @@ be lost when working with the UI editor. -->\n`;
                     // Build the updated cabbage section
                     const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedArray}</Cabbage>`;
 
-                    // Save cursor position before edit
-                    const savedSelection = textEditor?.selection;
-                    const savedVisibleRange = textEditor?.visibleRanges[0];
+                    // Get a FRESH text editor reference right before editing
+                    // CRITICAL: The editor/document captured at the start of this function may be stale
+                    // after all the JSON parsing/merging, causing LSP sync issues
+                    const freshEditor = vscode.window.activeTextEditor;
 
-                    // Calculate the range of the Cabbage section to replace
-                    const matchStartOffset = originalText.indexOf(cabbageMatch[0]);
-                    const matchEndOffset = matchStartOffset + cabbageMatch[0].length;
-                    const matchStartPos = document.positionAt(matchStartOffset);
-                    const matchEndPos = document.positionAt(matchEndOffset);
+                    if (!freshEditor || freshEditor.document.uri.toString() !== document.uri.toString()) {
+                        console.error('ExtensionUtils.updateText: Active editor changed or does not match document');
+                        vscodeOutputChannel.appendLine('Active editor changed during update - aborting');
+                        return;
+                    }
+
+                    // Get CURRENT document text right before calculating positions
+                    const currentText = freshEditor.document.getText();
+                    const currentCabbageMatch = currentText.match(cabbageRegexWithWarning) || currentText.match(cabbageRegexWithoutWarning);
+
+                    if (!currentCabbageMatch) {
+                        console.error('ExtensionUtils.updateText: Cabbage section disappeared during edit - aborting');
+                        vscodeOutputChannel.appendLine('ExtensionUtils.updateText: Cabbage section disappeared during edit - aborting');
+                        return;
+                    }
+
+                    // Calculate the range of the Cabbage section to replace using CURRENT text
+                    const matchStartOffset = currentText.indexOf(currentCabbageMatch[0]);
+                    const matchEndOffset = matchStartOffset + currentCabbageMatch[0].length;
+                    const matchStartPos = freshEditor.document.positionAt(matchStartOffset);
+                    const matchEndPos = freshEditor.document.positionAt(matchEndOffset);
                     const cabbageRange = new vscode.Range(matchStartPos, matchEndPos);
 
-                    // Replace only the Cabbage section, not the entire document
-                    const workspaceEdit = new vscode.WorkspaceEdit();
-                    workspaceEdit.replace(
-                        document.uri,
-                        cabbageRange,
-                        updatedCabbageSection
-                    );
+                    let success = false;
 
-                    const success = await vscode.workspace.applyEdit(workspaceEdit);
+                    // Use TextEditor.edit() which properly integrates with LSP and undo/redo
+                    success = await freshEditor.edit(editBuilder => {
+                        editBuilder.replace(cabbageRange, updatedCabbageSection);
+                    }, {
+                        undoStopBefore: true,
+                        undoStopAfter: true
+                    });
 
-                    // Restore cursor position after edit
-                    if (success && textEditor && savedSelection) {
-                        textEditor.selection = savedSelection;
-                        if (savedVisibleRange) {
-                            textEditor.revealRange(savedVisibleRange, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-                        }
-                    }
                     if (!success && retryCount > 0) {
                         // If the edit failed, wait a bit and try again
                         await new Promise(resolve => setTimeout(resolve, 100));
                         return ExtensionUtils.updateText(jsonText, cabbageMode, vscodeOutputChannel, highlightDecorationType, lastSavedFileName, panel, defaultProps, retryCount - 1, oldId);
                     }
 
-                    // Attempt to highlight the updated object
-                    if (textEditor) {
-                        // Get the updated document text to find the Cabbage section
-                        const updatedText = document.getText();
-                        const cabbageStartIndex = updatedText.indexOf('<Cabbage>');
-                        ExtensionUtils.highlightAndScrollToUpdatedObject(props, cabbageStartIndex, isSingleLine, textEditor, highlightDecorationType, !isInSameColumn);
-                    }
+                    // All post-processing (highlighting, cursor restoration) removed to prevent LSP sync issues
                 }
             } catch (parseError) {
                 return;
