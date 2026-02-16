@@ -616,6 +616,19 @@ export class WidgetManager {
 
                 // Log final position after style application
                 const finalStyle = window.getComputedStyle(childDiv);
+
+                // For canvas-based child widgets (e.g. genTable, eqController), the
+                // initial updateCanvas() call in insertWidget may fire before the DOM
+                // is fully ready, leaving the canvas unattached. Re-invoke it here
+                // after all styling is applied, deferred to the next frame so the
+                // layout is settled.
+                if (childDiv.cabbageInstance && typeof childDiv.cabbageInstance.updateCanvas === 'function') {
+                    requestAnimationFrame(() => {
+                        try { childDiv.cabbageInstance.updateCanvas(); } catch (e) {
+                            console.error('Cabbage: deferred updateCanvas for child widget failed', e);
+                        }
+                    });
+                }
             } else {
                 console.error(`Cabbage: Child div for ${CabbageUtils.getWidgetDivId(childProps)} NOT FOUND!`);
             }

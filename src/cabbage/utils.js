@@ -83,22 +83,6 @@ export class CabbageUtils {
   }
 
   /**
-   * Returns the actual DOM element for the widget div.
-   * Accepts either a props object or a channel/div id string for compatibility.
-   *
-   * @param {Object|string} channelOrProps - Widget props or a string div id
-   * @returns {HTMLElement|null} The widget div element, or null if not found
-   */
-  static getWidgetDiv(channelOrProps) {
-    // If a string is provided assume it's already a div id
-    if (typeof channelOrProps === 'string') {
-      return document.getElementById(channelOrProps);
-    }
-    const divId = CabbageUtils.getWidgetDivId(channelOrProps);
-    return divId ? document.getElementById(divId) : null;
-  }
-
-  /**
    * Finds a valid widget ID from an event object.
    * Traverses up the DOM tree from the event target to find the closest widget div.
    * @param {Event} event - The DOM event object
@@ -697,13 +681,14 @@ export class CabbageUtils {
   }
 
 
-  static getWidgetDiv(channel) {
-    // Handle both string channels and object channels (for xyPad)
-    const channelId = typeof channel === 'object' && channel !== null
-      ? (channel.id || channel.x)
-      : channel;
-    const element = document.getElementById(channelId);
-    return element || null;
+  static getWidgetDiv(channelOrProps) {
+    // If a string is provided assume it's already a div id
+    if (typeof channelOrProps === 'string') {
+      return document.getElementById(channelOrProps);
+    }
+    // For objects, resolve via getWidgetDivId which falls back to channels[0].id
+    const divId = CabbageUtils.getWidgetDivId(channelOrProps);
+    return divId ? document.getElementById(divId) : null;
   }
 
   /**

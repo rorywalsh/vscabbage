@@ -24,16 +24,17 @@ export function handleRadioGroup(radioGroup, activeWidgetId) {
     // Deactivate all other widgets in the group
     groupWidgets.forEach(groupWidget => {
         const channelId = CabbageUtils.getChannelId(groupWidget.props, 0);
+        const range = CabbageUtils.getChannelRange(groupWidget.props, 0, 'click');
 
-        if (groupWidget.props.value !== 0) {
-            groupWidget.props.value = 0;
+        if (range.value !== range.min) {
+            range.value = range.min;
 
             // Update visual state
             const widgetDiv = CabbageUtils.getWidgetDiv(groupWidget.props);
             if (widgetDiv) {
                 widgetDiv.innerHTML = groupWidget.getInnerHTML();
                 // Send update to host
-                Cabbage.sendControlData({ channel: channelId, value: 0, gesture: "complete" }, groupWidget.vscode || null);
+                Cabbage.sendControlData({ channel: channelId, value: range.min, gesture: "complete" }, groupWidget.vscode || null);
             }
         }
     });
