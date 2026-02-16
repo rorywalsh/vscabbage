@@ -1,7 +1,21 @@
-# vscabbage 
+
+# vscabbage
+
+**Build, edit, and preview Cabbage audio instruments directly in Visual Studio Code.**
+
+vscabbage is a fast, modern extension for Cabbage 3 and Csound users, providing instant syntax highlighting, real-time UI previews, and powerful editing tools for instrument development—all inside VS Code. Whether you're a sound designer, musician, or developer, vscabbage streamlines your workflow so you can focus on creativity, not configuration.
+
+The latest version of Cabbage 3 uses [Csound 7.0.0-beta.12](https://github.com/csound/csound/releases/tag/7.0.0-beta.12)
+Documentation for Cabbage 3 is available [here].(https://rorywalsh.github.io/cabbage3docs/docs/intro)
  
+---
+
 > Cabbage 3 and the associated Visual Studio Code extension are currently in ***Alpha*** development. These releases are experimental and may undergo significant changes. Features are not final, and stability or performance may vary. Use at your own discretion, and expect frequent updates and potential breaking changes. Please report any issues on the Cabbage [forum](https://forum.cabbageaudio.com/).
- 
+
+---
+
+## Extension Overview
+
 Cabbage is a powerful and flexible software framework designed for prototyping and developing audio instruments using the Csound audio synthesis language. It offers an integrated workflow tailored for sound designers, musicians, composers, and developers who want to build custom synthesizers, audio effects, and interactive sound tools. With its seamless blend of coding, audio processing, and interface design, Cabbage enables rapid experimentation while maintaining professional-grade results.
 
 Instrument development is streamlined through a dedicated Cabbage extension for Visual Studio Code. This extension enhances the development experience with features such as syntax highlighting, intelligent code assistance, real-time previews, and a set of tools built specifically to support the Cabbage/Csound workflow. These capabilities allow users to iterate quickly and efficiently without leaving the editor.
@@ -10,8 +24,9 @@ Beyond audio processing, Cabbage includes a built-in graphical UI editor that le
 
 This repository contains the source code for the Cabbage Visual Studio Code extension. The extension serves as a bridge between VS Code and the Cabbage plugin-development framework for Csound, providing all the tools necessary to create, edit, preview, and test Cabbage instruments directly inside the editor. More info can be found [here](https://rorywalsh.github.io/cabbage3docs/docs/intro)
 
-> This extension is best used in tandem with with the Csound vscode plugin extension which is available in the [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=kunstmusik.csound-vscode-plugin). 
+> This extension is best used in tandem with with the Csound vscode plugin extension which is available in the [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=kunstmusik.csound-vscode-plugin).
 
+---
 
 ## Repository Structure
 
