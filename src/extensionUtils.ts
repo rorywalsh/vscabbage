@@ -710,12 +710,23 @@ be lost when working with the UI editor. -->\n`;
                     // Get a FRESH text editor reference right before editing
                     // CRITICAL: The editor/document captured at the start of this function may be stale
                     // after all the JSON parsing/merging, causing LSP sync issues
-                    const freshEditor = vscode.window.activeTextEditor;
+                    // First try to find an existing editor for this document (e.g., when webview panel is active)
+                    let freshEditor = vscode.window.visibleTextEditors.find(
+                        editor => editor.document.uri.toString() === document.uri.toString()
+                    );
 
-                    if (!freshEditor || freshEditor.document.uri.toString() !== document.uri.toString()) {
-                        console.error('ExtensionUtils.updateText: Active editor changed or does not match document');
-                        vscodeOutputChannel.appendLine('Active editor changed during update - aborting');
-                        return;
+                    // If no visible editor found for this document, show it
+                    if (!freshEditor) {
+                        try {
+                            freshEditor = await vscode.window.showTextDocument(document, {
+                                preview: false,
+                                preserveFocus: true
+                            });
+                        } catch (err) {
+                            console.error('ExtensionUtils.updateText: Failed to show document for editing:', err);
+                            vscodeOutputChannel.appendLine('Failed to show document for editing - aborting');
+                            return;
+                        }
                     }
 
                     // Get CURRENT document text right before calculating positions
