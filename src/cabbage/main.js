@@ -105,6 +105,37 @@ CabbageUtils.showOverlay();
     console.error('Cabbage: Rejection stack:', error.stack);
 });
 
+// Forward key events to the DAW host window when running as a plugin (not in VS Code).
+// The sendKeyEventToHost binding is registered in LatticeClapPlugin.cpp and calls
+// PostMessage(dawRootWindow, msgType, vkCode, 0) when consumeKeypresses is false.
+// e.keyCode matches Win32 virtual key codes for standard keys (letters, numbers, F-keys, etc.)
+if (typeof acquireVsCodeApi !== 'function') {
+    const WM_KEYDOWN    = 0x0100;
+    const WM_KEYUP      = 0x0101;
+    const WM_SYSKEYDOWN = 0x0104;
+    const WM_SYSKEYUP   = 0x0105;
+
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)
+            return;
+        if (e.ctrlKey || e.metaKey) return;
+        if (typeof window.sendKeyEventToHost === 'function') {
+            // keyCode is intentionally used here: it maps directly to Win32 virtual key codes
+            // (e.g. VK_A=65, VK_SPACE=32, VK_F1=112) which PostMessage expects on the C++ side.
+            window.sendKeyEventToHost(e.altKey ? WM_SYSKEYDOWN : WM_KEYDOWN, e.keyCode); // eslint-disable-line deprecation/deprecation
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)
+            return;
+        if (e.ctrlKey || e.metaKey) return;
+        if (typeof window.sendKeyEventToHost === 'function') {
+            window.sendKeyEventToHost(e.altKey ? WM_SYSKEYUP : WM_KEYUP, e.keyCode); // eslint-disable-line deprecation/deprecation
+        }
+    });
+}
+
 // Add key listener for save command (Ctrl+S or Cmd+S)
 window.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {

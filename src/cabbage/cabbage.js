@@ -281,6 +281,32 @@ export class Cabbage {
 
 
   /**
+   * Control whether keyboard events are captured by the webview or forwarded
+   * to the host DAW. Only relevant on Windows in plugin mode.
+   *
+   * By default (false), all key events are forwarded to the DAW so that
+   * keyboard shortcuts continue to work while the plugin UI has focus.
+   * Set to true when a custom text-entry widget (that is not a native
+   * <input> or <textarea>) needs keyboard input, then restore to false
+   * when the widget loses focus.
+   *
+   * Note: Native <input> and <textarea> elements are handled automatically
+   * and do not require calling this function.
+   *
+   * @param {boolean} consume - true to capture keys in webview, false to pass through to DAW
+   *
+   * @example
+   * myCustomEditor.addEventListener('focus', () => Cabbage.consumeKeypresses(true));
+   * myCustomEditor.addEventListener('blur',  () => Cabbage.consumeKeypresses(false));
+   */
+  static consumeKeypresses(consume) {
+    if (typeof window.consumeKeypresses === 'function') {
+      window.consumeKeypresses(consume);
+    }
+  }
+
+
+  /**
      * Send channel data directly to Csound without DAW automation involvement.
      *
      * @param {string} channel - The Csound channel name
