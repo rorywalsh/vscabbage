@@ -274,11 +274,18 @@ export class Commands {
             return; // User cancelled
         }
 
+        // Read bit depth setting
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const bitDepthSetting = config.get<string>('recordingBitDepth', '32-bit float');
+
+        // Convert setting to backend format
+        const bitDepth = bitDepthSetting === '16-bit' ? 'int16' : 'float32';
+
         // Send command to CabbageApp with selected file path
         this.sendMessageToCabbageApp({
             command: "startRecording",
             filepath: fileUri.fsPath,
-            bitDepth: "float32"
+            bitDepth: bitDepth
         });
 
         // Show status bar indicator

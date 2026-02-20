@@ -126,6 +126,12 @@
           "default": "32 samples",
           "description": "Selected audio driver. Use command palette to change."
         },
+        "cabbage.recordingBitDepth": {
+          "type": "string",
+          "default": "32-bit float",
+          "enum": ["16-bit", "32-bit float"],
+          "description": "Bit depth for audio recording. 16-bit produces smaller files, 32-bit float provides higher quality and dynamic range."
+        },
         "cabbage.snapToSize": {
           "type": "number",
           "default": 4,
