@@ -22,7 +22,8 @@ export class FileButton extends Button {
       "channels": [
         {
           "id": "fileButton",
-          "event": "valueChanged"
+          "event": "valueChanged",
+          "type": "string"
         }],
       "value": null,
       "zIndex": 0,

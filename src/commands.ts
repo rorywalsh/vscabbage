@@ -48,6 +48,10 @@ export class Commands {
     private static panelRevealTimeout: NodeJS.Timeout | undefined;
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
     private static editQueue: Promise<void> = Promise.resolve();
+    private static recordingStatusBarItem: vscode.StatusBarItem | undefined;
+    private static recordingStartTime: number = 0;
+    private static recordingTimer: NodeJS.Timeout | undefined;
+    private static recordingFilepath: string | undefined;
     appendOutput: Boolean = true;
 
     /**
@@ -174,7 +178,10 @@ export class Commands {
     static enterEditMode() {
         setCabbageMode("draggable");
 
-        this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+        this.sendMessageToCabbageApp({ command: "stopAudio" });
+
+        // Clean up recording status bar if active
+        this.updateRecordingStatusBar();
 
         if (this.panel) {
             this.panel.webview.postMessage({ command: 'onEnterEditMode' });
@@ -186,7 +193,115 @@ export class Commands {
     * This allows users to stop audio while remaining in play mode.
      */
     static stopCsound() {
-        this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+        this.sendMessageToCabbageApp({ command: "stopAudio" });
+
+        // Clean up recording status bar if active
+        this.updateRecordingStatusBar();
+    }
+
+    /**
+     * Updates or removes the recording status bar item
+     * @param filepath The file being recorded to, or undefined to remove the status bar
+     */
+    private static updateRecordingStatusBar(filepath?: string) {
+        if (!filepath) {
+            // Stop recording - remove status bar
+            if (this.recordingStatusBarItem) {
+                this.recordingStatusBarItem.dispose();
+                this.recordingStatusBarItem = undefined;
+            }
+            if (this.recordingTimer) {
+                clearInterval(this.recordingTimer);
+                this.recordingTimer = undefined;
+            }
+            this.recordingFilepath = undefined;
+            return;
+        }
+
+        // Create status bar item if it doesn't exist
+        if (!this.recordingStatusBarItem) {
+            this.recordingStatusBarItem = vscode.window.createStatusBarItem(
+                vscode.StatusBarAlignment.Left,
+                100  // High priority - appears on left
+            );
+            this.recordingStatusBarItem.command = 'cabbage.stopRecording';
+            this.recordingStatusBarItem.tooltip = 'Click to stop recording';
+        }
+
+        // Update with file info
+        const filename = path.basename(filepath);
+        this.recordingFilepath = filepath;
+        this.recordingStartTime = Date.now();
+
+        // Update text with timer
+        const updateText = () => {
+            const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            this.recordingStatusBarItem!.text = `$(record) Recording: ${filename} [${timeStr}]`;
+            this.recordingStatusBarItem!.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        };
+
+        updateText();
+        this.recordingStatusBarItem.show();
+
+        // Update every second
+        this.recordingTimer = setInterval(updateText, 1000);
+    }
+
+    /**
+     * Shows file picker and starts recording to selected WAV file
+     */
+    static async startRecording() {
+        // Get workspace folder for default path
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const defaultUri = workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder.uri, 'recording.wav')
+            : vscode.Uri.file('recording.wav');
+
+        // Show save dialog with WAV filter
+        const fileUri = await vscode.window.showSaveDialog({
+            filters: {
+                'WAV Audio': ['wav']
+            },
+            defaultUri: defaultUri,
+            saveLabel: 'Start Recording'
+        });
+
+        if (!fileUri) {
+            return; // User cancelled
+        }
+
+        // Send command to CabbageApp with selected file path
+        this.sendMessageToCabbageApp({
+            command: "startRecording",
+            filepath: fileUri.fsPath,
+            bitDepth: "float32"
+        });
+
+        // Show status bar indicator
+        this.updateRecordingStatusBar(fileUri.fsPath);
+    }
+
+    /**
+     * Stops the current recording
+     */
+    static stopRecording() {
+        this.sendMessageToCabbageApp({
+            command: "stopRecording"
+        });
+
+        // Remove status bar indicator
+        this.updateRecordingStatusBar();
+
+        // Notification message
+        if (this.recordingFilepath) {
+            vscode.window.showInformationMessage(`Recording saved: ${path.basename(this.recordingFilepath)}`);
+        } else {
+            vscode.window.showInformationMessage('Recording stopped');
+        }
     }
 
 
@@ -667,7 +782,11 @@ export class Commands {
 
         // Handle panel disposal
         this.panel.onDidDispose(async () => {
-            this.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+            this.sendMessageToCabbageApp({ command: "stopAudio" });
+
+            // Clean up recording status bar if active
+            this.updateRecordingStatusBar();
+
             this.panel = undefined;
             // Note: stdout handlers already check if panel exists before posting messages,
             // so no additional cleanup is needed. The Csound process continues running.

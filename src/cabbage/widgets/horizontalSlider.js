@@ -309,6 +309,11 @@ export class HorizontalSlider {
       return '';
     }
 
+    // Only process drag if mouse is down
+    if (!this.isMouseDown) {
+      return '';
+    }
+
     // Don't perform slider actions in edit mode (draggable mode)
     if (getCabbageMode() === 'draggable') {
       return '';
@@ -358,7 +363,7 @@ export class HorizontalSlider {
     skewedValue = CabbageUtils.clamp(skewedValue, range.min, range.max);
 
     // Store the skewed value for display
-    this.props.value = skewedValue;
+    this.props.channels[0].range.value = skewedValue;
 
     // Update the slider appearance
     CabbageUtils.updateInnerHTML(this.props, this);
