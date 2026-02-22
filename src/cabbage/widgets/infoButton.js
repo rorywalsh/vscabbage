@@ -28,11 +28,6 @@ export class InfoButton extends Button {
             "radioGroup": -1,
             "type": "infoButton",
 
-            "persistence": {
-                "preset": true,
-                "session": true
-            },
-
             "style": {
                 "opacity": 1,
                 "borderRadius": 6,
