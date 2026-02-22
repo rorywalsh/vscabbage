@@ -28,7 +28,6 @@ export class HorizontalRangeSlider {
       "visible": true,
       "active": true,
       "automatable": true,
-      "presetIgnore": false,
 
       "persistence": {
         "preset": true,

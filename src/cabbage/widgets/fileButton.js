@@ -30,7 +30,6 @@ export class FileButton extends Button {
       "visible": true,
       "active": true,
       "automatable": false,
-      "presetIgnore": false,
       "radioGroup": -1,
       "type": "fileButton",
 

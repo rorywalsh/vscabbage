@@ -27,7 +27,6 @@ export class NumberSlider {
             "visible": true,
             "active": true,
             "automatable": true,
-            "presetIgnore": false,
             "type": "numberSlider",
             "velocity": 0,
             "popup": true,

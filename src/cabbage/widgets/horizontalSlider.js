@@ -32,7 +32,6 @@ export class HorizontalSlider {
       "popup": false,
       "active": true,
       "automatable": true,
-      "presetIgnore": false,
 
       "persistence": {
         "preset": true,

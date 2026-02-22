@@ -25,7 +25,6 @@ export class InfoButton extends Button {
             "visible": true,
             "active": true,
             "automatable": false,
-            "presetIgnore": false,
             "radioGroup": -1,
             "type": "infoButton",
 

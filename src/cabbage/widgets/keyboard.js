@@ -27,11 +27,6 @@ export class MidiKeyboard {
       "active": true,
       "visible": true,
 
-      "persistence": {
-        "preset": true,
-        "session": true
-      },
-
       "style": {
         "opacity": 1,
         "fontFamily": "Verdana",

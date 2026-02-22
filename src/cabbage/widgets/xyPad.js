@@ -26,7 +26,6 @@ export class XyPad {
             "active": true,
             "popup": true,
             "automatable": true,
-            "presetIgnore": false,
             "type": "xyPad",
             "zIndex": 0,
 

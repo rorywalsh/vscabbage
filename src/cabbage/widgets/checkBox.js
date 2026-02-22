@@ -29,7 +29,6 @@ export class Checkbox {
       "visible": true,
       "active": true,
       "automatable": true,
-      "presetIgnore": false,
       "radioGroup": -1,
       "type": "checkBox",
 
