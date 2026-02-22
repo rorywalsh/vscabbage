@@ -26,6 +26,11 @@ export class TextEditor {
             "type": "textEditor",
             "zIndex": 0,
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

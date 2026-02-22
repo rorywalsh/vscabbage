@@ -34,6 +34,11 @@ export class FileButton extends Button {
       "radioGroup": -1,
       "type": "fileButton",
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "opacity": 1,
         "borderRadius": 6,

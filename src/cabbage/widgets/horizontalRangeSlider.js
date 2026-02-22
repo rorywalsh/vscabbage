@@ -30,6 +30,11 @@ export class HorizontalRangeSlider {
       "automatable": true,
       "presetIgnore": false,
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "label": {
         "text": "",
         "offsetX": 0

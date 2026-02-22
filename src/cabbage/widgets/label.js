@@ -26,6 +26,11 @@ export class Label {
             "automatable": false,
             "type": "label",
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

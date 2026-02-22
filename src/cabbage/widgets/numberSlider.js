@@ -33,6 +33,11 @@ export class NumberSlider {
             "popup": true,
             "sensitivity": 0.5,
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

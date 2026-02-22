@@ -25,6 +25,11 @@ export class GroupBox {
             "automatable": false,
             "type": "groupBox",
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

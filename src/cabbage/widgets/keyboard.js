@@ -21,11 +21,17 @@ export class MidiKeyboard {
       "channels": [
         { "id": "comboBox", "event": "valueChanged" }
       ],
-      
+
       "value": 36,
       "automatable": false,
       "active": true,
       "visible": true,
+
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "opacity": 1,
         "fontFamily": "Verdana",

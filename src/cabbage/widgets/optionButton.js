@@ -26,6 +26,11 @@ export class OptionButton {
       "presetIgnore": false,
       "type": "optionButton",
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "opacity": 1,
         "borderRadius": 2,

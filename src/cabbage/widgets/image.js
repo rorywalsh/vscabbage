@@ -31,6 +31,11 @@ export class Image {
             "automatable": false,
             "type": "image",
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

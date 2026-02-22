@@ -21,6 +21,11 @@ export class Form {
       "type": "form",
       "zIndex": 0,
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "backgroundColor": "#004c6b",
         "opacity": 1

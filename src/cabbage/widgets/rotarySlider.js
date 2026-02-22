@@ -33,6 +33,11 @@ export class RotarySlider {
       "active": true,
       "automatable": true,
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "label": {
         "text": "",
         "offsetY": 0,

@@ -33,6 +33,11 @@ export class Button {
       "radioGroup": -1,
       "type": "button",
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "opacity": 1,
         "borderRadius": 4,

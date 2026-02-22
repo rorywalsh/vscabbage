@@ -33,6 +33,11 @@ export class Checkbox {
       "radioGroup": -1,
       "type": "checkBox",
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "style": {
         "opacity": 1,
         "borderRadius": 2,

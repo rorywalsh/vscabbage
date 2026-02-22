@@ -90,6 +90,11 @@ export class CustomWidgetTemplate {
             "automatable": false,
             "type": "customWidget",
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,
