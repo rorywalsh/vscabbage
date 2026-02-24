@@ -25,6 +25,11 @@ export class GenTable {
             "type": "genTable",
             "zIndex": 0,
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

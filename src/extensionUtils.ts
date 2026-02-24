@@ -37,6 +37,12 @@ export class ExtensionUtils {
      */
     static excludedProperties: string[] = ['currentCsdFile', 'linearValue', 'parameterIndex'];
 
+    /**
+     * Tracks recent updateText calls to prevent duplicate processing
+     * Format: { jsonText, oldId, timestamp }
+     */
+    private static lastUpdateText: { jsonText: string; oldId: string | undefined; timestamp: number } | null = null;
+
     // Note: default props cache and lookup removed. Default prop resolution
     // should be performed by callers and passed into updateText when needed.
     /**
@@ -467,6 +473,19 @@ be lost when working with the UI editor. -->\n`;
             return;
         }
 
+        // CRITICAL: Prevent duplicate processing of the same update within 200ms
+        // This can happen when retries occur or when multiple message handlers fire
+        const now = Date.now();
+        if (ExtensionUtils.lastUpdateText &&
+            ExtensionUtils.lastUpdateText.jsonText === jsonText &&
+            ExtensionUtils.lastUpdateText.oldId === oldId &&
+            (now - ExtensionUtils.lastUpdateText.timestamp) < 200) {
+            return;
+        }
+
+        // Track this update
+        ExtensionUtils.lastUpdateText = { jsonText, oldId, timestamp: now };
+
         // this isn't always a text file, it can also be the panel. So we need to retrieve the panel name
         // and then the relevant textEditor
         const textEditor = vscode.window.activeTextEditor;
@@ -601,13 +620,6 @@ be lost when working with the UI editor. -->\n`;
                         }
                     } else {
                         const searchId = oldId || getChannelId(props);
-                        console.log(`ExtensionUtils: Searching for widget with searchId="${searchId}" (oldId="${oldId}", getChannelId="${getChannelId(props)}")`);
-                        console.log(`ExtensionUtils: cabbageJsonArray has ${cabbageJsonArray.length} widgets:`, cabbageJsonArray.map((o: any) => ({
-                            type: o?.type,
-                            id: o?.id,
-                            channel: o?.channel,
-                            channelsId: o?.channels?.[0]?.id
-                        })));
 
                         // Find an existing object by matching the searchId against
                         // all reasonable identifier fields (id, channel, channels[0].id).
@@ -619,8 +631,6 @@ be lost when working with the UI editor. -->\n`;
                             if (o.channels && Array.isArray(o.channels) && o.channels[0] && typeof o.channels[0].id === 'string' && o.channels[0].id === searchId) return true;
                             return false;
                         });
-
-                        console.log(`ExtensionUtils: existingIndex=${existingIndex}, ${existingIndex !== -1 ? 'updating existing widget' : 'adding new widget'}`);
 
                         // Filter excluded properties before merging/adding
                         ExtensionUtils.excludedProperties.forEach(prop => {
@@ -643,11 +653,7 @@ be lost when working with the UI editor. -->\n`;
                             if (merged.channels && Array.isArray(merged.channels) && merged.channels[0]?.id) {
                                 const channelId = merged.channels[0].id;
                                 if (merged.id && merged.id === channelId) {
-                                    console.log(`ExtensionUtils: Removing duplicate top-level id="${merged.id}" (matches channels[0].id)`);
                                     delete merged.id;
-                                } else if (merged.id && merged.id !== channelId) {
-                                    console.log(`ExtensionUtils: Keeping both widget.id="${merged.id}" and channels[0].id="${channelId}" (different values)`);
-                                    // Keep both - they serve different purposes
                                 }
                             }
 

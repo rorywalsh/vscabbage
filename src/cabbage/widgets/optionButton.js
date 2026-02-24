@@ -23,8 +23,12 @@ export class OptionButton {
       "visible": true,
       "active": true,
       "automatable": true,
-      "presetIgnore": false,
       "type": "optionButton",
+
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
 
       "style": {
         "opacity": 1,

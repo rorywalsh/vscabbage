@@ -31,6 +31,11 @@ export class VerticalSlider {
       "popup": false,
       "automatable": true,
 
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
+
       "label": {
         "text": ""
       },

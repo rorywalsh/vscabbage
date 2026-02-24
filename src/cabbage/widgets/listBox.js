@@ -29,6 +29,12 @@ export class ListBox {
             "automatable": true,
             "type": "listBox",
             "zIndex": 0,
+
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1
             },

@@ -29,6 +29,11 @@ export class ComboBox {
             "automatable": true,
             "type": "comboBox",
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 2,

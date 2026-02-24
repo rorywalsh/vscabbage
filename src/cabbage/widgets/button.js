@@ -29,9 +29,13 @@ export class Button {
       "visible": true,
       "active": true,
       "automatable": true,
-      "presetIgnore": false,
       "radioGroup": -1,
       "type": "button",
+
+      "persistence": {
+        "preset": true,
+        "session": true
+      },
 
       "style": {
         "opacity": 1,

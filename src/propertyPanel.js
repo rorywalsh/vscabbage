@@ -152,14 +152,14 @@ export class PropertyPanel {
             const originalProps = widget.originalProps || {};
             const originalTopLevelKeys = new Set(Object.keys(originalProps));
 
-            const strip = (obj, defs) => {
+            const strip = (obj, defs, parentKey = null) => {
                 if (!obj || !defs) return;
                 // Arrays
                 if (Array.isArray(obj) && Array.isArray(defs)) {
                     const defElem = defs[0];
                     if (defElem && typeof defElem === 'object') {
                         for (let i = 0; i < obj.length; i++) {
-                            if (obj[i] && typeof obj[i] === 'object') strip(obj[i], defElem);
+                            if (obj[i] && typeof obj[i] === 'object') strip(obj[i], defElem, parentKey);
                         }
                     } else {
                         // Primitive arrays: remove if equal
@@ -176,21 +176,28 @@ export class PropertyPanel {
                     if (!(k in obj)) return;
                     const dv = defs[k];
                     const v = obj[k];
+
+                    // CRITICAL: Never strip the 'id' field from channel objects in the channels array
+                    // These are used as widget identifiers and must always be preserved
+                    const isChannelId = (parentKey === 'channels' && k === 'id');
+
                     if (WidgetManager.deepEqual(v, dv)) {
-                        delete obj[k];
+                        if (!isChannelId) {
+                            delete obj[k];
+                        }
                         return;
                     }
                     if (v && dv && typeof v === 'object' && typeof dv === 'object') {
                         if (Array.isArray(v) && Array.isArray(dv)) {
                             if (dv.length > 0 && typeof dv[0] === 'object') {
                                 for (let i = 0; i < v.length; i++) {
-                                    if (v[i] && typeof v[i] === 'object') strip(v[i], dv[0]);
+                                    if (v[i] && typeof v[i] === 'object') strip(v[i], dv[0], k);
                                 }
                             } else {
                                 if (WidgetManager.deepEqual(v, dv)) delete obj[k];
                             }
                         } else {
-                            strip(v, dv);
+                            strip(v, dv, k);
                             // After stripping nested properties, check if the object is now empty
                             if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) {
                                 delete obj[k];
@@ -338,7 +345,12 @@ export class PropertyPanel {
                 // If channels were stripped but we had an id, restore it so the widget can be found
                 else if (!clone.channels && props.id) {
                     clone.id = props.id;
-                    console.log('PropertyPanel.minimizePropsForWidget: restored widget.id (channels were stripped)');
+                }
+                // CRITICAL: If channels were stripped and we have NO top-level id,
+                // we MUST restore the channels array, otherwise the widget cannot be identified
+                // This is especially important when updating channel IDs for widgets without top-level ids
+                else if (!clone.channels && !clone.id && props.channels && Array.isArray(props.channels)) {
+                    clone.channels = JSON.parse(JSON.stringify(props.channels));
                 }
             } catch (e) {
                 console.error('PropertyPanel.minimizePropsForWidget: failed to check redundant id', e);
@@ -356,6 +368,7 @@ export class PropertyPanel {
         this.type = type;               // Type of the widget
         this.widgets = widgets;         // List of widgets associated with this panel
         this.channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
+        this.lastChannelIdCommit = null; // Track last commit to prevent duplicates: { oldId, newId, timestamp }
 
         // Handle multi-widget mode
         if (type === 'multi' && Array.isArray(properties)) {
@@ -452,14 +465,20 @@ export class PropertyPanel {
             if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
                 return w.props.channels[channelIndex].id === originalChannel;
             } else if (fullPath === 'id') {
-                return w.props.id === originalChannel;
+                // For top-level id, match by widget.id OR channels[0].id
+                // (when editing an empty top-level id, originalChannel will be the channels[0].id)
+                if (w.props.id === originalChannel) return true;
+                if (Array.isArray(w.props.channels) && w.props.channels[0] && w.props.channels[0].id === originalChannel) return true;
+                return false;
             } else if (fullPath === 'channel') {
                 return w.props.channel === originalChannel;
             }
             return false;
         });
 
-        if (!widget) return;
+        if (!widget) {
+            return;
+        }
 
         // Immediate validation - show warning if duplicate
         const existingDiv = document.getElementById(newChannel);
@@ -500,7 +519,17 @@ export class PropertyPanel {
      * @param {Object} widget - The widget object
      */
     commitChannelIdChange(input, fullPath, channelIndex, newChannel, originalChannel, widget) {
-        console.log('PropertyPanel: committing channel ID change from', originalChannel, 'to', newChannel);
+        // Prevent duplicate commits: If this exact change was just committed (within 100ms), skip it
+        const now = Date.now();
+        if (this.lastChannelIdCommit &&
+            this.lastChannelIdCommit.oldId === originalChannel &&
+            this.lastChannelIdCommit.newId === newChannel &&
+            (now - this.lastChannelIdCommit.timestamp) < 100) {
+            return;
+        }
+
+        // Track this commit
+        this.lastChannelIdCommit = { oldId: originalChannel, newId: newChannel, timestamp: now };
 
         // Save cursor position
         const cursorPosition = input.selectionStart;
@@ -518,9 +547,6 @@ export class PropertyPanel {
         const widgetDiv = document.getElementById(originalChannel);
         if (widgetDiv) {
             widgetDiv.id = newChannel;
-            console.log('PropertyPanel: updated DOM element ID from', originalChannel, 'to', newChannel);
-        } else {
-            console.warn('PropertyPanel: could not find DOM element with ID', originalChannel);
         }
 
         // Update the original channel reference
@@ -530,6 +556,7 @@ export class PropertyPanel {
         try {
             let minimized = PropertyPanel.minimizePropsForWidget(widget.props, widget);
             minimized = PropertyPanel.applyExcludes(minimized, PropertyPanel.defaultExcludeKeys);
+
             this.vscode.postMessage({
                 command: 'updateWidgetProps',
                 text: PropertyPanel.safeSanitizeForPost(minimized),
@@ -1150,9 +1177,24 @@ export class PropertyPanel {
             input.type = 'text';
             const channelMatch = fullPath.match(/^channels\[(\d+)\]\.id$/);
             const channelIndex = channelMatch ? parseInt(channelMatch[1]) : null;
-            const currentId = (fullPath === 'channel') ? value : (channelIndex !== null ? (Array.isArray(this.properties?.channels) && this.properties.channels[channelIndex] ? this.properties.channels[channelIndex].id : value) : (this.properties.id || value));
-            input.value = currentId;
-            input.dataset.originalChannel = currentId;
+
+            // For top-level 'id', we need to track the widget's current identifier separately
+            // from the displayed value (which might be empty)
+            let currentIdentifier, displayValue;
+            if (fullPath === 'channel') {
+                currentIdentifier = displayValue = value;
+            } else if (channelIndex !== null) {
+                // channels[N].id
+                currentIdentifier = displayValue = (Array.isArray(this.properties?.channels) && this.properties.channels[channelIndex]) ? this.properties.channels[channelIndex].id : value;
+            } else {
+                // Top-level 'id'
+                displayValue = this.properties.id || ''; // Show empty if no top-level id
+                // For tracking purposes, use the actual widget identifier (top-level id OR channels[0].id)
+                currentIdentifier = this.properties.id || (Array.isArray(this.properties?.channels) && this.properties.channels[0] ? this.properties.channels[0].id : '');
+            }
+
+            input.value = displayValue;
+            input.dataset.originalChannel = currentIdentifier;
             input.dataset.channelIdInput = 'true'; // Mark as channel ID input
 
             // Add live input handler for debounced updates and validation
@@ -1178,7 +1220,10 @@ export class PropertyPanel {
                         if (channelIndex !== null && Array.isArray(w.props.channels) && w.props.channels[channelIndex]) {
                             return w.props.channels[channelIndex].id === originalChannel;
                         } else if (fullPath === 'id') {
-                            return w.props.id === originalChannel;
+                            // For top-level id, match by widget.id OR channels[0].id
+                            if (w.props.id === originalChannel) return true;
+                            if (Array.isArray(w.props.channels) && w.props.channels[0] && w.props.channels[0].id === originalChannel) return true;
+                            return false;
                         } else if (fullPath === 'channel') {
                             return w.props.channel === originalChannel;
                         }
@@ -2030,7 +2075,15 @@ export class PropertyPanel {
      * Rebuild properties panel when a channel name is updated
      */
     rebuildPropertiesPanel() {
-        console.log('PropertyPanel: rebuildPropertiesPanel called');
+        // CRITICAL: Clear all pending channel ID debounce timers
+        // When we rebuild the panel, all input elements are recreated.
+        // Old timers reference old (deleted) input elements and will fire
+        // after the rebuild, causing duplicate updates to be sent.
+        this.channelIdDebounceTimers.forEach((timerId) => {
+            clearTimeout(timerId);
+        });
+        this.channelIdDebounceTimers.clear();
+
         // Clear the existing panel content
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content

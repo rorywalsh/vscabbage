@@ -26,9 +26,13 @@ export class XyPad {
             "active": true,
             "popup": true,
             "automatable": true,
-            "presetIgnore": false,
             "type": "xyPad",
             "zIndex": 0,
+
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
 
             "style": {
                 "opacity": 1,

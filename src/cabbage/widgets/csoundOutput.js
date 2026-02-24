@@ -30,6 +30,11 @@ export class CsoundOutput {
             "type": "csoundOutput",
             "zIndex": 0,
 
+            "persistence": {
+                "preset": true,
+                "session": true
+            },
+
             "style": {
                 "opacity": 1,
                 "borderRadius": 4,

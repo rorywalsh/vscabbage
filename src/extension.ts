@@ -642,6 +642,16 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.stopCsound();
         }));
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.startRecording', async () => {
+            await Commands.startRecording();
+        }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.stopRecording', () => {
+            Commands.stopRecording();
+        }));
+
     // utility function to send text to Cabbage instrument overriding the current
     // realtime audio inputs
 
@@ -821,7 +831,7 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
     // kill any other processes running
     // previously sent stopAudio via WebSocket; now use stdin/stdout pipes
-    // Commands.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+    // Commands.sendMessageToCabbageApp({ command: "stopAudio" });
 
 
     if (editor) {
@@ -1038,7 +1048,7 @@ function onUpdate(previousVersion: string, currentVersion: string) {
  */
 export function deactivate() {
     // Existing process cleanup
-    Commands.sendMessageToCabbageApp({ command: "stopAudio", text: "" });
+    Commands.sendMessageToCabbageApp({ command: "stopAudio" });
     Commands.getProcesses().forEach((p) => {
         p?.kill('SIGKILL');
     });

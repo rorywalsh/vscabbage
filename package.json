@@ -39,22 +39,22 @@
         "cabbage.pathToCsoundLibraryDir": {
           "type": "string",
           "default": "",
-          "description": "Path to Csound library - used when building for Daisy"
+          "description": "Folder containing Csound library - used when building for Daisy"
         },
         "cabbage.pathToCsoundIncludeDir": {
           "type": "string",
           "default": "",
-          "description": "Path to Csound includes - used when building for Daisy"
+          "description": "Folder containing Csound includes - used when building for Daisy"
         },
         "cabbage.pathToCabbageBinary": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage service app. Leave empty to use default location\nor use command palette to browse for custom build directory."
+          "description": "Folder containing Cabbage service app. Leave empty to use default location\nor use command palette to browse for custom build folder."
         },
         "cabbage.pathToCabbageProBinary": {
           "type": "string",
           "default": "",
-          "description": "Path to CabbagePro binaries folder. Set this to enable pro export features\nwith encrypted CSD file support."
+          "description": "Folder containing CabbagePro binaries. Set this to enable pro export features\nwith encrypted CSD file support."
         },
         "cabbage.proAppEnabled": {
           "type": "boolean",
@@ -71,17 +71,17 @@
         "cabbage.pathToJsSourceWindows": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage Javascript directory on Windows. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+          "description": "Folder containing Cabbage Javascript on Windows. Leave empty to use default location\nor use command palette to browse for custom JS folder."
         },
         "cabbage.pathToJsSourceMacOS": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage Javascript directory on MacOS. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+          "description": "Folder containing Cabbage Javascript on MacOS. Leave empty to use default location\nor use command palette to browse for custom JS folder."
         },
         "cabbage.pathToJsSourceLinux": {
           "type": "string",
           "default": "",
-          "description": "Path to Cabbage Javascript directory on Linux. Leave empty to use default location\nor use command palette to browse for custom JS directory."
+          "description": "Folder containing Cabbage Javascript on Linux. Leave empty to use default location\nor use command palette to browse for custom JS folder."
         },
         "cabbage.customWidgetDirectories": {
           "type": "array",
@@ -89,7 +89,7 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "Custom widget directories. Each directory should contain a `cabbage` folder structure.\n\n**Recommended**: Use `Cabbage: Set Custom Widget Directory` command which automatically copies the required folder structure.\n\nManually added paths must contain: `cabbage/widgets/` subdirectory with all Cabbage framework files."
+          "markdownDescription": "Custom widget folders. Each folder should contain a `cabbage` folder structure.\n\n**Recommended**: Use `Cabbage: Select Custom Widget Folder` command which automatically copies the required folder structure.\n\nManually added paths must contain: `cabbage/widgets/` subdirectory with all Cabbage framework files."
         },
         "cabbage.audioOutputDevice": {
           "type": "string",
@@ -125,6 +125,12 @@
           "type": "string",
           "default": "32 samples",
           "description": "Selected audio driver. Use command palette to change."
+        },
+        "cabbage.recordingBitDepth": {
+          "type": "string",
+          "default": "32-bit float",
+          "enum": ["16-bit", "32-bit float"],
+          "description": "Bit depth for audio recording. 16-bit produces smaller files, 32-bit float provides higher quality and dynamic range."
         },
         "cabbage.snapToSize": {
           "type": "number",
@@ -250,6 +256,16 @@
       {
         "command": "cabbage.stopCsound",
         "title": "Stop Csound",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.startRecording",
+        "title": "Start Recording to WAV",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.stopRecording",
+        "title": "Stop Recording",
         "category": "Cabbage"
       },
       {
@@ -406,7 +422,7 @@
       },
       {
         "command": "cabbage.setCabbageSourcePath",
-        "title": "Set Cabbage source path",
+        "title": "Select Cabbage Source Folder",
         "category": "Cabbage"
       },
       {
@@ -416,12 +432,7 @@
       },
       {
         "command": "cabbage.setCabbageBinaryPath",
-        "title": "Set path to the Cabbage binary",
-        "category": "Cabbage"
-      },
-      {
-        "command": "cabbage.setCustomWidgetDirectory",
-        "title": "Set Custom Widget Directory",
+        "title": "Select Cabbage Binary Folder",
         "category": "Cabbage"
       },
       {
@@ -431,17 +442,17 @@
       },
       {
         "command": "cabbage.setCustomWidgetDirectory",
-        "title": "Set Custom Widget Directory",
+        "title": "Select Custom Widget Folder",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.setCsoundIncludeDir",
-        "title": "Set path to the Csound include driectory (for Daisy)",
+        "title": "Select Csound Include Folder (for Daisy)",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.setCsoundLibraryDir",
-        "title": "Set path to the Csound library driectory (for Daisy)",
+        "title": "Select Csound Library Folder (for Daisy)",
         "category": "Cabbage"
       },
       {
