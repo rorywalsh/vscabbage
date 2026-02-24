@@ -1928,4 +1928,196 @@ ${csoundSection}`;
             .filter(d => d !== defPath)
             .map(d => path.join(d, 'cabbage', 'widgets'));
     }
+
+    /**
+     * Detects whether a custom UI is configured alongside the given .csd file.
+     * Looks first for a cabbage.project.json config file, then falls back to
+     * an index.html in the same directory.
+     *
+     * Returns one of:
+     *   { type: 'iframe', url: string }  — load the UI via iframe relay (e.g. Vite dev server)
+     *   { type: 'file', htmlPath: string } — load the UI by rewriting local paths (plain HTML / built output)
+     *   null — no custom UI found; use the native Cabbage widget UI
+     */
+    static detectCustomUI(csdFilePath: string): { type: 'iframe'; url: string } | { type: 'file'; htmlPath: string } | null {
+        const dir = path.dirname(csdFilePath);
+        const configPath = path.join(dir, 'cabbage.project.json');
+
+        if (fs.existsSync(configPath)) {
+            try {
+                // Strip comments before parsing (JSONC support).
+                // Only strip // at the start of a line (after optional whitespace) to
+                // avoid mangling URLs like "http://localhost:5173" that contain //.
+                const raw = fs.readFileSync(configPath, 'utf8');
+                const stripped = raw
+                    .replace(/^\s*\/\/.*$/gm, '')
+                    .replace(/\/\*[\s\S]*?\*\//g, '');
+                const config = JSON.parse(stripped);
+
+                if (typeof config.entry === 'string') {
+                    const entry = config.entry.trim();
+                    if (entry.startsWith('http://') || entry.startsWith('https://')) {
+                        return { type: 'iframe', url: entry };
+                    }
+                    const htmlPath = path.resolve(dir, entry);
+                    if (fs.existsSync(htmlPath)) {
+                        return { type: 'file', htmlPath };
+                    }
+                    console.warn(`Cabbage: cabbage.project.json 'entry' not found: ${htmlPath}`);
+                }
+            } catch (e) {
+                console.error('Cabbage: Failed to parse cabbage.project.json:', e);
+            }
+        }
+
+        // Fallback: plain index.html alongside the .csd
+        const indexHtml = path.join(dir, 'index.html');
+        if (fs.existsSync(indexHtml)) {
+            return { type: 'file', htmlPath: indexHtml };
+        }
+
+        return null;
+    }
+
+    /**
+     * Reads a custom HTML file, rewrites all local src/href paths to
+     * webview-safe URIs, and injects the Cabbage–VSCode bridge script.
+     * Used for plain HTML projects or built Vite/React output.
+     */
+    static getCustomUIContent(htmlPath: string, webview: vscode.Webview): string {
+        const baseDir = path.dirname(htmlPath);
+        let html = fs.readFileSync(htmlPath, 'utf8');
+
+        // Inject a <base href> pointing to the webview URI of index.html itself.
+        // This makes all relative URLs in the document — including import statements
+        // inside inline <script type="module"> blocks — resolve correctly through
+        // VS Code's webview resource system without needing to rewrite JS source.
+        const htmlFileUri = webview.asWebviewUri(vscode.Uri.file(htmlPath));
+        const baseTag = `<base href="${htmlFileUri}">`;
+        html = html.replace('<head>', `<head>\n  ${baseTag}`);
+
+        // Rewrite local src/href attributes to webview URIs.
+        // Skips absolute URLs, protocol-relative URLs, data URIs, and anchor links.
+        html = html.replace(
+            /((?:src|href)=)"((?!https?:\/\/|\/\/|data:|#)[^"]*)"/g,
+            (_match, attr, relPath) => {
+                const abs = path.resolve(baseDir, relPath);
+                if (fs.existsSync(abs)) {
+                    return `${attr}"${webview.asWebviewUri(vscode.Uri.file(abs))}"`;
+                }
+                return _match;
+            }
+        );
+
+        // Inject the bridge before </head>
+        html = html.replace('</head>', `${ExtensionUtils.getCabbageBridgeScript()}\n</head>`);
+        return html;
+    }
+
+    /**
+     * Parses the <Cabbage> section of a .csd file and returns the form widget's
+     * size (width and height). Returns null if not found or parsing fails.
+     */
+    static getFormBoundsFromCsd(csdFilePath: string): { width: number; height: number } | null {
+        try {
+            const text = fs.readFileSync(csdFilePath, 'utf8');
+            const match = text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/);
+            if (!match) { return null; }
+            const json = JSON.parse(match[1]);
+            const widgets: any[] = Array.isArray(json) ? json : [json];
+            for (const w of widgets) {
+                if (w.type === 'form') {
+                    const s = w.size;
+                    if (s && typeof s.width === 'number' && typeof s.height === 'number') {
+                        return { width: Math.round(s.width), height: Math.round(s.height) };
+                    }
+                    const b = w.bounds;
+                    if (b && typeof b.width === 'number' && typeof b.height === 'number') {
+                        return { width: Math.round(b.width), height: Math.round(b.height) };
+                    }
+                }
+            }
+        } catch (_) { /* ignore */ }
+        return null;
+    }
+
+    /**
+     * Returns a minimal relay page that wraps a local dev server (e.g. Vite)
+     * in an iframe and bridges messages between the extension and the custom UI.
+     * The custom UI uses window.parent.postMessage() instead of acquireVsCodeApi().
+     */
+    static getIframeRelayContent(devServerUrl: string, formSize?: { width: number; height: number }): string {
+        // Ensure the URL has no trailing slash for the CSP frame-src directive
+        const origin = devServerUrl.replace(/\/$/, '');
+
+        // Give the iframe its exact native pixel size from the form definition.
+        // Without dimensions, fall back to filling the panel with 100vw/100vh.
+        const iframeStyle = formSize
+            ? `width: ${formSize.width}px; height: ${formSize.height}px; border: none; display: block;`
+            : `width: 100vw; height: 100vh; border: none; display: block;`;
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; frame-src ${origin} ${origin}/; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+  <style>
+    html, body { margin: 0; padding: 0; background: #1e1e1e; }
+  </style>
+  <script>
+    const vscode = acquireVsCodeApi();
+    window.addEventListener('DOMContentLoaded', function () {
+      const uiFrame = document.getElementById('customUI');
+      window.addEventListener('message', function (event) {
+        if (event.source === uiFrame.contentWindow) {
+          // Custom UI → extension
+          vscode.postMessage(event.data);
+        } else {
+          // Extension → custom UI (widgetUpdate, parameterChange, onFileChanged, etc.)
+          if (uiFrame.contentWindow) {
+            uiFrame.contentWindow.postMessage(event.data, '*');
+          }
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <iframe id="customUI" src="${devServerUrl}" style="${iframeStyle}"></iframe>
+</body>
+</html>`;
+    }
+
+    /**
+     * Returns a script tag that provides the Cabbage–VSCode bridge for custom
+     * HTML UIs loaded directly in the webview (file mode).
+     *
+     * Provides window.sendMessageFromUI() with the same signature the DAW plugin
+     * host expects — a plain object — forwarded directly to the extension via
+     * vscode.postMessage(). Incoming messages (widgetUpdate, parameterChange, etc.)
+     * arrive via the standard window 'message' event and are handled by the custom
+     * UI's own listeners without any bridge intervention.
+     */
+    static getCabbageBridgeScript(): string {
+        return `<script>
+(function () {
+  const vscode = acquireVsCodeApi();
+
+  // Forward all outgoing messages to the extension unchanged.
+  // cabbage.js calls this with a plain object, e.g.:
+  //   { command: "controlData", channel: "slider1", value: 500, gesture: "value" }
+  //   { command: "cabbageIsReadyToLoad", text: "{}" }
+  window.sendMessageFromUI = function (msg) {
+    vscode.postMessage(msg);
+  };
+
+  // Signal to the extension that the webview is ready.
+  // The custom UI itself does not know about VS Code, so the bridge sends this.
+  document.addEventListener('DOMContentLoaded', function () {
+    vscode.postMessage({ command: 'cabbageSetupComplete' });
+  });
+}());
+</script>`;
+    }
 }

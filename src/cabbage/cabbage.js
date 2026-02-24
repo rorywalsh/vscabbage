@@ -125,6 +125,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -167,6 +169,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -211,6 +215,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -240,6 +246,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -273,6 +281,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -339,6 +349,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -363,6 +375,8 @@ export class Cabbage {
     else {
       if (typeof window.sendMessageFromUI === 'function') {
         window.sendMessageFromUI(msg);
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available. Message:', msg);
       }
@@ -376,6 +390,55 @@ export class Cabbage {
    * @param {Object|null} vscode - VS Code API object (null for plugin mode)
    * @param {Object} additionalData - Additional data to include in the command
    */
+  /**
+   * Register a listener for incoming messages from the Cabbage backend.
+   *
+   * Abstracts the two environments so that the same UI code works everywhere:
+   * - **VS Code (iframe relay)**: messages arrive as window `message` events
+   * - **Native plugin (DAW)**: messages arrive via `window.hostMessageCallback`
+   *
+   * @param {function(Object): void} callback - Called with the message object.
+   *   Common message shapes:
+   *   - `{ command: "parameterChange", data: { paramIdx, value } }` (data may be top-level or nested)
+   *   - `{ command: "widgetUpdate", id, value }` (from cabbageSetValue / cabbageSet)
+   *   - `{ command: "widgetUpdate", id, widgetJson }` (full widget update)
+   *   - `{ command: "channelDataUpdate", data: { channel, value } }`
+   * @returns {function(): void} Cleanup function — call it when the UI is torn down.
+   *
+   * @example <caption>Vanilla HTML</caption>
+   * import { Cabbage } from './cabbage/cabbage.js';
+   * Cabbage.addMessageListener((msg) => {
+   *   const data = msg.data ?? msg;
+   *   if (msg.command === 'parameterChange') { ... }
+   * });
+   *
+   * @example <caption>Svelte</caption>
+   * import { onMount, onDestroy } from 'svelte';
+   * let remove;
+   * onMount(() => { remove = Cabbage.addMessageListener((msg) => { ... }); });
+   * onDestroy(() => remove?.());
+   */
+  static addMessageListener(callback) {
+    // VS Code iframe relay — messages arrive as window message events.
+    // Filter out messages that originated from this window itself (outgoing echoes).
+    const handler = (event) => {
+      if (event.source !== window) {
+        callback(event.data);
+      }
+    };
+    window.addEventListener('message', handler);
+
+    // Native plugin (DAW) — messages arrive via window.hostMessageCallback.
+    window.hostMessageCallback = callback;
+
+    return () => {
+      window.removeEventListener('message', handler);
+      if (window.hostMessageCallback === callback) {
+        window.hostMessageCallback = null;
+      }
+    };
+  }
+
   static sendCustomCommand(command, vscode = null, additionalData = {}) {
     const msg = {
       command: command,
@@ -393,6 +456,8 @@ export class Cabbage {
           console.error('Cabbage: sendMessageFromUI threw error:', err);
           console.error('Cabbage: Error stack:', err.stack);
         }
+      } else if (window.parent !== window) {
+        window.parent.postMessage(msg, '*');
       } else {
         console.error('Cabbage: window.sendMessageFromUI is not available yet. Message:', msg);
         console.error('Cabbage: typeof window.sendMessageFromUI:', typeof window.sendMessageFromUI);

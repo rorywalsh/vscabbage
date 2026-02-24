@@ -24,6 +24,18 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "jsonc",
+        "filenames": ["cabbage.project.json"]
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "cabbage.project.json",
+        "url": "./schemas/cabbage.project.schema.json"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
@@ -458,6 +470,11 @@
       {
         "command": "cabbage.openCabbageExample",
         "title": "Open an widget example",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.createProjectFile",
+        "title": "Create Project File (cabbage.project.json)",
         "category": "Cabbage"
       },
       {

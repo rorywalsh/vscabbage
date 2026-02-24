@@ -655,6 +655,11 @@ export async function activate(context: vscode.ExtensionContext):
     // utility function to send text to Cabbage instrument overriding the current
     // realtime audio inputs
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.createProjectFile', () => {
+            Commands.createCabbageProjectFile();
+        }));
+
     // Register the commands for creating new Cabbage files
     context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.createNewCabbageEffect', () => {
