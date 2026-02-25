@@ -64,3 +64,11 @@ export function getCabbageMode() {
     return cabbageMode;
 }
 
+export function setCurrentCsdPath(path) {
+    currentCsdPath = path || '';
+}
+
+export function getCurrentCsdPath() {
+    return currentCsdPath;
+}
+

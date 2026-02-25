@@ -337,24 +337,42 @@ export class Commands {
         switch (message.command) {
             case 'getMediaFiles':
                 try {
-                    let editor = vscode.window.activeTextEditor?.document;
-                    if (!editor) {
-                        return; // Exit early if no active editor
+                    const activeFile = vscode.window.activeTextEditor?.document?.fileName;
+                    const csdPath = this.lastSavedFileName || (activeFile && activeFile.endsWith('.csd') ? activeFile : undefined);
+
+                    if (!csdPath) {
+                        if (this.panel) {
+                            this.panel.webview.postMessage({
+                                command: 'mediaFiles',
+                                files: []
+                            });
+                        }
+                        break;
                     }
 
-                    let directory = path.join(path.dirname(editor.fileName), 'media');
+                    const directory = path.join(path.dirname(csdPath), 'media');
 
                     if (!fs.existsSync(directory)) {
-                        return; // Exit early if the directory does not exist
+                        if (this.panel) {
+                            this.panel.webview.postMessage({
+                                command: 'mediaFiles',
+                                files: []
+                            });
+                        }
+                        break;
                     }
 
-                    // Now `directory` is guaranteed to exist
                     fs.readdir(directory, (err, files) => {
                         if (err) {
                             console.error('Cabbage: Error reading directory:', err);
+                            if (this.panel) {
+                                this.panel.webview.postMessage({
+                                    command: 'mediaFiles',
+                                    files: []
+                                });
+                            }
                             return;
                         }
-                        // Send the files back to the WebView
                         if (this.panel) {
                             this.panel.webview.postMessage({
                                 command: 'mediaFiles',
@@ -364,6 +382,12 @@ export class Commands {
                     });
                 } catch (error) {
                     console.error('Cabbage: Error processing audio files request:', error);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'mediaFiles',
+                            files: []
+                        });
+                    }
                 }
 
                 break;
@@ -741,6 +765,17 @@ export class Commands {
             vscode.Uri.file(path.join(context.extensionPath, 'src'))
         ];
 
+        // Include all workspace roots (and their media folders) so resource loading
+        // is not tied to whichever editor tab was active when the panel was created.
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+        for (const folder of workspaceFolders) {
+            localResources.push(folder.uri);
+            const workspaceMedia = path.join(folder.uri.fsPath, 'media');
+            if (fs.existsSync(workspaceMedia)) {
+                localResources.push(vscode.Uri.file(workspaceMedia));
+            }
+        }
+
         if (fs.existsSync(path.join(directoryPath, 'media'))) {
             localResources.push(vscode.Uri.file(path.join(directoryPath, 'media')));
         }
@@ -980,6 +1015,9 @@ export class Commands {
         }
 
         this.lastSavedFileName = finalFileName;
+        if (finalFileName.endsWith('.csd')) {
+            this.getOutputChannel().clear();
+        }
         this.getOutputChannel().appendLine(`Saving file: ${finalFileName}`);
 
         const config = vscode.workspace.getConfiguration("cabbage");

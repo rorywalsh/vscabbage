@@ -4,7 +4,7 @@
 
 
 
-import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
+import { setVSCode, setCabbageMode, setCurrentCsdPath, widgets, vscode } from "./sharedState.js";
 // import { initialiseDefaultProps } from "./widgetTypes.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -316,6 +316,10 @@ window.addEventListener('message', async (event) => {
             console.error('Cabbage: Failed to parse message string:', message);
             return;
         }
+    }
+
+    if (message && typeof message.currentCsdPath === 'string' && message.currentCsdPath.length > 0) {
+        setCurrentCsdPath(message.currentCsdPath);
     }
 
     // Log all incoming messages to help debug
