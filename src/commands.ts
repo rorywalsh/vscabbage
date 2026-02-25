@@ -822,9 +822,10 @@ export class Commands {
         const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
             vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
 
-        // Get property panel position from settings
+        // Get panel layout settings
         const cabbageConfig = vscode.workspace.getConfiguration('cabbage');
         const propertyPanelPosition = cabbageConfig.get<string>('propertyPanelPosition', 'right');
+        const vuMeterPosition = cabbageConfig.get<string>('vuMeterPosition', 'bottom');
 
         if (customUI) {
             const formSize = fullPath ? ExtensionUtils.getFormBoundsFromCsd(fullPath) : null;
@@ -834,7 +835,7 @@ export class Commands {
                 this.panel.webview.html = ExtensionUtils.getCustomUIContent(customUI.htmlPath, this.panel.webview);
             }
         } else {
-            this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition);
+            this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition, vuMeterPosition);
         }
         return this.panel;
 
@@ -1338,6 +1339,15 @@ export class Commands {
                                 if (panel) {
                                     panel.dispose();
                                     panel = undefined;
+                                }
+                            }
+                            else if (msg['command'] === 'vuMeter') {
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.webview.postMessage({
+                                        command: 'vuMeter',
+                                        levels: msg['levels'],
+                                    });
                                 }
                             }
                         }

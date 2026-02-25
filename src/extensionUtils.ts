@@ -1119,10 +1119,13 @@ ${JSON.stringify(props, null, 4)}
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean, propertyPanelPosition: string = 'right') {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean, propertyPanelPosition: string = 'right', vuMeterPosition: string = 'bottom') {
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         const propertyPanelStylesLink = propertyPanelStyles ? `<link href="${propertyPanelStyles}" rel="stylesheet">` : '';
         const panelLayoutClass = propertyPanelPosition === 'left' ? 'property-panel-left' : 'property-panel-right';
+        const vuMeterDiv = (vuMeterPosition && vuMeterPosition !== 'none')
+            ? `<div id="VuMeter" class="vu-meter vu-${vuMeterPosition}"></div>`
+            : '';
 
         return `
 <!doctype html>
@@ -1168,6 +1171,7 @@ ${JSON.stringify(props, null, 4)}
       </div>
     </div>
     <!-- new draggables go here -->
+    ${vuMeterDiv}
   </div>
   <span class="popup" id="popupValue">50</span>
   <div id="RightPanel" class="full-height-div">
