@@ -18,6 +18,29 @@ export class PropertyPanel {
      * @type {string[]}
      */
     static defaultExcludeKeys = ['parameterIndex', 'samples', 'currentCsdFile', 'originalProps', 'groupBaseBounds', 'origBounds', 'value', 'range.value'];
+    static activeInstance = null;
+    static mediaFilesListenerAttached = false;
+    static cachedMediaFiles = null;
+
+    static ensureMediaFilesListener() {
+        if (this.mediaFilesListenerAttached) {
+            return;
+        }
+
+        window.addEventListener('message', (event) => {
+            const message = event.data;
+            if (!message || message.command !== 'mediaFiles') {
+                return;
+            }
+
+            this.cachedMediaFiles = Array.isArray(message.files) ? message.files : [];
+            if (this.activeInstance && typeof this.activeInstance.applyMediaFilesToPendingSelects === 'function') {
+                this.activeInstance.applyMediaFilesToPendingSelects(this.cachedMediaFiles);
+            }
+        });
+
+        this.mediaFilesListenerAttached = true;
+    }
 
     /**
      * Helper to ensure we never post undefined as the text payload. JSON.stringify(undefined)
@@ -369,6 +392,11 @@ export class PropertyPanel {
         this.widgets = widgets;         // List of widgets associated with this panel
         this.channelIdDebounceTimers = new Map(); // Debounce timers for channel ID updates
         this.lastChannelIdCommit = null; // Track last commit to prevent duplicates: { oldId, newId, timestamp }
+        this.pendingMediaFileSelects = [];
+        this.mediaFilesRequested = false;
+
+        PropertyPanel.activeInstance = this;
+        PropertyPanel.ensureMediaFilesListener();
 
         // Handle multi-widget mode
         if (type === 'multi' && Array.isArray(properties)) {
@@ -385,6 +413,38 @@ export class PropertyPanel {
 
         // Create the panel and sections on initialization
         this.createPanel();
+    }
+
+    populateMediaFileSelect(selectElement, selectedValue, files) {
+        if (!selectElement) {
+            return;
+        }
+
+        selectElement.classList.remove('loading');
+        selectElement.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a file...';
+        selectElement.appendChild(defaultOption);
+
+        files.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file;
+            option.textContent = file;
+            if (file === selectedValue) {
+                option.selected = true;
+            }
+            selectElement.appendChild(option);
+        });
+    }
+
+    applyMediaFilesToPendingSelects(files) {
+        const list = Array.isArray(files) ? files : [];
+        this.pendingMediaFileSelects = this.pendingMediaFileSelects.filter(entry => entry && entry.selectElement && entry.selectElement.isConnected);
+        this.pendingMediaFileSelects.forEach(entry => {
+            this.populateMediaFileSelect(entry.selectElement, entry.selectedValue, list);
+        });
     }
 
     /** 
@@ -589,6 +649,8 @@ export class PropertyPanel {
         const panel = document.querySelector('.property-panel');
         panel.innerHTML = ''; // Clear the panel's content
         this.clearInputs();   // Remove any previous input listeners
+        this.pendingMediaFileSelects = [];
+        this.mediaFilesRequested = false;
 
         // Suppress input events while we build the panel to avoid firing
         // handleInputChange from initialization side-effects (color pickers, style updates, etc.)
@@ -1139,36 +1201,21 @@ export class PropertyPanel {
             defaultOption.textContent = 'Loading files...';
             input.appendChild(defaultOption);
 
-            // Request file list from extension
-            this.vscode.postMessage({
-                command: 'getMediaFiles'
+            this.pendingMediaFileSelects.push({
+                selectElement: input,
+                selectedValue: value
             });
 
-            // Handle the response
-            window.addEventListener('message', event => {
-                const message = event.data;
-                if (message.command === 'mediaFiles') {
-                    input.classList.remove('loading');
-                    input.innerHTML = ''; // Clear loading message
+            if (Array.isArray(PropertyPanel.cachedMediaFiles)) {
+                this.populateMediaFileSelect(input, value, PropertyPanel.cachedMediaFiles);
+            }
 
-                    // Add default option
-                    const defaultOption = document.createElement('option');
-                    defaultOption.value = '';
-                    defaultOption.textContent = 'Select a file...';
-                    input.appendChild(defaultOption);
-
-                    // Add file options
-                    message.files.forEach(file => {
-                        const option = document.createElement('option');
-                        option.value = file;
-                        option.textContent = file;
-                        if (file === value) {
-                            option.selected = true;
-                        }
-                        input.appendChild(option);
-                    });
-                }
-            });
+            if (!this.mediaFilesRequested) {
+                this.vscode.postMessage({
+                    command: 'getMediaFiles'
+                });
+                this.mediaFilesRequested = true;
+            }
 
             input.addEventListener('change', this.handleInputChange.bind(this));
 

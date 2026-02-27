@@ -197,28 +197,39 @@ export class CabbageUtils {
   }
 
   static getFullMediaPath(fileName, currentCsdFile) {
-    let currentCsdPath = currentCsdFile.replace(/\\/g, '/'); // Replace all backslashes with forward slashes
-    const lastSlashIndex = currentCsdPath.lastIndexOf('/');
-    if (lastSlashIndex !== -1) {
-      currentCsdPath = currentCsdPath.substring(0, lastSlashIndex);
-    } else {
-      currentCsdPath = currentCsdFile; // If no separator is found, use the original path
-    }
+    const normalizedFileName = String(fileName || '').replace(/\\/g, '/').replace(/^\/+/, '');
 
-    // Ensure currentCsdPath starts with a '/'
-    if (!currentCsdPath.startsWith('/')) {
-      currentCsdPath = '/' + currentCsdPath;
+    // Allow explicit remote/data URLs to pass through unchanged.
+    if (/^(https?:|data:)/i.test(normalizedFileName)) {
+      return normalizedFileName;
     }
 
     if (vscode === null) {
-      console.warn(`vscode is null, returning ${fileName}`);
-      return `media/${fileName}`;
-    } else {
-      // Construct the URL with the correct encoding
-      const baseUrl = 'https://file%2B.vscode-resource.vscode-cdn.net';
-      const fullUrl = `${baseUrl}${currentCsdPath}/media/${fileName}`;
-      return fullUrl;
+      const encodedRelativePath = normalizedFileName
+        .split('/')
+        .filter(segment => segment.length > 0)
+        .map(segment => encodeURIComponent(segment))
+        .join('/');
+      return `media/${encodedRelativePath}`;
     }
+
+    const normalizedCsd = String(currentCsdFile || currentCsdPath || '').replace(/\\/g, '/');
+    const lastSlashIndex = normalizedCsd.lastIndexOf('/');
+    const csdDir = lastSlashIndex !== -1 ? normalizedCsd.substring(0, lastSlashIndex) : '';
+
+    if (!csdDir) {
+      const encodedRelativePath = normalizedFileName
+        .split('/')
+        .filter(segment => segment.length > 0)
+        .map(segment => encodeURIComponent(segment))
+        .join('/');
+      return `media/${encodedRelativePath}`;
+    }
+
+    const fullFsPath = `${csdDir}/media/${normalizedFileName}`.replace(/\\/g, '/').replace(/^\/+/, '');
+    const encodedPath = encodeURI(fullFsPath);
+
+    return `https://file+.vscode-resource.vscode-cdn.net/${encodedPath}`;
   }
 
   static getFileNameFromPath(fullPath) {

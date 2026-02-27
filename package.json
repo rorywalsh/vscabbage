@@ -24,6 +24,18 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "jsonc",
+        "filenames": ["cabbage.project.json"]
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "cabbage.project.json",
+        "url": "./schemas/cabbage.project.schema.json"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
@@ -155,6 +167,25 @@
           ],
           "default": "right",
           "description": "Position of the property panel in the webview."
+        },
+        "cabbage.vuMeterPosition": {
+          "type": "string",
+          "enum": [
+            "none",
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ],
+          "enumDescriptions": [
+            "Hide the VU meter",
+            "Horizontal strip at the top of the instrument view",
+            "Horizontal strip at the bottom of the instrument view",
+            "Vertical strip on the left of the instrument view",
+            "Vertical strip on the right of the instrument view"
+          ],
+          "default": "bottom",
+          "description": "Position of the VU meter overlay in the instrument view. Displays one bar per output channel."
         },
         "cabbage.saveExternalJSON": {
           "type": "boolean",
@@ -458,6 +489,11 @@
       {
         "command": "cabbage.openCabbageExample",
         "title": "Open an widget example",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.createProjectFile",
+        "title": "Create Project File (cabbage.project.json)",
         "category": "Cabbage"
       },
       {

@@ -525,3 +525,280 @@
 .popup.hide {
 	opacity: 0;
 }
+
+/* ============================================================
+   VU Meter
+   Absolutely positioned inside #LeftPanel so it overlays the
+   instrument without disturbing the flex layout.
+   One .vu-channel bar per output channel; a .vu-mask child
+   covers the "silent" portion while the channel track shows
+   the green→yellow→red gradient through the visible gap.
+   ============================================================ */
+
+.vu-meter {
+	position: absolute;
+	z-index: 10000;
+	display: flex;
+	gap: 3px;
+	padding: 3px;
+	background: linear-gradient(180deg, rgba(28, 31, 36, 0.92) 0%, rgba(12, 14, 18, 0.88) 100%);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+		0 3px 10px rgba(0, 0, 0, 0.45);
+	box-sizing: border-box;
+	pointer-events: auto;
+}
+
+/* Horizontal strip: top — channels stacked one above the other */
+.vu-meter.vu-top {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 56px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+/* Horizontal strip: bottom — channels stacked one above the other */
+.vu-meter.vu-bottom {
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 56px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+/* Vertical strip: left */
+.vu-meter.vu-left {
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 44px;
+	padding-left: 2px;
+	padding-right: 2px;
+	column-gap: 14px;
+	flex-direction: row;
+}
+
+/* Vertical strip: right */
+.vu-meter.vu-right {
+	top: 0;
+	bottom: 0;
+	right: 0;
+	width: 44px;
+	padding-left: 2px;
+	padding-right: 2px;
+	column-gap: 14px;
+	flex-direction: row;
+}
+
+/* Individual channel track — gradient always runs low→high */
+.vu-meter.vu-top .vu-channel,
+.vu-meter.vu-bottom .vu-channel {
+	flex: 1;
+	position: relative;
+	background: linear-gradient(to right,
+			#0bc05a 0%,
+			#3bdd4c 45%,
+			#f3d22f 75%,
+			#f07d21 88%,
+			#d91f2f 100%);
+	border-radius: 2px;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+	overflow: hidden;
+}
+
+.vu-meter.vu-left .vu-channel,
+.vu-meter.vu-right .vu-channel {
+	flex: 1;
+	position: relative;
+	background: linear-gradient(to top,
+			#0bc05a 0%,
+			#3bdd4c 45%,
+			#f3d22f 75%,
+			#f07d21 88%,
+			#d91f2f 100%);
+	border-radius: 2px;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+	overflow: hidden;
+}
+
+/* Dark overlay mask that covers the "empty" (silent) portion */
+.vu-mask {
+	position: absolute;
+	background: linear-gradient(180deg, rgba(7, 8, 10, 0.96) 0%, rgba(13, 15, 19, 0.96) 100%);
+}
+
+/* Horizontal: mask covers from the right side inward */
+.vu-meter.vu-top .vu-mask,
+.vu-meter.vu-bottom .vu-mask {
+	top: 0;
+	bottom: 0;
+	right: 0;
+	width: 100%;
+}
+
+/* Vertical: mask covers from the top side downward */
+.vu-meter.vu-left .vu-mask,
+.vu-meter.vu-right .vu-mask {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 100%;
+}
+
+/* Hold indicator — thin line at the max-RMS position */
+.vu-hold {
+	position: absolute;
+	background: #d8f3ff;
+	box-shadow: 0 0 10px rgba(173, 238, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.8);
+	z-index: 2;
+}
+
+.vu-meter.vu-top .vu-hold,
+.vu-meter.vu-bottom .vu-hold {
+	width: 7px;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	border-radius: 2px;
+}
+
+.vu-meter.vu-left .vu-hold,
+.vu-meter.vu-right .vu-hold {
+	height: 7px;
+	top: 0;
+	left: 0;
+	right: 0;
+	border-radius: 2px;
+}
+
+/* Red hold bar when clipping has occurred — click meter to reset */
+.vu-hold.vu-hold-clipped {
+	background: #ff2a36;
+	box-shadow: 0 0 10px rgba(255, 37, 60, 0.95), 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+/* ---- dBFS scale markers ---- */
+/* Absolute overlay spanning the whole VU meter strip, pointer-events off */
+.vu-markers {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	pointer-events: none;
+	z-index: 3;
+}
+
+/* Individual tick: a 1 px line — dim white by default */
+.vu-tick {
+	position: absolute;
+	background: rgba(255, 255, 255, 0.24);
+}
+
+/* 0 dBFS tick is brighter to mark the clipping boundary */
+.vu-tick.vu-tick-zero {
+	background: #ffffff;
+	box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+/* Horizontal markers: each tick is a vertical 1 px line */
+.vu-markers-h .vu-tick {
+	top: 0;
+	bottom: 0;
+	width: 1px;
+}
+
+/* Horizontal labels (dBFS) */
+.vu-markers-h .vu-tick::after {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 9px;
+	line-height: 1;
+	font-family: var(--vscode-font-family, sans-serif);
+	color: rgba(255, 255, 255, 0.96);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 0.95);
+	background: rgba(0, 0, 0, 0.55);
+	border-radius: 2px;
+	padding: 0 2px;
+	white-space: nowrap;
+}
+
+.vu-markers-h .vu-tick:nth-child(1)::after {
+	content: "-20";
+}
+
+.vu-markers-h .vu-tick:nth-child(2)::after {
+	content: "-12";
+}
+
+.vu-markers-h .vu-tick:nth-child(3)::after {
+	content: "-6";
+}
+
+.vu-markers-h .vu-tick:nth-child(4)::after {
+	content: "-3";
+}
+
+.vu-markers-h .vu-tick:nth-child(5)::after {
+	content: "0 dB";
+	color: #ffffff;
+	font-weight: 700;
+}
+
+/* Vertical markers: each tick is a horizontal 1 px line */
+.vu-markers-v .vu-tick {
+	left: 0;
+	right: 0;
+	height: 1px;
+}
+
+/* Vertical labels (dBFS) */
+.vu-markers-v .vu-tick::after {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 8px;
+	line-height: 1;
+	font-family: var(--vscode-font-family, sans-serif);
+	color: rgba(255, 255, 255, 0.96);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 0.95);
+	background: rgba(0, 0, 0, 0.55);
+	border-radius: 2px;
+	padding: 0 2px;
+	white-space: nowrap;
+}
+
+.vu-markers-v .vu-tick:nth-child(1)::after {
+	content: "-20";
+}
+
+.vu-markers-v .vu-tick:nth-child(2)::after {
+	content: "-12";
+}
+
+.vu-markers-v .vu-tick:nth-child(3)::after {
+	content: "-6";
+}
+
+.vu-markers-v .vu-tick:nth-child(4)::after {
+	content: "-3";
+}
+
+.vu-markers-v .vu-tick:nth-child(5)::after {
+	content: "0";
+	color: #ffffff;
+	font-weight: 700;
+}

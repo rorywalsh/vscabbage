@@ -142,9 +142,11 @@ export class Image {
         // Only try to load image if file property is set
         if (this.props.file) {
             const imagePath = CabbageUtils.getFullMediaPath(this.props.file, this.props.currentCsdFile || '');
+            const normalizedFile = String(this.props.file).replace(/\\/g, '/').replace(/^\/+/, '');
+            const fallbackImagePath = `media/${normalizedFile}`;
             if (imagePath) {
                 return `
-                <img src="${imagePath}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.style.borderRadius}px; opacity: ${this.props.style.opacity}; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}" />
+                <img src="${imagePath}" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${fallbackImagePath}';}" alt="Image" style="width: 100%; height: 100%; border-radius: ${this.props.style.borderRadius}px; opacity: ${this.props.style.opacity}; pointer-events: none; display: ${this.props.visible ? 'block' : 'none'}; ${transformStyle}" />
             `;
             }
         }

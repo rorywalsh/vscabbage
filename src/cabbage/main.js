@@ -4,7 +4,7 @@
 
 
 
-import { setVSCode, setCabbageMode, widgets, vscode } from "./sharedState.js";
+import { setVSCode, setCabbageMode, setCurrentCsdPath, widgets, vscode } from "./sharedState.js";
 // import { initialiseDefaultProps } from "./widgetTypes.js";
 import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
@@ -110,10 +110,10 @@ CabbageUtils.showOverlay();
 // PostMessage(dawRootWindow, msgType, vkCode, 0) when consumeKeypresses is false.
 // e.keyCode matches Win32 virtual key codes for standard keys (letters, numbers, F-keys, etc.)
 if (typeof acquireVsCodeApi !== 'function') {
-    const WM_KEYDOWN    = 0x0100;
-    const WM_KEYUP      = 0x0101;
+    const WM_KEYDOWN = 0x0100;
+    const WM_KEYUP = 0x0101;
     const WM_SYSKEYDOWN = 0x0104;
-    const WM_SYSKEYUP   = 0x0105;
+    const WM_SYSKEYUP = 0x0105;
 
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)
@@ -151,6 +151,156 @@ window.addEventListener('keydown', (event) => {
 });
 
 /**
+ * Lightweight VU meter module.
+ * Reads peak + RMS data from the CabbageApp backend and renders per-channel bars
+ * with smooth rAF decay, dBFS scale markers, and a resettable max-RMS hold line.
+ *
+ * Scale: full bar = +3 dBFS (a little headroom above 0 dBFS).
+ * Endpoint peak LED turns red when peak has exceeded 0 dBFS. Click the meter to reset.
+ */
+const VuMeter = {
+    // dBFS headroom: full bar = +3 dBFS
+    DB_MAX: 3,
+    LINEAR_MAX: Math.pow(10, 3 / 20), // ≈ 1.2589
+
+    // dBFS positions for tick marks (-40 is too small to need a label, so skip it)
+    MARKER_DBS: [-20, -12, -6, -3, 0],
+
+    initialized: false,
+    numChannels: 0,
+    incomingLevels: [],  // latest peak per channel received from backend
+    incomingRms: [],  // latest RMS per channel received from backend
+    displayedLevels: [],  // smoothed bar fill (rAF decayed)
+    clipped: [],  // true if peak ever exceeded 0 dBFS since last reset
+    rafId: null,
+
+    // Convert linear amplitude to bar percentage using the +DB_MAX headroom scale
+    toBarPct(linear) {
+        return Math.min((linear / this.LINEAR_MAX) * 100, 100);
+    },
+
+    init(numChannels) {
+        const vuDiv = document.getElementById('VuMeter');
+        if (!vuDiv) return;
+
+        this.numChannels = numChannels;
+        this.incomingLevels = new Array(numChannels).fill(0);
+        this.incomingRms = new Array(numChannels).fill(0);
+        this.displayedLevels = new Array(numChannels).fill(0);
+        this.clipped = new Array(numChannels).fill(false);
+        vuDiv.innerHTML = '';
+
+        const isHorizontal = vuDiv.classList.contains('vu-top') || vuDiv.classList.contains('vu-bottom');
+
+        // Channel bars
+        for (let i = 0; i < numChannels; i++) {
+            const ch = document.createElement('div');
+            ch.className = 'vu-channel';
+
+            const mask = document.createElement('div');
+            mask.className = 'vu-mask';
+            ch.appendChild(mask);
+
+            const hold = document.createElement('div');
+            hold.className = 'vu-hold';
+            ch.appendChild(hold);
+
+            // Reset this channel's peak LED only
+            const resetChannelPeak = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.clipped[i] = false;
+                hold.classList.remove('vu-hold-clipped');
+            };
+            hold.style.cursor = 'pointer';
+            hold.addEventListener('click', resetChannelPeak);
+            ch.addEventListener('click', resetChannelPeak);
+
+            vuDiv.appendChild(ch);
+        }
+
+        // Scale marker ticks — one shared overlay spanning the whole meter
+        const markersEl = document.createElement('div');
+        markersEl.className = 'vu-markers ' + (isHorizontal ? 'vu-markers-h' : 'vu-markers-v');
+        for (const db of this.MARKER_DBS) {
+            const pct = this.toBarPct(Math.pow(10, db / 20));
+            const tick = document.createElement('div');
+            tick.className = 'vu-tick' + (db === 0 ? ' vu-tick-zero' : '');
+            if (isHorizontal) {
+                tick.style.left = pct + '%';
+            } else {
+                tick.style.top = (100 - pct) + '%';
+            }
+            markersEl.appendChild(tick);
+        }
+        vuDiv.appendChild(markersEl);
+
+        this.initialized = true;
+        if (!this.rafId) {
+            this._loop();
+        }
+    },
+
+    // Called on each incoming backend message — just stash values, no DOM work
+    update(levels, rms) {
+        if (!Array.isArray(levels) || levels.length === 0) return;
+
+        if (!this.initialized || levels.length !== this.numChannels) {
+            this.init(levels.length);
+        }
+        if (!this.initialized) return;
+
+        for (let i = 0; i < this.numChannels; i++) {
+            if (levels[i] > this.incomingLevels[i])
+                this.incomingLevels[i] = levels[i];
+            // Clip flag: peak > 1.0 linear = over 0 dBFS
+            if (levels[i] > 1.0)
+                this.clipped[i] = true;
+            if (rms && rms[i] !== undefined && rms[i] > this.incomingRms[i])
+                this.incomingRms[i] = rms[i];
+        }
+    },
+
+    _loop() {
+        this.rafId = requestAnimationFrame(() => this._loop());
+        if (!this.initialized) return;
+
+        const vuDiv = document.getElementById('VuMeter');
+        if (!vuDiv) return;
+
+        const isHorizontal = vuDiv.classList.contains('vu-top') || vuDiv.classList.contains('vu-bottom');
+        const channels = vuDiv.querySelectorAll('.vu-channel');
+        const DECAY = 0.975; // ~40 dB/sec fall at 60 fps
+
+        for (let i = 0; i < channels.length; i++) {
+            // --- bar fill ---
+            this.displayedLevels[i] = Math.max(this.incomingLevels[i], this.displayedLevels[i] * DECAY);
+            this.incomingLevels[i] *= DECAY;
+            const pct = this.toBarPct(this.displayedLevels[i]);
+
+            // RMS still decays internally (reserved for potential readout use)
+            this.incomingRms[i] *= DECAY;
+
+            // Update mask
+            const mask = channels[i].querySelector('.vu-mask');
+            if (mask) {
+                if (isHorizontal)
+                    mask.style.width = (100 - pct) + '%';
+                else
+                    mask.style.height = (100 - pct) + '%';
+            }
+
+            // Update hold indicator
+            const hold = channels[i].querySelector('.vu-hold');
+            if (hold) {
+                // Fixed endpoint LED: right edge for horizontal, top edge for vertical
+                hold.classList.toggle('vu-hold-clipped', this.clipped[i]);
+            }
+        }
+    }
+};
+
+/**
  * Called from the plugin / vscode extension on startup, and when a user saves/updates or changes a .csd file.
  * This function is also called whenever a widget is updated through Csound, or the host DAW.
  * @param {Event} event - The event containing message data from the webview panel.
@@ -166,6 +316,10 @@ window.addEventListener('message', async (event) => {
             console.error('Cabbage: Failed to parse message string:', message);
             return;
         }
+    }
+
+    if (message && typeof message.currentCsdPath === 'string' && message.currentCsdPath.length > 0) {
+        setCurrentCsdPath(message.currentCsdPath);
     }
 
     // Log all incoming messages to help debug
@@ -355,6 +509,10 @@ window.addEventListener('message', async (event) => {
             if (rPanel) {
                 rPanel.style.display = 'block';
             }
+
+            // Hide VU meter in edit mode (it obscures widget placement)
+            const vuMeterEdit = document.getElementById('VuMeter');
+            if (vuMeterEdit) { vuMeterEdit.style.display = 'none'; }
             break;
 
         // Called when entering performance mode
@@ -375,6 +533,10 @@ window.addEventListener('message', async (event) => {
                 console.log('RightPanel: hiding panel due to performance mode');
                 rightPanel.style.display = 'none';
             }
+
+            // Show VU meter in performance mode
+            const vuMeterPerf = document.getElementById('VuMeter');
+            if (vuMeterPerf) { vuMeterPerf.style.display = 'flex'; }
             break;
 
         // Called when there are new Csound console messages to display
@@ -389,6 +551,10 @@ window.addEventListener('message', async (event) => {
                     csoundOutput.appendText(message.text); // Append new console message
                 }
             }
+            break;
+
+        case 'vuMeter':
+            VuMeter.update(message.levels, message.rms);
             break;
 
         case 'saveFromUIEditor':

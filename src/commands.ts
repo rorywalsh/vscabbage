@@ -338,24 +338,42 @@ export class Commands {
         switch (message.command) {
             case 'getMediaFiles':
                 try {
-                    let editor = vscode.window.activeTextEditor?.document;
-                    if (!editor) {
-                        return; // Exit early if no active editor
+                    const activeFile = vscode.window.activeTextEditor?.document?.fileName;
+                    const csdPath = this.lastSavedFileName || (activeFile && activeFile.endsWith('.csd') ? activeFile : undefined);
+
+                    if (!csdPath) {
+                        if (this.panel) {
+                            this.panel.webview.postMessage({
+                                command: 'mediaFiles',
+                                files: []
+                            });
+                        }
+                        break;
                     }
 
-                    let directory = path.join(path.dirname(editor.fileName), 'media');
+                    const directory = path.join(path.dirname(csdPath), 'media');
 
                     if (!fs.existsSync(directory)) {
-                        return; // Exit early if the directory does not exist
+                        if (this.panel) {
+                            this.panel.webview.postMessage({
+                                command: 'mediaFiles',
+                                files: []
+                            });
+                        }
+                        break;
                     }
 
-                    // Now `directory` is guaranteed to exist
                     fs.readdir(directory, (err, files) => {
                         if (err) {
                             console.error('Cabbage: Error reading directory:', err);
+                            if (this.panel) {
+                                this.panel.webview.postMessage({
+                                    command: 'mediaFiles',
+                                    files: []
+                                });
+                            }
                             return;
                         }
-                        // Send the files back to the WebView
                         if (this.panel) {
                             this.panel.webview.postMessage({
                                 command: 'mediaFiles',
@@ -365,6 +383,12 @@ export class Commands {
                     });
                 } catch (error) {
                     console.error('Cabbage: Error processing audio files request:', error);
+                    if (this.panel) {
+                        this.panel.webview.postMessage({
+                            command: 'mediaFiles',
+                            files: []
+                        });
+                    }
                 }
 
                 break;
@@ -772,8 +796,26 @@ export class Commands {
             vscode.Uri.file(path.join(context.extensionPath, 'src'))
         ];
 
+        // Include all workspace roots (and their media folders) so resource loading
+        // is not tied to whichever editor tab was active when the panel was created.
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+        for (const folder of workspaceFolders) {
+            localResources.push(folder.uri);
+            const workspaceMedia = path.join(folder.uri.fsPath, 'media');
+            if (fs.existsSync(workspaceMedia)) {
+                localResources.push(vscode.Uri.file(workspaceMedia));
+            }
+        }
+
         if (fs.existsSync(path.join(directoryPath, 'media'))) {
             localResources.push(vscode.Uri.file(path.join(directoryPath, 'media')));
+        }
+
+        // Detect custom UI early so we can add its directory to localResourceRoots
+        // before the panel is created (localResourceRoots cannot be changed after creation).
+        const customUI = fullPath ? ExtensionUtils.detectCustomUI(fullPath) : null;
+        if (customUI && customUI.type === 'file') {
+            localResources.push(vscode.Uri.file(path.dirname(customUI.htmlPath)));
         }
 
         // Add custom widget directories to local resource roots
@@ -846,11 +888,21 @@ export class Commands {
         const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
             vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
 
-        // Get property panel position from settings
+        // Get panel layout settings
         const cabbageConfig = vscode.workspace.getConfiguration('cabbage');
         const propertyPanelPosition = cabbageConfig.get<string>('propertyPanelPosition', 'right');
+        const vuMeterPosition = cabbageConfig.get<string>('vuMeterPosition', 'bottom');
 
-        this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition);
+        if (customUI) {
+            const formSize = fullPath ? ExtensionUtils.getFormBoundsFromCsd(fullPath) : null;
+            if (customUI.type === 'iframe') {
+                this.panel.webview.html = ExtensionUtils.getIframeRelayContent(customUI.url, formSize ?? undefined);
+            } else {
+                this.panel.webview.html = ExtensionUtils.getCustomUIContent(customUI.htmlPath, this.panel.webview);
+            }
+        } else {
+            this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition, vuMeterPosition);
+        }
         return this.panel;
 
     }
@@ -994,6 +1046,9 @@ export class Commands {
         }
 
         this.lastSavedFileName = finalFileName;
+        if (finalFileName.endsWith('.csd')) {
+            this.getOutputChannel().clear();
+        }
         this.getOutputChannel().appendLine(`Saving file: ${finalFileName}`);
 
         const config = vscode.workspace.getConfiguration("cabbage");
@@ -1353,6 +1408,15 @@ export class Commands {
                                 if (panel) {
                                     panel.dispose();
                                     panel = undefined;
+                                }
+                            }
+                            else if (msg['command'] === 'vuMeter') {
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.webview.postMessage({
+                                        command: 'vuMeter',
+                                        levels: msg['levels'],
+                                    });
                                 }
                             }
                         }
@@ -1751,6 +1815,89 @@ export class Commands {
      * Creates a new file with predefined content based on the type and opens it in a new tab.
      * @param type The type of the new file to create.
      */
+    /**
+     * Traverses upward from startDir looking for a directory that contains a .csd
+     * file whose name matches the directory name (e.g. MyPlugin/MyPlugin.csd).
+     * This identifies the Cabbage project root regardless of which file is active.
+     * Returns null if no such directory is found before reaching the workspace root
+     * or the filesystem root.
+     */
+    private static findCabbageProjectRoot(startDir: string): string | null {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        let dir = startDir;
+
+        while (true) {
+            const folderName = path.basename(dir);
+            const csdPath = path.join(dir, folderName + '.csd');
+            if (fs.existsSync(csdPath)) {
+                return dir;
+            }
+            const parent = path.dirname(dir);
+            // Stop at workspace root or filesystem root
+            if (parent === dir || (workspaceRoot && dir === workspaceRoot)) {
+                break;
+            }
+            dir = parent;
+        }
+        return null;
+    }
+
+    /**
+     * Creates a cabbage.project.json file at the Cabbage project root —
+     * the nearest ancestor directory containing a .csd whose name matches
+     * the folder name. Falls back to the workspace root if none is found.
+     */
+    static async createCabbageProjectFile() {
+        const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+        const startDir = activeFile
+            ? path.dirname(activeFile)
+            : workspaceFolder?.uri.fsPath;
+
+        if (!startDir) {
+            vscode.window.showErrorMessage('Cabbage: Open a workspace folder or .csd file first.');
+            return;
+        }
+
+        // Prefer the detected project root; fall back to workspace root, then startDir
+        const targetDir =
+            Commands.findCabbageProjectRoot(startDir) ??
+            workspaceFolder?.uri.fsPath ??
+            startDir;
+
+        if (!targetDir) {
+            vscode.window.showErrorMessage('Cabbage: Open a workspace folder or .csd file first.');
+            return;
+        }
+
+        const destPath = path.join(targetDir, 'cabbage.project.json');
+
+        if (fs.existsSync(destPath)) {
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(destPath));
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage('cabbage.project.json already exists — opened for editing.');
+            return;
+        }
+
+        const content = [
+            '{',
+            '  // Entry point for the custom UI.',
+            '  // Use a localhost URL to connect to a running dev server (e.g. Vite) with live reload:',
+            '  //   "entry": "http://localhost:5173"',
+            '  // Use a relative file path to load a built or plain-HTML file directly:',
+            '  //   "entry": "dist/index.html"',
+            '  "entry": "index.html"',
+            '}'
+        ].join('\n');
+
+        const fileContent = new TextEncoder().encode(content);
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(destPath), fileContent);
+
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(destPath));
+        await vscode.window.showTextDocument(doc);
+    }
+
     static async createNewCabbageFile(type: string) {
         // Get the new file contents based on the type
         const newFileContents = ExtensionUtils.getNewCabbageFile(type);
@@ -3043,6 +3190,21 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const csdPath = path.join(resourcesDir, `${projectName}.csd`);
         await fs.promises.writeFile(csdPath, csdContent);
         Commands.vscodeOutputChannel.appendLine(`Export: Created CSD file at: ${csdPath}`);
+
+        // Create cabbage.project.json configured for file mode.
+        // Users can change "entry" to a dev server URL (e.g. http://localhost:5173)
+        // when using a framework build tool during development.
+        const projectJsonPath = path.join(resourcesDir, 'cabbage.project.json');
+        const projectJsonContent = `{
+  // Entry point for the custom UI.
+  // Use a relative file path to load a built or plain-HTML file directly:
+  "entry": "index.html"
+  // Switch to a dev server URL for framework projects (Vite, React, Svelte) during development:
+  //   "entry": "http://localhost:5173"
+}
+`;
+        await fs.promises.writeFile(projectJsonPath, projectJsonContent);
+        Commands.vscodeOutputChannel.appendLine(`Export: Created cabbage.project.json at: ${projectJsonPath}`);
     }
 
     /**
@@ -3181,65 +3343,40 @@ include $(SYSTEM_FILES_DIR)/Makefile
         setupSlider('slider1');
         setupSlider('slider2');
 
-        const handleMessage = async (event) => {
-            console.log("Message received:", event.data);
-            let obj = event.data;
+        // Listen for incoming messages from the Cabbage backend.
+        // Cabbage.addMessageListener abstracts both VS Code (iframe relay) and
+        // native plugin (DAW) environments — no need for manual window.addEventListener.
+        Cabbage.addMessageListener((msg) => {
+            const data = msg.data ?? msg;
+            let sliderId, slider;
 
-            // Handle nested data field if present
-            const data = obj.data || obj;
-
-            let slider;
-            let sliderId;
-            if (obj.command === "parameterChange") {
-                // For parameterChange messages, find slider by paramIdx (from data field)
+            if (msg.command === 'parameterChange') {
+                // Find slider by parameter index
                 sliderId = data.paramIdx === 0 ? 'slider1' : 'slider2';
                 slider = document.getElementById(sliderId);
-            } else {
-                // For other messages, find slider by id
-                sliderId = data.id || obj.id;
+                if (slider && !isDragging[sliderId]) {
+                    slider.value = data.value;
+                }
+            } else if (msg.command === 'updateWidget') {
+                // Find slider by channel id
+                sliderId = data.id;
                 slider = document.getElementById(sliderId);
-            }
-
-            if (slider) {
-                switch (obj.command) {
-                    case "parameterChange":
-                        // Only update display if user isn't actively dragging
-                        if (!isDragging[sliderId]) {
-                            console.log(\`Parameter change for param \${data.paramIdx}:\`, data);
-                            slider.value = data.value;
-                        } else {
-                            console.log(\`Ignoring parameter change - user is dragging \${sliderId}\`);
+                if (slider && !isDragging[sliderId]) {
+                    if (data.value !== undefined) {
+                        slider.value = data.value;
+                    } else if (data.widgetJson !== undefined) {
+                        const widgetObj = JSON.parse(data.widgetJson);
+                        if (widgetObj.bounds) {
+                            slider.style.position = 'absolute';
+                            slider.style.top = widgetObj.bounds.top + 'px';
                         }
-                        break;
-                    case "widgetUpdate":
-                        // Only update if not dragging
-                        if (!isDragging[sliderId]) {
-                            if (data.value !== undefined) {
-                                console.log(\`Updating \${sliderId} to value:\`, data.value);
-                                slider.value = data.value;
-                            }
-                            else if (data.widgetJson !== undefined) {
-                                let widgetObj = JSON.parse(data.widgetJson);
-                                let bounds = widgetObj.bounds;
-                                if (bounds) {
-                                    slider.style.position = 'absolute';
-                                    slider.style.top = bounds.top + 'px';
-                                }
-                                // Set value if the UI has just been reopened
-                                if (widgetObj.value !== undefined) {
-                                    slider.value = widgetObj.value;
-                                }
-                            }
+                        if (widgetObj.value !== undefined) {
+                            slider.value = widgetObj.value;
                         }
-                        break;
-                    default:
-                        break;
+                    }
                 }
             }
-        };
-
-        // Add event listener
-        window.addEventListener("message", handleMessage);
+        });
     </script>
 </body>
 
