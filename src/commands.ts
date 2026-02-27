@@ -37,6 +37,7 @@ export class Commands {
     private static portNumber: number = 0;
     private static processes: (cp.ChildProcess | undefined)[] = [];
     private static lastSavedFileName: string | undefined;
+    private static lastFileDialogDirectory: string | undefined;
     private static highlightDecorationType: vscode.TextEditorDecorationType;
     private static panel: vscode.WebviewPanel | undefined;
     // websocket communication removed; use stdin/stdout pipes via sendMessageToCabbageApp
@@ -456,18 +457,48 @@ export class Commands {
 
             case 'fileOpen':
                 const jsonText = JSON.parse(message.obj);
+
+                // Determine starting directory based on openAtLastKnownLocation property
+                let defaultUri: vscode.Uri | undefined;
+                if (jsonText.openAtLastKnownLocation && this.lastFileDialogDirectory) {
+                    // Use last known location
+                    defaultUri = vscode.Uri.file(this.lastFileDialogDirectory);
+                } else if (jsonText.directory && jsonText.directory !== '') {
+                    // Use specified directory from widget
+                    defaultUri = vscode.Uri.file(jsonText.directory);
+                }
+
+                // Parse filters from the widget's filters string (e.g., "*.wav;*.aiff")
+                const filters: { [name: string]: string[] } = {};
+                if (jsonText.filters && jsonText.filters !== '*') {
+                    const extensions = jsonText.filters
+                        .split(';')
+                        .map((f: string) => f.trim().replace('*.', ''))
+                        .filter((f: string) => f.length > 0);
+                    if (extensions.length > 0) {
+                        filters['Files'] = extensions;
+                    }
+                } else {
+                    // Default to all files
+                    filters['All files'] = ['*'];
+                }
+
                 vscode.window.showOpenDialog({
                     canSelectFiles: true,
                     canSelectFolders: false,
                     canSelectMany: false,
                     openLabel: 'Open',
-                    filters: {
-                        'Audio files': ['wav', 'ogg', 'mp3', 'FLAC']
-                    }
+                    defaultUri: defaultUri,
+                    filters: filters
                 }).then((fileUri) => {
                     if (fileUri) {
+                        const filePath = fileUri[0].fsPath;
+
+                        // Store the directory for next time
+                        this.lastFileDialogDirectory = path.dirname(filePath);
+
                         const m = {
-                            "fileName": fileUri[0].fsPath,
+                            "fileName": filePath,
                             "channel": jsonText.channel
                         };
                         const msg = {
