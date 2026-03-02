@@ -27,7 +27,9 @@
     "languages": [
       {
         "id": "jsonc",
-        "filenames": ["cabbage.project.json"]
+        "filenames": [
+          "cabbage.project.json"
+        ]
       }
     ],
     "jsonValidation": [
@@ -141,7 +143,10 @@
         "cabbage.recordingBitDepth": {
           "type": "string",
           "default": "32-bit float",
-          "enum": ["16-bit", "32-bit float"],
+          "enum": [
+            "16-bit",
+            "32-bit float"
+          ],
           "description": "Bit depth for audio recording. 16-bit produces smaller files, 32-bit float provides higher quality and dynamic range."
         },
         "cabbage.snapToSize": {
@@ -342,6 +347,16 @@
       {
         "command": "cabbage.exportCLAPSynth",
         "title": "Export as CLAP Synth",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportVST3EffectARA",
+        "title": "Export as VST3 Effect (ARA)",
+        "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.exportVST3SynthARA",
+        "title": "Export as VST3 Synth (ARA)",
         "category": "Cabbage"
       },
       {

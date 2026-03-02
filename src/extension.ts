@@ -518,6 +518,15 @@ export async function activate(context: vscode.ExtensionContext):
         }));
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportVST3EffectARA', async () => {
+            await Commands.exportInstrument('VST3EffectARA');
+        }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('cabbage.exportVST3SynthARA', async () => {
+            await Commands.exportInstrument('VST3SynthARA');
+        }));
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('cabbage.createVanillaVST3Effect', async () => {
             await Commands.createVanillaProject('VST3Effect');
         }));

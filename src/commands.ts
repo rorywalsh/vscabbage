@@ -3656,6 +3656,12 @@ i2 5 z
             case 'CLAPSynth':
                 binaryFile = Settings.getCabbageBinaryPath('CabbagePluginCLAPSynth');
                 break;
+            case 'VST3EffectARA':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginEffectARA');
+                break;
+            case 'VST3SynthARA':
+                binaryFile = Settings.getCabbageBinaryPath('CabbagePluginSynthARA');
+                break;
             case 'AUv2Effect':
                 binaryFile = Settings.getCabbageBinaryPath('CabbageAUv2Effect');
                 break;
@@ -3781,6 +3787,12 @@ i2 5 z
                         case 'VST3Synth':
                         case 'CLAPSynth':
                             originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynth');
+                            break;
+                        case 'VST3EffectARA':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffectARA');
+                            break;
+                        case 'VST3SynthARA':
+                            originalFilePath = path.join(macOSDirPath, 'CabbagePluginSynthARA');
                             break;
                         case 'AUv2Effect':
                             originalFilePath = path.join(macOSDirPath, 'CabbagePluginEffectAUv2');
