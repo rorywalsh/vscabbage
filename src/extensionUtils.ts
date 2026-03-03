@@ -1973,8 +1973,9 @@ ${csoundSection}`;
 
     /**
      * Detects whether a custom UI is configured alongside the given .csd file.
-     * Looks first for a cabbage.project.json config file, then falls back to
-     * an index.html in the same directory.
+     * Looks for a cabbage.project.json config file in the same directory as the .csd.
+     * A project file must be present to activate custom UI mode — a bare index.html
+     * is intentionally not treated as a custom UI on its own.
      *
      * Returns one of:
      *   { type: 'iframe', url: string }  — load the UI via iframe relay (e.g. Vite dev server)
@@ -2010,12 +2011,6 @@ ${csoundSection}`;
             } catch (e) {
                 console.error('Cabbage: Failed to parse cabbage.project.json:', e);
             }
-        }
-
-        // Fallback: plain index.html alongside the .csd
-        const indexHtml = path.join(dir, 'index.html');
-        if (fs.existsSync(indexHtml)) {
-            return { type: 'file', htmlPath: indexHtml };
         }
 
         return null;
