@@ -836,7 +836,8 @@ ${JSON.stringify(props, null, 4)}
         const endTag = '</Cabbage>';
 
         const startIndex = text.indexOf(startTag);
-        const endIndex = text.indexOf(endTag) + endTag.length;
+        const endTagIndex = text.indexOf(endTag, startIndex >= 0 ? startIndex : 0);
+        const endIndex = endTagIndex >= 0 ? endTagIndex + endTag.length : -1;
         const lines = text.split('\n');
 
         if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
@@ -845,9 +846,9 @@ ${JSON.stringify(props, null, 4)}
             return updatedText.join('\n');
         }
 
-        const beforeCabbage = text.substring(0, startIndex).split('\n');;
+        const beforeCabbage = text.substring(0, startIndex).split('\n');
         const cabbageSection = text.substring(startIndex, endIndex);
-        const afterCabbage = text.substring(endIndex).split('\n');;
+        const afterCabbage = text.substring(endIndex).split('\n');
 
         const formattedBeforeCabbage = this.formatNonCabbageContent(beforeCabbage, ' '.repeat(indentSpaces));
         const formattedAfterCabbage = this.formatNonCabbageContent(afterCabbage, ' '.repeat(indentSpaces));
@@ -868,7 +869,7 @@ ${JSON.stringify(props, null, 4)}
         const endTag = '</Cabbage>';
 
         const startIndex = cabbageSection.indexOf(startTag);
-        const endIndex = cabbageSection.indexOf(endTag);
+        const endIndex = cabbageSection.indexOf(endTag, startIndex >= 0 ? startIndex : 0);
 
         if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
             return cabbageSection; // Return as-is if tags are malformed
@@ -906,23 +907,61 @@ ${JSON.stringify(props, null, 4)}
     }
 
     static formatNonCabbageContent(lines: string[], indentString: string): string[] {
-        let indents = 0; // Tracks current indentation level
+        let indents = 0; // Tracks indentation inside instr/opcode bodies
+        let inCodeBlock = false;
         const formattedLines: string[] = [];
+
+        const startsWithWord = (line: string, word: string): boolean => {
+            const lower = line.toLowerCase();
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp(`^${escaped}(?:$|\\s|\\()`, 'i');
+            return re.test(lower);
+        };
 
         for (let index = 0; index < lines.length; index++) {
             const line = lines[index];
             const trimmedLine = line.trim();
 
+            // Keep blank lines blank (no injected indentation whitespace)
+            if (trimmedLine.length === 0) {
+                formattedLines.push('');
+                continue;
+            }
+
+            const lower = trimmedLine.toLowerCase();
+
+            const startsInstr = startsWithWord(trimmedLine, 'instr');
+            const startsOpcode = startsWithWord(trimmedLine, 'opcode');
+            const endsInstr = startsWithWord(trimmedLine, 'endin');
+            const endsOpcode = startsWithWord(trimmedLine, 'endop');
+
+            // Outside instr/opcode bodies: don't auto-indent tags/sections.
+            if (!inCodeBlock) {
+                formattedLines.push(trimmedLine);
+                if (startsInstr || startsOpcode) {
+                    inCodeBlock = true;
+                    indents = 1;
+                }
+                continue;
+            }
+
+            // endin/endop should align to column 0 and close code mode.
+            if (endsInstr || endsOpcode) {
+                formattedLines.push(trimmedLine);
+                inCodeBlock = false;
+                indents = 0;
+                continue;
+            }
+
             // Decrease indentation level for end keywords and labels
             if (
-                trimmedLine.startsWith("endif") ||
-                trimmedLine.startsWith("endin") ||
-                trimmedLine.startsWith("endop") ||
-                trimmedLine.startsWith("od") ||
-                trimmedLine.startsWith("else") ||
-                trimmedLine.startsWith("enduntil")
+                startsWithWord(trimmedLine, 'endif') ||
+                startsWithWord(trimmedLine, 'elseif') ||
+                startsWithWord(trimmedLine, 'od') ||
+                startsWithWord(trimmedLine, 'else') ||
+                startsWithWord(trimmedLine, 'enduntil')
             ) {
-                indents = Math.max(0, indents - 1);
+                indents = Math.max(1, indents - 1);
             }
 
             // Add indentation
@@ -931,12 +970,11 @@ ${JSON.stringify(props, null, 4)}
 
             // Increase indentation level for specific keywords
             if (
-                (trimmedLine.startsWith("if ") && trimmedLine.includes("then")) ||
-                (trimmedLine.startsWith("if(") && trimmedLine.includes("then")) ||
-                trimmedLine.startsWith("instr") ||
-                trimmedLine.startsWith("opcode") ||
-                trimmedLine.startsWith("else") ||
-                trimmedLine.startsWith("while")
+                ((startsWithWord(trimmedLine, 'if') || startsWithWord(trimmedLine, 'elseif')) && lower.includes('then')) ||
+                startsWithWord(trimmedLine, 'instr') ||
+                startsWithWord(trimmedLine, 'opcode') ||
+                startsWithWord(trimmedLine, 'else') ||
+                startsWithWord(trimmedLine, 'while')
             ) {
                 indents++;
             }
