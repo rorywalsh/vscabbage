@@ -548,7 +548,9 @@ be lost when working with the UI editor. -->\n`;
             const cabbageContent = cabbageMatch[1].trim();
 
             try {
-                const cabbageJsonArray = JSON.parse(cabbageContent) as WidgetProps[];
+                const parsed = JSON.parse(cabbageContent);
+                // Support both old array format and new object format with "widgets" key
+                const cabbageJsonArray = (Array.isArray(parsed) ? parsed : parsed.widgets) as WidgetProps[];
                 const hasFormType = cabbageJsonArray.some(obj => obj.type === 'form');
 
                 if (!hasFormType) {
@@ -698,20 +700,30 @@ be lost when working with the UI editor. -->\n`;
                     const config = vscode.workspace.getConfiguration("cabbage");
                     const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
 
-                    let formattedArray: string;
-                    if (isSingleLine) {
-                        formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
+                    // Preserve top-level properties (e.g. package) when updating widgets
+                    const cabbageObject = Array.isArray(parsed)
+                        ? { widgets: cabbageJsonArray }
+                        : { ...parsed, widgets: cabbageJsonArray };
+
+                    let formattedJson: string;
+                    const hasAdditionalTopLevelKeys = !Array.isArray(parsed)
+                        && Object.keys(parsed).some(key => key !== 'widgets');
+
+                    if (isSingleLine && !hasAdditionalTopLevelKeys) {
+                        // For single-line mode, format just the widgets array with custom formatter
+                        const formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
+                        formattedJson = `{\n    "widgets": ${formattedArray}\n}`;
                     } else {
                         // Use the same FracturedJson formatter and config as the format command
                         const indentSpaces = config.get("jsonIndentSpaces", 4);
                         const maxLength = config.get("jsonMaxLength", 120);
-                        formattedArray = formatJson(cabbageJsonArray, { maxLength: maxLength, indent: indentSpaces });
+                        formattedJson = formatJson(cabbageObject, { maxLength: maxLength, indent: indentSpaces });
                     }
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 
                     // Build the updated cabbage section
-                    const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedArray}</Cabbage>`;
+                    const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedJson}</Cabbage>`;
 
                     // Get a FRESH text editor reference right before editing
                     // CRITICAL: The editor/document captured at the start of this function may be stale
@@ -781,10 +793,12 @@ be lost when working with the UI editor. -->\n`;
             const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
 
             const cabbageContent = warningComment + `
-<Cabbage>[
-{"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"},
-${JSON.stringify(props, null, 4)}
-]</Cabbage>`;
+<Cabbage>{
+    "widgets": [
+        {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"},
+        ${JSON.stringify(props, null, 4)}
+    ]
+}</Cabbage>`;
 
             const workspaceEdit = new vscode.WorkspaceEdit();
 
@@ -898,8 +912,15 @@ ${JSON.stringify(props, null, 4)}
     static collapseCabbageContent(cabbageContent: string): string {
         let formattedCabbageText = '';
         try {
-            const jsonArray = JSON.parse(cabbageContent);
-            formattedCabbageText = ExtensionUtils.formatJsonObjects(jsonArray, '') + '\n';
+            const parsed = JSON.parse(cabbageContent);
+            if (Array.isArray(parsed)) {
+                formattedCabbageText = ExtensionUtils.formatJsonObjects(parsed, '') + '\n';
+            } else if (parsed && typeof parsed === 'object') {
+                // Preserve top-level keys like "package" when collapsing object-form JSON
+                formattedCabbageText = JSON.stringify(parsed) + '\n';
+            } else {
+                formattedCabbageText = cabbageContent + '\n';
+            }
         } catch (error) {
             formattedCabbageText = cabbageContent + '\n'; // If parsing fails, keep the original content
         }
@@ -1135,7 +1156,7 @@ ${JSON.stringify(props, null, 4)}
             return widget as Widget; // Cast back to Widget to ensure type safety
         });
 
-        const newCabbageSection = `<Cabbage>${JSON.stringify(newWidgets, null, 4)}</Cabbage>`;
+        const newCabbageSection = `<Cabbage>${JSON.stringify({ widgets: newWidgets }, null, 4)}</Cabbage>`;
 
         const edit = new vscode.WorkspaceEdit();
         edit.replace(
@@ -1432,10 +1453,11 @@ ${JSON.stringify(props, null, 4)}
         const cabbageSection = (caption: string, widgets: string) => `
 <!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
 be lost when working with the UI editor. -->\n
-<Cabbage>
-[
-    {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "pluginId": "def1"},${widgets}
-]
+<Cabbage>{
+    "widgets": [
+        {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "pluginId": "def1"},${widgets}
+    ]
+}
 </Cabbage>`;
 
         if (type === 'effect') {
@@ -1642,7 +1664,9 @@ ${csoundSection}`;
             }
 
             try {
-                const jsonArray = JSON.parse(cabbageContent);
+                const parsed = JSON.parse(cabbageContent);
+                // Support both old array format and new object format with "widgets" key
+                const jsonArray = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.widgets) ? parsed.widgets : []);
 
                 console.log(`ExtensionUtils: validateCabbageJSON checking ${jsonArray.length} widgets`);
 
@@ -2061,7 +2085,9 @@ ${csoundSection}`;
             const match = text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/);
             if (!match) { return null; }
             const json = JSON.parse(match[1]);
-            const widgets: any[] = Array.isArray(json) ? json : [json];
+            const widgets: any[] = Array.isArray(json)
+                ? json
+                : (Array.isArray(json?.widgets) ? json.widgets : [json]);
             for (const w of widgets) {
                 if (w.type === 'form') {
                     const s = w.size;

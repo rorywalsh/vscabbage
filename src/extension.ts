@@ -171,6 +171,105 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
         };
     }
 }
+
+/**
+ * Converts cryptic JSON errors into user-friendly messages with actionable advice
+ * @param error The original error message
+ * @param document The document being validated
+ * @param position The position of the error
+ * @returns A user-friendly error message
+ */
+function makeUserFriendlyErrorMessage(error: string, document: vscode.TextDocument, position: { line: number; column: number }): string {
+    const line = document.lineAt(position.line).text;
+    const prevLine = position.line > 0 ? document.lineAt(position.line - 1).text : '';
+
+    // Check for trailing comma (most common issue)
+    if ((error.includes('Expected double-quoted property name') || error.includes('Unexpected token')) &&
+        prevLine.trimEnd().endsWith(',')) {
+        const trimmedPrev = prevLine.trim();
+        if (trimmedPrev.endsWith('},') || trimmedPrev.endsWith('],')) {
+            return `❌ Trailing comma not allowed in JSON.\n💡 Fix: Remove the comma at the end of the previous line (line ${position.line}).`;
+        }
+    }
+
+    // Check for trailing comma on current line
+    if (error.includes('Unexpected token') && line.trimEnd().endsWith(',')) {
+        return `❌ Trailing comma not allowed in JSON.\n💡 Fix: Remove the comma at the end of this line.`;
+    }
+
+    // Missing quotes around property names
+    if (error.includes('Expected double-quoted property name')) {
+        if (line.includes(':') && !line.includes('"')) {
+            return `❌ Property names must be wrapped in double quotes.\n💡 Fix: Change property names like 'type' to "type" (use double quotes, not single quotes).`;
+        }
+        return `❌ Invalid JSON syntax - expected a property name in double quotes.\n💡 Fix: Make sure all property names are in "double quotes", and check for trailing commas.`;
+    }
+
+    // Single quotes instead of double quotes
+    if (error.includes('Unexpected token') && line.includes("'")) {
+        return `❌ JSON requires double quotes, not single quotes.\n💡 Fix: Replace single quotes (') with double quotes (") throughout your JSON.`;
+    }
+
+    // Missing comma
+    if (error.includes('Expected') && error.includes('comma')) {
+        return `❌ Missing comma between items.\n💡 Fix: Add a comma at the end of the previous line to separate items in the array or object.`;
+    }
+
+    // Unclosed brackets/braces
+    if (error.includes('Unexpected end of JSON')) {
+        return `❌ JSON is incomplete - missing closing bracket or brace.\n💡 Fix: Check that all { } and [ ] are properly closed.`;
+    }
+
+    // Unexpected token
+    if (error.includes('Unexpected token')) {
+        const token = error.match(/Unexpected token '?([^'\s]+)/)?.[1];
+        if (token) {
+            return `❌ Unexpected character '${token}' found in JSON.\n💡 Fix: Check the syntax around this character - you may have a missing comma, extra bracket, or typo.`;
+        }
+    }
+
+    // Default fallback with the original error
+    return `❌ JSON Syntax Error: ${error}\n💡 Common fixes:\n  • Check for trailing commas (not allowed in JSON)\n  • Ensure all property names use "double quotes"\n  • Make sure all { } and [ ] are closed`;
+}
+
+/**
+ * Validates Cabbage JSON syntax in real-time and sets diagnostics
+ * @param editor The text editor to validate
+ */
+function validateCabbageJSONSyntax(editor: vscode.TextEditor): void {
+    const document = editor.document;
+    const text = document.getText();
+
+    const jsonValidation = validateCabbageJSON(text);
+
+    if (!jsonValidation.valid && jsonValidation.position) {
+        // Create a diagnostic for the error
+        const errorLineContent = document.lineAt(jsonValidation.position.line).text;
+        const range = new vscode.Range(
+            jsonValidation.position.line, 0,
+            jsonValidation.position.line, errorLineContent.length
+        );
+
+        // Convert to user-friendly message
+        const friendlyMessage = makeUserFriendlyErrorMessage(
+            jsonValidation.error || 'Unknown JSON error',
+            document,
+            jsonValidation.position
+        );
+
+        const diagnostic = new vscode.Diagnostic(
+            range,
+            friendlyMessage,
+            vscode.DiagnosticSeverity.Error
+        );
+
+        Commands.setJSONDiagnostics(document.uri, [diagnostic]);
+    } else if (jsonValidation.valid) {
+        // Clear diagnostics if JSON is valid
+        Commands.clearJSONDiagnostics(document.uri);
+    }
+}
+
 // WebSocket server removed; communication happens over stdin/stdout pipes
 // (websocket variables and server were removed)
 let firstMessages: any[] = [];
@@ -310,6 +409,11 @@ export async function activate(context: vscode.ExtensionContext):
         if (editor) {
             updateWarningDecorations(editor);
             updateJsonCommentDecorations(editor);
+
+            // Validate JSON syntax when switching to a .csd file
+            if (editor.document.fileName.endsWith('.csd')) {
+                validateCabbageJSONSyntax(editor);
+            }
         }
     }));
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => {
@@ -317,6 +421,11 @@ export async function activate(context: vscode.ExtensionContext):
         if (editor) {
             updateWarningDecorations(editor);
             updateJsonCommentDecorations(editor);
+
+            // Validate JSON syntax when opening a .csd file
+            if (editor.document.fileName.endsWith('.csd')) {
+                validateCabbageJSONSyntax(editor);
+            }
         }
     }));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
@@ -324,6 +433,11 @@ export async function activate(context: vscode.ExtensionContext):
         if (editor) {
             updateWarningDecorations(editor);
             updateJsonCommentDecorations(editor);
+
+            // Validate JSON syntax in real-time for .csd files
+            if (editor.document.fileName.endsWith('.csd')) {
+                validateCabbageJSONSyntax(editor);
+            }
         }
     }));
 
@@ -747,24 +861,30 @@ export async function activate(context: vscode.ExtensionContext):
         }));
 
     // Register document formatting provider for VSCode's built-in Format Document command
-    context.subscriptions.push(
-        vscode.languages.registerDocumentFormattingEditProvider('csound-csd', {
-            provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
-                const text = document.getText();
-                const formattedText = ExtensionUtils.formatText(text);
+    // Support both 'csound' (kunstmusik extension) and 'csound-csd' (legacy/other extensions)
+    const formattingProvider = {
+        provideDocumentFormattingEdits(document: vscode.TextDocument): vscode.TextEdit[] {
+            const text = document.getText();
+            const formattedText = ExtensionUtils.formatText(text);
 
-                // Only return edits if the text actually changed
-                if (formattedText !== text) {
-                    const range = new vscode.Range(
-                        document.positionAt(0),
-                        document.positionAt(text.length)
-                    );
-                    return [vscode.TextEdit.replace(range, formattedText)];
-                }
-
-                return [];
+            // Only return edits if the text actually changed
+            if (formattedText !== text) {
+                const range = new vscode.Range(
+                    document.positionAt(0),
+                    document.positionAt(text.length)
+                );
+                return [vscode.TextEdit.replace(range, formattedText)];
             }
-        })
+
+            return [];
+        }
+    };
+
+    context.subscriptions.push(
+        vscode.languages.registerDocumentFormattingEditProvider('csound', formattingProvider)
+    );
+    context.subscriptions.push(
+        vscode.languages.registerDocumentFormattingEditProvider('csound-csd', formattingProvider)
     );
 
     /**

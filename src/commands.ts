@@ -20,6 +20,37 @@ function formatJson(obj: any, options: { maxLength: number; indent: number }): s
     formatter.Options = fjOptions;
     return formatter.Serialize(obj) ?? '';
 }
+
+/**
+ * Helper to parse Cabbage JSON content - supports both formats
+ * @param jsonContent - The JSON string from the Cabbage section
+ * @returns Object with `root` (full parsed object) and `widgets` (array of widgets)
+ */
+function parseCabbageJSON(jsonContent: string): { root: any, widgets: any[] } {
+    const parsed = JSON.parse(jsonContent);
+
+    // Support both old array format and new object format
+    if (Array.isArray(parsed)) {
+        // Legacy format: root is array
+        return { root: parsed, widgets: parsed };
+    } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.widgets)) {
+        // New format: root is object with "widgets" key
+        return { root: parsed, widgets: parsed.widgets };
+    } else {
+        throw new Error('Invalid Cabbage JSON structure: Expected either an array of widgets or an object with a "widgets" array');
+    }
+}
+
+function getPackageConfig(root: any, formWidget?: any): any {
+    if (root && !Array.isArray(root) && typeof root === 'object' && root.package && typeof root.package === 'object') {
+        return root.package;
+    }
+    if (formWidget && formWidget.package && typeof formWidget.package === 'object') {
+        return formWidget.package;
+    }
+    return undefined;
+}
+
 export let cabbageStatusBarItem: vscode.StatusBarItem;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
@@ -98,13 +129,7 @@ export class Commands {
             // We just need to handle the surrounding brackets if they are missing or malformed?
             // Usually Cabbage section is a JSON array [ ... ].
 
-            const widgets = JSON.parse(jsonContent);
-
-            if (!Array.isArray(widgets)) {
-                vscode.window.showErrorMessage('Cabbage section is not a valid JSON array.');
-                return;
-            }
-
+            const { root, widgets } = parseCabbageJSON(jsonContent);
             const reorderedWidgets = reorderWidgets(widgets);
 
             // Get formatting settings from configuration
@@ -112,8 +137,13 @@ export class Commands {
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
 
+            // Preserve full root object (e.g. top-level package) when present
+            const newRoot = Array.isArray(root)
+                ? reorderedWidgets
+                : { ...root, widgets: reorderedWidgets };
+
             // Stringify back to JSON using FracturedJson formatter
-            const newJsonContent = formatJson(reorderedWidgets, { maxLength: maxLength, indent: indentSpaces });
+            const newJsonContent = formatJson(newRoot, { maxLength: maxLength, indent: indentSpaces });
 
             // Replace in editor
             const startPos = document.positionAt(match.index! + "<Cabbage>".length);
@@ -1592,9 +1622,12 @@ export class Commands {
         const warningComment = ExtensionUtils.getWarningComment();
 
         const cabbageContent = warningComment + `
-<Cabbage>[
-{"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"}
-]</Cabbage>`;
+<Cabbage>{
+    "widgets": [
+        {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"}
+    ]
+}
+</Cabbage>`;
 
         const edit = new vscode.WorkspaceEdit();
 
@@ -2493,9 +2526,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
                     return;
                 }
 
+                let parsedCabbage;
                 let cabbageWidgets;
                 try {
-                    cabbageWidgets = JSON.parse(cabbageContent);
+                    parsedCabbage = parseCabbageJSON(cabbageContent);
+                    cabbageWidgets = parsedCabbage.widgets;
                 } catch (error) {
                     vscode.window.showErrorMessage('Failed to parse Cabbage JSON content');
                     return;
@@ -2522,21 +2557,22 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                 // Debug logging to help troubleshoot cabzOutputDir issues
                 this.vscodeOutputChannel.appendLine(`Export Pro: Checking for custom cabz output directory...`);
+                const packageConfig = getPackageConfig(parsedCabbage?.root, formWidget);
                 if (formWidget) {
-                    if (formWidget.package) {
-                        this.vscodeOutputChannel.appendLine(`Export Pro: Found package configuration: ${JSON.stringify(formWidget.package)}`);
-                        if (formWidget.package.cabzOutputDir) {
-                            this.vscodeOutputChannel.appendLine(`Export Pro: Found cabzOutputDir: "${formWidget.package.cabzOutputDir}"`);
+                    if (packageConfig) {
+                        this.vscodeOutputChannel.appendLine(`Export Pro: Found package configuration: ${JSON.stringify(packageConfig)}`);
+                        if (packageConfig.cabzOutputDir) {
+                            this.vscodeOutputChannel.appendLine(`Export Pro: Found cabzOutputDir: "${packageConfig.cabzOutputDir}"`);
                         } else {
                             this.vscodeOutputChannel.appendLine(`Export Pro: 'cabzOutputDir' property not found in package object`);
                         }
                     } else {
-                        this.vscodeOutputChannel.appendLine(`Export Pro: 'package' object not found in form widget`);
+                        this.vscodeOutputChannel.appendLine(`Export Pro: 'package' object not found at top-level or in form widget`);
                     }
                 }
 
-                if (formWidget.package && formWidget.package.cabzOutputDir) {
-                    const customDir = String(formWidget.package.cabzOutputDir).trim();
+                if (packageConfig && packageConfig.cabzOutputDir) {
+                    const customDir = String(packageConfig.cabzOutputDir).trim();
                     // Resolve path: if absolute use as-is, if relative resolve from CSD file directory
                     const resolvedDir = path.isAbsolute(customDir)
                         ? path.normalize(customDir)
@@ -2558,9 +2594,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
 
                 // Process package.include entries if present
-                if (formWidget.package && Array.isArray(formWidget.package.include) && formWidget.package.include.length > 0) {
+                if (packageConfig && Array.isArray(packageConfig.include) && packageConfig.include.length > 0) {
                     const csdDir = path.dirname(csdFilePath);
-                    const success = await Commands.processPackageIncludes(formWidget.package.include, csdDir, resourcesDir);
+                    const success = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
                     if (!success) {
                         return;
                     }
@@ -2862,27 +2898,24 @@ include $(SYSTEM_FILES_DIR)/Makefile
             const cabbageCode = match[1].trim();
 
             // Try to parse JSON
-            let widgets: any;
+            let widgets: any[];
             try {
-                widgets = JSON.parse(cabbageCode);
+                const parsed = parseCabbageJSON(cabbageCode);
+                widgets = parsed.widgets;
             } catch (parseError) {
                 Commands.vscodeOutputChannel.appendLine(`Export: Failed to parse Cabbage JSON: ${parseError}`);
                 Commands.vscodeOutputChannel.appendLine(`Export: Cabbage code (first 500 chars): ${cabbageCode.substring(0, 500)}`);
                 return widgetTypes;
             }
 
-            if (Array.isArray(widgets)) {
-                for (const widget of widgets) {
-                    if (widget && widget.type) {
-                        const widgetType = String(widget.type).trim();
-                        if (widgetType) {
-                            widgetTypes.add(widgetType);
-                            Commands.vscodeOutputChannel.appendLine(`Export: Found widget type: ${widgetType}`);
-                        }
+            for (const widget of widgets) {
+                if (widget && widget.type) {
+                    const widgetType = String(widget.type).trim();
+                    if (widgetType) {
+                        widgetTypes.add(widgetType);
+                        Commands.vscodeOutputChannel.appendLine(`Export: Found widget type: ${widgetType}`);
                     }
                 }
-            } else {
-                Commands.vscodeOutputChannel.appendLine('Export: Cabbage section is not a JSON array');
             }
 
             Commands.vscodeOutputChannel.appendLine(`Export: Total widget types found: ${widgetTypes.size}`);
@@ -3383,30 +3416,31 @@ include $(SYSTEM_FILES_DIR)/Makefile
 </html>`;
 
             // Create vanilla CSD
-            const vanillaCsd = `<Cabbage>
-[
-    {"type": "form", "caption": "${pluginName}", "size": {"width": 380, "height": 200}, "pluginId": "def1", "enableDevTools": true},
-    {
-        "type": "rotarySlider",
-        "channels": [
-            {
-                "id": "slider1",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
-            }
-        ]
-    },
-    {
-        "type": "rotarySlider",
-        "channels": [
-            {
-                "id": "slider2",
-                "event": "valueChanged",
-                "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
-            }
-        ]
-    }
-]
+            const vanillaCsd = `<Cabbage>{
+    "widgets": [
+        {"type": "form", "caption": "${pluginName}", "size": {"width": 380, "height": 200}, "pluginId": "def1", "enableDevTools": true},
+        {
+            "type": "rotarySlider",
+            "channels": [
+                {
+                    "id": "slider1",
+                    "event": "valueChanged",
+                    "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
+                }
+            ]
+        },
+        {
+            "type": "rotarySlider",
+            "channels": [
+                {
+                    "id": "slider2",
+                    "event": "valueChanged",
+                    "range": {"min": 0, "max": 1000, "defaultValue": 0, "skew": 1, "increment": 0.001}
+                }
+            ]
+        }
+    ]
+}
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
@@ -3750,11 +3784,12 @@ i2 5 z
                 const { content: cabbageContent } = Commands.getCabbageContent(editor);
                 if (cabbageContent) {
                     try {
-                        const cabbageWidgets = JSON.parse(cabbageContent);
-                        const formWidget = cabbageWidgets.find((widget: any) => widget.type === 'form');
-                        if (formWidget?.package && Array.isArray(formWidget.package.include) && formWidget.package.include.length > 0) {
+                        const parsed = parseCabbageJSON(cabbageContent);
+                        const formWidget = parsed.widgets.find((widget: any) => widget.type === 'form');
+                        const packageConfig = getPackageConfig(parsed.root, formWidget);
+                        if (packageConfig && Array.isArray(packageConfig.include) && packageConfig.include.length > 0) {
                             const csdDir = path.dirname(editor.document.fileName);
-                            const success = await Commands.processPackageIncludes(formWidget.package.include, csdDir, resourcesDir);
+                            const success = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
                             if (!success) {
                                 return;
                             }
@@ -3866,7 +3901,8 @@ i2 5 z
 
                     let cabbageWidgets;
                     try {
-                        cabbageWidgets = JSON.parse(cabbageContent);
+                        const parsed = parseCabbageJSON(cabbageContent);
+                        cabbageWidgets = parsed.widgets;
                     } catch (error) {
                         vscode.window.showErrorMessage('Failed to parse Cabbage JSON content');
                         return;
@@ -4051,7 +4087,9 @@ i2 5 z
 
         try {
             const cabbageContent = match[1].trim();
-            let widgets = JSON.parse(cabbageContent);
+            const parsed = parseCabbageJSON(cabbageContent);
+            let widgets = parsed.widgets;
+            const root = parsed.root;
 
             // Remove the widget with the specified channel
             const originalLength = widgets.length;
@@ -4073,13 +4111,23 @@ i2 5 z
             const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
 
             let formattedArray: string;
+            let updatedRoot: any;
             if (isSingleLine) {
-                formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
+                if (Array.isArray(root)) {
+                    formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
+                    updatedRoot = widgets;
+                } else {
+                    updatedRoot = { ...root, widgets };
+                    const indentSpaces = config.get("jsonIndentSpaces", 4);
+                    const maxLength = config.get("jsonMaxLength", 120);
+                    formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
+                }
             } else {
                 // Use the same FracturedJson formatter and config as the format command
                 const indentSpaces = config.get("jsonIndentSpaces", 4);
                 const maxLength = config.get("jsonMaxLength", 120);
-                formattedArray = formatJson(widgets, { maxLength: maxLength, indent: indentSpaces });
+                updatedRoot = Array.isArray(root) ? widgets : { ...root, widgets };
+                formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
             }
 
             const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
