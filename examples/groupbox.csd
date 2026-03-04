@@ -1,13 +1,16 @@
 <Cabbage>
-[
-    {"type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1"},
-    {
-        "type": "groupBox",
-        "channels": [{"id": "groupbox1"}],
-        "bounds": {"left": 10, "top": 10, "width": 500, "height": 480},
-        "label": {"text": "I'm a groupbox"}
-    }
-]
+{
+    "widgets": [
+        { "type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1" },
+        {
+            "type"    : "groupBox",
+            "channels": [ {"id": "groupbox1"} ],
+            "bounds"  : {"left": 10, "top": 10, "width": 500, "height": 480},
+            "label"   : {"text": "I'm a groupbox"}
+        }
+    ]
+}
+
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
@@ -20,7 +23,7 @@ nchnls = 2
 0dbfs = 1
 
 instr 1
-    
+
 endin
 
 

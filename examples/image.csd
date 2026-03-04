@@ -1,24 +1,19 @@
 <Cabbage>
-[
-    {"type": "form", "caption": "Label Example", "size": {"width": 500, "height": 500}, "pluginId": "def1"},
-    {
-        "type": "image",
-        "channels": [
-            {
-                "id": "image1X",
-                "event": "mouseMoveX",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01}
-            },
-            {
-                "id": "image1Y",
-                "event": "mouseMoveY",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01}
-            }
-        ],
-        "bounds": {"left": 10, "top": 10, "width": 480, "height": 480},
-        "automatable": 1
-    }
-]
+{
+    "widgets": [
+        { "type": "form", "caption": "Label Example", "size": {"width": 500, "height": 500}, "pluginId": "def1" },
+        {
+            "type"       : "image",
+            "channels"   : [
+                { "id": "image1X", "event": "mouseMoveX", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01} },
+                { "id": "image1Y", "event": "mouseMoveY", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01} }
+            ],
+            "bounds"     : {"left": 10, "top": 10, "width": 480, "height": 480},
+            "automatable": 1
+        }
+    ]
+}
+
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>

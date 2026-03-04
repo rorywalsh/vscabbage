@@ -1,21 +1,20 @@
 <Cabbage>
-[
-    {"type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1"},
-    {
-        "type": "label",
-        "channels": [
-            {
-                "id": "label2",
-                "event": "mousePressed",
-                "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01}
-            }
-        ],
-        "bounds": {"left": 158, "top": 37, "width": 228, "height": 21},
-        "label": {"text": "Don't label me!!"},
-        "channelType": "number",
-        "automatable": 1
-    }
-]
+{
+    "widgets": [
+        { "type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1" },
+        {
+            "type"       : "label",
+            "channels"   : [
+                { "id": "label2", "event": "mousePressed", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01} }
+            ],
+            "bounds"     : {"left": 158, "top": 37, "width": 228, "height": 21},
+            "label"      : {"text": "Don't label me!!"},
+            "channelType": "number",
+            "automatable": 1
+        }
+    ]
+}
+
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>

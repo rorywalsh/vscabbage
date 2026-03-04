@@ -1,29 +1,23 @@
 <Cabbage>
-[
-    {
-        "type": "form",
-        "caption": "Gentable Example",
-        "size": {"width": 400, "height": 650},
-        "guiMode": "queue",
-        "pluginId": "def1"
-    },
-    {
-        "type": "genTable",
-        "bounds": {"left": 10, "top": 7, "width": 380, "height": 200},
-        "id": "gentable1",
-        "tableNumber": 1,
-        "selectableRegions":true
-    },
-    {
-        "type": "fileButton",
-        "bounds": {"left": 14, "top": 212, "width": 80, "height": 24},
-        "channels": [{"id": "fileToOpen"}],
-        "text":{
-            "off": "Open File", 
-            "on": "Open File"
+{
+    "widgets": [
+        { "type": "form", "caption": "Gentable Example", "size": {"width": 400, "height": 650}, "guiMode": "queue", "pluginId": "def1" },
+        {
+            "type"             : "genTable",
+            "bounds"           : {"left": 10, "top": 7, "width": 380, "height": 200},
+            "id"               : "gentable1",
+            "tableNumber"      : 1,
+            "selectableRegions": true
+        },
+        {
+            "type"    : "fileButton",
+            "bounds"  : {"left": 14, "top": 212, "width": 80, "height": 24},
+            "channels": [ {"id": "fileToOpen"} ],
+            "text"    : {"off": "Open File", "on": "Open File"}
         }
-    }
-]
+    ]
+}
+
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
@@ -44,7 +38,7 @@ nchnls 		= 	2
 instr	1
     SFile, kTrig = cabbageGetValue("fileToOpen")
     printf("File selected:%s", kTrig, SFile)
-    cabbageSet(kTrig, "gentable1", "file", SFile)    
+    cabbageSet(kTrig, "gentable1", "file", SFile)
 endin
 
 </CsInstruments>
