@@ -1,6 +1,12 @@
 
 # vscabbage
 
+<p align="center">
+  <img src="assets/cabbage_transparent.svg" width="300" height="300" alt="Cabbage logo" />
+</p>
+
+
+
 **Build, edit, and preview Cabbage audio instruments directly in Visual Studio Code.**
 
 vscabbage is a fast, modern extension for Cabbage 3 and Csound users, providing instant syntax highlighting, real-time UI previews, and powerful editing tools for instrument development—all inside VS Code. Whether you're a sound designer, musician, or developer, vscabbage streamlines your workflow so you can focus on creativity, not configuration.
