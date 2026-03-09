@@ -1,6 +1,4 @@
 
-# vscabbage
-
 <p align="center">
   <img src="assets/cabbage_transparent.svg" width="300" height="300" alt="Cabbage logo" />
 </p>
