@@ -54,7 +54,7 @@ export class Settings {
             "jsSourceDir": ["${Settings.getPathJsSourceDir()}"],
             "midi": {}
         },
-        "systemAudioMidiIOListing": {\\
+        "systemAudioMidiIOListing": {
             "audioDrivers": "",
             "audioInputDevices": {},
             "audioOutputDevices": {},
