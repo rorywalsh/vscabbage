@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="assets/cabbage_transparent.svg" width="300" height="300" alt="Cabbage logo" />
+  <img src="assets/cabbage_transparent.png" width="300" height="300" alt="Cabbage logo" />
 </p>
 
 
