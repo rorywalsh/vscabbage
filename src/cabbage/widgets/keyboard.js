@@ -51,6 +51,7 @@ export class MidiKeyboard {
     };
 
     this.isMouseDown = false; // Track the state of the mouse button
+    this.lastTarget = null; // Track the last element we processed to prevent duplicates
     this.octaveOffset = 3;
     // When a keyboard widget exists we may want to set the computer-keyboard base octave
     // Inform the global keyboardMidiInput so ASCII-key mappings follow this widget's baseOctave
@@ -103,41 +104,78 @@ export class MidiKeyboard {
   }
 
 
+  getKeyElement(target) {
+    // Find the key element (might be the target itself or a parent)
+    if (target.classList && (target.classList.contains('white-key') || target.classList.contains('black-key'))) {
+      return target;
+    }
+    // Check if parent is a key (handles clicking on child elements like text)
+    return target.closest ? target.closest('.white-key, .black-key') : null;
+  }
+
   pointerDown(e) {
-    if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
+    const keyElement = this.getKeyElement(e.target);
+    if (keyElement) {
       this.isMouseDown = true;
-      this.noteOn(e.target, e);
+      this.lastTarget = keyElement;
+      this.noteOn(keyElement, e);
     }
   }
 
   pointerUp(e) {
     if (this.isMouseDown) {
       this.isMouseDown = false;
-      this.noteOff(e.target);
+      const keyElement = this.getKeyElement(e.target);
+      this.lastTarget = null;
+      if (keyElement) {
+        this.noteOff(keyElement);
+      }
     }
   }
 
   pointerMove(e) {
     if (this.isMouseDown) {
-      if (e.target.classList.contains('white-key') || e.target.classList.contains('black-key')) {
-        if (!this.activeNotes.has(e.target.dataset.note)) {
-          this.noteOn(e.target, e);
+      const keyElement = this.getKeyElement(e.target);
+
+      // Only process if we've moved to a different element
+      if (keyElement === this.lastTarget) {
+        return;
+      }
+
+      if (keyElement) {
+        if (!this.activeNotes.has(keyElement.dataset.note)) {
+          this.lastTarget = keyElement;
+          this.noteOn(keyElement, e);
         }
       } else {
+        this.lastTarget = null;
         this.noteOffLastKey();
       }
     }
   }
 
   pointerEnter(e) {
-    if (this.isMouseDown && (e.target.classList.contains('white-key') || e.target.classList.contains('black-key'))) {
-      this.noteOn(e.target, e);
+    if (this.isMouseDown) {
+      const keyElement = this.getKeyElement(e.target);
+      if (keyElement) {
+        // Only process if it's a different element than what we already have
+        if (keyElement !== this.lastTarget && !this.activeNotes.has(keyElement.dataset.note)) {
+          this.lastTarget = keyElement;
+          this.noteOn(keyElement, e);
+        }
+      }
     }
   }
 
   pointerLeave(e) {
-    if (this.isMouseDown && (e.target.classList.contains('white-key') || e.target.classList.contains('black-key'))) {
-      this.noteOff(e.target);
+    if (this.isMouseDown) {
+      const keyElement = this.getKeyElement(e.target);
+      if (keyElement) {
+        if (keyElement === this.lastTarget) {
+          this.lastTarget = null;
+        }
+        this.noteOff(keyElement);
+      }
     }
   }
 
