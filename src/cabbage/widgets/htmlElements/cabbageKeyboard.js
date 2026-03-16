@@ -16,10 +16,17 @@ export class CabbageKeyboard extends HTMLElement {
     connectedCallback() {
         this.id = CabbageUtils.getChannelId(this.widget.props, 0);
         this.render();
-        
+
         requestAnimationFrame(() => {
             this.widget.addEventListeners(this);
         });
+    }
+
+    disconnectedCallback() {
+        // Clean up event listeners when element is removed from DOM
+        if (this.widget && this.widget.removeListeners) {
+            this.widget.removeListeners();
+        }
     }
 
     render() {

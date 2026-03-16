@@ -11,6 +11,10 @@ import { keyboardMidiInput } from "../keyboardMidiInput.js";
  */
 export class MidiKeyboard {
   constructor() {
+    // Generate unique ID for this instance
+    this.instanceId = Math.random().toString(36).substring(7);
+    console.log(`[Keyboard ${this.instanceId}] Constructor called - NEW INSTANCE`);
+
     this.props = {
       "bounds": {
         "top": 0,
@@ -53,6 +57,14 @@ export class MidiKeyboard {
     this.isMouseDown = false; // Track the state of the mouse button
     this.lastTarget = null; // Track the last element we processed to prevent duplicates
     this.octaveOffset = 3;
+    this.listenersAdded = false; // Track if event listeners have been added to prevent duplicates
+
+    // Bind event handlers once and store references to prevent duplicate listeners
+    this.boundPointerDown = this.pointerDown.bind(this);
+    this.boundPointerUp = this.pointerUp.bind(this);
+    this.boundPointerMove = this.pointerMove.bind(this);
+    this.boundPointerLeave = this.pointerLeave.bind(this);
+    this.boundMidiMessageListener = this.midiMessageListener.bind(this);
     // When a keyboard widget exists we may want to set the computer-keyboard base octave
     // Inform the global keyboardMidiInput so ASCII-key mappings follow this widget's baseOctave
     try {
@@ -101,6 +113,39 @@ export class MidiKeyboard {
         }
       }
     }
+
+    this.debugLog('Keyboard initialized', {
+      baseOctave: this.props.baseOctave,
+      octaves: this.props.octaves,
+      bounds: this.props.bounds,
+      channel: this.props.channels?.[0]?.id,
+    });
+  }
+
+  isDebugEnabled() {
+    if (typeof this.props?.debug !== 'undefined') {
+      return !!this.props.debug;
+    }
+    if (typeof window !== 'undefined' && typeof window.__CABBAGE_KEYBOARD_DEBUG__ !== 'undefined') {
+      return !!window.__CABBAGE_KEYBOARD_DEBUG__;
+    }
+    return true;
+  }
+
+  debugLog(message, data = {}) {
+    if (!this.isDebugEnabled()) {
+      return;
+    }
+
+    const widgetId = this.props?.id || this.props?.channels?.[0]?.id || 'keyboard';
+    const activeNotes = Array.from(this.activeNotes || []);
+    console.log(`[Keyboard ${this.instanceId}:${widgetId}] ${message}`, {
+      ...data,
+      isMouseDown: this.isMouseDown,
+      lastTarget: this.lastTarget?.dataset?.note || null,
+      activeNotes,
+      activeCount: activeNotes.length,
+    });
   }
 
 
@@ -115,6 +160,12 @@ export class MidiKeyboard {
 
   pointerDown(e) {
     const keyElement = this.getKeyElement(e.target);
+    this.debugLog('pointerDown', {
+      targetNote: keyElement?.dataset?.note || null,
+      pointerType: e.pointerType,
+      buttons: e.buttons,
+      pointerId: e.pointerId,
+    });
     if (keyElement) {
       this.isMouseDown = true;
       this.lastTarget = keyElement;
@@ -123,12 +174,21 @@ export class MidiKeyboard {
   }
 
   pointerUp(e) {
+    this.debugLog('pointerUp', {
+      targetNote: this.getKeyElement(e.target)?.dataset?.note || null,
+      pointerType: e.pointerType,
+      buttons: e.buttons,
+      pointerId: e.pointerId,
+    });
     if (this.isMouseDown) {
       this.isMouseDown = false;
       const keyElement = this.getKeyElement(e.target);
       this.lastTarget = null;
       if (keyElement) {
         this.noteOff(keyElement);
+      } else {
+        this.debugLog('pointerUp without key target; invoking noteOffLastKey');
+        this.noteOffLastKey();
       }
     }
   }
@@ -142,6 +202,13 @@ export class MidiKeyboard {
         return;
       }
 
+      this.debugLog('pointerMove key transition', {
+        from: this.lastTarget?.dataset?.note || null,
+        to: keyElement?.dataset?.note || null,
+        pointerType: e.pointerType,
+        pointerId: e.pointerId,
+      });
+
       if (keyElement) {
         if (!this.activeNotes.has(keyElement.dataset.note)) {
           this.lastTarget = keyElement;
@@ -154,20 +221,14 @@ export class MidiKeyboard {
     }
   }
 
-  pointerEnter(e) {
-    if (this.isMouseDown) {
-      const keyElement = this.getKeyElement(e.target);
-      if (keyElement) {
-        // Only process if it's a different element than what we already have
-        if (keyElement !== this.lastTarget && !this.activeNotes.has(keyElement.dataset.note)) {
-          this.lastTarget = keyElement;
-          this.noteOn(keyElement, e);
-        }
-      }
-    }
-  }
+  // pointerEnter removed - redundant with pointerMove and can cause duplicate note-ons on initial click
 
   pointerLeave(e) {
+    this.debugLog('pointerLeave', {
+      targetNote: this.getKeyElement(e.target)?.dataset?.note || null,
+      pointerType: e.pointerType,
+      pointerId: e.pointerId,
+    });
     if (this.isMouseDown) {
       const keyElement = this.getKeyElement(e.target);
       if (keyElement) {
@@ -181,31 +242,72 @@ export class MidiKeyboard {
 
   noteOn(keyElement, e) {
     const note = keyElement.dataset.note;
-    if (!this.activeNotes.has(note)) {
-      this.activeNotes.add(note);
-      keyElement.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
-      const rect = keyElement.getBoundingClientRect();
-      const velocity = Math.max(1, Math.floor((e.offsetY / rect.height) * 127));
-      console.log(`Key down: ${this.noteMap[note]} velocity: ${velocity}`);
-      Cabbage.sendMidiMessageFromUI(0x90, this.noteMap[note], velocity, this.vscode);
+
+    // Early return if already active - prevents race conditions
+    if (this.activeNotes.has(note)) {
+      this.debugLog('noteOn skipped (already active)', {
+        note,
+        midiNote: this.noteMap[note],
+      });
+      return;
     }
+
+    // Add to active notes immediately before any async operations
+    this.activeNotes.add(note);
+
+    keyElement.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
+    const rect = keyElement.getBoundingClientRect();
+    const velocity = Math.max(1, Math.floor((e.offsetY / rect.height) * 127));
+    this.debugLog('noteOn send MIDI', {
+      note,
+      midiNote: this.noteMap[note],
+      velocity,
+    });
+    Cabbage.sendMidiMessageFromUI(0x90, this.noteMap[note], velocity, this.vscode);
   }
 
   noteOff(keyElement) {
+    if (!keyElement) {
+      this.debugLog('noteOff called with null keyElement');
+      return;
+    }
+
     const note = keyElement.dataset.note;
+    const wasActive = this.activeNotes.has(note);
+    this.debugLog('noteOff requested', {
+      note,
+      midiNote: this.noteMap[note],
+      wasActive,
+    });
+
     if (this.activeNotes.has(note)) {
       this.activeNotes.delete(note);
       keyElement.setAttribute('fill', keyElement.classList.contains('white-key') ? (this.props.style?.whiteNoteColor || this.props.color?.whiteNote || '#ffffff') : (this.props.style?.blackNoteColor || this.props.color?.blackNote || '#000000'));
-      console.log(`Key up: ${this.noteMap[note]}`);
+      this.debugLog('noteOff send MIDI', {
+        note,
+        midiNote: this.noteMap[note],
+      });
       Cabbage.sendMidiMessageFromUI(0x80, this.noteMap[note], 0, this.vscode);
+    } else {
+      this.debugLog('noteOff ignored (note not active)', {
+        note,
+        midiNote: this.noteMap[note],
+      });
     }
   }
 
   noteOffLastKey() {
+    this.debugLog('noteOffLastKey invoked');
     if (this.activeNotes.size > 0) {
       const lastNote = Array.from(this.activeNotes).pop();
       const keyElement = document.querySelector(`[data-note="${lastNote}"]`);
+      this.debugLog('noteOffLastKey candidate', {
+        lastNote,
+        keyFound: !!keyElement,
+      });
       this.noteOff(keyElement);
+    } else {
+      this.debugLog('noteOffLastKey no-op (no active notes)');
     }
   }
 
@@ -225,17 +327,24 @@ export class MidiKeyboard {
   }
 
   addVsCodeEventListeners(widgetDiv, vscode) {
+    // Remove any existing listeners first to prevent duplicates
+    this.removeListeners();
+
     this.vscode = vscode;
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
+    this.debugLog('addVsCodeEventListeners', {
+      pointerEvents: this.widgetDiv.style.pointerEvents,
+    });
 
-    // Add pointer event listeners for keyboard keys
-    widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
-    widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
-    widgetDiv.addEventListener("pointerenter", this.pointerEnter.bind(this), true);
-    widgetDiv.addEventListener("pointerleave", this.pointerLeave.bind(this), true);
-    document.addEventListener("midiEvent", this.midiMessageListener.bind(this));
+    // Add pointer event listeners for keyboard keys using bound references
+    widgetDiv.addEventListener("pointerdown", this.boundPointerDown);
+    widgetDiv.addEventListener("pointerup", this.boundPointerUp);
+    widgetDiv.addEventListener("pointermove", this.boundPointerMove);
+    widgetDiv.addEventListener("pointerleave", this.boundPointerLeave, true);
+    document.addEventListener("midiEvent", this.boundMidiMessageListener);
+
+    this.listenersAdded = true;
 
     // Re-render after a short delay to ensure the div has its width CSS applied
     // This fixes the issue where octaves are calculated before the div width is set
@@ -245,8 +354,14 @@ export class MidiKeyboard {
   }
 
   addEventListeners(widgetDiv) {
+    // Remove any existing listeners first to prevent duplicates
+    this.removeListeners();
+
     this.widgetDiv = widgetDiv;
     this.addListeners(widgetDiv);
+    this.listenersAdded = true;
+    this.debugLog('addEventListeners');
+
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -257,22 +372,57 @@ export class MidiKeyboard {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
+      this.debugLog('midiMessageListener noteOn', {
+        status: midiData.status,
+        note,
+        noteName,
+        keyFound: !!key,
+      });
       key.setAttribute('fill', this.props.style?.keydownColor || this.props.color?.keydown || '#93d200');
     } else if (midiData.status === 128) {
       const note = midiData.data1;
       const noteName = Object.keys(this.noteMap).find(key => this.noteMap[key] === note);
       const key = document.querySelector(`[data-note="${noteName}"]`);
+      this.debugLog('midiMessageListener noteOff', {
+        status: midiData.status,
+        note,
+        noteName,
+        keyFound: !!key,
+      });
       key.setAttribute('fill', key.classList.contains('white-key') ? 'white' : 'black');
     }
   }
 
+  removeListeners() {
+    // Remove listeners if they were previously added
+    if (this.widgetDiv && this.listenersAdded) {
+      this.debugLog('removeListeners begin');
+      this.widgetDiv.removeEventListener("pointerdown", this.boundPointerDown);
+      this.widgetDiv.removeEventListener("pointerup", this.boundPointerUp);
+      this.widgetDiv.removeEventListener("pointermove", this.boundPointerMove);
+      this.widgetDiv.removeEventListener("pointerleave", this.boundPointerLeave, true);
+      document.removeEventListener("midiEvent", this.boundMidiMessageListener);
+      this.listenersAdded = false;
+
+      // Release any active notes to prevent stuck notes
+      this.activeNotes.forEach(note => {
+        const keyElement = document.querySelector(`[data-note="${note}"]`);
+        if (keyElement) {
+          this.noteOff(keyElement);
+        }
+      });
+
+      this.debugLog('removeListeners complete');
+    }
+  }
+
   addListeners(widgetDiv) {
-    widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-    widgetDiv.addEventListener("pointerup", this.pointerUp.bind(this));
-    widgetDiv.addEventListener("pointermove", this.pointerMove.bind(this));
-    widgetDiv.addEventListener("pointerenter", this.pointerEnter.bind(this), true);
-    widgetDiv.addEventListener("pointerleave", this.pointerLeave.bind(this), true);
-    document.addEventListener("midiEvent", this.midiMessageListener.bind(this));
+    // Use bound references to ensure we can remove listeners later
+    widgetDiv.addEventListener("pointerdown", this.boundPointerDown);
+    widgetDiv.addEventListener("pointerup", this.boundPointerUp);
+    widgetDiv.addEventListener("pointermove", this.boundPointerMove);
+    widgetDiv.addEventListener("pointerleave", this.boundPointerLeave, true);
+    document.addEventListener("midiEvent", this.boundMidiMessageListener);
   }
 
   getInnerHTML() {
