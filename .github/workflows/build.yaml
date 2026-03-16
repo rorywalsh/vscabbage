@@ -3,8 +3,6 @@ name: Build and Package Extensions
 #Current Csound7 release...
 env:
   CSOUND_TAG: "7.0.0-beta.15"
-  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-macos-${{ env.CSOUND_TAG }}.zip"
-  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-${{ env.CSOUND_TAG }}.zip"
 
 on:
   push:
@@ -86,7 +84,7 @@ jobs:
       - name: Download CsoundLib64 Package
         run: |
           # Download the package using curl
-          curl -L -o csound-7.zip "${{ env.CSOUND_MAC_URL }}"
+          curl -L -o csound-7.zip "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-macos-${{ env.CSOUND_TAG }}.zip"
           
           # Extract the zip file
           unzip -o csound-7.zip -d csound-7
@@ -333,7 +331,7 @@ jobs:
       - name: Download and Extract Csound
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "${{ env.CSOUND_WIN_URL }}" -OutFile "csound7.zip"
+          Invoke-WebRequest -Uri "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-${{ env.CSOUND_TAG }}.zip" -OutFile "csound7.zip"
           Expand-Archive -Path "csound7.zip" -DestinationPath "csound7" -Force
 
           Write-Host "Contents of csound7 (for debug):"
