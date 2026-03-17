@@ -25,7 +25,7 @@ fi
 
 # Default path for user's OneDrive CustomWidgets folder (cross-platform via $HOME)
 # Assumes OneDrive/Csoundfiles/cabbage3/CustomWidgets exists under the user's home folder on Windows and macOS
-CUSTOM_WIDGETS_DIR="$HOME/OneDrive/Csoundfiles/cabbage3/CustomWidgets/cabbage/"
+CUSTOM_WIDGETS_DIR="$HOME/sourcecode/cabbage3-recipes/src/"
 CUSTOM_WIDGETS_PARENT_DIR="$(dirname "$CUSTOM_WIDGETS_DIR")/"
 
 # Check if the targets directory exists, and create it if it doesn't
