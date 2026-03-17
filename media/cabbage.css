@@ -536,7 +536,7 @@
    ============================================================ */
 
 .vu-meter {
-	position: absolute;
+	position: fixed;
 	z-index: 10000;
 	display: flex;
 	gap: 3px;
