@@ -951,6 +951,11 @@ export class Commands {
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
 
+            const config = vscode.workspace.getConfiguration("cabbage");
+            if (config.get("clearConsoleOnCompile")) {
+                this.getOutputChannel().clear();
+            }
+
             this.getOutputChannel().appendLine('   _____      _     _                      ');
             this.getOutputChannel().appendLine('  / ____|    | |   | |                     ');
             this.getOutputChannel().appendLine(' | |     __ _| |__ | |__   __ _  __ _  ___ ');
