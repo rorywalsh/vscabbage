@@ -173,6 +173,8 @@ const VuMeter = {
     displayedLevels: [],  // smoothed bar fill (rAF decayed)
     clipped: [],  // true if peak ever exceeded 0 dBFS since last reset
     rafId: null,
+    resizeObserver: null,
+    updatePositionFn: null,
 
     // Convert linear amplitude to bar percentage using the +DB_MAX headroom scale
     toBarPct(linear) {
@@ -235,10 +237,94 @@ const VuMeter = {
         }
         vuDiv.appendChild(markersEl);
 
+        // Set up ResizeObserver to handle viewport resize events
+        this._setupResizeObserver();
+
         this.initialized = true;
         if (!this.rafId) {
             this._loop();
         }
+    },
+
+    _setupResizeObserver() {
+        // Clean up existing observer if any
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+        // Remove old window resize listener if it exists
+        if (this.updatePositionFn) {
+            window.removeEventListener('resize', this.updatePositionFn);
+        }
+
+        const leftPanel = document.getElementById('LeftPanel');
+        if (!leftPanel) return;
+
+        // Update VU meter position based on panel height
+        this.updatePositionFn = () => {
+            const vuDiv = document.getElementById('VuMeter');
+            if (!vuDiv) return;
+
+            // For bottom-positioned meters, ensure they stay at the bottom by
+            // explicitly setting the bottom position to 0 and triggering a reflow
+            if (vuDiv.classList.contains('vu-bottom')) {
+                // Force reflow by toggling a CSS property
+                const currentBottom = vuDiv.style.bottom;
+                vuDiv.style.bottom = '-1px';
+                void vuDiv.offsetHeight; // Force reflow
+                vuDiv.style.bottom = '0';
+            }
+            // For top-positioned meters, similar approach
+            else if (vuDiv.classList.contains('vu-top')) {
+                const currentTop = vuDiv.style.top;
+                vuDiv.style.top = '-1px';
+                void vuDiv.offsetHeight; // Force reflow
+                vuDiv.style.top = '0';
+            }
+            // For left/right positioned meters, update their position
+            else if (vuDiv.classList.contains('vu-left')) {
+                const currentLeft = vuDiv.style.left;
+                vuDiv.style.left = '-1px';
+                void vuDiv.offsetHeight; // Force reflow
+                vuDiv.style.left = '0';
+            }
+            else if (vuDiv.classList.contains('vu-right')) {
+                const currentRight = vuDiv.style.right;
+                vuDiv.style.right = '-1px';
+                void vuDiv.offsetHeight; // Force reflow
+                vuDiv.style.right = '0';
+            }
+        };
+
+        // Use ResizeObserver to detect when the panel resizes
+        // This ensures the VU meter repositions correctly when the VSCode panel is dragged
+        this.resizeObserver = new ResizeObserver(this.updatePositionFn);
+        this.resizeObserver.observe(leftPanel);
+
+        // Also listen for window resize events as a fallback
+        window.addEventListener('resize', this.updatePositionFn);
+
+        // Initial position update
+        this.updatePositionFn();
+    },
+
+    destroy() {
+        // Clean up resize observer
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+        // Remove window resize listener if it exists
+        // Note: We store the function reference to enable proper cleanup
+        if (this.updatePositionFn) {
+            window.removeEventListener('resize', this.updatePositionFn);
+            this.updatePositionFn = null;
+        }
+        // Cancel animation frame
+        if (this.rafId) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
+        this.initialized = false;
     },
 
     // Called on each incoming backend message — just stash values, no DOM work
@@ -541,8 +627,11 @@ window.addEventListener('message', async (event) => {
 
         // Called when there are new Csound console messages to display
         case 'csoundOutputUpdate':
-            // Find the csoundOutput widget by its channel
-            let csoundOutput = widgets.find(widget => CabbageUtils.getWidgetDivId(widget.props) === 'csoundoutput');
+            // Find the csoundOutput widget (id/channel is case-sensitive: "csoundOutput")
+            let csoundOutput = widgets.find(widget =>
+                widget?.props?.type === 'csoundOutput'
+                || CabbageUtils.getWidgetDivId(widget.props) === 'csoundOutput'
+            );
             if (csoundOutput) {
                 // Update the HTML content of the widget's div
                 const csoundOutputDiv = CabbageUtils.getWidgetDiv(csoundOutput.props);

@@ -1,5 +1,9 @@
 
-# vscabbage
+<p align="center">
+  <img src="assets/cabbage_transparent.png" width="300" height="300" alt="Cabbage logo" />
+</p>
+
+
 
 **Build, edit, and preview Cabbage audio instruments directly in Visual Studio Code.**
 

@@ -2,8 +2,7 @@ name: Build and Package Extensions
 
 #Current Csound7 release...
 env:
-  CSOUND_MAC_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.12/csound-macos-7.0.0-beta.12.zip"
-  CSOUND_WIN_URL: "https://github.com/csound/csound/releases/download/7.0.0-beta.12/csound-windows-7.0.0-beta.12.zip"
+  CSOUND_TAG: "7.0.0-beta.15"
 
 on:
   push:
@@ -85,7 +84,7 @@ jobs:
       - name: Download CsoundLib64 Package
         run: |
           # Download the package using curl
-          curl -L -o csound-7.zip "${{ env.CSOUND_MAC_URL }}"
+          curl -L -o csound-7.zip "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-macos-${{ env.CSOUND_TAG }}.zip"
           
           # Extract the zip file
           unzip -o csound-7.zip -d csound-7
@@ -362,7 +361,7 @@ jobs:
       - name: Download and Extract Csound
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "${{ env.CSOUND_WIN_URL }}" -OutFile "csound7.zip"
+          Invoke-WebRequest -Uri "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-${{ env.CSOUND_TAG }}.zip" -OutFile "csound7.zip"
           Expand-Archive -Path "csound7.zip" -DestinationPath "csound7" -Force
 
           Write-Host "Contents of csound7 (for debug):"
@@ -573,10 +572,154 @@ jobs:
           name: vscabbage-extension-windows
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
 
+# ========================================================================================
+#  Linux build job
+# ========================================================================================
+
+  build_linux:
+    needs: generate_tag
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')
+    steps:
+      - name: Checkout source code for cabbage3
+        uses: actions/checkout@v2
+        with:
+          repository: rorywalsh/cabbage3
+          path: cabbage3
+          ref: develop
+          fetch-depth: 1
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libx11-dev libxext-dev \
+            libasound2-dev libjack-jackd2-dev libpulse-dev
+
+      - name: Install build-essential
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Build and install Csound
+        run: |
+          sudo apt-get install -y \
+            libsndfile1-dev libportaudio2 portaudio19-dev libportmidi-dev \
+            libpulse-dev swig liblua5.1-0-dev default-jdk \
+            libfluidsynth-dev liblo-dev fluid \
+            ladspa-sdk libpng-dev dssi-dev libgmm++-dev \
+            bison flex libportsmf-dev libeigen3-dev libcunit1-dev \
+            gettext libsamplerate0-dev
+          git clone --depth 1 --branch ${{ env.CSOUND_TAG }} \
+            https://github.com/csound/csound.git csound-src
+          cmake -G "Unix Makefiles" -B csound-src/build -S csound-src \
+            -DINSTALL_PYTHON_INTERFACE=OFF
+          cd csound-src/build
+          make
+          sudo make install
+
+      - name: Configure and build
+        run: |
+          cd cabbage3
+          cmake -G "Unix Makefiles" -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_ALL_TARGETS=ON \
+            -DCMAKE_C_COMPILER=$(which gcc) \
+            -DCMAKE_CXX_COMPILER=$(which g++)
+
+      - name: Verify builds
+        run: |
+          echo "Checking if the build artifacts exist for CabbageApp"
+          ls cabbage3/build/CabbageApp
+          echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbageApp-linux
+          path: cabbage3/build/CabbageApp/CabbageApp
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect-linux.vst3
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CabbagePluginEffect.vst3
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth-linux.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CabbagePluginSynth.vst3
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Update version in package.json
+        shell: bash
+        run: |
+          VERSION=${{ needs.generate_tag.outputs.version }}
+          echo "Updating package.json with version $VERSION"
+          jq --arg v "$VERSION" '.version = $v' package.json > tmp.$$.json && mv tmp.$$.json package.json
+
+      - name: Create CabbageBinaries folder
+        run: |
+          mkdir -p "./src/CabbageBinaries"
+
+      - name: Downloading CabbageApp
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageApp-linux
+          path: "./src/CabbageBinaries"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginEffect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect-linux.vst3
+          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginSynth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth-linux.vst3
+          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
+        continue-on-error: false
+
+      - name: Set up Node.js (v20) on Linux
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies on Linux
+        run: npm install
+
+      - name: Install vsce on Linux
+        run: npm install -g @vscode/vsce
+
+      - name: Build and package extension on Linux
+        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
+
+      - name: Upload VSIX artifact from Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscabbage-extension-linux
+          path: vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
+
   # =============================================================================
   # steps to tag and release artifacts
   release:
-    needs: [build_macos, build_windows, generate_tag]
+    needs: [build_macos, build_windows, build_linux, generate_tag]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build')
 
@@ -596,6 +739,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vscabbage-extension-windows
+          path: ./release
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vscabbage-extension-linux
           path: ./release
 
       - name: Get Previous Tag

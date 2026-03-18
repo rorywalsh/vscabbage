@@ -1451,12 +1451,17 @@ be lost when working with the UI editor. -->\n`;
         const placement = config.get<string>('cabbageSectionPlacement', 'top');
 
         const cabbageSection = (caption: string, widgets: string) => `
-<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
-be lost when working with the UI editor. -->\n
 <Cabbage>{
+    "pluginId": "def1",
+    "channelConfig": {
+        "inputs": ["2"],
+        "outputs": ["2"]
+    },
+    "enableDevTools": true,
     "widgets": [
-        {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "pluginId": "def1"},${widgets}
-    ]
+        {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}},${widgets}
+    ],
+
 }
 </Cabbage>`;
 
@@ -1475,8 +1480,8 @@ be lost when working with the UI editor. -->\n
 </CsOptions>
 <CsInstruments>
 ; Initialize the global variables.
+; chanelConfig in the Cabbage section defines inputs/outputs
 ksmps = 32
-nchnls = 2
 0dbfs = 1
 
 

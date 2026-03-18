@@ -20,6 +20,10 @@ import { Settings } from './settings';
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
 
+// Disposable for the webview message listener - replaced on each file save
+// to prevent stacking duplicate listeners.
+let webviewMessageListenerDisposable: vscode.Disposable | undefined;
+
 /**
  * Validates the JSON in the Cabbage section of a CSD file
  * @param documentText The full text content of the CSD file
@@ -1066,7 +1070,14 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
 
         const panel = Commands.getPanel();
         if (panel) {
-            panel.webview.onDidReceiveMessage(message => {
+            // Dispose any previously registered listener before adding a new one.
+            // Without this, every file save adds another listener and each
+            // webview message (e.g. MIDI note-on) is forwarded N times.
+            if (webviewMessageListenerDisposable) {
+                webviewMessageListenerDisposable.dispose();
+                webviewMessageListenerDisposable = undefined;
+            }
+            webviewMessageListenerDisposable = panel.webview.onDidReceiveMessage(message => {
                 Commands.handleWebviewMessage(message, firstMessages, vscode.window.activeTextEditor, context);
             });
         } else {

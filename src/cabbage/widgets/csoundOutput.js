@@ -10,7 +10,6 @@ import { CabbageUtils } from "../utils.js";
 export class CsoundOutput {
     constructor() {
         this.props = {
-            "id": "csoundOutput",
             "bounds": {
                 "top": 0,
                 "left": 0,
@@ -48,9 +47,7 @@ export class CsoundOutput {
             },
             "label": {
                 "text": "Csound Output"
-            },
-
-            "id": "",
+            }
 
         };
 
@@ -90,7 +87,7 @@ ${this.props.label.text}
 
     appendText(newText) {
         this.props.label.text += newText + '\n';
-        const widgetDiv = CabbageUtils.getWidgetDiv(this.props.channel);
+        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
 
         if (widgetDiv) {
             const textarea = widgetDiv.querySelector('textarea');
