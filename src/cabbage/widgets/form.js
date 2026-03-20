@@ -27,9 +27,7 @@ export class Form {
       },
 
       "id": "MainForm",
-      "caption": "",
-      "channelConfig": "2-2",
-      "enableDevTools": true
+      "caption": ""
     };
     this.props.channels[0].id = this.props.id;
 
