@@ -1453,26 +1453,22 @@ be lost when working with the UI editor. -->\n`;
         const cabbageSection = (caption: string, widgets: string) => `
 <Cabbage>{
     "pluginId": "def1",
-    "channelConfig": {
-        "inputs": ["2"],
-        "outputs": ["2"]
-    },
+    "channelConfig": [ {"name": "Stereo", "ins": "2", "outs": "2"}, {"name": "Mono", "ins": "1", "outs": "1"} ],    
     "enableDevTools": true,
     "widgets": [
         {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}},${widgets}
-    ],
-
+    ]
 }
 </Cabbage>`;
 
         if (type === 'effect') {
             const effectWidgets = `
-    {
-        "type": "rotarySlider",
-        "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
-        "channels": [{"id": "gain"}],
-        "label": {"text": "Gain"}
-    }`;
+        {
+            "type": "rotarySlider",
+            "bounds": {"left": 500, "top": 200, "width": 80, "height": 80},
+            "channels": [{"id": "gain"}],
+            "label": {"text": "Gain"}
+        }`;
 
             const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
@@ -1508,17 +1504,17 @@ ${csoundSection}`;
         }
         else if (type === 'synth') {
             const synthWidgets = `
-    {
-        "type": "keyboard",
-        "id": "keyboard",
-        "bounds": {"left": 14, "top": 181, "width": 554, "height": 107},
-        "channels": [
-            {
-                "id": "keyboard",
-                "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0}
-            }
-        ]
-    }`;
+        {
+            "type": "keyboard",
+            "id": "keyboard",
+            "bounds": {"left": 14, "top": 181, "width": 554, "height": 107},
+            "channels": [
+                {
+                    "id": "keyboard",
+                    "range": {"defaultValue": 0, "increment": 0.001, "max": 1, "min": 0, "skew": 1, "value": 0}
+                }
+            ]
+        }`;
 
             const csoundSection = `<CsoundSynthesizer>
 <CsOptions>
