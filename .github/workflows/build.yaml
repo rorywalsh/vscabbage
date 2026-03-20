@@ -138,6 +138,8 @@ jobs:
           echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
+          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/Release
+          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/Release
           ls cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release
           ls cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release
           ls cabbage3/build/CabbagePluginMidiFxAUv2/CabbagePluginMidiFxAUv2_assets/Release
@@ -175,6 +177,20 @@ jobs:
         with:
           name: CabbagePluginSynth.clap
           path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.clap
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffectARA.vst3
+          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/Release/CabbagePluginEffectARA.vst3
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynthARA.vst3
+          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/Release/CabbagePluginSynthARA.vst3
           retention-days: 1
           if-no-files-found: ignore
 
@@ -283,6 +299,20 @@ jobs:
           path: "./src/CabbageBinaries/CabbagePluginEffectAUv2.component"
         continue-on-error: true
 
+      - name: Downloading CabbagePluginEffectARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffectARA.vst3
+          path: "./src/CabbageBinaries/CabbagePluginEffectARA.vst3"
+        continue-on-error: true
+
+      - name: Downloading CabbagePluginSynthARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynthARA.vst3
+          path: "./src/CabbageBinaries/CabbagePluginSynthARA.vst3"
+        continue-on-error: true
+
       - name: Set up Node.js (v20) on macOS
         uses: actions/setup-node@v4
         with:
@@ -381,6 +411,8 @@ jobs:
           echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
           ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
           ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
 
@@ -429,6 +461,22 @@ jobs:
         with:
           name: CabbagePluginSynth_x64.clap
           path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3EffectARA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffectARA_x64.vst3
+          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3SynthARA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynthARA_x64.vst3
+          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
           retention-days: 1
           if-no-files-found: ignore
 
@@ -495,6 +543,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: CabbagePluginSynth_x64.clap
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3EffectARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffectARA_x64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3SynthARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynthARA_x64.vst3
           path: "./src/CabbageBinaries"
         continue-on-error: true
 
