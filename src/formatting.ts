@@ -92,7 +92,8 @@ function shouldIncreaseIndent(previousLine: string): boolean {
         previousLine.startsWith("instr") ||
         previousLine.startsWith("opcode") ||
         previousLine.startsWith("else") ||
-        previousLine.startsWith("while")
+        previousLine.startsWith("while") ||
+        previousLine.startsWith("for")
     );
 }
 

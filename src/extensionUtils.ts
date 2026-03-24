@@ -995,7 +995,8 @@ be lost when working with the UI editor. -->\n`;
                 startsWithWord(trimmedLine, 'instr') ||
                 startsWithWord(trimmedLine, 'opcode') ||
                 startsWithWord(trimmedLine, 'else') ||
-                startsWithWord(trimmedLine, 'while')
+                startsWithWord(trimmedLine, 'while') ||
+                startsWithWord(trimmedLine, 'for')
             ) {
                 indents++;
             }

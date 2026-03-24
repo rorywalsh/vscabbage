@@ -844,7 +844,15 @@ export class WidgetManager {
             //console.log(`WidgetManager.updateWidget: Data merge update for ${widget.props.type}`);
             // Update widget properties - deepMerge handles channels[].range.value automatically
             //console.log(`WidgetManager.updateWidget: Merging data into widget props`);
+            // For csoundOutput widgets, preserve accumulated console text across widget updates.
+            // The C++ side sends the default label text ("Csound Output") in every widgetUpdate,
+            // but the JS widget accumulates runtime messages in label.text — we must not wipe them.
+            const preservedCsoundText = (widget.props.type === 'csoundOutput' && widget.props.label?.text)
+                ? widget.props.label.text : null;
             WidgetManager.deepMerge(widget.props, data);
+            if (preservedCsoundText !== null && widget.props.label) {
+                widget.props.label.text = preservedCsoundText;
+            }
 
             widgetFound = true;
             if (widget.props.type === "form") {

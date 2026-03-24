@@ -25,6 +25,9 @@ setCabbageMode('nonDraggable');
 
 let widgetWrappers = null;
 
+// Buffer for csoundOutput messages that arrive before the widget is created
+const pendingCsoundOutputMessages = [];
+
 const leftPanel = document.getElementById('LeftPanel');
 const rightPanel = document.getElementById('RightPanel');
 
@@ -453,6 +456,26 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             // console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`);
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+            // If there are buffered csoundOutput messages and the widget now exists, replay them
+            if (pendingCsoundOutputMessages.length > 0) {
+                const csoundOutputWidgetAfterUpdate = widgets.find(w =>
+                    w?.props?.type === 'csoundOutput'
+                    || CabbageUtils.getWidgetDivId(w.props) === 'csoundOutput'
+                );
+                if (csoundOutputWidgetAfterUpdate) {
+                    const div = CabbageUtils.getWidgetDiv(csoundOutputWidgetAfterUpdate.props);
+                    if (div) {
+                        for (const buffered of pendingCsoundOutputMessages) {
+                            csoundOutputWidgetAfterUpdate.appendText(buffered);
+                        }
+                        div.innerHTML = csoundOutputWidgetAfterUpdate.getInnerHTML();
+                        pendingCsoundOutputMessages.length = 0;
+                        // Scroll to bottom to show latest messages
+                        const replayTextarea = div.querySelector('textarea');
+                        if (replayTextarea) replayTextarea.scrollTop = replayTextarea.scrollHeight;
+                    }
+                }
+            }
             break;
 
         // Batch widget update for efficient preset loading
@@ -633,12 +656,22 @@ window.addEventListener('message', async (event) => {
                 || CabbageUtils.getWidgetDivId(widget.props) === 'csoundOutput'
             );
             if (csoundOutput) {
+                // If there are buffered messages (arrived before widget was created), replay them first
+                if (pendingCsoundOutputMessages.length > 0) {
+                    for (const buffered of pendingCsoundOutputMessages) {
+                        csoundOutput.appendText(buffered);
+                    }
+                    pendingCsoundOutputMessages.length = 0;
+                }
                 // Update the HTML content of the widget's div
                 const csoundOutputDiv = CabbageUtils.getWidgetDiv(csoundOutput.props);
                 if (csoundOutputDiv) {
-                    csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
                     csoundOutput.appendText(message.text); // Append new console message
+                    csoundOutputDiv.innerHTML = csoundOutput.getInnerHTML(); // Update content
                 }
+            } else {
+                // Widget not yet created — buffer the message for later replay
+                pendingCsoundOutputMessages.push(message.text);
             }
             break;
 
