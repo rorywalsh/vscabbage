@@ -9,7 +9,7 @@
 
 vscabbage is a fast, modern extension for Cabbage 3 and Csound users, providing instant syntax highlighting, real-time UI previews, and powerful editing tools for instrument development—all inside VS Code. Whether you're a sound designer, musician, or developer, vscabbage streamlines your workflow so you can focus on creativity, not configuration.
 
-The latest version of Cabbage 3 uses [Csound 7.0.0-beta.12](https://github.com/csound/csound/releases/tag/7.0.0-beta.12)
+The latest version of Cabbage 3 uses [Csound 7.0.0-beta.15](https://github.com/csound/csound/releases/tag/7.0.0-beta.15)
 Documentation for Cabbage 3 is available [here].(https://rorywalsh.github.io/cabbage3docs/docs/intro)
  
 ---
