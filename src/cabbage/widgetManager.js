@@ -948,6 +948,22 @@ export class WidgetManager {
                         } catch (e) {
                             console.error('Cabbage: widget.updateCanvas() threw', e);
                         }
+                    } else if (widget.props.type === 'csoundOutput') {
+                        // For csoundOutput, update the textarea's styles in-place without
+                        // recreating the element — otherwise the scroll position is lost.
+                        const textarea = widgetDiv.querySelector('textarea');
+                        if (textarea) {
+                            const { style } = widget.props;
+                            const fontSize = style.fontSize === 'auto'
+                                ? Math.max(widget.props.bounds.height * 0.8, 12)
+                                : style.fontSize;
+                            textarea.style.backgroundColor = style.backgroundColor;
+                            textarea.style.color = style.fontColor;
+                            textarea.style.fontFamily = style.fontFamily;
+                            textarea.style.fontSize = fontSize + 'px';
+                            textarea.style.opacity = style.opacity;
+                            textarea.style.display = widget.props.visible ? 'block' : 'none';
+                        }
                     } else {
                         // Default behavior for widgets that render their HTML via getInnerHTML
                         // console.log(`WidgetManager.updateWidget: About to update innerHTML for ${widget.props.type} id=${widget.props.id}`);

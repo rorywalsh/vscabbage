@@ -63,7 +63,6 @@ export class CsoundOutput {
     }
 
     addEventListeners(widgetDiv) {
-        // Add any necessary event listeners here
     }
 
     getInnerHTML() {
@@ -79,23 +78,20 @@ export class CsoundOutput {
         return `
     <textarea readonly style="width: 100%; height: 100%; background-color: ${this.props.style.backgroundColor}; 
     color: ${this.props.style.fontColor}; font-family: ${this.props.style.fontFamily}; font-size: ${fontSize}px; 
-    text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
+    text-align: ${textAlign}; padding: 10px; box-sizing: border-box; border: none; resize: none; overflow-y: auto; white-space: pre-wrap; opacity: ${this.props.style.opacity}; display: ${this.props.visible ? 'block' : 'none'};">
 ${this.props.label.text}
         </textarea>
     `;
     }
 
-    appendText(newText) {
-        this.props.label.text += newText + '\n';
-        const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
-
-        if (widgetDiv) {
-            const textarea = widgetDiv.querySelector('textarea');
-            if (textarea) {
-                textarea.value += newText + '\n';
-                console.log(textarea.value);
-                textarea.scrollTop = textarea.scrollHeight; // Scroll to the bottom
-            }
+    appendText(newText, widgetDiv) {
+        const line = newText + '\n';
+        this.props.label.text += line;
+        const container = widgetDiv || this.widgetDiv;
+        const textarea = container?.querySelector('textarea');
+        if (textarea) {
+            textarea.value += line;
+            textarea.scrollTop = textarea.scrollHeight;
         }
     }
 }
