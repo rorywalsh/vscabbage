@@ -125,6 +125,13 @@ export class ComboBox {
         const paramIdx = CabbageUtils.getChannelParameterIndex(this.props, 0);
         const channelType = this.props.channels[0].type || "number";
 
+        // For string channels, persist the selected item locally so that any subsequent
+        // widgetUpdate (e.g. from an async populate refresh) doesn't lose the selection
+        // when getInnerHTML falls back to items[range.value].
+        if (channelType === "string") {
+            this.props.channels[0].stringValue = item;
+        }
+
         console.log('ComboBox handleItemClick: isAutomatable=', isAutomatable, 'paramIdx=', paramIdx, 'channelType=', channelType, 'value=', valueToSend);
 
         // Determine value to send based on channel type:
@@ -336,7 +343,16 @@ export class ComboBox {
         const hasDefaultLabel = this.props.populate?.defaultLabel && this.props.populate.defaultLabel !== '';
         console.log('ComboBox getInnerHTML: hasDefaultLabel=', hasDefaultLabel, 'defaultLabelCleared=', this.defaultLabelCleared, 'defaultLabel=', this.props.populate?.defaultLabel);
 
-        if (hasDefaultLabel && !this.defaultLabelCleared) {
+        // For string-type channels, stringValue is the ground truth for what's displayed.
+        // It is set on restore (from saved state) and locally in handleItemClick when the
+        // user picks an item. Using it unconditionally here prevents a populate-triggered
+        // widgetUpdate from reverting the display to items[range.value] (usually items[0]).
+        const savedStringValue = this.props.channels?.[0]?.stringValue;
+        const channelTypeForDisplay = this.props.channels?.[0]?.type;
+        if (channelTypeForDisplay === 'string' && savedStringValue && savedStringValue !== '') {
+            this.selectedItem = savedStringValue;
+            this.defaultLabelCleared = true;
+        } else if (hasDefaultLabel && !this.defaultLabelCleared) {
             this.selectedItem = this.props.populate.defaultLabel;
         } else {
             // Ensure selectedItem is up-to-date with the current value
