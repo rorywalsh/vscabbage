@@ -101,6 +101,10 @@ export class Settings {
                     return path.join(binaryPath, 'CabbagePluginEffect.clap');
                 case 'CabbagePluginCLAPSynth':
                     return path.join(binaryPath, 'CabbagePluginSynth.clap');
+                case 'CabbagePluginEffectARA':
+                    return path.join(binaryPath, 'CabbagePluginEffectARA.vst3');
+                case 'CabbagePluginSynthARA':
+                    return path.join(binaryPath, 'CabbagePluginSynthARA.vst3');
                 case 'CabbageAUv2Effect':
                     return path.join(binaryPath, 'CabbagePluginEffectAUv2.component');
                 case 'CabbageAUv2Synth':
