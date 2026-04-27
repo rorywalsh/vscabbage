@@ -80,6 +80,7 @@ export class Commands {
     private static panelRevealTimeout: NodeJS.Timeout | undefined;
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
     private static editQueue: Promise<void> = Promise.resolve();
+    private static widgetPropsDebounceTimer: NodeJS.Timeout | undefined;
     private static recordingStatusBarItem: vscode.StatusBarItem | undefined;
     private static recordingStartTime: number = 0;
     private static recordingTimer: NodeJS.Timeout | undefined;
@@ -450,12 +451,21 @@ export class Commands {
                 if (getCabbageMode() !== "play") {
                     const rawText = message && message.text;
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        // Queue the edit to prevent race conditions when multiple updates arrive simultaneously
-                        Commands.editQueue = Commands.editQueue.then(async () => {
-                            await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, message.oldId);
-                        }).catch(err => {
-                            console.error('Extension: Error processing queued edit:', err);
-                        });
+                        // Debounce document edits so that rapid drag-move messages don't flood
+                        // the LSP with sequential document mutations (which corrupt its parse state).
+                        // Only the final position (after the user stops moving) triggers an edit.
+                        const oldId = message.oldId;
+                        if (Commands.widgetPropsDebounceTimer) {
+                            clearTimeout(Commands.widgetPropsDebounceTimer);
+                        }
+                        Commands.widgetPropsDebounceTimer = setTimeout(() => {
+                            Commands.widgetPropsDebounceTimer = undefined;
+                            Commands.editQueue = Commands.editQueue.then(async () => {
+                                await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, oldId);
+                            }).catch(err => {
+                                console.error('Extension: Error processing queued edit:', err);
+                            });
+                        }, 150);
                     }
                 }
                 break;
