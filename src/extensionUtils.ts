@@ -1454,7 +1454,7 @@ be lost when working with the UI editor. -->\n`;
         const cabbageSection = (caption: string, widgets: string) => `
 <Cabbage>{
     "pluginId": "def1",
-    "channelConfig": [ {"name": "Stereo", "ins": "2", "outs": "2"}, {"name": "Mono", "ins": "1", "outs": "1"} ],    
+    "channelConfig": [ {"name": "Custom", "ins": "1", "outs": "2"}, {"name": "Mono", "ins": "1", "outs": "1"} ],    
     "enableDevTools": true,
     "widgets": [
         {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}},${widgets}
