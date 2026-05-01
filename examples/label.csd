@@ -1,7 +1,10 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500}, "pluginId": "def1" },
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "Label Example", "size": {"width": 580, "height": 500} },
         {
             "type"       : "label",
             "channels"   : [

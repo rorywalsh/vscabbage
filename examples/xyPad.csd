@@ -1,7 +1,10 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "XyPad Test", "size": {"width": 400, "height": 400}, "guiMode": "queue", "pluginId": "test" },
+    "pluginId"      : "test",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "XyPad Test", "size": {"width": 400, "height": 400}, "guiMode": "queue" },
         {
             "type"   : "xyPad",
             "bounds" : {"left": 20, "top": 20, "width": 350, "height": 350},

@@ -1,14 +1,21 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "Slider Example", "size": {"width": 560, "height": 360}, "guiMode": "queue", "pluginId": "def1" },
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "Stereo", "ins": "2", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "Slider Example", "size": {"width": 560, "height": 360}, "guiMode": "queue" },
         {
             "type"    : "rotarySlider",
             "bounds"  : {"left": 20, "top": 60, "width": 120, "height": 80},
-            "label"   : {"text": "Harmonic 1"},
             "style"   : { "label": {"fontColor": "#dddddd"}, "valueText": {"fontSize": 12} },
             "channels": [
-                { "id": "harmonic1", "event": "valueChanged", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001} }
+                {
+                    "id"   : "harmonic1",
+                    "label": "Harmonic 1",
+                    "event": "valueChanged",
+                    "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.001}
+                }
             ]
         },
         {

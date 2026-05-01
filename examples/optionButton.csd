@@ -1,7 +1,10 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "Combobox Example", "size": {"width": 580, "height": 500}, "pluginId": "def1" },
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "Combobox Example", "size": {"width": 580, "height": 500} },
         {
             "type"    : "rotarySlider",
             "bounds"  : {"left": 12, "top": 9, "width": 86, "height": 90},

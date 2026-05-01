@@ -1,34 +1,41 @@
 
 <Cabbage>
-[
-    { "type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 370}, "pluginId": "def1" },
-    {
-        "type"    : "image",
-        "id"      : "scrubber",
-        "bounds"  : {"left": 9, "top": 9, "width": 32, "height": 278},
-        "channels": [
-            { "id": "image130", "range": {"increment": 0.001} }
-        ],
-        "style"   : {"backgroundColor": "#0295cffd"},
-        "zIndex"  : -1
-    },
-    {
-        "type"    : "horizontalSlider",
-        "id"      : "horizontalSlider133",
-        "bounds"  : {"top": 297, "width": 233, "height": 30},
-        "channels": [
-            { "id": "bpmSlider", "range": {"defaultValue": 60, "increment": 1, "max": 320} }
-        ],
-        "label"   : {"text": "BPM"}
-    },
-    {
-        "type"    : "button",
-        "id"      : "randomBtn",
-        "bounds"  : {"left": 254, "top": 297, "width": 100},
-        "channels": [ {"id": "shuffle", "range": {}} ],
-        "label"   : { "text": {"on": "Shuffle", "off": "Shuffle"} }
-    }
-]
+{
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig": [
+        { "name": "Stereo",    "ins": "2",   "outs": "2" },
+    ],
+    "widgets"       : [
+        { "type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 370} },
+        {
+            "type"    : "image",
+            "id"      : "scrubber",
+            "bounds"  : {"left": 9, "top": 9, "width": 32, "height": 278},
+            "channels": [
+                { "id": "image130", "range": {"increment": 0.001} }
+            ],
+            "style"   : {"backgroundColor": "#0295cffd"},
+            "zIndex"  : -1
+        },
+        {
+            "type"    : "horizontalSlider",
+            "id"      : "horizontalSlider133",
+            "bounds"  : {"top": 297, "width": 233, "height": 30},
+            "channels": [
+                { "id": "bpmSlider", "range": {"defaultValue": 60, "increment": 1, "max": 320} }
+            ],
+            "label"   : {"text": "BPM"}
+        },
+        {
+            "type"    : "button",
+            "id"      : "randomBtn",
+            "bounds"  : {"left": 254, "top": 297, "width": 100},
+            "channels": [ {"id": "shuffle", "range": {}} ],
+            "label"   : { "text": {"on": "Shuffle", "off": "Shuffle"} }
+        }
+    ]
+}
 
 </Cabbage>
 <CsoundSynthesizer>

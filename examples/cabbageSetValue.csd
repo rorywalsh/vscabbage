@@ -1,7 +1,10 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "GetSet Opcodes", "size": {"height": 500, "width": 580}, "pluginId": "def1" },
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "GetSet Opcodes", "size": {"height": 500, "width": 580} },
         {
             "type"   : "rotarySlider",
             "channel": "gain",

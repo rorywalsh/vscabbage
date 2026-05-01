@@ -1,7 +1,10 @@
 <Cabbage>
 {
-    "widgets": [
-        { "type": "form", "caption": "Button Example", "size": {"width": 380, "height": 300}, "pluginId": "def1" },
+    "pluginId"      : "def1",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
+        { "type": "form", "caption": "Button Example", "size": {"width": 380, "height": 300} },
         {
             "type"    : "button",
             "bounds"  : {"left": 16, "top": 12, "width": 117, "height": 30},
@@ -39,7 +42,6 @@
 <CsInstruments>
 ; Initialize the global variables.
 ksmps = 32
-nchnls = 2
 0dbfs = 1
 
 ; Rory Walsh 2021

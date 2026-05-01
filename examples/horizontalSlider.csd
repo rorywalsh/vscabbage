@@ -1,12 +1,14 @@
 <Cabbage>
 {
-    "widgets": [
+    "pluginId"      : "def2",
+    "enableDevTools": true,
+    "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
+    "widgets"       : [
         {
             "type"    : "form",
             "caption" : "Slider Example",
             "size"    : {"width": 440, "height": 340},
             "guiMode" : "queue",
-            "pluginId": "def2",
             "channels": [ {"id": "MainForm", "event": "valueChanged"} ]
         },
         {
