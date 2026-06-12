@@ -511,13 +511,37 @@ export class Commands {
                 }
                 break;
 
-            case 'cabbageIsReadyToLoad':
+            case 'cabbageIsReadyToLoad': {
                 // Forward to C++ backend - it will send widgets and queue table updates
                 this.sendMessageToCabbageApp({
                     command: "cabbageIsReadyToLoad",
                     text: ""
                 });
+                // Proactively push custom widget info so the webview listener
+                // (installed before cabbageIsReadyToLoad is sent) catches it
+                // without a separate request/response round-trip.
+                try {
+                    const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
+                    console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
+                    const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+                    for (const dir of cwDirs) {
+                        const found = await ExtensionUtils.scanForCustomWidgets(dir);
+                        console.warn(`Cabbage: customWidgetInfo push - dir "${dir}" found ${found.length} widgets:`, found.map(w => w.widgetType));
+                        for (const w of found) {
+                            const fp = path.join(dir, w.filename);
+                            const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
+                            if (uri) {
+                                cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
+                            }
+                        }
+                    }
+                    console.warn('Cabbage: customWidgetInfo push - sending', cwWidgets.length, 'widgets');
+                    Commands.getPanel()?.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets });
+                } catch (cwErr) {
+                    console.error('Cabbage: Error pushing customWidgetInfo:', cwErr);
+                }
                 break;
+            }
 
             case 'fileOpen':
                 const jsonText = JSON.parse(message.obj);
@@ -1482,6 +1506,11 @@ export class Commands {
                             // Show INFO lines with the INFO: prefix removed
                             const msg = line.replace('INFO:', '').trim();
                             this.vscodeOutputChannel.appendLine(msg);
+                        } else if (line.startsWith('ERROR:')) {
+                            // ERROR: prefix is from the C++ backend logger, not Csound.
+                            // Show in output but do NOT treat as a Csound compilation error
+                            // or dispose the panel.
+                            this.vscodeOutputChannel.appendLine(line);
                         } else {
                             // Show other messages as-is (Csound output, etc.)
                             // Check for parsing failure and close panel if needed

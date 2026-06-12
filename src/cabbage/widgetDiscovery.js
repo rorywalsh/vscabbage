@@ -32,7 +32,7 @@ import { registerWidget } from './widgetTypes.js';
  * @param {Object} vscode - VS Code API instance (from acquireVsCodeApi)
  * @returns {Promise<string[]>} - Array of discovered custom widget type names
  */
-export async function discoverAndRegisterCustomWidgets(vscode) {
+export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null) {
     const discoveredWidgets = [];
 
     if (!vscode) {
@@ -40,71 +40,17 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
     }
 
     try {
-        // Request custom widget information from the extension
-
-        // Create a promise that resolves when we receive the response
-        // Wait for the extension to post custom widget info. Increase the
-        // timeout to reduce race conditions where the extension replies a
-        // little slower. We also keep the message listener in place after
-        // the initial response so late arrivals can still register widgets.
-        const widgetInfoPromise = new Promise((resolve) => {
-            const messageHandler = (event) => {
-                const message = event.data;
-                if (message && message.command === 'customWidgetInfo') {
-                    // Do not remove the global listener here; we want to allow
-                    // future updates to arrive as well. Resolve the initial
-                    // promise with the first payload we receive.
-                    resolve(message.widgets || []);
-                }
-            };
-
-            window.addEventListener('message', messageHandler);
-
-            // Set a longer timeout in case the extension is slow to respond.
-            setTimeout(() => {
-                // If we haven't resolved yet, resolve with empty array so the
-                // initialization can continue. Later messages will still be
-                // handled by the global listener below.
-                console.warn('Cabbage: Timed out waiting for customWidgetInfo from extension (10s timeout expired)');
-                resolve([]);
-            }, 10000); // 10s
-        });
-
-        // Request all custom widget info at once
-        vscode.postMessage({
-            command: 'getCustomWidgetInfo'
-        });
-
-        const widgetInfoList = await widgetInfoPromise;
-
-        if (!widgetInfoList || widgetInfoList.length === 0) {
-            return discoveredWidgets;
-        }
-
-        // Register each widget
-        for (const widgetInfo of widgetInfoList) {
-            try {
-                const { widgetType, filename, className, webviewPath } = widgetInfo;
-
-
-                // Register the widget - the webviewPath is already a complete URI
-                // We just need to use the filename for the registry
-                registerWidget(widgetType, webviewPath, className);
-                discoveredWidgets.push(widgetType);
-
-            } catch (error) {
-                console.error(`Cabbage: Failed to register widget ${widgetInfo.widgetType}:`, error);
-            }
-        }
-
-        // Also install a global listener so any future 'customWidgetInfo'
-        // messages sent by the extension (for example, after the initial
-        // timeout) will still be registered.
-        window.addEventListener('message', (event) => {
+        // Install the persistent global listener SYNCHRONOUSLY before anything
+        // async so it is guaranteed to be in place when the extension sends
+        // customWidgetInfo (which it does as soon as it receives
+        // cabbageIsReadyToLoad — potentially before any awaits below resolve).
+        const handleCustomWidgetInfo = (event) => {
             try {
                 const message = event.data;
                 if (message && message.command === 'customWidgetInfo') {
+                    console.log(`Cabbage: customWidgetInfo received, ${(message.widgets || []).length} widgets:`, (message.widgets || []).map(w => w.widgetType));
                     const widgets = message.widgets || [];
+                    let added = false;
                     widgets.forEach(w => {
                         const { widgetType, webviewPath, className } = w;
                         if (widgetType && webviewPath && className) {
@@ -112,17 +58,28 @@ export async function discoverAndRegisterCustomWidgets(vscode) {
                                 try {
                                     registerWidget(widgetType, webviewPath, className);
                                     discoveredWidgets.push(widgetType);
+                                    added = true;
+                                    console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}`);
                                 } catch (err) {
-                                    console.error(`Cabbage: Failed to late-register widget ${widgetType}:`, err);
+                                    console.error(`Cabbage: Failed to register widget ${widgetType}:`, err);
                                 }
                             }
                         }
                     });
+                    if (added && typeof onRefresh === 'function') {
+                        onRefresh();
+                    }
                 }
             } catch (err) {
-                console.error('Cabbage: Error handling late customWidgetInfo message:', err);
+                console.error('Cabbage: Error handling customWidgetInfo message:', err);
             }
-        });
+        };
+        window.addEventListener('message', handleCustomWidgetInfo);
+
+        // Also request in case the extension hasn't pushed yet
+        // (e.g. on a rescan triggered after initial load).
+        vscode.postMessage({ command: 'getCustomWidgetInfo' });
+
         return discoveredWidgets;
 
     } catch (error) {

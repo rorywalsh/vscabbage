@@ -48,20 +48,6 @@ CabbageUtils.showOverlay();
 (async () => {
     try {
 
-        // Discover and register custom widgets before loading other modules
-        if (typeof acquireVsCodeApi === 'function') {
-            try {
-                const customWidgets = await discoverAndRegisterCustomWidgets(vscode);
-                if (customWidgets.length > 0) {
-                } else {
-                }
-            } catch (error) {
-                console.error('Cabbage: Error during custom widget discovery:', error);
-                console.error('Cabbage: Error stack:', error.stack);
-            }
-        } else {
-        }
-
         // Check if running in VS Code context
         if (typeof acquireVsCodeApi === 'function') {
             try {
@@ -84,8 +70,16 @@ CabbageUtils.showOverlay();
                 // You might want to wait for the interact script to load before proceeding
                 await widgetWrappers.interactPromise;
 
+                // Register the custom-widget listener BEFORE sending cabbageIsReadyToLoad.
+                // The extension pushes customWidgetInfo immediately when it receives
+                // cabbageIsReadyToLoad, so the listener must exist first.
+                discoverAndRegisterCustomWidgets(
+                    vscode,
+                    () => WidgetManager.refreshWidgetMenu()
+                );
 
-                // Send message to indicate UI is ready to receive widget data
+                // Tell the backend the UI is ready — this also triggers the extension
+                // to push customWidgetInfo back to the webview.
                 Cabbage.sendCustomCommand('cabbageIsReadyToLoad', vscode);
             } catch (error) {
                 console.error("Cabbage: Error loading modules in main.js:", error);
@@ -412,7 +406,7 @@ window.addEventListener('message', async (event) => {
     }
 
     // Log all incoming messages to help debug
-    console.log(`[main.js] Received command: '${message.command}'`, message.command === 'batchWidgetUpdate' ? `(${message.widgets ? message.widgets.length : 0} widgets)` : message.command === 'widgetUpdate' ? `id=${message.id} channel=${message.channel} hasWidgetJson=${!!message.widgetJson} hasValue=${message.value !== undefined ? message.value : 'none'}` : '');
+    if (message.command !== 'vuMeter') { console.log(`[main.js] Received command: '${message.command}'`, message.command === 'batchWidgetUpdate' ? `(${message.widgets ? message.widgets.length : 0} widgets)` : message.command === 'widgetUpdate' ? `id=${message.id} channel=${message.channel} hasWidgetJson=${!!message.widgetJson} hasValue=${message.value !== undefined ? message.value : 'none'}` : ''); }
 
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
