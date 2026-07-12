@@ -80,6 +80,49 @@ export class Settings {
         return ''; // Return an empty string if the extension is not found
     }
 
+    /**
+     * Ensures the Cabbage settings file has the current extension JS source path
+     * in jsSourceDir. If the first entry is a stale path (e.g. from a previous
+     * extension version), it is replaced with the current path. Any additional
+     * custom widget directories are preserved.
+     */
+    static async ensureExtensionJsSourcePath() {
+        const defPath = Settings.getPathJsSourceDir();
+        if (!defPath) return;
+
+        try {
+            const settings = await Settings.getCabbageSettings();
+            const current = settings['currentConfig']?.['jsSourceDir'];
+            let dirs: string[] = [];
+            if (Array.isArray(current)) {
+                dirs = current as string[];
+            } else if (typeof current === 'string' && current.length > 0) {
+                dirs = [current as string];
+            } else {
+                dirs = [];
+            }
+
+            // Check if the current primary path is still the same extension src dir.
+            // If it's a stale versioned path (different directory), replace it.
+            const currentPrimary = dirs.length > 0 ? dirs[0] : '';
+            if (currentPrimary !== defPath) {
+                if (dirs.length > 0) {
+                    dirs[0] = defPath;
+                } else {
+                    dirs.push(defPath);
+                }
+                dirs = [...new Set(dirs)];
+
+                settings['currentConfig']['jsSourceDir'] = dirs;
+                await Settings.setCabbageSettings(settings);
+                Commands.getOutputChannel().appendLine(
+                    `Cabbage: Updated jsSourceDir primary path to ${defPath}`);
+            }
+        } catch (err) {
+            console.error('Cabbage: Failed to ensure extension JS source path:', err);
+        }
+    }
+
     static getCabbageBinaryPath(type: string): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         const config = vscode.workspace.getConfiguration("cabbage");
@@ -360,6 +403,14 @@ export class Settings {
         let settings = await Settings.getCabbageSettings();
         const config = vscode.workspace.getConfiguration('cabbage');
 
+        // OS-specific JS source path settings
+        // ------------------------------------
+        // We maintain separate pathToJsSource{Windows,macOS,Linux} VS Code settings
+        // so that users who enable VS Code Settings Sync don't end up with
+        // cross-platform path mismatches (e.g. a Windows path synced to macOS).
+        // Each OS gets its own setting; only the one matching the current platform
+        // is read and synced into the shared Cabbage settings file (jsSourceDir).
+
         // Check if any of the OS-specific configurations have changed.
         if (
             event.affectsConfiguration('cabbage.pathToJsSourceWindows') ||
@@ -384,8 +435,30 @@ export class Settings {
                     return;
             }
 
-            // Update the settings with the new path. Store as array for multiple sources support.
-            settings['currentConfig']['jsSourceDir'] = newPath ? [newPath] : [];
+            if (!newPath) return;
+
+            // Normalise existing jsSourceDir into an array
+            const current = settings['currentConfig']['jsSourceDir'];
+            let dirs: string[] = [];
+            if (Array.isArray(current)) {
+                dirs = current as string[];
+            } else if (typeof current === 'string' && current.length > 0) {
+                dirs = [current as string];
+            } else {
+                dirs = [];
+            }
+
+            // Replace the primary source dir (first entry) with the new path.
+            // Any additional custom widget directories are preserved.
+            if (dirs.length > 0) {
+                dirs[0] = newPath;
+            } else {
+                dirs.push(newPath);
+            }
+
+            dirs = [...new Set(dirs)];
+
+            settings['currentConfig']['jsSourceDir'] = dirs;
             await Settings.setCabbageSettings(settings);
         }
 
@@ -413,10 +486,13 @@ export class Settings {
                     dirs = [];
                 }
 
-                // Build the new list: ensure default path is present, then append
-                // all custom dirs from the VS Code setting (in that order).
+                // Determine the primary source dir: keep the current first entry
+                // if it exists, otherwise use the default extension path.
+                const primary = dirs.length > 0 ? dirs[0] : defPath;
+
+                // Rebuild: primary first, then all custom dirs (no duplicates)
                 const newDirs: string[] = [];
-                if (defPath && !newDirs.includes(defPath)) newDirs.push(defPath);
+                if (primary && !newDirs.includes(primary)) newDirs.push(primary);
                 for (const d of customDirs) {
                     if (d && !newDirs.includes(d)) newDirs.push(d);
                 }
@@ -516,8 +592,7 @@ export class Settings {
             return;
         }
 
-        // Normalise into array and append if not present
-        const defPath = Settings.getPathJsSourceDir();
+        // Normalise into array and append custom folder if not present
         const current = settings['currentConfig']['jsSourceDir'];
         let dirs: string[] = [];
         if (Array.isArray(current)) {
@@ -526,11 +601,6 @@ export class Settings {
             dirs = [current as string];
         } else {
             dirs = [];
-        }
-
-        // Ensure default path is present
-        if (defPath && !dirs.includes(defPath)) {
-            dirs.unshift(defPath);
         }
 
         // Append custom folder if not already present
@@ -542,6 +612,7 @@ export class Settings {
         await Settings.setCabbageSettings(settings);
 
         // Also update VS Code settings for visibility
+        const defPath = Settings.getPathJsSourceDir();
         const customDirs = dirs.filter(d => d !== defPath);
         const config = vscode.workspace.getConfiguration('cabbage');
         await config.update('customWidgetDirectories', customDirs, vscode.ConfigurationTarget.Global);
@@ -676,7 +747,6 @@ export class Settings {
     }
 
     static async selectCabbageJavascriptSourcePath() {
-        const config = vscode.workspace.getConfiguration('cabbage');
         let settings = await Settings.getCabbageSettings();
 
         const selectedPath = await vscode.window.showOpenDialog({
@@ -688,27 +758,40 @@ export class Settings {
 
         if (selectedPath && selectedPath.length > 0) {
             const fsPath = selectedPath[0].fsPath;
-            let settingKey = '';
 
-            switch (os.platform()) {
-                case 'win32':
-                    settingKey = 'pathToJsSourceWindows';
-                    break;
-                case 'darwin':
-                    settingKey = 'pathToJsSourceMacOS';
-                    break;
-                case 'linux':
-                    settingKey = 'pathToJsSourceLinux';
-                    break;
-                default:
-                    vscode.window.showWarningMessage(`Unsupported platform: ${os.platform()}`);
-                    return;
+            // Normalise existing jsSourceDir into an array
+            const current = settings['currentConfig']['jsSourceDir'];
+            let dirs: string[] = [];
+            if (Array.isArray(current)) {
+                dirs = current as string[];
+            } else if (typeof current === 'string' && current.length > 0) {
+                dirs = [current as string];
+            } else {
+                dirs = [];
             }
 
-            await config.update(settingKey, fsPath, vscode.ConfigurationTarget.Global);
+            // Replace the primary source dir (first entry) with the selected path.
+            // Any additional custom widget directories are preserved.
+            if (dirs.length > 0) {
+                dirs[0] = fsPath;
+            } else {
+                dirs.push(fsPath);
+            }
 
-            settings['currentConfig'][settingKey] = fsPath;
+            // Remove duplicates (in case selected path was already in the list)
+            dirs = [...new Set(dirs)];
+
+            settings['currentConfig']['jsSourceDir'] = dirs;
             await Settings.setCabbageSettings(settings);
+
+            // Trigger a backend rescan
+            try {
+                await vscode.commands.executeCommand('cabbage.restartBackend');
+            } catch (cmdErr) {
+                console.warn('Cabbage: Failed to execute restartBackend command:', cmdErr);
+            }
+
+            vscode.window.showInformationMessage(`Cabbage: JavaScript source path set to ${fsPath}`);
         }
     }
 

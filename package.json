@@ -86,17 +86,17 @@
         "cabbage.pathToJsSourceWindows": {
           "type": "string",
           "default": "",
-          "description": "Folder containing Cabbage Javascript on Windows. Leave empty to use default location\nor use command palette to browse for custom JS folder."
+          "description": "Folder containing Cabbage Javascript on Windows. Leave empty to use default location.\nSeparate per-OS settings prevent cross-platform path conflicts when using VS Code Settings Sync."
         },
         "cabbage.pathToJsSourceMacOS": {
           "type": "string",
           "default": "",
-          "description": "Folder containing Cabbage Javascript on MacOS. Leave empty to use default location\nor use command palette to browse for custom JS folder."
+          "description": "Folder containing Cabbage Javascript on MacOS. Leave empty to use default location.\nSeparate per-OS settings prevent cross-platform path conflicts when using VS Code Settings Sync."
         },
         "cabbage.pathToJsSourceLinux": {
           "type": "string",
           "default": "",
-          "description": "Folder containing Cabbage Javascript on Linux. Leave empty to use default location\nor use command palette to browse for custom JS folder."
+          "description": "Folder containing Cabbage Javascript on Linux. Leave empty to use default location.\nSeparate per-OS settings prevent cross-platform path conflicts when using VS Code Settings Sync."
         },
         "cabbage.customWidgetDirectories": {
           "type": "array",

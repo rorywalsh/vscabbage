@@ -293,7 +293,7 @@ export async function activate(context: vscode.ExtensionContext):
     Commands.initialize();
 
     const currentVersion =
-        vscode.extensions.getExtension('your.extension-id')?.packageJSON.version;
+        vscode.extensions.getExtension('cabbageaudio.vscabbage')?.packageJSON.version;
     const previousVersion = context.globalState.get<string>('extensionVersion');
 
     if (!previousVersion) {
@@ -303,8 +303,13 @@ export async function activate(context: vscode.ExtensionContext):
         // Extension updated
         vscode.window.showInformationMessage(
             `Extension updated to version ${currentVersion}`);
-        onUpdate(previousVersion, currentVersion);
+        await onUpdate(previousVersion, currentVersion);
     }
+
+    // Ensure the extension's JS source path is current in the Cabbage settings.
+    // This handles cases where the extension was updated but the settings file
+    // still points to a stale versioned directory.
+    await Settings.ensureExtensionJsSourcePath();
 
     // Update the stored version
     context.globalState.update('extensionVersion', currentVersion);
@@ -1174,13 +1179,14 @@ function onInstall() {
 
 /**
  * Logic to execute when the extension is updated to a new version.
+ * Replaces any stale extension path in jsSourceDir with the current one.
  * @param previousVersion The previous version of the extension.
  * @param currentVersion The current version of the extension.
  */
-function onUpdate(previousVersion: string, currentVersion: string) {
-    // Logic to execute on update
+async function onUpdate(previousVersion: string, currentVersion: string) {
     console.log(
         `Extension updated from version ${previousVersion} to ${currentVersion}`);
+    await Settings.ensureExtensionJsSourcePath();
 }
 
 
