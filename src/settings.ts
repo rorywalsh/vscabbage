@@ -525,11 +525,18 @@ export class Settings {
     static async selectCustomWidgetDirectory() {
         let settings = await Settings.getCabbageSettings();
 
+        const jsSourceDirs = settings?.['currentConfig']?.['jsSourceDir'];
+        const currentDir = Array.isArray(jsSourceDirs) && jsSourceDirs.length > 0
+            ? jsSourceDirs[0]
+            : (typeof jsSourceDirs === 'string' ? jsSourceDirs : '');
+        const defaultUri = currentDir ? vscode.Uri.file(currentDir) : undefined;
+
         const selectedPath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select custom widget directory'
+            openLabel: 'Select custom widget directory',
+            defaultUri
         });
 
         if (!selectedPath || selectedPath.length === 0) {
@@ -749,11 +756,18 @@ export class Settings {
     static async selectCabbageJavascriptSourcePath() {
         let settings = await Settings.getCabbageSettings();
 
+        const jsSourceDirs = settings?.['currentConfig']?.['jsSourceDir'];
+        const currentDir = Array.isArray(jsSourceDirs) && jsSourceDirs.length > 0
+            ? jsSourceDirs[0]
+            : (typeof jsSourceDirs === 'string' ? jsSourceDirs : '');
+        const defaultUri = currentDir ? vscode.Uri.file(currentDir) : undefined;
+
         const selectedPath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Cabbage JavaScript path'
+            openLabel: 'Select Cabbage JavaScript path',
+            defaultUri
         });
 
         if (selectedPath && selectedPath.length > 0) {
@@ -828,12 +842,15 @@ export class Settings {
     static async selectCabbageBinaryPath() {
         // Load the configuration for the correct section and key
         const config = vscode.workspace.getConfiguration('cabbage');
+        const currentPath = config.get<string>('pathToCabbageBinary', '');
+        const defaultUri = currentPath ? vscode.Uri.file(currentPath) : undefined;
 
         const cabbagePath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Cabbage binary path'
+            openLabel: 'Select Cabbage binary path',
+            defaultUri
         });
 
         if (cabbagePath && cabbagePath.length > 0) {
@@ -844,12 +861,15 @@ export class Settings {
 
     static async setupCabbageProBinaries() {
         const config = vscode.workspace.getConfiguration('cabbage');
+        const currentPath = config.get<string>('pathToCabbageProBinary', '');
+        const defaultUri = currentPath ? vscode.Uri.file(currentPath) : undefined;
 
         const proBinaryPath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select CabbagePro binaries folder (containing VST3, AU, and cli folders)'
+            openLabel: 'Select CabbagePro binaries folder (containing VST3, AU, and cli folders)',
+            defaultUri
         });
 
         if (proBinaryPath && proBinaryPath.length > 0) {
@@ -877,12 +897,15 @@ export class Settings {
     static async selectCsoundIncludeDir() {
         // Load the configuration for the correct section and key
         const config = vscode.workspace.getConfiguration('cabbage');
+        const currentPath = config.get<string>('pathToCsoundIncludeDir', '');
+        const defaultUri = currentPath ? vscode.Uri.file(currentPath) : undefined;
 
         const cabbagePath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Csound include directory (for Daisy)'
+            openLabel: 'Select Csound include directory (for Daisy)',
+            defaultUri
         });
 
         if (cabbagePath && cabbagePath.length > 0) {
@@ -894,12 +917,15 @@ export class Settings {
     static async selectCsoundLibraryDir() {
         // Load the configuration for the correct section and key
         const config = vscode.workspace.getConfiguration('cabbage');
+        const currentPath = config.get<string>('pathToCsoundLibraryDir', '');
+        const defaultUri = currentPath ? vscode.Uri.file(currentPath) : undefined;
 
         const cabbagePath = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: 'Select Csound library directory (for Daisy)'
+            openLabel: 'Select Csound library directory (for Daisy)',
+            defaultUri
         });
 
         if (cabbagePath && cabbagePath.length > 0) {
