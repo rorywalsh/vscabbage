@@ -392,6 +392,88 @@ export class Cabbage {
    * @param {Object} additionalData - Additional data to include in the command
    */
   /**
+   * Parse a backend `widgetJson` string dump into an object.
+   *
+   * @param {string} widgetJson - JSON string from a `widgetUpdate` payload.
+   * @returns {Object|null} Parsed widget object, or null if unparseable.
+   */
+  static parseWidgetJson(widgetJson) {
+    if (typeof widgetJson !== 'string') {
+      return null;
+    }
+    try {
+      const obj = JSON.parse(widgetJson);
+      return (obj && typeof obj === 'object') ? obj : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Extract a channel value from a `widgetUpdate`-style payload.
+   *
+   * The backend sends values in two shapes:
+   * - Value-only: `{ command: "widgetUpdate", id, value }`
+   * - Full dump: `{ command: "widgetUpdate", id, widgetJson }` where the
+   *   value lives nested at `channels[].range.value` (mirrors what the
+   *   native `WidgetManager` reads). A top-level `value` in the dump is
+   *   accepted as a fallback.
+   * Batch entries (`batchWidgetUpdate` → `widgets[]`) use the same shapes.
+   *
+   * @param {Object} data - `msg.data ?? msg`, or a single batch entry.
+   * @param {string|null} [channelId] - Channel to look up inside `widgetJson`.
+   *   Defaults to `data.id`.
+   * @returns {number|string|undefined} The value, or undefined if not found.
+   *
+   * @example
+   * Cabbage.addMessageListener((msg) => {
+   *   const data = msg.data ?? msg;
+   *   if (msg.command === 'widgetUpdate') {
+   *     const value = Cabbage.extractValue(data, data.id);
+   *     if (value !== undefined) { ... }
+   *   } else if (msg.command === 'batchWidgetUpdate') {
+   *     for (const w of msg.widgets ?? []) {
+   *       const value = Cabbage.extractValue(w, w.id);
+   *       if (value !== undefined) { ... }
+   *     }
+   *   }
+   * });
+   */
+  static extractValue(data, channelId = null) {
+    if (!data || typeof data !== 'object') {
+      return undefined;
+    }
+    if (data.value !== undefined) {
+      return data.value;
+    }
+    const widget = Cabbage.parseWidgetJson(data.widgetJson);
+    if (!widget) {
+      return undefined;
+    }
+    const id = channelId ?? data.id ?? null;
+    const channels = Array.isArray(widget.channels) ? widget.channels : null;
+    if (channels) {
+      let channel = null;
+      if (id !== null && id !== undefined) {
+        channel = channels.find((c) => c && c.id === id) ?? null;
+      }
+      if (!channel) {
+        channel = channels[0] ?? null;
+      }
+      if (channel && channel.range && channel.range.value !== undefined) {
+        return channel.range.value;
+      }
+      if (channel && channel.value !== undefined) {
+        return channel.value;
+      }
+    }
+    if (widget.value !== undefined) {
+      return widget.value;
+    }
+    return undefined;
+  }
+
+  /**
    * Register a listener for incoming messages from the Cabbage backend.
    *
    * Abstracts the two environments so that the same UI code works everywhere:
@@ -411,8 +493,11 @@ export class Cabbage {
    *   Common message shapes:
    *   - `{ command: "parameterChange", data: { paramIdx, value } }` (data may be top-level or nested)
    *   - `{ command: "widgetUpdate", id, value }` (from cabbageSetValue / cabbageSet)
-   *   - `{ command: "widgetUpdate", id, widgetJson }` (full widget update)
+   *   - `{ command: "widgetUpdate", id, widgetJson }` (full widget update, e.g. initial state)
+   *   - `{ command: "batchWidgetUpdate", widgets: [{ id, value?, widgetJson? }] }` (session restore)
    *   - `{ command: "channelDataUpdate", data: { channel, value } }`
+   *   Use `Cabbage.extractValue()` to read values from `widgetUpdate` /
+   *   `batchWidgetUpdate` payloads without reimplementing channel lookup.
    * @returns {function(): void} Cleanup function — call it when the UI is torn down.
    *
    * @example <caption>Vanilla HTML</caption>

@@ -3366,8 +3366,6 @@ include $(SYSTEM_FILES_DIR)/Makefile
     <script type="module">
         /* Cabbage JS API integration */
         import { Cabbage } from './cabbage/cabbage.js';
-        /* Notify Cabbage that the UI is ready to load */
-        Cabbage.sendCustomCommand('cabbageIsReadyToLoad', null);
 
         // Track dragging state for each slider to prevent fighting with incoming updates
         const isDragging = {
@@ -3423,37 +3421,39 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // Listen for incoming messages from the Cabbage backend.
         // Cabbage.addMessageListener abstracts both VS Code (iframe relay) and
         // native plugin (DAW) environments — no need for manual window.addEventListener.
+        // Registered BEFORE signalling ready: the backend sends the current
+        // widget state (full widgetUpdate dumps, possibly a batchWidgetUpdate)
+        // in response to cabbageIsReadyToLoad.
+        const applyValue = (sliderId, value) => {
+            const slider = document.getElementById(sliderId);
+            if (slider && sliderId && !isDragging[sliderId] && value !== undefined) {
+                slider.value = value;
+            }
+        };
+
         Cabbage.addMessageListener((msg) => {
             const data = msg.data ?? msg;
-            let sliderId, slider;
 
             if (msg.command === 'parameterChange') {
                 // Find slider by parameter index
-                sliderId = data.paramIdx === 0 ? 'slider1' : 'slider2';
-                slider = document.getElementById(sliderId);
-                if (slider && !isDragging[sliderId]) {
-                    slider.value = data.value;
-                }
+                const sliderId = data.paramIdx === 0 ? 'slider1' : 'slider2';
+                applyValue(sliderId, data.value);
             } else if (msg.command === 'widgetUpdate') {
-                // Find slider by channel id
-                sliderId = data.id;
-                slider = document.getElementById(sliderId);
-                if (slider && !isDragging[sliderId]) {
-                    if (data.value !== undefined) {
-                        slider.value = data.value;
-                    } else if (data.widgetJson !== undefined) {
-                        const widgetObj = JSON.parse(data.widgetJson);
-                        if (widgetObj.bounds) {
-                            slider.style.position = 'absolute';
-                            slider.style.top = widgetObj.bounds.top + 'px';
-                        }
-                        if (widgetObj.value !== undefined) {
-                            slider.value = widgetObj.value;
-                        }
-                    }
+                // Initial state arrives as full widgetJson dumps — use the
+                // helper to read channels[].range.value instead of a
+                // top-level value field (which these dumps don't have).
+                applyValue(data.id, Cabbage.extractValue(data, data.id));
+            } else if (msg.command === 'batchWidgetUpdate') {
+                // Session restore sends all widgets in one message.
+                for (const w of msg.widgets ?? []) {
+                    const entry = w.data ?? w;
+                    applyValue(entry.id, Cabbage.extractValue(entry, entry.id));
                 }
             }
         });
+
+        /* Notify Cabbage that the UI is ready to load */
+        Cabbage.sendCustomCommand('cabbageIsReadyToLoad', null);
     </script>
 </body>
 
