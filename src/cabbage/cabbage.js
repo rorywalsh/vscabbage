@@ -22,28 +22,29 @@
  * Parameter updates are queued and processed safely without interrupting real-time audio processing.
  * 
  * ### Backend -> UI (Incoming)
- * The backend sends messages via `hostMessageCallback()`. Values received from the host
+ * The backend sends messages via `window.postMessage()` (DAW plugin) or the
+ * VS Code iframe relay (extension). Values received from the host
  * are in their full range (e.g., 20-20000 Hz for a filter frequency slider).
  * The backend handles all value normalization needed by the host DAW.
- * To intercept these messages, define a global function in your UI code:
+ * To intercept these messages, use `Cabbage.addMessageListener()`:
  *
  * ```javascript
- * window.hostMessageCallback = function(data) {
+ * Cabbage.addMessageListener((data) => {
  *   if (data.command === "parameterChange") {
  *     // Handle parameter update from DAW - update display only, don't send back!
- *   } else if (data.command === "updateWidget") {
+ *   } else if (data.command === "widgetUpdate") {
  *     // Handle widget update from plugin, or Csound opcodes (cabbageSetValue, cabbageSet)
  *   } else if (data.command === "channelDataUpdate") {
  *     // Handle channel data from Csound
  *   } else if (data.command === "resizeResponse") {
  *     // Handle resize response
  *   }
- * };
+ * });
  * ```
  *
  * Common incoming commands:
  * - `parameterChange` - Parameter value updated (from DAW automation or backend)
- * - `updateWidget` - Widget value/property update from plugin, or Csound opcodes (cabbageSetValue, cabbageSet)
+ * - `widgetUpdate` - Widget value/property update from plugin, or Csound opcodes (cabbageSetValue, cabbageSet)
  * - `channelDataUpdate` - Channel data from Csound
  * - `resizeResponse` - Response to resize request
  *
@@ -73,8 +74,8 @@
  * slider.onpointerdown = () => { isDragging = true; };
  * slider.onpointerup = () => { isDragging = false; };
  *
- * // In hostMessageCallback:
- * window.hostMessageCallback = function(data) {
+ * // In addMessageListener callback:
+ * Cabbage.addMessageListener((data) => {
  *   if (data.command === "parameterChange") {
  *     if (!isDragging) {
  *       // Safe to update display - user isn't interacting
@@ -82,7 +83,7 @@
  *     }
  *     // If isDragging, ignore the update - user's input takes priority
  *   }
- * };
+ * });
  * ```
  *
  * @module Cabbage
@@ -395,7 +396,16 @@ export class Cabbage {
    *
    * Abstracts the two environments so that the same UI code works everywhere:
    * - **VS Code (iframe relay)**: messages arrive as window `message` events
-   * - **Native plugin (DAW)**: messages arrive via `window.hostMessageCallback`
+   *   from the parent/extension (`event.source !== window`).
+   * - **Native plugin (DAW)**: the backend calls `window.postMessage(msg)` on
+   *   its own window via evaluateJavascript, which dispatches a `message`
+   *   event with `event.source === window`. UI->backend traffic uses the
+   *   native `window.sendMessageFromUI` binding (not `window.postMessage`),
+   *   so accepting self-posts cannot echo our own outgoing messages.
+   *
+   * Any `message` event whose payload (or JSON-parsed string payload) is an
+   * object with a non-empty string `command` field is forwarded to the
+   * callback, regardless of `event.source`.
    *
    * @param {function(Object): void} callback - Called with the message object.
    *   Common message shapes:
@@ -419,16 +429,25 @@ export class Cabbage {
    * onDestroy(() => remove?.());
    */
   static addMessageListener(callback) {
-    // VS Code iframe relay — messages arrive as window message events.
-    // Filter out messages that originated from this window itself (outgoing echoes).
     const handler = (event) => {
-      if (event.source !== window) {
-        callback(event.data);
+      let data = event.data;
+      // Native UI sends string payloads in some hosts — match main.js behaviour.
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          return;
+        }
       }
+      if (!data || typeof data.command !== 'string' || data.command.length === 0) {
+        return;
+      }
+      callback(data);
     };
     window.addEventListener('message', handler);
 
-    // Native plugin (DAW) — messages arrive via window.hostMessageCallback.
+    // Kept for backwards compatibility — nothing in the current backend
+    // calls it (backend uses window.postMessage), but custom hosts might.
     window.hostMessageCallback = callback;
 
     return () => {

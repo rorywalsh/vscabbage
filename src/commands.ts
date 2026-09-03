@@ -3434,7 +3434,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 if (slider && !isDragging[sliderId]) {
                     slider.value = data.value;
                 }
-            } else if (msg.command === 'updateWidget') {
+            } else if (msg.command === 'widgetUpdate') {
                 // Find slider by channel id
                 sliderId = data.id;
                 slider = document.getElementById(sliderId);
