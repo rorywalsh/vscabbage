@@ -81,6 +81,12 @@ export class Commands {
     private static onEnterPerformanceModeTimeout: NodeJS.Timeout | undefined;
     private static editQueue: Promise<void> = Promise.resolve();
     private static widgetPropsDebounceTimer: NodeJS.Timeout | undefined;
+    // Pending debounced widget-props update (single update or batch). The
+    // debounce collapses rapid non-identity updates (drag moves), but
+    // identity changes (channel renames via oldId) must never be collapsed
+    // away or reordered — dropping an intermediate rename orphans the oldId
+    // chain and the renamed widget gets duplicated.
+    private static pendingWidgetProps: { kind: 'single', rawText: string, oldId: string | undefined } | { kind: 'batch', texts: string[] } | null = null;
     private static recordingStatusBarItem: vscode.StatusBarItem | undefined;
     private static recordingStartTime: number = 0;
     private static recordingTimer: NodeJS.Timeout | undefined;
@@ -345,6 +351,61 @@ export class Commands {
 
 
     /**
+    * Moves a pending widget-props update onto the serial edit queue immediately.
+    */
+    private static applyWidgetPropsUpdate(pending: { kind: 'single', rawText: string, oldId: string | undefined } | { kind: 'batch', texts: string[] }): void {
+        Commands.editQueue = Commands.editQueue.then(async () => {
+            if (pending.kind === 'single') {
+                await ExtensionUtils.updateText(pending.rawText, getCabbageMode(), Commands.vscodeOutputChannel, Commands.highlightDecorationType, Commands.lastSavedFileName, Commands.panel, undefined, 3, pending.oldId);
+            } else {
+                for (const rawText of pending.texts) {
+                    await ExtensionUtils.updateText(rawText, getCabbageMode(), Commands.vscodeOutputChannel, Commands.highlightDecorationType, Commands.lastSavedFileName, Commands.panel, undefined, 3, undefined);
+                }
+            }
+        }).catch(err => {
+            console.error('Extension: Error processing queued widget-props edit:', err);
+        });
+    }
+
+    /**
+    * Applies any pending debounced update right away, preserving wire order.
+    * Called before identity changes so nothing they depend on is still waiting.
+    */
+    private static flushPendingWidgetProps(): void {
+        if (Commands.widgetPropsDebounceTimer) {
+            clearTimeout(Commands.widgetPropsDebounceTimer);
+            Commands.widgetPropsDebounceTimer = undefined;
+        }
+        if (Commands.pendingWidgetProps) {
+            const pending = Commands.pendingWidgetProps;
+            Commands.pendingWidgetProps = null;
+            Commands.applyWidgetPropsUpdate(pending);
+        }
+    }
+
+    /**
+    * Debounce document edits so that rapid messages don't flood the LSP with
+    * sequential document mutations (which corrupt its parse state). Only the
+    * final update (after the sender pauses) triggers an edit. Must only be
+    * used for non-identity updates — renames go through flush + immediate
+    * apply instead (see the updateWidgetProps case).
+    */
+    private static debounceWidgetPropsUpdate(pending: { kind: 'single', rawText: string, oldId: string | undefined } | { kind: 'batch', texts: string[] }): void {
+        if (Commands.widgetPropsDebounceTimer) {
+            clearTimeout(Commands.widgetPropsDebounceTimer);
+        }
+        Commands.pendingWidgetProps = pending;
+        Commands.widgetPropsDebounceTimer = setTimeout(() => {
+            Commands.widgetPropsDebounceTimer = undefined;
+            const next = Commands.pendingWidgetProps;
+            Commands.pendingWidgetProps = null;
+            if (next) {
+                Commands.applyWidgetPropsUpdate(next);
+            }
+        }, 150);
+    }
+
+    /**
     * Handles incoming messages from the webview and performs actions based
     * on the message type.
     * @param message The message from the webview.
@@ -451,21 +512,22 @@ export class Commands {
                 if (getCabbageMode() !== "play") {
                     const rawText = message && message.text;
                     if (typeof rawText === 'string' && rawText !== '' && rawText !== 'undefined') {
-                        // Debounce document edits so that rapid drag-move messages don't flood
-                        // the LSP with sequential document mutations (which corrupt its parse state).
-                        // Only the final position (after the user stops moving) triggers an edit.
-                        const oldId = message.oldId;
-                        if (Commands.widgetPropsDebounceTimer) {
-                            clearTimeout(Commands.widgetPropsDebounceTimer);
+                        const oldId = message && message.oldId;
+                        if (typeof oldId === 'string' && oldId !== '') {
+                            // Identity change (channel rename): apply immediately
+                            // and never let it be cancelled or reordered. Flush
+                            // any pending update first so wire order is kept
+                            // (e.g. insert before the rename that references it).
+                            // Collapsing renames orphans the oldId chain and the
+                            // renamed widget gets duplicated in the CSD.
+                            Commands.flushPendingWidgetProps();
+                            Commands.applyWidgetPropsUpdate({ kind: 'single', rawText, oldId });
+                        } else {
+                            // Debounce document edits so that rapid drag-move messages don't flood
+                            // the LSP with sequential document mutations (which corrupt its parse state).
+                            // Only the final position (after the user stops moving) triggers an edit.
+                            Commands.debounceWidgetPropsUpdate({ kind: 'single', rawText, oldId: undefined });
                         }
-                        Commands.widgetPropsDebounceTimer = setTimeout(() => {
-                            Commands.widgetPropsDebounceTimer = undefined;
-                            Commands.editQueue = Commands.editQueue.then(async () => {
-                                await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, oldId);
-                            }).catch(err => {
-                                console.error('Extension: Error processing queued edit:', err);
-                            });
-                        }, 150);
                     }
                 }
                 break;
@@ -481,20 +543,7 @@ export class Commands {
                     const texts = message && message.texts;
                     if (Array.isArray(texts) && texts.length > 0 &&
                         texts.every(t => typeof t === 'string' && t !== '' && t !== 'undefined')) {
-                        if (Commands.widgetPropsDebounceTimer) {
-                            clearTimeout(Commands.widgetPropsDebounceTimer);
-                        }
-                        const batch = texts.slice();
-                        Commands.widgetPropsDebounceTimer = setTimeout(() => {
-                            Commands.widgetPropsDebounceTimer = undefined;
-                            Commands.editQueue = Commands.editQueue.then(async () => {
-                                for (const rawText of batch) {
-                                    await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, undefined);
-                                }
-                            }).catch(err => {
-                                console.error('Extension: Error processing queued batch edit:', err);
-                            });
-                        }, 150);
+                        Commands.debounceWidgetPropsUpdate({ kind: 'batch', texts: texts.slice() });
                     }
                 }
                 break;

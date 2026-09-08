@@ -1272,8 +1272,10 @@ export function setupFormHandlers() {
                             }
                             const msg = { command: 'updateWidgetProps', text: JSON.stringify(payload) };
                             postMessageToVSCode(msg);
-                            // Retry once shortly after to guard against ordering races
-                            setTimeout(() => postMessageToVSCode(msg), 200);
+                            // NOTE: no retry post here. A delayed duplicate re-posts
+                            // stale identity and resurrects renamed widgets — ordering
+                            // is now guaranteed by the extension (oldId updates flush
+                            // pending posts and apply immediately, in wire order).
                         } else {
                             console.error("Cabbage: Unable to find inserted widget instance in widgets[] - cannot send update to VS Code");
                         }
