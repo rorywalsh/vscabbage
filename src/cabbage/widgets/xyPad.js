@@ -14,12 +14,12 @@ export class XyPad {
             "bounds": {
                 "top": 10,
                 "left": 10,
-                "width": 60,
-                "height": 60
+                "width": 120,
+                "height": 120
             },
             "channels": [
-                { "id": "rangeX", "event": "mouseDragX" },
-                { "id": "rangeY", "event": "mouseDragY" }
+                { "id": "rangeX", "event": "mouseDragX", "range": { "min": 0, "max": 1, "defaultValue": 0.5, "skew": 1, "increment": 0.001 } },
+                { "id": "rangeY", "event": "mouseDragY", "range": { "min": 0, "max": 1, "defaultValue": 0.5, "skew": 1, "increment": 0.001 } }
             ],
             "value": null,
             "visible": true,
@@ -175,12 +175,12 @@ export class XyPad {
         const rect = evt.currentTarget.getBoundingClientRect();
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.style.borderWidth;
 
         // Calculate effective interactive area (accounting for padding/stroke)
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
+        const ballRadius = this.props.ball.size / 2;        // Account for value boxes if present
         const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
@@ -225,12 +225,12 @@ export class XyPad {
         const rect = padDiv.getBoundingClientRect();
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.style.borderWidth;
 
         // Calculate effective interactive area (accounting for padding/stroke)
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
-        const ballRadius = this.props.ballSize / 2;        // Account for value boxes if present
+        const ballRadius = this.props.ball.size / 2;        // Account for value boxes if present
         const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
 
@@ -274,7 +274,7 @@ export class XyPad {
         // Define dimensions at method scope
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.style.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
@@ -296,9 +296,9 @@ export class XyPad {
             const fadeSpread = 20; // How far the fade extends (in percentage)
             crosshairH.style.background = `linear-gradient(to right, 
                 transparent 0%, 
-                ${this.props.colour.ball.fill}40 ${Math.max(0, ballXPercent - fadeSpread)}%, 
-                ${this.props.colour.ball.fill}B3 ${ballXPercent}%, 
-                ${this.props.colour.ball.fill}40 ${Math.min(100, ballXPercent + fadeSpread)}%, 
+                ${this.props.ball.backgroundColor}40 ${Math.max(0, ballXPercent - fadeSpread)}%, 
+                ${this.props.ball.backgroundColor}B3 ${ballXPercent}%, 
+                ${this.props.ball.backgroundColor}40 ${Math.min(100, ballXPercent + fadeSpread)}%, 
                 transparent 100%)`;
         }
         if (crosshairV) {
@@ -308,15 +308,15 @@ export class XyPad {
             const fadeSpread = 20; // How far the fade extends (in percentage)
             crosshairV.style.background = `linear-gradient(to bottom, 
                 transparent 0%, 
-                ${this.props.colour.ball.fill}40 ${Math.max(0, ballYPercent - fadeSpread)}%, 
-                ${this.props.colour.ball.fill}B3 ${ballYPercent}%, 
-                ${this.props.colour.ball.fill}40 ${Math.min(100, ballYPercent + fadeSpread)}%, 
+                ${this.props.ball.backgroundColor}40 ${Math.max(0, ballYPercent - fadeSpread)}%, 
+                ${this.props.ball.backgroundColor}B3 ${ballYPercent}%, 
+                ${this.props.ball.backgroundColor}40 ${Math.min(100, ballYPercent + fadeSpread)}%, 
                 transparent 100%)`;
         }
 
         // Update value displays
         if (valueBoxX || valueBoxY) {
-            const ballRadius = this.props.ballSize / 2;
+            const ballRadius = this.props.ball.size / 2;
             const maxXRange = 1 - (ballRadius / effectiveWidth);
             const maxYRange = 1 - (ballRadius / activeHeight);
             const minXRange = ballRadius / effectiveWidth;
@@ -326,14 +326,16 @@ export class XyPad {
             const normalizedX = (this.ballX - minXRange) / (maxXRange - minXRange);
             const normalizedY = (this.ballY - minYRange) / (maxYRange - minYRange);
 
+            const xRange = CabbageUtils.getChannelRange(this.props, 0);
+            const yRange = CabbageUtils.getChannelRange(this.props, 1);
             if (valueBoxX) {
-                const xValue = this.props.range.x.min + normalizedX * (this.props.range.x.max - this.props.range.x.min);
-                const xDecimalPlaces = this.getDecimalPlacesFromIncrement(this.props.range.x.increment);
+                const xValue = xRange.min + normalizedX * (xRange.max - xRange.min);
+                const xDecimalPlaces = this.getDecimalPlacesFromIncrement(xRange.increment);
                 valueBoxX.textContent = this.props.valuePrefix + xValue.toFixed(xDecimalPlaces) + this.props.valuePostfix;
             }
             if (valueBoxY) {
-                const yValue = this.props.range.y.min + (1 - normalizedY) * (this.props.range.y.max - this.props.range.y.min);
-                const yDecimalPlaces = this.getDecimalPlacesFromIncrement(this.props.range.y.increment);
+                const yValue = yRange.min + (1 - normalizedY) * (yRange.max - yRange.min);
+                const yDecimalPlaces = this.getDecimalPlacesFromIncrement(yRange.increment);
                 valueBoxY.textContent = this.props.valuePrefix + yValue.toFixed(yDecimalPlaces) + this.props.valuePostfix;
             }
         }
@@ -342,12 +344,16 @@ export class XyPad {
     sendParameterUpdates() {
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.style.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const valueBoxHeight = (this.props.label && this.props.label.textX && this.props.label.textY) ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
-        const ballRadius = this.props.ballSize / 2;
+        const ballRadius = this.props.ball.size / 2;
+
+        // Per-axis ranges live on the channels (channels[0] = X, channels[1] = Y)
+        const xRange = CabbageUtils.getChannelRange(this.props, 0);
+        const yRange = CabbageUtils.getChannelRange(this.props, 1);
 
         // Calculate the constrained range for the ball center
         const maxXRange = 1 - (ballRadius / effectiveWidth);
@@ -360,27 +366,33 @@ export class XyPad {
         const normalizedY = (this.ballY - minYRange) / (maxYRange - minYRange);
 
         // Calculate actual values from full normalized positions using separate ranges
-        const xValue = this.props.range.x.min + normalizedX * (this.props.range.x.max - this.props.range.x.min);
-        const yValue = this.props.range.y.min + (1 - normalizedY) * (this.props.range.y.max - this.props.range.y.min); // Invert Y
+        const xValue = xRange.min + normalizedX * (xRange.max - xRange.min);
+        const yValue = yRange.min + (1 - normalizedY) * (yRange.max - yRange.min); // Invert Y
 
         // Apply skew if needed
-        const xNormalized = (xValue - this.props.range.x.min) / (this.props.range.x.max - this.props.range.x.min);
-        const yNormalized = (yValue - this.props.range.y.min) / (this.props.range.y.max - this.props.range.y.min);
+        const xNormalized = (xValue - xRange.min) / (xRange.max - xRange.min);
+        const yNormalized = (yValue - yRange.min) / (yRange.max - yRange.min);
 
-        const xToSend = Math.pow(xNormalized, 1.0 / this.props.range.x.skew);
-        const yToSend = Math.pow(yNormalized, 1.0 / this.props.range.y.skew);
+        const xToSend = Math.pow(xNormalized, 1.0 / xRange.skew);
+        const yToSend = Math.pow(yNormalized, 1.0 / yRange.skew);
+
+        // Resolve axis channels by event tag, falling back to the positional
+        // convention (channels[0] = X, channels[1] = Y) for payloads that were
+        // persisted without events. Without the fallback a missing event tag
+        // silently kills that axis.
+        const channelCount = CabbageUtils.getChannels(this.props).length;
+        const xCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag') ||
+            (channelCount > 0 ? CabbageUtils.getChannel(this.props, 0, 'drag') : undefined);
+        const yCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag') ||
+            (channelCount > 1 ? CabbageUtils.getChannel(this.props, 1, 'drag') : undefined);
 
         // Send X channel update
-        const xCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragX', 'drag');
         if (xCh) {
-            console.log("XyPad sending X update:", xCh.id, xToSend, "vscode:", this.vscode);
             Cabbage.sendControlData({ channel: xCh.id, value: xToSend, gesture: "value" }, this.vscode);
         }
 
         // Send Y channel update
-        const yCh = CabbageUtils.getChannelByEvent(this.props, 'mouseDragY', 'drag');
         if (yCh) {
-            console.log("XyPad sending Y update:", yCh.id, yToSend, "vscode:", this.vscode);
             Cabbage.sendControlData({ channel: yCh.id, value: yToSend, gesture: "value" }, this.vscode);
         }
     }
@@ -388,19 +400,22 @@ export class XyPad {
     getInnerHTML() {
         const padWidth = this.props.bounds.width;
         const padHeight = this.props.bounds.height;
-        const strokeWidth = this.props.colour.stroke.width;
+        const strokeWidth = this.props.style.borderWidth;
         const effectiveWidth = padWidth - (2 * strokeWidth);
         const effectiveHeight = padHeight - (2 * strokeWidth);
         const hasValueBoxes = (this.props.label && this.props.label.textX && this.props.label.textY) ? true : false;
         const valueBoxHeight = hasValueBoxes ? 25 : 0;
         const activeHeight = effectiveHeight - valueBoxHeight;
-        const innerCornerRadius = Math.max(0, this.props.corners - strokeWidth);
+        const innerCornerRadius = Math.max(0, this.props.style.borderRadius - strokeWidth);
+        // Per-axis ranges live on the channels (channels[0] = X, channels[1] = Y)
+        const xRange = CabbageUtils.getChannelRange(this.props, 0);
+        const yRange = CabbageUtils.getChannelRange(this.props, 1);
         const padCornerStyle = hasValueBoxes
             ? `border-top-left-radius: ${innerCornerRadius}px; border-top-right-radius: ${innerCornerRadius}px;`
             : `border-radius: ${innerCornerRadius}px;`;
 
-        const ballRadius = this.props.ballSize / 2;
-        const ballSize = this.props.ballSize;
+        const ballRadius = this.props.ball.size / 2;
+        const ballSize = this.props.ball.size;
 
         // Initialize ball position if needed - read from channel values
         const xChannelValue = this.props.channels[0]?.range?.value;
@@ -432,18 +447,18 @@ export class XyPad {
         const normalizedX = (this.ballX - minXRange) / (maxXRange - minXRange);
         const normalizedY = (this.ballY - minYRange) / (maxYRange - minYRange);
 
-        const xValue = this.props.range.x.min + normalizedX * (this.props.range.x.max - this.props.range.x.min);
-        const yValue = this.props.range.y.min + (1 - normalizedY) * (this.props.range.y.max - this.props.range.y.min);
+        const xValue = xRange.min + normalizedX * (xRange.max - xRange.min);
+        const yValue = yRange.min + (1 - normalizedY) * (yRange.max - yRange.min);
 
         // Calculate decimal places based on increment values
-        const xDecimalPlaces = this.getDecimalPlacesFromIncrement(this.props.range.x.increment);
-        const yDecimalPlaces = this.getDecimalPlacesFromIncrement(this.props.range.y.increment);
+        const xDecimalPlaces = this.getDecimalPlacesFromIncrement(xRange.increment);
+        const yDecimalPlaces = this.getDecimalPlacesFromIncrement(yRange.increment);
 
         let html = `
         <div style="width: ${padWidth}px; height: ${padHeight}px; 
-            background-color: ${this.props.colour.stroke.colour}; 
-            padding: ${this.props.colour.stroke.width}px;
-            border-radius: ${this.props.corners}px;
+            background-color: ${this.props.style.borderColor}; 
+            padding: ${this.props.style.borderWidth}px;
+            border-radius: ${this.props.style.borderRadius}px;
             box-sizing: border-box;
             overflow: hidden;">
     <div style="width: 100%; height: ${activeHeight}px; 
@@ -523,7 +538,7 @@ export class XyPad {
                         height: ${ballSize}px;
                         border-radius: 50%;
                         background-color: ${this.props.ball.backgroundColor};
-                        border: ${this.props.colour.ball.width}px solid ${this.props.colour.stroke.colour};
+                        border: ${this.props.ball.borderWidth}px solid ${this.props.style.borderColor};
                         left: ${ballLeft}px;
                         top: ${ballTop}px;
                         transform: translate(-50%, -50%);
@@ -535,14 +550,15 @@ export class XyPad {
         if (hasValueBoxes) {
             const labelX = (this.props.label && this.props.label.textX) ? this.props.label.textX : 'X';
             const labelY = (this.props.label && this.props.label.textY) ? this.props.label.textY : 'Y';
+            const valueFontSize = this.props.style.fontSize === 'auto' ? 12 : (this.props.style.fontSize || 12);
             html += `
                 <div style="display: flex; justify-content: space-between; 
                             width: 100%; height: ${valueBoxHeight}px;
-                            font-family: ${this.props.font.family}; 
-                            font-size: ${this.props.font.size || 12}px;
-                            color: ${this.props.font.colour};
+                            font-family: ${this.props.style.fontFamily}; 
+                            font-size: ${valueFontSize}px;
+                            color: ${this.props.style.fontColor};
                             align-items: center;
-                            padding: ${this.props.colour.stroke.width}px;
+                            padding: ${this.props.style.borderWidth}px;
                             box-sizing: border-box;
                             border-bottom-left-radius: ${innerCornerRadius}px;
                             border-bottom-right-radius: ${innerCornerRadius}px;">

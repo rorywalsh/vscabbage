@@ -8,16 +8,14 @@
         {
             "type"   : "xyPad",
             "bounds" : {"left": 20, "top": 20, "width": 350, "height": 350},
-            "channel": {"id": "xyPad1", "x": "cf", "y": "bw"},
-            "range"  : {
-                "x": {"min": 100, "max": 10000, "defaultValue": 1000  , "skew": 1, "increment": 0.001},
-                "y": {"min":   0, "max":     1, "defaultValue":    0.5, "skew": 1, "increment": 0.001}
-            },
-            "text"   : {"x": "Freq", "y": "BW"}
+            "channels": [
+                {"id": "cf", "event": "mouseDragX", "range": {"min": 100, "max": 10000, "defaultValue": 1000, "skew": 1, "increment": 0.001}},
+                {"id": "bw", "event": "mouseDragY", "range": {"min": 0, "max": 1, "defaultValue": 0.5, "skew": 1, "increment": 0.001}}
+            ],
+            "label"  : {"textX": "Freq", "textY": "BW"}
         }
     ]
 }
-
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
@@ -39,7 +37,7 @@ instr 1
     outs aOut, aOut
 endin
 
-</CsInstruments>
+</CsoundSynthesizer>
 <CsScore>
 i1 0 [60*60*24*7]
 </CsScore>

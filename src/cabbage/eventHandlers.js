@@ -1213,12 +1213,44 @@ export function setupFormHandlers() {
                         // Insert new widget and update the editor
                         const uniqueId = CabbageUtils.getUniqueId(type, widgets);
                         // Only assign channel ID, not widget.id (avoid redundancy when they match)
-                        await WidgetManager.insertWidget(type, { channels: [{ id: uniqueId }], top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 }, WidgetManager.getCurrentCsdPath());
+                        let insertProps = { channels: [{ id: uniqueId }], top: mouseDownPosition.y - 20, left: mouseDownPosition.x - 20 };
+                        // Candidate ids used below to locate the inserted instance
+                        let candidateIds = [uniqueId];
+                        if (type === 'xyPad') {
+                            // xyPad is a two-channel widget (X on channels[0],
+                            // Y on channels[1]). Derive both channel ids from
+                            // the unique base id and verify against every
+                            // existing channel id so the pair can't collide.
+                            const isChannelTaken = (id) => widgets.some(w => w.props && Array.isArray(w.props.channels) && w.props.channels.some(c => c && c.id === id));
+                            let base = uniqueId;
+                            let counter = 0;
+                            while (isChannelTaken(`${base}x`) || isChannelTaken(`${base}y`)) {
+                                counter += 1;
+                                base = `${uniqueId}${counter}`;
+                            }
+                            candidateIds = [`${base}x`, `${base}y`];
+                            // Clone the per-axis default ranges from the widget type
+                            // so live props (and the backend) start from xyPad
+                            // defaults rather than generic fills.
+                            const xyPadDefaults = await WidgetManager.createWidget('xyPad');
+                            const defaultRanges = (xyPadDefaults && Array.isArray(xyPadDefaults.props.channels))
+                                ? xyPadDefaults.props.channels.map(c => JSON.parse(JSON.stringify((c && c.range) || {})))
+                                : [{}, {}];
+                            insertProps = {
+                                channels: [
+                                    { id: candidateIds[0], event: 'mouseDragX', range: defaultRanges[0] || {} },
+                                    { id: candidateIds[1], event: 'mouseDragY', range: defaultRanges[1] || {} }
+                                ],
+                                top: mouseDownPosition.y - 20,
+                                left: mouseDownPosition.x - 20
+                            };
+                        }
+                        await WidgetManager.insertWidget(type, insertProps, WidgetManager.getCurrentCsdPath());
                         // insertWidget pushes the widget instance into the shared
                         // `widgets` array. Locate the instance so we can access
                         // `originalProps`. Fall back to the inserted props if
                         // originalProps isn't available.
-                        const inserted = widgets.find(w => w.props && (w.props.id === uniqueId || (Array.isArray(w.props.channels) && w.props.channels[0] && w.props.channels[0].id === uniqueId)));
+                        const inserted = widgets.find(w => w.props && (candidateIds.includes(w.props.id) || (Array.isArray(w.props.channels) && w.props.channels.some(c => c && candidateIds.includes(c.id)))));
                         console.warn("Cabbage: Form handlers - Inserted widget:", inserted || uniqueId);
                         if (inserted) {
                             // When a widget is first inserted we want to send the

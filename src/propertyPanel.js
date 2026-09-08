@@ -341,6 +341,20 @@ export class PropertyPanel {
                     clone.id = props.id;
                 }
 
+                // Multi-channel widgets (e.g. xyPad) route axes by channel
+                // event, so a stripped event breaks the widget even when it
+                // matched the default. Restore events from live props when
+                // the widget has more than one channel.
+                if (Array.isArray(clone.channels) && clone.channels.length > 1 && props && Array.isArray(props.channels)) {
+                    clone.channels.forEach((c, i) => {
+                        const live = props.channels[i];
+                        if (c && typeof c === 'object' && (!c.event || c.event === '') &&
+                            live && typeof live.event === 'string' && live.event !== '') {
+                            c.event = live.event;
+                        }
+                    });
+                }
+
                 // Defensive: if after minimization we have neither a type nor an id (or channel id),
                 // that's an invalid payload to send — return the full props so the
                 // extension receives a complete object (and can validate/err).
