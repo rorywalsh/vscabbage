@@ -470,6 +470,41 @@ export class Commands {
                 }
                 break;
 
+            case 'updateWidgetPropsBatch':
+                // Multi-widget atomic update, e.g. ungroup posts one payload
+                // per extracted child plus a final container payload. These
+                // must NOT go through the single-message debounce above (which
+                // would keep only the last payload and lose the rest) — the
+                // batch is debounced as a unit and applied sequentially, each
+                // updateText call re-reading the document fresh.
+                if (getCabbageMode() !== "play") {
+                    const texts = message && message.texts;
+                    if (Array.isArray(texts) && texts.length > 0 &&
+                        texts.every(t => typeof t === 'string' && t !== '' && t !== 'undefined')) {
+                        if (Commands.widgetPropsDebounceTimer) {
+                            clearTimeout(Commands.widgetPropsDebounceTimer);
+                        }
+                        const batch = texts.slice();
+                        Commands.widgetPropsDebounceTimer = setTimeout(() => {
+                            Commands.widgetPropsDebounceTimer = undefined;
+                            Commands.editQueue = Commands.editQueue.then(async () => {
+                                for (const rawText of batch) {
+                                    await ExtensionUtils.updateText(rawText, getCabbageMode(), this.vscodeOutputChannel, this.highlightDecorationType, this.lastSavedFileName, this.panel, undefined, 3, undefined);
+                                }
+                            }).catch(err => {
+                                console.error('Extension: Error processing queued batch edit:', err);
+                            });
+                        }, 150);
+                    }
+                }
+                break;
+
+            case 'groupOperationError':
+                // Webview group/ungroup failures surface here so they can't
+                // fail silently and leave a half-applied state.
+                vscode.window.showErrorMessage(`Cabbage: ${message && message.text ? message.text : 'group operation failed'}`);
+                break;
+
             /* 'widgetUpdate' is deprecated in favor of 'updateWidgetText'.
                PropertyPanel and other senders should use 'updateWidgetText' which
                sends minimized/validated payloads. The old 'widgetUpdate' path

@@ -580,6 +580,20 @@ export class WidgetManager {
                 parentChannel: CabbageUtils.getWidgetDivId(parentWidget.props) // Mark as child
             };
 
+            // Defense against ghost duplicates: if a div with the child's id
+            // is already in the DOM (e.g. the pre-group original wasn't
+            // removed), drop it before inserting, otherwise two divs share
+            // one id and getElementById-based updates hit the wrong one.
+            try {
+                const upcomingId = CabbageUtils.getWidgetDivId(childWidgetProps);
+                const staleDiv = upcomingId ? document.getElementById(upcomingId) : null;
+                if (staleDiv && staleDiv !== parentDiv) {
+                    console.warn(`Cabbage: removing stale pre-existing div "${upcomingId}" before inserting grouped child`);
+                    staleDiv.remove();
+                }
+            } catch (e) {
+                console.error('Cabbage: stale div check failed:', e);
+            }
 
             // Insert the child widget
             const childWidget = await WidgetManager.insertWidget(childProps.type, childWidgetProps, parentWidget.props.currentCsdFile);

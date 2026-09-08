@@ -108,6 +108,51 @@ export function updateSelectedElements(widgetDiv) {
 }
 
 /**
+ * Non-throwing widget lookup by DOM element id. Matches props.id first,
+ * then falls back to the channel id. Unlike CabbageUtils.getChannelId
+ * (which throws for widgets with an incomplete channels array), this is
+ * safe to use inside Array.find/findIndex predicates.
+ * @param {string} elementId - The DOM element id to match.
+ * @returns {object|undefined} The widget instance, if found.
+ */
+function findWidgetByElementId(elementId) {
+    if (!elementId) {
+        return undefined;
+    }
+    return widgets.find(w => {
+        if (!w || !w.props) {
+            return false;
+        }
+        if (w.props.id === elementId) {
+            return true;
+        }
+        try {
+            return CabbageUtils.getWidgetDivId(w.props) === elementId;
+        } catch (e) {
+            return false;
+        }
+    });
+}
+
+/**
+ * Reports a group/ungroup failure both to the devtools console and to the
+ * VS Code extension, which surfaces it via showErrorMessage. Grouping used
+ * to fail silently (unhandled rejection), leaving a half-applied state.
+ */
+function reportGroupError(operation, error) {
+    const detail = (error && error.message) ? error.message : String(error);
+    console.error(`Cabbage: ${operation} failed:`, error);
+    try {
+        postMessageToVSCode({
+            command: 'groupOperationError',
+            text: `${operation} failed: ${detail}`
+        });
+    } catch (e) {
+        console.error('Cabbage: failed to report group error to VS Code:', e);
+    }
+}
+
+/**
  * Groups the currently selected widgets into a container widget
  */
 async function groupSelectedWidgets() {
@@ -121,215 +166,242 @@ async function groupSelectedWidgets() {
         return;
     }
 
-    // Ensure PropertyPanel is loaded for minimization
-    await loadPropertyPanel();
+    try {
+        // Ensure PropertyPanel is loaded for minimization
+        await loadPropertyPanel();
 
 
-    // Find existing container widgets (groupBox or image) in the selection
-    let containerWidget = null;
-    const childWidgets = [];
-
-    selectedElements.forEach(element => {
-        const widget = widgets.find(w => w.props.id === element.id || CabbageUtils.getChannelId(w.props, 0) === element.id);
-        if (widget && !widget.props.parentChannel) { // Only consider top-level widgets
-            if ((widget.props.type === "groupBox" || widget.props.type === "image") && !containerWidget) {
-                // Use the first groupBox or image as the container
-                containerWidget = widget;
-            } else {
-                // All other widgets become children
-                childWidgets.push({ widget, element });
-            }
-        }
-    });
-
-    if (childWidgets.length === 0) {
-        console.warn("Cabbage: No widgets to group as children");
-        return;
-    }
-
-    // If no existing container found, create a new groupBox
-    let containerId;
-    let containerBounds;
-
-    if (!containerWidget) {
-        // Calculate bounds that encompass all selected widgets
-        let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+        // Find existing container widgets (groupBox or image) in the selection
+        let containerWidget = null;
+        const childWidgets = [];
 
         selectedElements.forEach(element => {
-            const widget = widgets.find(w => w.props.id === element.id || CabbageUtils.getChannelId(w.props, 0) === element.id);
-            if (widget && !widget.props.parentChannel) {
-                const bounds = widget.props.bounds;
-                minLeft = Math.min(minLeft, bounds.left);
-                minTop = Math.min(minTop, bounds.top);
-                maxRight = Math.max(maxRight, bounds.left + bounds.width);
-                maxBottom = Math.max(maxBottom, bounds.top + bounds.height);
-            }
-        });
-
-        // Create container bounds with some padding
-        containerBounds = {
-            left: minLeft - 10,
-            top: minTop - 10,
-            width: (maxRight - minLeft) + 20,
-            height: (maxBottom - minTop) + 20
-        };
-
-        // Create a new groupbox container widget
-        containerId = CabbageUtils.getUniqueId("groupBox", widgets);
-        const containerProps = {
-            id: containerId,
-            type: "groupBox",
-            bounds: containerBounds,
-            channel: containerId,
-            text: "Group",
-            colour: { fill: "#cccccc", stroke: "#000000" },
-            fontColour: { fill: "#000000" },
-            children: [],
-            currentCsdFile: WidgetManager.getCurrentCsdPath(),
-            index: 0
-        };
-
-        // Insert the new container widget. insertWidget currently returns
-        // the widget props; the actual widget instance is pushed into the
-        // shared `widgets` array. Find the instance there so we can access
-        // its `originalProps` reliably (guard against undefined).
-        await WidgetManager.insertWidget("groupBox", containerProps, WidgetManager.getCurrentCsdPath());
-        // Attempt to locate the newly inserted widget instance
-        const createdContainer = widgets.find(w => w.props && (w.props.id === containerId || (w.props.channels && w.props.channels[0] && w.props.channels[0].id === containerId)));
-        // Prefer sending the minimized `originalProps` (deltas) so the
-        // extension can deep-merge defaults. However, ensure essential
-        // identity fields are present (id, type, channels) so the
-        // persisted JSON isn't missing identifying information.
-        const containerPayload = (() => {
-            const src = createdContainer ? (createdContainer.originalProps || createdContainer.props) : containerProps;
-            // Clone to avoid mutating instance data
-            const out = JSON.parse(JSON.stringify(src || {}));
-            if (createdContainer && createdContainer.props) {
-                if (!out.id && createdContainer.props.id) out.id = createdContainer.props.id;
-                if (!out.type && createdContainer.props.type) out.type = createdContainer.props.type;
-                if ((!out.channels || out.channels.length === 0) && Array.isArray(createdContainer.props.channels) && createdContainer.props.channels.length > 0) {
-                    // Include only the channel ids by default to keep payload small
-                    out.channels = createdContainer.props.channels.map(c => ({ id: c.id }));
+            const widget = findWidgetByElementId(element.id);
+            if (widget && !widget.props.parentChannel) { // Only consider top-level widgets
+                if ((widget.props.type === "groupBox" || widget.props.type === "image") && !containerWidget) {
+                    // Use the first groupBox or image as the container
+                    containerWidget = widget;
+                } else {
+                    // All other widgets become children
+                    childWidgets.push({ widget, element });
                 }
             }
-            return out;
-        })();
-        // Update the CSD file with the new container
-        postMessageToVSCode({
-            command: 'updateWidgetProps',
-            text: JSON.stringify(containerPayload)
         });
 
-    } else {
-        // Use existing container
-        containerId = containerWidget.props.id;
-        containerBounds = containerWidget.props.bounds;
-    }
+        if (childWidgets.length === 0) {
+            console.warn("Cabbage: No widgets to group as children");
+            return;
+        }
 
-    // Initialize children array if it doesn't exist
-    if (!containerWidget.props.children) {
-        containerWidget.props.children = [];
-    }
+        // If no existing container found, create a new groupBox
+        let containerId;
+        let containerBounds;
+        let isNewContainer = false;
 
-    // Convert selected widgets to children with relative positions
-    childWidgets.forEach(({ widget }) => {
-        const relativeBounds = {
-            left: widget.props.bounds.left - containerBounds.left,
-            top: widget.props.bounds.top - containerBounds.top,
-            width: widget.props.bounds.width,
-            height: widget.props.bounds.height
-        };
+        if (!containerWidget) {
+            // Calculate bounds that encompass all selected widgets
+            let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
 
-        // Minimize the current props to strip defaults and runtime properties
-        // This ensures children only include non-default properties from the current state
-        let minimizedProps = widget.props;
-        if (PropertyPanel && typeof PropertyPanel.minimizePropsForWidget === 'function') {
-            minimizedProps = PropertyPanel.minimizePropsForWidget(widget.props, widget);
-            // Also apply exclusions to remove runtime properties like parameterIndex, value, etc.
-            minimizedProps = PropertyPanel.applyExcludes(minimizedProps, PropertyPanel.defaultExcludeKeys);
+            selectedElements.forEach(element => {
+                const widget = findWidgetByElementId(element.id);
+                if (widget && !widget.props.parentChannel) {
+                    const bounds = widget.props.bounds;
+                    minLeft = Math.min(minLeft, bounds.left);
+                    minTop = Math.min(minTop, bounds.top);
+                    maxRight = Math.max(maxRight, bounds.left + bounds.width);
+                    maxBottom = Math.max(maxBottom, bounds.top + bounds.height);
+                }
+            });
+
+            // Create container bounds with some padding
+            containerBounds = {
+                left: minLeft - 10,
+                top: minTop - 10,
+                width: (maxRight - minLeft) + 20,
+                height: (maxBottom - minTop) + 20
+            };
+
+            // Create a new groupbox container widget. The channel id must be
+            // set explicitly via the channels array: without it the merged
+            // GroupBox defaults keep channels[0].id as "groupbox", which
+            // breaks DOM lookups and collides in the CSD on repeat grouping.
+            containerId = CabbageUtils.getUniqueId("groupBox", widgets);
+            const containerProps = {
+                id: containerId,
+                type: "groupBox",
+                bounds: containerBounds,
+                channels: [{ id: containerId }],
+                text: "Group",
+                colour: { fill: "#cccccc", stroke: "#000000" },
+                fontColour: { fill: "#000000" },
+                children: [],
+                currentCsdFile: WidgetManager.getCurrentCsdPath(),
+                index: 0
+            };
+
+            // Insert the new container widget. insertWidget returns the widget
+            // props; the actual widget instance is pushed into the shared
+            // `widgets` array, so resolve the instance there.
+            await WidgetManager.insertWidget("groupBox", containerProps, WidgetManager.getCurrentCsdPath());
+            containerWidget = findWidgetByElementId(containerId);
+            if (!containerWidget) {
+                throw new Error(`newly created container "${containerId}" not found in widgets array`);
+            }
+            isNewContainer = true;
         } else {
-            console.warn("Cabbage: PropertyPanel.minimizePropsForWidget not available, using full props");
+            // Use existing container
+            containerId = CabbageUtils.getWidgetDivId(containerWidget.props);
+            containerBounds = containerWidget.props.bounds;
         }
 
-        const childProps = {
-            ...minimizedProps,
-            bounds: relativeBounds
-        };
-
-        // Remove properties that shouldn't be in children
-        delete childProps.parentChannel;
-        delete childProps.currentCsdFile;
-
-        containerWidget.props.children.push(childProps);
-
-        // Remove from top-level widgets array
-        const widgetIndex = widgets.findIndex(w => w.props.id === widget.props.id);
-        if (widgetIndex !== -1) {
-            widgets.splice(widgetIndex, 1);
+        // Initialize children array if it doesn't exist
+        if (!containerWidget.props.children) {
+            containerWidget.props.children = [];
         }
 
-        // Remove from DOM
-        const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
-        if (widgetDiv) {
-            widgetDiv.remove();
+        // Convert selected widgets to children with relative positions
+        // NOTE: removal below uses the live widget instance and its DOM
+        // element directly — never re-derived ids. Re-resolving by id here
+        // silently missed in the past (id/channel drift across awaits),
+        // leaving ghost duplicates of the original widgets behind.
+        childWidgets.forEach(({ widget, element }) => {
+            const relativeBounds = {
+                left: widget.props.bounds.left - containerBounds.left,
+                top: widget.props.bounds.top - containerBounds.top,
+                width: widget.props.bounds.width,
+                height: widget.props.bounds.height
+            };
+
+            // Minimize the current props to strip defaults and runtime properties
+            // This ensures children only include non-default properties from the current state
+            let minimizedProps = widget.props;
+            if (PropertyPanel && typeof PropertyPanel.minimizePropsForWidget === 'function') {
+                minimizedProps = PropertyPanel.minimizePropsForWidget(widget.props, widget);
+                // Also apply exclusions to remove runtime properties like parameterIndex, value, etc.
+                minimizedProps = PropertyPanel.applyExcludes(minimizedProps, PropertyPanel.defaultExcludeKeys);
+            } else {
+                console.warn("Cabbage: PropertyPanel.minimizePropsForWidget not available, using full props");
+            }
+
+            const childProps = {
+                ...minimizedProps,
+                bounds: relativeBounds
+            };
+
+            // Remove properties that shouldn't be in children
+            delete childProps.parentChannel;
+            delete childProps.currentCsdFile;
+
+            containerWidget.props.children.push(childProps);
+
+            // Remove from top-level widgets array. Match by instance identity
+            // first (instances are stable — updateWidget mutates props in
+            // place); fall back to DOM-id matching for stale references.
+            const childDivId = CabbageUtils.getWidgetDivId(widget.props);
+            let widgetIndex = widgets.indexOf(widget);
+            if (widgetIndex === -1) {
+                widgetIndex = widgets.findIndex(w => w && w.props && CabbageUtils.getWidgetDivId(w.props) === childDivId);
+            }
+            if (widgetIndex !== -1) {
+                widgets.splice(widgetIndex, 1);
+            } else {
+                console.error(`Cabbage: Group failed to remove "${childDivId}" from widgets array (instance and id lookup both missed)`);
+            }
+
+            // Remove from DOM via the live selected element — the div object
+            // itself can't suffer an id mismatch. Fall back to id lookup.
+            let removedFromDom = false;
+            if (element && typeof element.remove === 'function' && element.isConnected) {
+                element.remove();
+                removedFromDom = true;
+            } else {
+                const widgetDiv = CabbageUtils.getWidgetDiv(widget.props);
+                if (widgetDiv) {
+                    widgetDiv.remove();
+                    removedFromDom = true;
+                }
+            }
+            if (!removedFromDom) {
+                console.error(`Cabbage: Group failed to remove "${childDivId}" from DOM (live element and id lookup both missed)`);
+            }
+        });
+
+        // Store the minimized children for sending to VSCode (before insertChildWidgets expands them)
+        // Also store them on the widget so future updates (like moves) use the minimized version
+        const minimizedChildren = JSON.parse(JSON.stringify(containerWidget.props.children));
+        containerWidget.serializedChildren = minimizedChildren;
+
+        // Update the container's HTML to reflect it now has children (this will update styling)
+        const containerDivId = CabbageUtils.getWidgetDivId(containerWidget.props);
+        const containerDiv = document.getElementById(containerDivId);
+        if (containerDiv) {
+            // Get the container widget instance and update its HTML
+            const containerInstance = containerDiv.cabbageInstance || findWidgetByElementId(containerDivId);
+            if (containerInstance && typeof containerInstance.getInnerHTML === 'function') {
+                containerDiv.innerHTML = containerInstance.getInnerHTML();
+                // Also store minimized children on the instance used for updates
+                containerInstance.serializedChildren = minimizedChildren;
+            } else if (containerInstance) {
+                containerInstance.serializedChildren = minimizedChildren;
+            }
+
+            // Use insertChildWidgets to properly render the children
+            await WidgetManager.insertChildWidgets(containerWidget, containerDiv);
+        } else {
+            console.error("Cabbage: Container div not found:", containerDivId);
         }
-    });
 
-    // Store the minimized children for sending to VSCode (before insertChildWidgets expands them)
-    // Also store them on the widget so future updates (like moves) use the minimized version
-    const minimizedChildren = JSON.parse(JSON.stringify(containerWidget.props.children));
-    containerWidget.serializedChildren = minimizedChildren;
 
-    // Update the container's HTML to reflect it now has children (this will update styling)
-    const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
-    const containerDiv = document.getElementById(containerChannelId);
-    if (containerDiv) {
-        // Get the container widget instance and update its HTML
-        const containerInstance = containerDiv.cabbageInstance || widgets.find(w => CabbageUtils.getChannelId(w.props, 0) === containerChannelId);
-        if (containerInstance && typeof containerInstance.getInnerHTML === 'function') {
-            containerDiv.innerHTML = containerInstance.getInnerHTML();
-            // Also store minimized children on the instance used for updates
-            containerInstance.serializedChildren = minimizedChildren;
+        // Persist the container to the CSD file with a SINGLE updateWidgetProps
+        // post. The extension debounces these messages (150ms), so the old
+        // two-post sequence (container first, children second) raced: the
+        // first post was cancelled and only the delta survived.
+        // For a new container the payload must be complete (it doesn't exist
+        // in the CSD yet): prefer the minimized `originalProps` (deltas) with
+        // identity fields and children attached. For an existing container a
+        // delta is enough — the extension deep-merges it.
+        // Use the minimized children snapshot, not the expanded ones from
+        // insertChildWidgets.
+        let containerUpdatePayload;
+        if (isNewContainer) {
+            const src = containerWidget.originalProps || containerWidget.props;
+            // Clone to avoid mutating instance data
+            containerUpdatePayload = JSON.parse(JSON.stringify(src || {}));
+            if (!containerUpdatePayload.id) containerUpdatePayload.id = containerId;
+            if (!containerUpdatePayload.type) containerUpdatePayload.type = containerWidget.props.type;
+            if (!containerUpdatePayload.channels || containerUpdatePayload.channels.length === 0) {
+                containerUpdatePayload.channels = [{ id: containerId }];
+            }
+        } else {
+            containerUpdatePayload = {
+                id: containerId,
+                type: containerWidget.props.type,
+                // Include channels for identification
+                channels: Array.isArray(containerWidget.props.channels)
+                    ? containerWidget.props.channels.map(c => ({ id: c.id }))
+                    : [{ id: containerId }]
+            };
         }
+        containerUpdatePayload.children = minimizedChildren;
 
-        // Use insertChildWidgets to properly render the children
-        await WidgetManager.insertChildWidgets(containerWidget, containerDiv);
-    } else {
-        console.error("Cabbage: Container div not found:", containerChannelId);
+        postMessageToVSCode({
+            command: 'updateWidgetProps',
+            text: JSON.stringify(containerUpdatePayload)
+        });
+
+        // Ensure all references to this container in the widgets array have the minimized children
+        widgets.forEach(w => {
+            if (w && w.props && CabbageUtils.getWidgetDivId(w.props) === containerDivId) {
+                w.serializedChildren = minimizedChildren;
+            }
+        });
+
+        // Clear selection
+        selectedElements.forEach(element => element.classList.remove('selected'));
+        selectedElements.clear();
+    } catch (error) {
+        reportGroupError('Group', error);
     }
-
-
-    // Update the CSD file with the modified container (now with children)
-    // Send only the essential delta: id, type, and children
-    // The extension's deepMerge will preserve all other existing properties
-    // Use the minimized children we stored earlier, not the expanded ones from insertChildWidgets
-    const containerUpdatePayload = {
-        id: containerWidget.props.id,
-        type: containerWidget.props.type,
-        children: minimizedChildren
-    };
-
-    // Include channels for identification
-    if (containerWidget.props.channels) {
-        containerUpdatePayload.channels = containerWidget.props.channels.map(c => ({ id: c.id }));
-    }
-
-    postMessageToVSCode({
-        command: 'updateWidgetProps',
-        text: JSON.stringify(containerUpdatePayload)
-    });
-
-    // Ensure all references to this container in the widgets array have the minimized children
-    widgets.forEach(w => {
-        if (w.props.id === containerWidget.props.id || CabbageUtils.getChannelId(w.props, 0) === containerId) {
-            w.serializedChildren = minimizedChildren;
-        }
-    });
-
-    // Clear selection
-    selectedElements.forEach(element => element.classList.remove('selected'));
-    selectedElements.clear();
-
 }
 
 /**
@@ -341,161 +413,160 @@ async function ungroupSelectedWidgets() {
         return;
     }
 
-    const selectedElement = Array.from(selectedElements)[0];
-    const containerWidget = widgets.find(w => w.props.id === selectedElement.id || CabbageUtils.getChannelId(w.props, 0) === selectedElement.id);
+    try {
+        const selectedElement = Array.from(selectedElements)[0];
+        const containerWidget = findWidgetByElementId(selectedElement.id);
 
-    if (!containerWidget || !containerWidget.props.children || containerWidget.props.children.length === 0) {
-        console.warn("Cabbage: Selected widget is not a container with children");
-        return;
-    }
-
-    // Only allow ungrouping of groupBox or image widgets that have children
-    if (containerWidget.props.type !== "groupBox" && containerWidget.props.type !== "image") {
-        console.warn("Cabbage: Can only ungroup groupBox or image containers");
-        return;
-    }
-
-
-    // Load PropertyPanel for minimization
-    const PP = await loadPropertyPanel();
-    if (!PP) {
-        console.error('Cabbage: PropertyPanel not available for ungrouping');
-        return;
-    }
-
-    // First, remove existing child DOM elements from the container and re-parent them to MainForm
-    const mainForm = document.getElementById('MainForm');
-    if (!mainForm) {
-        console.error("Cabbage: MainForm not found during ungroup");
-        return;
-    }
-
-    // Process each child widget
-    const childrenPromises = containerWidget.props.children.map(async (childProps) => {
-        // Use getWidgetDivId to ensure we find the correct DOM element (prioritizes props.id)
-        const childChannelId = CabbageUtils.getWidgetDivId(childProps);
-        const existingChildDiv = document.getElementById(childChannelId);
-
-        // Calculate absolute position
-        const absoluteBounds = {
-            ...childProps.bounds,
-            left: containerWidget.props.bounds.left + childProps.bounds.left,
-            top: containerWidget.props.bounds.top + childProps.bounds.top
-        };
-
-        if (existingChildDiv) {
-            // Reuse existing DOM element - just update its properties
-
-            // Remove the grouped-child class and add draggable class
-            existingChildDiv.classList.remove('grouped-child');
-            existingChildDiv.classList.add('draggable');
-
-            // Remove the parent channel attribute
-            existingChildDiv.removeAttribute('data-parent-channel');
-
-            // Update position to absolute coordinates
-            existingChildDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
-            existingChildDiv.setAttribute('data-x', absoluteBounds.left);
-            existingChildDiv.setAttribute('data-y', absoluteBounds.top);
-
-            // Re-enable pointer events
-            existingChildDiv.style.pointerEvents = 'auto';
-
-            // Re-parent to MainForm (remove from container, add to form)
-            mainForm.appendChild(existingChildDiv);
-
-            // Add pointer down event listener for draggable mode
-            existingChildDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, existingChildDiv));
+        if (!containerWidget || !containerWidget.props.children || containerWidget.props.children.length === 0) {
+            console.warn("Cabbage: Selected widget is not a container with children");
+            return;
         }
 
-        // Update the widget in the widgets array
-        const topLevelProps = {
-            ...childProps,
-            bounds: absoluteBounds
-        };
-        delete topLevelProps.parentChannel;
+        // Only allow ungrouping of groupBox or image widgets that have children
+        if (containerWidget.props.type !== "groupBox" && containerWidget.props.type !== "image") {
+            console.warn("Cabbage: Can only ungroup groupBox or image containers");
+            return;
+        }
 
-        // Find and update the existing child widget in the widgets array
-        const existingChildWidget = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
-        if (existingChildWidget) {
-            // Update existing widget props - merge the absolute bounds and remove parentChannel
-            existingChildWidget.props.bounds = absoluteBounds;
-            delete existingChildWidget.props.parentChannel;
 
-            // Minimize props before sending to VS Code
+        // Load PropertyPanel for minimization
+        const PP = await loadPropertyPanel();
+        if (!PP) {
+            throw new Error('PropertyPanel not available for ungrouping');
+        }
+
+        // First, remove existing child DOM elements from the container and re-parent them to MainForm
+        const mainForm = document.getElementById('MainForm');
+        if (!mainForm) {
+            throw new Error('MainForm not found during ungroup');
+        }
+
+        const containerDivId = CabbageUtils.getWidgetDivId(containerWidget.props);
+
+        // Collect one CSD payload per extracted child plus a final container
+        // payload. They are sent as a SINGLE batch post: the extension
+        // debounces updateWidgetProps (150ms), so individual posts would
+        // collapse and all but the last child would be lost from the CSD.
+        const batchedPayloads = [];
+
+        const minimizeForCsd = (props, widgetInstance) => {
             try {
-                let minimized = PP.minimizePropsForWidget(existingChildWidget.props, existingChildWidget);
+                let minimized = PP.minimizePropsForWidget(props, widgetInstance);
                 minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
-
-                const payload = JSON.stringify(minimized);
-
-                postMessageToVSCode({
-                    command: 'updateWidgetProps',
-                    text: payload
-                });
+                return JSON.stringify(minimized);
             } catch (e) {
-                console.error('Cabbage: Failed to minimize props for ungrouped widget:', e);
-                // Fallback to full props if minimization fails
-                postMessageToVSCode({
-                    command: 'updateWidgetProps',
-                    text: JSON.stringify(existingChildWidget.props)
-                });
+                console.error('Cabbage: Failed to minimize props, falling back to full props:', e);
+                return JSON.stringify(props);
             }
-        } else {
-            // Insert as new widget (shouldn't normally happen, but handle it)
-            const childWidget = await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
+        };
 
-            // For newly inserted widgets, minimize before sending
-            const inserted = widgets.find(w => CabbageUtils.getWidgetDivId(w.props) === childChannelId);
-            if (inserted) {
-                try {
-                    let minimized = PP.minimizePropsForWidget(inserted.props, inserted);
-                    minimized = PP.applyExcludes(minimized, PP.defaultExcludeKeys);
+        // Process each child widget
+        const childrenPromises = containerWidget.props.children.map(async (childProps) => {
+            // Use getWidgetDivId to ensure we find the correct DOM element (prioritizes props.id)
+            const childChannelId = CabbageUtils.getWidgetDivId(childProps);
+            const existingChildDiv = childChannelId ? document.getElementById(childChannelId) : null;
 
-                    postMessageToVSCode({
-                        command: 'updateWidgetProps',
-                        text: JSON.stringify(minimized)
-                    });
-                } catch (e) {
-                    console.error('Cabbage: Failed to minimize props for newly inserted ungrouped widget:', e);
-                    postMessageToVSCode({
-                        command: 'updateWidgetProps',
-                        text: JSON.stringify(inserted.props)
-                    });
+            // Guard against malformed children (missing bounds would poison
+            // positions with NaN and corrupt the CSD).
+            const relativeBounds = (childProps && childProps.bounds) || { left: 0, top: 0, width: 50, height: 50 };
+            if (!childProps || !childProps.bounds) {
+                console.error('Cabbage: Ungrouping child with missing bounds, using defaults:', childProps);
+            }
+
+            // Calculate absolute position
+            const absoluteBounds = {
+                ...relativeBounds,
+                left: containerWidget.props.bounds.left + relativeBounds.left,
+                top: containerWidget.props.bounds.top + relativeBounds.top
+            };
+
+            if (existingChildDiv) {
+                // Reuse existing DOM element - just update its properties
+
+                // Remove the grouped-child class and add draggable class
+                existingChildDiv.classList.remove('grouped-child');
+                existingChildDiv.classList.add('draggable');
+
+                // Remove the parent channel attribute
+                existingChildDiv.removeAttribute('data-parent-channel');
+
+                // Update position to absolute coordinates
+                existingChildDiv.style.transform = `translate(${absoluteBounds.left}px, ${absoluteBounds.top}px)`;
+                existingChildDiv.setAttribute('data-x', absoluteBounds.left);
+                existingChildDiv.setAttribute('data-y', absoluteBounds.top);
+
+                // Re-enable pointer events
+                existingChildDiv.style.pointerEvents = 'auto';
+
+                // Re-parent to MainForm (remove from container, add to form)
+                mainForm.appendChild(existingChildDiv);
+
+                // Add pointer down event listener for draggable mode
+                existingChildDiv.addEventListener('pointerdown', (e) => handlePointerDown(e, existingChildDiv));
+            }
+
+            // Update the widget in the widgets array
+            const topLevelProps = {
+                ...childProps,
+                bounds: absoluteBounds
+            };
+            delete topLevelProps.parentChannel;
+
+            // Find and update the existing child widget in the widgets array
+            const existingChildWidget = childChannelId ? findWidgetByElementId(childChannelId) : undefined;
+            if (existingChildWidget) {
+                // Update existing widget props - merge the absolute bounds and remove parentChannel
+                existingChildWidget.props.bounds = absoluteBounds;
+                delete existingChildWidget.props.parentChannel;
+
+                // Minimize props for the batched CSD update
+                batchedPayloads.push(minimizeForCsd(existingChildWidget.props, existingChildWidget));
+            } else {
+                // Insert as new widget (shouldn't normally happen, but handle it)
+                await WidgetManager.insertWidget(childProps.type, topLevelProps, containerWidget.props.currentCsdFile);
+
+                // For newly inserted widgets, minimize before sending
+                const inserted = childChannelId ? findWidgetByElementId(childChannelId) : undefined;
+                if (inserted) {
+                    batchedPayloads.push(minimizeForCsd(inserted.props, inserted));
                 }
             }
-        }
 
-        return topLevelProps;
-    });
+            return topLevelProps;
+        });
 
-    // Wait for all children to be processed
-    await Promise.all(childrenPromises);
+        // Wait for all children to be processed
+        await Promise.all(childrenPromises);
 
-    // Remove the container's children array since they're now top-level
-    containerWidget.props.children = [];
+        // Remove the container's children array since they're now top-level
+        containerWidget.props.children = [];
 
-    // Keep the container widget but update it to have no children
-    const containerChannelId = CabbageUtils.getChannelId(containerWidget.props, 0);
+        // Keep the container widget but update it to have no children.
+        // Send a minimal update to avoid writing default properties to the CSD.
+        // This payload goes LAST in the batch so extracted children are
+        // written to the top level before the container is emptied.
+        const containerUpdatePayload = {
+            id: containerWidget.props.id || containerDivId,
+            type: containerWidget.props.type,
+            children: [], // Explicitly empty the children
+            channels: Array.isArray(containerWidget.props.channels)
+                ? containerWidget.props.channels.map(c => ({ id: c.id }))
+                : [{ id: containerDivId }]
+        };
+        batchedPayloads.push(JSON.stringify(containerUpdatePayload));
 
-    // Update the CSD file with the container (now without children)
-    // Send a minimal update to avoid writing default properties to the CSD
-    const containerUpdatePayload = {
-        id: containerWidget.props.id,
-        type: containerWidget.props.type,
-        children: [], // Explicitly empty the children
-        channels: containerWidget.props.channels ? containerWidget.props.channels.map(c => ({ id: c.id })) : []
-    };
-
-    postMessageToVSCode({
-        command: 'updateWidgetProps',
-        text: JSON.stringify(containerUpdatePayload)
-    });
+        postMessageToVSCode({
+            command: 'updateWidgetPropsBatch',
+            texts: batchedPayloads
+        });
 
 
-    // Clear selection
-    selectedElements.forEach(element => element.classList.remove('selected'));
-    selectedElements.clear();
+        // Clear selection
+        selectedElements.forEach(element => element.classList.remove('selected'));
+        selectedElements.clear();
+    } catch (error) {
+        reportGroupError('Ungroup', error);
+    }
 }
 
 /**
@@ -1044,12 +1115,12 @@ export function setupFormHandlers() {
                         // Update menu options based on selection
                         const canGroup = selectedElements.size > 1;
                         const hasGroupableWidgets = Array.from(selectedElements).some(el => {
-                            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+                            const widget = findWidgetByElementId(el.id);
                             return widget && !widget.props.parentChannel; // Only top-level widgets can be grouped
                         });
 
                         const canUngroup = selectedElements.size === 1 && Array.from(selectedElements).some(el => {
-                            const widget = widgets.find(w => w.props.id === el.id || CabbageUtils.getChannelId(w.props, 0) === el.id);
+                            const widget = findWidgetByElementId(el.id);
                             return widget && widget.props.children && widget.props.children.length > 0 &&
                                 (widget.props.type === "groupBox" || widget.props.type === "image");
                         });

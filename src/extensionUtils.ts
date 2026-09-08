@@ -602,6 +602,63 @@ be lost when working with the UI editor. -->\n`;
                         return out;
                     };
 
+                    // Removes widgets grouped into a container from the top-level
+                    // array (children should only exist within their parent).
+                    // Runs on both the merge and insert paths: a newly grouped
+                    // container arrives as a single complete payload via insert,
+                    // so without this its children would be duplicated at top
+                    // level. parentIndex (the container's own index) is skipped.
+                    const removeGroupedChildrenFromTopLevel = (parentIndex: number, children: any): void => {
+                        if (!Array.isArray(children) || children.length === 0) {
+                            return;
+                        }
+                        // Extract all child IDs (id, legacy channel string, channels[0].id)
+                        const childIds = children.map((child: any) => {
+                            if (!child) {
+                                return '';
+                            }
+                            if (typeof child.id === 'string' && child.id) {
+                                return child.id;
+                            }
+                            if (typeof child.channel === 'string' && child.channel) {
+                                return child.channel;
+                            }
+                            if (child.channels && Array.isArray(child.channels) && child.channels[0] && typeof child.channels[0].id === 'string') {
+                                return child.channels[0].id;
+                            }
+                            return '';
+                        }).filter(Boolean);
+
+                        if (childIds.length === 0) {
+                            return;
+                        }
+
+                        // Remove children from top level (iterate backwards to avoid index issues)
+                        for (let i = cabbageJsonArray.length - 1; i >= 0; i--) {
+                            if (i === parentIndex) {
+                                continue; // Don't remove the parent itself
+                            }
+
+                            const widget = cabbageJsonArray[i];
+                            if (widget === null || widget === undefined) {
+                                continue;
+                            }
+                            let widgetId = '';
+                            if (typeof widget.id === 'string' && widget.id) {
+                                widgetId = widget.id;
+                            } else if (typeof widget.channel === 'string' && widget.channel) {
+                                widgetId = widget.channel;
+                            } else if (widget.channels && Array.isArray(widget.channels) && widget.channels[0] && typeof widget.channels[0].id === 'string') {
+                                widgetId = widget.channels[0].id;
+                            }
+
+                            if (widgetId && childIds.includes(widgetId)) {
+                                cabbageJsonArray.splice(i, 1);
+                                console.log(`ExtensionUtils: Removed child widget '${widgetId}' from top level (now in parent's children array)`);
+                            }
+                        }
+                    };
+
                     // Helper to get channel id
                     if (props.type === 'form') {
                         const formIndex = cabbageJsonArray.findIndex((o: any) => o.type === 'form');
@@ -667,33 +724,13 @@ be lost when working with the UI editor. -->\n`;
 
                             // If this widget has children, remove those children from the top-level array
                             // to prevent duplicates (children should only exist within their parent)
-                            if (merged.children && Array.isArray(merged.children) && merged.children.length > 0) {
-                                // Extract all child IDs
-                                const childIds = merged.children.map((child: any) => {
-                                    return child.id || (child.channels && child.channels[0] && child.channels[0].id);
-                                }).filter(Boolean);
-
-                                // Remove children from top level (iterate backwards to avoid index issues)
-                                for (let i = cabbageJsonArray.length - 1; i >= 0; i--) {
-                                    if (i === existingIndex) continue; // Don't remove the parent itself
-
-                                    const widget = cabbageJsonArray[i];
-                                    const widgetId = widget.id || (widget.channels && widget.channels[0] && widget.channels[0].id);
-
-                                    if (widgetId && childIds.includes(widgetId)) {
-                                        cabbageJsonArray.splice(i, 1);
-                                        console.log(`ExtensionUtils: Removed child widget '${widgetId}' from top level (now in parent's children array)`);
-
-                                        // Adjust existingIndex if we removed an element before it
-                                        if (i < existingIndex) {
-                                            // This shouldn't happen in practice since we update existingIndex widget,
-                                            // but handle it defensively
-                                        }
-                                    }
-                                }
-                            }
+                            removeGroupedChildrenFromTopLevel(existingIndex, merged.children);
                         } else {
                             cabbageJsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
+                            // A newly grouped container arrives as a complete payload
+                            // via insert — its children must still be removed from
+                            // the top level to prevent duplicates.
+                            removeGroupedChildrenFromTopLevel(cabbageJsonArray.length - 1, props.children);
                         }
                     }
 
@@ -1527,7 +1564,7 @@ ksmps = 32
 nchnls = 2
 0dbfs = 1
 
-; Instrument will be triggerd by MIDI keyboard
+; Instrument will be triggered by MIDI keyboard
 instr 1
     env:k = madsr(0.001, 0.2, 0.7, 0.6)
     vco:a = vco2(p5*env, p4)
