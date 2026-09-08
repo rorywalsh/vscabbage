@@ -681,15 +681,27 @@ be lost when working with the UI editor. -->\n`;
                         const searchId = oldId || getChannelId(props);
 
                         // Find an existing object by matching the searchId against
-                        // all reasonable identifier fields (id, channel, channels[0].id).
-                        const existingIndex = cabbageJsonArray.findIndex((o: any) => {
+                        // all reasonable identifier fields (id, channel string,
+                        // and EVERY channels[] entry — multi-channel widgets can
+                        // be renamed on any axis, not just channels[0]).
+                        const matchesSearchId = (o: any): boolean => {
                             if (!searchId) return false;
                             if (o == null) return false;
                             if (typeof o.id === 'string' && o.id === searchId) return true;
                             if (typeof o.channel === 'string' && o.channel === searchId) return true;
-                            if (o.channels && Array.isArray(o.channels) && o.channels[0] && typeof o.channels[0].id === 'string' && o.channels[0].id === searchId) return true;
+                            if (o.channels && Array.isArray(o.channels)) {
+                                return o.channels.some((c: any) => c && typeof c.id === 'string' && c.id === searchId);
+                            }
                             return false;
-                        });
+                        };
+                        const existingIndex = cabbageJsonArray.findIndex(matchesSearchId);
+
+                        // Rename-path diagnostics (human-speed only): if an oldId
+                        // was supplied but matched nothing, the update will be
+                        // inserted as a duplicate — log enough to diagnose why.
+                        if (oldId) {
+                            console.log(`ExtensionUtils.updateText: rename oldId='${oldId}' ${existingIndex !== -1 ? `matched index ${existingIndex}` : 'matched NOTHING — will insert as new widget'}`);
+                        }
 
                         // Filter excluded properties before merging/adding
                         ExtensionUtils.excludedProperties.forEach(prop => {
@@ -1435,7 +1447,11 @@ be lost when working with the UI editor. -->\n`;
                 if (obj == null) return false;
                 if (typeof obj.id === 'string' && obj.id === searchId) return true;
                 if (typeof obj.channel === 'string' && obj.channel === searchId) return true;
-                if (obj.channels && Array.isArray(obj.channels) && obj.channels[0] && typeof obj.channels[0].id === 'string' && obj.channels[0].id === searchId) return true;
+                // Match EVERY channels[] entry (see updateText: multi-channel
+                // widgets can be renamed on any axis, not just channels[0]).
+                if (obj.channels && Array.isArray(obj.channels)) {
+                    return obj.channels.some((c: any) => c && typeof c.id === 'string' && c.id === searchId);
+                }
                 return false;
             });
             if (existingIndex !== -1) {
