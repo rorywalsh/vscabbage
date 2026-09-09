@@ -386,7 +386,7 @@ export class RotarySlider {
 
     // Store the values
     this.props.channels[0].range.value = snappedSkewedValue; // What user sees (skewed)
-    this.props.linearValue = newLinearValue; // For positioning
+    this.props.linearValue = this.getLinearValue(snappedSkewedValue); // For positioning (recomputed post-snap)
 
     // Update the widget display
     const widgetDiv = CabbageUtils.getWidgetDiv(this.props);
@@ -456,12 +456,8 @@ export class RotarySlider {
         // Store the input value as the skewed value (what user sees)
         this.props.channels[0].range.value = inputValue;
 
-        // Convert to normalized space for the input value
-        const skewedNormalized = (inputValue - range.min) / (range.max - range.min);
-
-        // Convert to linear space
-        const linearNormalized = Math.pow(skewedNormalized, 1 / range.skew);
-        const linearValue = linearNormalized * (range.max - range.min) + range.min;
+        // Convert skewed input value back to linear space for knob positioning
+        const linearValue = this.getLinearValue(inputValue);
 
         // Store the linear value for knob positioning
         this.props.linearValue = linearValue;
@@ -586,8 +582,9 @@ export class RotarySlider {
       132 - innerTrackerEndPoints
     );
 
-    // Calculate normalized value for positioning (currentValue is skewed)
-    const normalizedValue = (currentValue - range.min) / (range.max - range.min);
+    // Calculate normalized value for positioning (currentValue is skewed, knob moves in linear space)
+    const linearValueForPosition = this.getLinearValue(currentValue);
+    const normalizedValue = (linearValueForPosition - range.min) / (range.max - range.min);
     const angle = CabbageUtils.map(normalizedValue, 0, 1, -(130 - innerTrackerEndPoints), 132 - innerTrackerEndPoints);
 
     const trackerArcPath = this.describeArc(
