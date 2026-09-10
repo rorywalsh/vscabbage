@@ -3572,7 +3572,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
--n -d
+-n -d -+rtmidi=NULL -M0 --midi-key-cps=4 --midi-velocity-amp=5
 </CsOptions>
 <CsInstruments>
 ; Initialize the global variables.
