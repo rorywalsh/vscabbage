@@ -1228,12 +1228,12 @@ be lost when working with the UI editor. -->\n`;
     */
     static getWebViewContent(mainJS: vscode.Uri, styles: vscode.Uri,
         cabbageStyles: vscode.Uri, interactJS: vscode.Uri, widgetWrapper: vscode.Uri,
-        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean, propertyPanelPosition: string = 'right', vuMeterPosition: string = 'bottom') {
+        colourPickerJS: vscode.Uri, colourPickerStyles: vscode.Uri, propertyPanelStyles: vscode.Uri | null, isDarkTheme: boolean, propertyPanelPosition: string = 'right', vuMeterPosition: string = 'bottom', vuMeterShowReadouts: boolean = false) {
         const themeClass = isDarkTheme ? 'vscode-dark' : 'vscode-light';
         const propertyPanelStylesLink = propertyPanelStyles ? `<link href="${propertyPanelStyles}" rel="stylesheet">` : '';
         const panelLayoutClass = propertyPanelPosition === 'left' ? 'property-panel-left' : 'property-panel-right';
         const vuMeterDiv = (vuMeterPosition && vuMeterPosition !== 'none')
-            ? `<div id="VuMeter" class="vu-meter vu-${vuMeterPosition}"></div>`
+            ? `<div id="VuMeter" class="vu-meter vu-${vuMeterPosition}${vuMeterShowReadouts ? '' : ' vu-no-readouts'}" data-readouts="${vuMeterShowReadouts ? 'on' : 'off'}"></div>`
             : '';
 
         return `

@@ -1040,6 +1040,7 @@ export class Commands {
         const cabbageConfig = vscode.workspace.getConfiguration('cabbage');
         const propertyPanelPosition = cabbageConfig.get<string>('propertyPanelPosition', 'right');
         const vuMeterPosition = cabbageConfig.get<string>('vuMeterPosition', 'bottom');
+        const vuMeterShowReadouts = cabbageConfig.get<boolean>('vuMeterShowReadouts', false);
 
         if (customUI) {
             const formSize = fullPath ? ExtensionUtils.getFormBoundsFromCsd(fullPath) : null;
@@ -1049,7 +1050,7 @@ export class Commands {
                 this.panel.webview.html = ExtensionUtils.getCustomUIContent(customUI.htmlPath, this.panel.webview);
             }
         } else {
-            this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition, vuMeterPosition);
+            this.panel.webview.html = ExtensionUtils.getWebViewContent(mainJS, styles, cabbageStyles, interactJS, widgetWrapper, colourPickerJS, colourPickerStyles, propertyPanelStyles, isDarkTheme, propertyPanelPosition, vuMeterPosition, vuMeterShowReadouts);
         }
         return this.panel;
 
@@ -1569,6 +1570,7 @@ export class Commands {
                                     panel.webview.postMessage({
                                         command: 'vuMeter',
                                         levels: msg['levels'],
+                                        rms: msg['rms'],
                                     });
                                 }
                             }

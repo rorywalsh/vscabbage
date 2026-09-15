@@ -461,6 +461,14 @@ export async function activate(context: vscode.ExtensionContext):
             // Refresh all visible editors
             updateJsonCommentDecorations();
         }
+        if (event.affectsConfiguration('cabbage.vuMeterShowReadouts')) {
+            // Live-toggle VU meter text readouts without requiring a panel reload
+            const show = vscode.workspace.getConfiguration('cabbage').get<boolean>('vuMeterShowReadouts', false);
+            const panel = Commands.getPanel();
+            if (panel) {
+                panel.webview.postMessage({ command: 'vuMeterReadouts', show });
+            }
+        }
     }));
 
     // Get the output channel from Commands class

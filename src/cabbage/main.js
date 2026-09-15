@@ -148,71 +148,137 @@ window.addEventListener('keydown', (event) => {
 });
 
 /**
- * Lightweight VU meter module.
- * Reads peak + RMS data from the CabbageApp backend and renders per-channel bars
- * with smooth rAF decay, dBFS scale markers, and a resettable max-RMS hold line.
+ * Peak + RMS VU meter module.
+ * Reads per-channel peak + RMS data from the CabbageApp backend (~20 Hz idle
+ * ticks: peak = interval max, RMS = latest block) and renders segmented LED
+ * ladders with studio-style ballistics ported from the vuMeter.html prototype:
+ * fast attack / slow release smoothing, 1.2 s peak-hold markers, a moving RMS
+ * indicator line, and a latching 0 dBFS clip LED with overs count.
  *
- * Scale: full bar = +3 dBFS (a little headroom above 0 dBFS).
- * Endpoint peak LED turns red when peak has exceeded 0 dBFS. Click the meter to reset.
+ * Scale: -60..0 dBFS (full ladder = 0 dBFS). Click a channel to reset clip/hold.
+ * Text readouts (peak / RMS / overs) are optional via `cabbage.vuMeterShowReadouts`.
  */
 const VuMeter = {
-    // dBFS headroom: full bar = +3 dBFS
-    DB_MAX: 3,
-    LINEAR_MAX: Math.pow(10, 3 / 20), // ≈ 1.2589
+    DB_MIN: -60,   // bottom of scale
+    DB_FLOOR: -70, // anything at/below this renders as -inf
 
-    // dBFS positions for tick marks (-40 is too small to need a label, so skip it)
-    MARKER_DBS: [-20, -12, -6, -3, 0],
+    // dBFS positions for tick marks (matches vuMeter.html prototype scale)
+    MARKER_DBS: [0, -3, -6, -12, -18, -30, -40, -60],
+
+    // Ballistics (seconds / ms, from prototype)
+    ATK: 0.006,        // attack time constant
+    REL: 0.42,         // release time constant (slow PPM-style fall)
+    RMS_TC: 0.25,      // RMS smoothing time constant
+    HOLD_MS: 1200,     // peak-hold dwell before decay
+    HOLD_FALL_DBPS: 8, // peak-hold decay rate (dB/sec)
+
+    SEG_COUNT: 32, // LED segments per channel (matches prototype)
 
     initialized: false,
     numChannels: 0,
-    incomingLevels: [],  // latest peak per channel received from backend
-    incomingRms: [],  // latest RMS per channel received from backend
-    displayedLevels: [],  // smoothed bar fill (rAF decayed)
-    clipped: [],  // true if peak ever exceeded 0 dBFS since last reset
+    showReadouts: false,
+    targetPeakDb: [],  // latest peak target per channel (dB, last message wins)
+    targetRmsDb: [],   // latest RMS target per channel (dB, last message wins)
+    smPeakDb: [],      // smoothed peak bar value per channel (dB)
+    smRmsDb: [],       // smoothed RMS indicator value per channel (dB)
+    heldPeakDb: [],    // peak-hold marker per channel (dB)
+    heldAt: [],        // timestamp (ms) when hold was last set per channel
+    segEls: [],        // per-channel arrays of .vu-seg elements
+    litCount: [],      // cached lit-segment counts (avoid redundant DOM writes)
+    holdKeys: [],      // cached hold-marker keys (index + clip state)
+    clipped: [],       // true if peak ever exceeded 0 dBFS since last reset
+    overs: 0,          // total over-0dBFS intervals since last reset
+    readoutEls: null,  // { root, peak, rms, overs } text readout elements
+    lastTextUpdate: 0,
+    lastFrameT: 0,
     rafId: null,
     resizeObserver: null,
     updatePositionFn: null,
 
-    // Convert linear amplitude to bar percentage using the +DB_MAX headroom scale
-    toBarPct(linear) {
-        return Math.min((linear / this.LINEAR_MAX) * 100, 100);
+    // Linear amplitude (0..1+) to dBFS. Floored at DB_FLOOR so smoothing
+    // math never sees -Infinity (which would poison frames with NaN).
+    linToDb(linear) {
+        if (!(linear > 0)) return this.DB_FLOOR;
+        return Math.max(this.DB_FLOOR, 20 * Math.log10(linear));
+    },
+
+    // Segment heat color, bottom (green) -> top (red). From the prototype.
+    heat(t) {
+        if (t < 0.55) {
+            const k = t / 0.55;
+            return 'oklch(' + (68 - k * 2).toFixed(1) + '% ' + (0.17 - k * 0.02).toFixed(3) + ' ' + (150 - k * 60).toFixed(0) + ')';
+        }
+        const k2 = (t - 0.55) / 0.45;
+        return 'oklch(' + (66 + k2 * 2).toFixed(1) + '% ' + (0.15 + k2 * 0.07).toFixed(3) + ' ' + (90 - k2 * 65).toFixed(0) + ')';
+    },
+
+    // dBFS (-60..0) to bar percentage (used for the RMS overlay line)
+    dbToPct(db) {
+        if (!isFinite(db)) return 0;
+        return Math.min(Math.max((db - this.DB_MIN) / (0 - this.DB_MIN), 0), 1) * 100;
+    },
+
+    // Format a dB value for readouts: -inf floor renders as -infinity glyph
+    fmt(v) {
+        if (!isFinite(v) || v <= this.DB_FLOOR + 0.5) return '−∞';
+        return (v > 0 ? '+' : '') + v.toFixed(1);
     },
 
     init(numChannels) {
         const vuDiv = document.getElementById('VuMeter');
         if (!vuDiv) return;
 
+        // Pick up the server-rendered readout preference (extension setting)
+        if (vuDiv.dataset && typeof vuDiv.dataset.readouts === 'string') {
+            this.showReadouts = vuDiv.dataset.readouts === 'on';
+        }
+
         this.numChannels = numChannels;
-        this.incomingLevels = new Array(numChannels).fill(0);
-        this.incomingRms = new Array(numChannels).fill(0);
-        this.displayedLevels = new Array(numChannels).fill(0);
+        this.targetPeakDb = new Array(numChannels).fill(this.DB_FLOOR);
+        this.targetRmsDb = new Array(numChannels).fill(this.DB_FLOOR);
+        this.smPeakDb = new Array(numChannels).fill(this.DB_FLOOR);
+        this.smRmsDb = new Array(numChannels).fill(this.DB_FLOOR);
+        this.heldPeakDb = new Array(numChannels).fill(this.DB_FLOOR);
+        this.heldAt = new Array(numChannels).fill(0);
+        this.segEls = [];
+        this.litCount = new Array(numChannels).fill(-1);
+        this.holdKeys = new Array(numChannels).fill(-2);
         this.clipped = new Array(numChannels).fill(false);
+        this.overs = 0;
+        this.readoutEls = null;
+        this.lastTextUpdate = 0;
+        this.lastFrameT = 0;
         vuDiv.innerHTML = '';
 
         const isHorizontal = vuDiv.classList.contains('vu-top') || vuDiv.classList.contains('vu-bottom');
 
-        // Channel bars
+        // Channel bars: segmented LED ladders (prototype style).
+        // DOM order is always low -> high; CSS flips vertical stacks bottom-up.
         for (let i = 0; i < numChannels; i++) {
             const ch = document.createElement('div');
             ch.className = 'vu-channel';
 
-            const mask = document.createElement('div');
-            mask.className = 'vu-mask';
-            ch.appendChild(mask);
+            const segs = [];
+            for (let s = 0; s < this.SEG_COUNT; s++) {
+                const seg = document.createElement('div');
+                seg.className = 'vu-seg';
+                seg.dataset.heat = this.heat(s / (this.SEG_COUNT - 1));
+                ch.appendChild(seg);
+                segs.push(seg);
+            }
+            this.segEls.push(segs);
 
-            const hold = document.createElement('div');
-            hold.className = 'vu-hold';
-            ch.appendChild(hold);
+            const rms = document.createElement('div');
+            rms.className = 'vu-rms';
+            ch.appendChild(rms);
 
-            // Reset this channel's peak LED only
+            // Click a channel to reset its clip LED + hold marker
             const resetChannelPeak = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                this.clipped[i] = false;
-                hold.classList.remove('vu-hold-clipped');
+                this.resetChannel(i);
             };
-            hold.style.cursor = 'pointer';
-            hold.addEventListener('click', resetChannelPeak);
+            ch.style.cursor = 'pointer';
             ch.addEventListener('click', resetChannelPeak);
 
             vuDiv.appendChild(ch);
@@ -222,7 +288,7 @@ const VuMeter = {
         const markersEl = document.createElement('div');
         markersEl.className = 'vu-markers ' + (isHorizontal ? 'vu-markers-h' : 'vu-markers-v');
         for (const db of this.MARKER_DBS) {
-            const pct = this.toBarPct(Math.pow(10, db / 20));
+            const pct = this.dbToPct(db);
             const tick = document.createElement('div');
             tick.className = 'vu-tick' + (db === 0 ? ' vu-tick-zero' : '');
             if (isHorizontal) {
@@ -233,6 +299,20 @@ const VuMeter = {
             markersEl.appendChild(tick);
         }
         vuDiv.appendChild(markersEl);
+
+        // Optional text readout strip (peak / RMS / overs + clip state)
+        const readouts = document.createElement('div');
+        readouts.className = 'vu-readouts';
+        readouts.innerHTML = '<span class="vu-ro vu-ro-peak"><span class="vu-ro-k">PK </span><span class="vu-ro-v">−∞</span></span>' +
+            '<span class="vu-ro vu-ro-rms"><span class="vu-ro-k">RMS </span><span class="vu-ro-v">−∞</span></span>' +
+            '<span class="vu-ro vu-ro-over"><span class="vu-ro-k">OVER </span><span class="vu-ro-v">0</span></span>';
+        vuDiv.appendChild(readouts);
+        this.readoutEls = {
+            root: readouts,
+            peak: readouts.querySelector('.vu-ro-peak .vu-ro-v'),
+            rms: readouts.querySelector('.vu-ro-rms .vu-ro-v'),
+            overs: readouts.querySelector('.vu-ro-over .vu-ro-v'),
+        };
 
         // Set up ResizeObserver to handle viewport resize events
         this._setupResizeObserver();
@@ -321,10 +401,17 @@ const VuMeter = {
             cancelAnimationFrame(this.rafId);
             this.rafId = null;
         }
+        this.lastFrameT = 0;
+        this.readoutEls = null;
+        this.segEls = [];
         this.initialized = false;
     },
 
-    // Called on each incoming backend message — just stash values, no DOM work
+    // Called on each incoming backend message — just stash targets, no DOM work.
+    // Backend sends linear amplitudes: levels[] = per-interval peak max,
+    // rms[] = latest block RMS. Last message wins; the backend resets its peak
+    // accumulator every tick, so silence naturally drives targets back down and
+    // the release ballistics in _loop produce the fall.
     update(levels, rms) {
         if (!Array.isArray(levels) || levels.length === 0) return;
 
@@ -334,14 +421,49 @@ const VuMeter = {
         if (!this.initialized) return;
 
         for (let i = 0; i < this.numChannels; i++) {
-            if (levels[i] > this.incomingLevels[i])
-                this.incomingLevels[i] = levels[i];
-            // Clip flag: peak > 1.0 linear = over 0 dBFS
-            if (levels[i] > 1.0)
+            this.targetPeakDb[i] = this.linToDb(levels[i]);
+            // Clip flag: peak > 1.0 linear = over 0 dBFS; count one over per message
+            if (levels[i] > 1.0) {
                 this.clipped[i] = true;
-            if (rms && rms[i] !== undefined && rms[i] > this.incomingRms[i])
-                this.incomingRms[i] = rms[i];
+                this.overs++;
+            }
+            if (rms && rms[i] !== undefined && rms[i] !== null) {
+                this.targetRmsDb[i] = this.linToDb(rms[i]);
+            }
         }
+    },
+
+    // Toggle text readouts at runtime (from the cabbage.vuMeterShowReadouts setting)
+    setShowReadouts(show) {
+        this.showReadouts = !!show;
+        const vuDiv = document.getElementById('VuMeter');
+        if (vuDiv) {
+            vuDiv.classList.toggle('vu-no-readouts', !this.showReadouts);
+            vuDiv.dataset.readouts = this.showReadouts ? 'on' : 'off';
+        }
+    },
+
+    // Clear one channel's clip LED and re-seat its hold marker on the current bar
+    resetChannel(i) {
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        this.clipped[i] = false;
+        this.heldPeakDb[i] = this.smPeakDb[i];
+        this.heldAt[i] = now;
+        this.litCount[i] = -1; // force segment repaint to drop the red hold
+        this.holdKeys[i] = -2;
+    },
+
+    // Clear all clip LEDs, overs count, and re-seat hold markers on the current bars
+    resetClip() {
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        for (let i = 0; i < this.numChannels; i++) {
+            this.clipped[i] = false;
+            this.heldPeakDb[i] = this.smPeakDb[i];
+            this.heldAt[i] = now;
+            this.litCount[i] = -1;
+            this.holdKeys[i] = -2;
+        }
+        this.overs = 0;
     },
 
     _loop() {
@@ -351,34 +473,94 @@ const VuMeter = {
         const vuDiv = document.getElementById('VuMeter');
         if (!vuDiv) return;
 
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const dt = Math.min(0.05, this.lastFrameT ? (now - this.lastFrameT) / 1000 : 0.016);
+        this.lastFrameT = now;
+
         const isHorizontal = vuDiv.classList.contains('vu-top') || vuDiv.classList.contains('vu-bottom');
         const channels = vuDiv.querySelectorAll('.vu-channel');
-        const DECAY = 0.975; // ~40 dB/sec fall at 60 fps
+
+        let maxPeak = this.DB_FLOOR, maxRms = this.DB_FLOOR, anyClipped = false;
 
         for (let i = 0; i < channels.length; i++) {
-            // --- bar fill ---
-            this.displayedLevels[i] = Math.max(this.incomingLevels[i], this.displayedLevels[i] * DECAY);
-            this.incomingLevels[i] *= DECAY;
-            const pct = this.toBarPct(this.displayedLevels[i]);
+            // --- exponential ballistics toward latest targets (prototype ch() smoothing) ---
+            const tPeak = this.targetPeakDb[i];
+            const cPeak = tPeak > this.smPeakDb[i]
+                ? (1 - Math.exp(-dt / this.ATK))
+                : (1 - Math.exp(-dt / this.REL));
+            this.smPeakDb[i] += (tPeak - this.smPeakDb[i]) * cPeak;
 
-            // RMS still decays internally (reserved for potential readout use)
-            this.incomingRms[i] *= DECAY;
+            const tRms = this.targetRmsDb[i];
+            this.smRmsDb[i] += (tRms - this.smRmsDb[i]) * (1 - Math.exp(-dt / this.RMS_TC));
 
-            // Update mask
-            const mask = channels[i].querySelector('.vu-mask');
-            if (mask) {
+            // --- peak-hold marker: dwell HOLD_MS then fall at HOLD_FALL_DBPS ---
+            if (this.smPeakDb[i] > this.heldPeakDb[i]) {
+                this.heldPeakDb[i] = this.smPeakDb[i];
+                this.heldAt[i] = now;
+            } else if (now - this.heldAt[i] > this.HOLD_MS) {
+                this.heldPeakDb[i] = Math.max(this.heldPeakDb[i] - dt * this.HOLD_FALL_DBPS, this.smPeakDb[i]);
+            }
+
+            if (this.smPeakDb[i] > maxPeak) maxPeak = this.smPeakDb[i];
+            if (this.smRmsDb[i] > maxRms) maxRms = this.smRmsDb[i];
+            if (this.clipped[i]) anyClipped = true;
+
+            // --- segmented LED ladder (prototype paint()) ---
+            const N = this.SEG_COUNT;
+            const lit = Math.min(N, Math.max(0, Math.round(((this.smPeakDb[i] - this.DB_MIN) / (0 - this.DB_MIN)) * N)));
+            let holdI = Math.round(((this.heldPeakDb[i] - this.DB_MIN) / (0 - this.DB_MIN)) * N) - 1;
+            holdI = Math.min(N - 1, Math.max(-1, holdI));
+            const holdKey = holdI + (this.clipped[i] ? N * 100 : 0);
+
+            if (lit !== this.litCount[i] || holdKey !== this.holdKeys[i]) {
+                this.litCount[i] = lit;
+                this.holdKeys[i] = holdKey;
+                const segs = this.segEls[i];
+                for (let s = 0; s < N; s++) {
+                    const el = segs[s];
+                    const shouldLit = s < lit;
+                    const wasLit = el.classList.contains('is-lit');
+                    if (shouldLit !== wasLit) {
+                        el.classList.toggle('is-lit', shouldLit);
+                        if (shouldLit) {
+                            el.style.background = el.dataset.heat;
+                            el.style.boxShadow = '0 0 6px ' + el.dataset.heat;
+                        } else {
+                            el.style.background = '';
+                            el.style.boxShadow = '';
+                        }
+                    }
+                    const isHold = s === holdI && holdI >= 0;
+                    el.classList.toggle('is-peak', isHold);
+                    el.classList.toggle('is-clipped', isHold && this.clipped[i]);
+                }
+            }
+
+            // RMS indicator line position
+            const rmsPct = this.dbToPct(this.smRmsDb[i]);
+            const rmsEl = channels[i].querySelector('.vu-rms');
+            if (rmsEl) {
                 if (isHorizontal)
-                    mask.style.width = (100 - pct) + '%';
+                    rmsEl.style.left = rmsPct + '%';
                 else
-                    mask.style.height = (100 - pct) + '%';
+                    rmsEl.style.bottom = rmsPct + '%';
             }
 
-            // Update hold indicator
-            const hold = channels[i].querySelector('.vu-hold');
-            if (hold) {
-                // Fixed endpoint LED: right edge for horizontal, top edge for vertical
-                hold.classList.toggle('vu-hold-clipped', this.clipped[i]);
-            }
+            channels[i].title = 'Ch ' + (i + 1) + ' · peak ' + this.fmt(this.smPeakDb[i]) +
+                ' dBFS · RMS ' + this.fmt(this.smRmsDb[i]) + ' dBFS · click to reset';
+        }
+
+        // --- throttled text readouts (skipped entirely when disabled) ---
+        const reduceMotion = (typeof matchMedia === 'function') &&
+            matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (this.showReadouts && this.readoutEls && (now - this.lastTextUpdate > (reduceMotion ? 140 : 90))) {
+            this.lastTextUpdate = now;
+            if (this.readoutEls.peak) this.readoutEls.peak.textContent = this.fmt(maxPeak);
+            if (this.readoutEls.rms) this.readoutEls.rms.textContent = this.fmt(maxRms);
+            if (this.readoutEls.overs) this.readoutEls.overs.textContent = String(this.overs);
+            if (this.readoutEls.root) this.readoutEls.root.classList.toggle('is-clipped', anyClipped);
+        } else if (this.readoutEls && this.readoutEls.root) {
+            this.readoutEls.root.classList.toggle('is-clipped', anyClipped);
         }
     }
 };
@@ -406,7 +588,7 @@ window.addEventListener('message', async (event) => {
     }
 
     // Log all incoming messages to help debug
-    if (message.command !== 'vuMeter') { console.log(`[main.js] Received command: '${message.command}'`, message.command === 'batchWidgetUpdate' ? `(${message.widgets ? message.widgets.length : 0} widgets)` : message.command === 'widgetUpdate' ? `id=${message.id} channel=${message.channel} hasWidgetJson=${!!message.widgetJson} hasValue=${message.value !== undefined ? message.value : 'none'}` : ''); }
+    if (message.command !== 'vuMeter' && message.command !== 'vuMeterReadouts') { console.log(`[main.js] Received command: '${message.command}'`, message.command === 'batchWidgetUpdate' ? `(${message.widgets ? message.widgets.length : 0} widgets)` : message.command === 'widgetUpdate' ? `id=${message.id} channel=${message.channel} hasWidgetJson=${!!message.widgetJson} hasValue=${message.value !== undefined ? message.value : 'none'}` : ''); }
 
     const mainForm = document.getElementById('MainForm'); // Get the MainForm element
 
@@ -664,6 +846,10 @@ window.addEventListener('message', async (event) => {
 
         case 'vuMeter':
             VuMeter.update(message.levels, message.rms);
+            break;
+
+        case 'vuMeterReadouts':
+            VuMeter.setShowReadouts(message.show);
             break;
 
         case 'saveFromUIEditor':
