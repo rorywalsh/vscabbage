@@ -193,6 +193,11 @@
           "default": "bottom",
           "description": "Position of the VU meter overlay in the instrument view. Displays one bar per output channel."
         },
+        "cabbage.vuMeterShowReadouts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show text readouts (peak dB, RMS dB, overs) on the VU meter overlay."
+        },
         "cabbage.saveExternalJSON": {
           "type": "boolean",
           "default": true,

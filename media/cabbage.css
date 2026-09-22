@@ -598,93 +598,93 @@
 	flex-direction: row;
 }
 
-/* Individual channel track — gradient always runs low→high */
+/* Individual channel ladder — segmented LEDs, DOM order low→high */
 .vu-meter.vu-top .vu-channel,
 .vu-meter.vu-bottom .vu-channel {
 	flex: 1;
+	display: flex;
+	flex-direction: row;
+	gap: 2px;
 	position: relative;
-	background: linear-gradient(to right,
-			#0bc05a 0%,
-			#3bdd4c 45%,
-			#f3d22f 75%,
-			#f07d21 88%,
-			#d91f2f 100%);
+	background: rgba(0, 0, 0, 0.35);
 	border-radius: 2px;
 	border: 1px solid rgba(255, 255, 255, 0.09);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+	padding: 2px;
 	overflow: hidden;
 }
 
 .vu-meter.vu-left .vu-channel,
 .vu-meter.vu-right .vu-channel {
 	flex: 1;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 2px;
 	position: relative;
-	background: linear-gradient(to top,
-			#0bc05a 0%,
-			#3bdd4c 45%,
-			#f3d22f 75%,
-			#f07d21 88%,
-			#d91f2f 100%);
+	background: rgba(0, 0, 0, 0.35);
 	border-radius: 2px;
 	border: 1px solid rgba(255, 255, 255, 0.09);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+	padding: 2px;
 	overflow: hidden;
 }
 
-/* Dark overlay mask that covers the "empty" (silent) portion */
-.vu-mask {
-	position: absolute;
-	background: linear-gradient(180deg, rgba(7, 8, 10, 0.96) 0%, rgba(13, 15, 19, 0.96) 100%);
+/* Single LED segment — unlit track grey, heat color set inline when lit */
+.vu-seg {
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 0;
+	border-radius: 1px;
+	background: rgba(255, 255, 255, 0.10);
 }
 
-/* Horizontal: mask covers from the right side inward */
-.vu-meter.vu-top .vu-mask,
-.vu-meter.vu-bottom .vu-mask {
-	top: 0;
-	bottom: 0;
-	right: 0;
-	width: 100%;
+.vu-meter.vu-top .vu-seg,
+.vu-meter.vu-bottom .vu-seg {
+	min-width: 2px;
 }
 
-/* Vertical: mask covers from the top side downward */
-.vu-meter.vu-left .vu-mask,
-.vu-meter.vu-right .vu-mask {
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 100%;
+.vu-meter.vu-left .vu-seg,
+.vu-meter.vu-right .vu-seg {
+	min-height: 2px;
 }
 
-/* Hold indicator — thin line at the max-RMS position */
-.vu-hold {
+/* Peak-hold marker segment: bright outline (prototype .is-peak style) */
+.vu-seg.is-peak {
+	outline: 1px solid #ffffff;
+	outline-offset: 0;
+}
+
+/* Held peak after an over-0dBFS clip: red, like the prototype clip lamp */
+.vu-seg.is-peak.is-clipped {
+	background: #ff2a36 !important;
+	box-shadow: 0 0 10px rgba(255, 37, 60, 0.95), 0 0 2px rgba(255, 255, 255, 0.45) !important;
+	outline-color: #ff2a36;
+}
+
+/* RMS indicator — thin bright line at the smoothed RMS position.
+   Sits above the segments (z-index) so it stays visible when lit. */
+.vu-rms {
 	position: absolute;
 	background: #d8f3ff;
 	box-shadow: 0 0 10px rgba(173, 238, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.8);
 	z-index: 2;
+	pointer-events: none;
 }
 
-.vu-meter.vu-top .vu-hold,
-.vu-meter.vu-bottom .vu-hold {
-	width: 7px;
-	right: 0;
+.vu-meter.vu-top .vu-rms,
+.vu-meter.vu-bottom .vu-rms {
+	width: 2px;
 	top: 0;
 	bottom: 0;
-	border-radius: 2px;
+	left: 0;
 }
 
-.vu-meter.vu-left .vu-hold,
-.vu-meter.vu-right .vu-hold {
-	height: 7px;
-	top: 0;
+.vu-meter.vu-left .vu-rms,
+.vu-meter.vu-right .vu-rms {
+	height: 2px;
 	left: 0;
 	right: 0;
-	border-radius: 2px;
-}
-
-/* Red hold bar when clipping has occurred — click meter to reset */
-.vu-hold.vu-hold-clipped {
-	background: #ff2a36;
-	box-shadow: 0 0 10px rgba(255, 37, 60, 0.95), 0 0 2px rgba(255, 255, 255, 0.45);
+	bottom: 0;
 }
 
 /* ---- dBFS scale markers ---- */
@@ -736,11 +736,13 @@
 }
 
 .vu-markers-h .vu-tick:nth-child(1)::after {
-	content: "-20";
+	content: "0 dB";
+	color: #ffffff;
+	font-weight: 700;
 }
 
 .vu-markers-h .vu-tick:nth-child(2)::after {
-	content: "-12";
+	content: "-3";
 }
 
 .vu-markers-h .vu-tick:nth-child(3)::after {
@@ -748,13 +750,23 @@
 }
 
 .vu-markers-h .vu-tick:nth-child(4)::after {
-	content: "-3";
+	content: "-12";
 }
 
 .vu-markers-h .vu-tick:nth-child(5)::after {
-	content: "0 dB";
-	color: #ffffff;
-	font-weight: 700;
+	content: "-18";
+}
+
+.vu-markers-h .vu-tick:nth-child(6)::after {
+	content: "-30";
+}
+
+.vu-markers-h .vu-tick:nth-child(7)::after {
+	content: "-40";
+}
+
+.vu-markers-h .vu-tick:nth-child(8)::after {
+	content: "-60";
 }
 
 /* Vertical markers: each tick is a horizontal 1 px line */
@@ -782,11 +794,13 @@
 }
 
 .vu-markers-v .vu-tick:nth-child(1)::after {
-	content: "-20";
+	content: "0";
+	color: #ffffff;
+	font-weight: 700;
 }
 
 .vu-markers-v .vu-tick:nth-child(2)::after {
-	content: "-12";
+	content: "-3";
 }
 
 .vu-markers-v .vu-tick:nth-child(3)::after {
@@ -794,11 +808,127 @@
 }
 
 .vu-markers-v .vu-tick:nth-child(4)::after {
-	content: "-3";
+	content: "-12";
 }
 
 .vu-markers-v .vu-tick:nth-child(5)::after {
-	content: "0";
-	color: #ffffff;
-	font-weight: 700;
+	content: "-18";
+}
+
+.vu-markers-v .vu-tick:nth-child(6)::after {
+	content: "-30";
+}
+
+.vu-markers-v .vu-tick:nth-child(7)::after {
+	content: "-40";
+}
+
+.vu-markers-v .vu-tick:nth-child(8)::after {
+	content: "-60";
+}
+
+/* ---- text readouts (peak / RMS / overs) ---- */
+/* Compact mono strip; hidden unless the vuMeterShowReadouts setting is on */
+.vu-readouts {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	position: absolute;
+	right: 6px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-family: var(--vscode-font-family, monospace);
+	font-size: 10px;
+	line-height: 1;
+	color: rgba(255, 255, 255, 0.9);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+	background: rgba(0, 0, 0, 0.55);
+	border-radius: 3px;
+	padding: 3px 6px;
+	white-space: nowrap;
+	z-index: 4;
+	pointer-events: none;
+}
+
+.vu-meter.vu-left .vu-readouts,
+.vu-meter.vu-right .vu-readouts {
+	right: auto;
+	top: auto;
+	bottom: 6px;
+	left: 50%;
+	transform: translateX(-50%);
+	flex-direction: column;
+	gap: 4px;
+}
+
+.vu-readouts .vu-ro-k {
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.vu-readouts.is-clipped {
+	color: #ff6b74;
+}
+
+.vu-meter.vu-no-readouts .vu-readouts {
+	display: none;
+}
+
+/* ---- light theme (body.vscode-light is kept in sync by VS Code, so this
+   applies live on theme switch with no reload needed) ---- */
+body.vscode-light .vu-meter {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(238, 240, 243, 0.94) 100%);
+	border: 1px solid rgba(0, 0, 0, 0.16);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+		0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
+body.vscode-light .vu-meter .vu-channel {
+	background: rgba(0, 0, 0, 0.10);
+	border-color: rgba(0, 0, 0, 0.14);
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+body.vscode-light .vu-meter .vu-seg {
+	background: rgba(0, 0, 0, 0.13);
+}
+
+body.vscode-light .vu-meter .vu-tick {
+	background: rgba(0, 0, 0, 0.35);
+}
+
+body.vscode-light .vu-meter .vu-tick.vu-tick-zero {
+	background: #111111;
+	box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+body.vscode-light .vu-markers-h .vu-tick::after,
+body.vscode-light .vu-markers-v .vu-tick::after {
+	color: #1a1a1a;
+	text-shadow: none;
+	background: rgba(255, 255, 255, 0.78);
+}
+
+/* White RMS line is invisible on a light track — use dark teal instead */
+body.vscode-light .vu-meter .vu-rms {
+	background: #0d4a63;
+	box-shadow: 0 0 6px rgba(13, 74, 99, 0.55);
+}
+
+body.vscode-light .vu-meter .vu-seg.is-peak {
+	outline-color: #111111;
+}
+
+body.vscode-light .vu-meter .vu-readouts {
+	color: #1a1a1a;
+	text-shadow: none;
+	background: rgba(255, 255, 255, 0.82);
+}
+
+body.vscode-light .vu-meter .vu-readouts .vu-ro-k {
+	color: rgba(0, 0, 0, 0.55);
+}
+
+body.vscode-light .vu-meter .vu-readouts.is-clipped {
+	color: #b3121f;
 }
