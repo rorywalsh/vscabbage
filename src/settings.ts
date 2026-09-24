@@ -84,15 +84,35 @@ export class Settings {
      * Ensures the Cabbage settings file has the current extension JS source path
      * in jsSourceDir. If the first entry is a stale path (e.g. from a previous
      * extension version), it is replaced with the current path. Any additional
-     * custom widget directories are preserved.
+     * custom widget directories are preserved. Returns true when the file was
+     * repaired, so callers can restart the backend.
      */
-    static async ensureExtensionJsSourcePath() {
-        const defPath = Settings.getPathJsSourceDir();
-        if (!defPath) return;
+    static async ensureExtensionJsSourcePath(): Promise<boolean> {
+        let defPath = Settings.getPathJsSourceDir();
+        if (!defPath) {
+            // Extension lookup failed (e.g. dev/sideloaded builds with a
+            // different publisher id) — fall back to scanning the known
+            // VS Code-flavoured extensions directories.
+            defPath = Settings.findBundledJsSourceDir();
+        }
+        if (!defPath) {
+            Commands.getOutputChannel().appendLine(
+                'Cabbage: Could not locate extension JS source directory; leaving jsSourceDir unchanged');
+            return false;
+        }
 
         try {
             const settings = await Settings.getCabbageSettings();
-            const current = settings['currentConfig']?.['jsSourceDir'];
+            if (typeof settings !== 'object' || settings === null) {
+                return false;
+            }
+            // Very old settings files may lack currentConfig entirely — create
+            // it rather than throwing into the catch below and leaving the
+            // stale file in place.
+            if (typeof (settings as any)['currentConfig'] !== 'object' || (settings as any)['currentConfig'] === null) {
+                (settings as any)['currentConfig'] = {};
+            }
+            const current = (settings as any)['currentConfig']?.['jsSourceDir'];
             let dirs: string[] = [];
             if (Array.isArray(current)) {
                 dirs = current as string[];
@@ -113,14 +133,58 @@ export class Settings {
                 }
                 dirs = [...new Set(dirs)];
 
-                settings['currentConfig']['jsSourceDir'] = dirs;
+                (settings as any)['currentConfig']['jsSourceDir'] = dirs;
                 await Settings.setCabbageSettings(settings);
                 Commands.getOutputChannel().appendLine(
                     `Cabbage: Updated jsSourceDir primary path to ${defPath}`);
+                // A running backend may have loaded widget descriptors from the
+                // stale location — restart it so the repair takes effect.
+                try {
+                    await vscode.commands.executeCommand('cabbage.restartBackend');
+                } catch (cmdErr) {
+                    console.warn('Cabbage: Failed to execute restartBackend command:', cmdErr);
+                }
+                return true;
             }
+            return false;
         } catch (err) {
             console.error('Cabbage: Failed to ensure extension JS source path:', err);
+            return false;
         }
+    }
+
+    /**
+     * Fallback locator for the bundled extension `src/` directory, used when
+     * the extension API lookup fails. Scans the well-known VS Code-flavoured
+     * extensions directories for `cabbageaudio.vscabbage-*` installs (newest
+     * first) and returns the first one that actually contains widget sources.
+     * Returns '' when nothing suitable is found.
+     */
+    private static findBundledJsSourceDir(): string {
+        const homeDir = os.homedir();
+        const baseDirs = ['.vscode', '.vscode-insiders', '.cursor', '.vscode-oss'];
+        for (const base of baseDirs) {
+            let entries: string[];
+            try {
+                entries = fs.readdirSync(path.join(homeDir, base, 'extensions'));
+            } catch {
+                continue;
+            }
+            const matches = entries
+                .filter((name) => name.startsWith('cabbageaudio.vscabbage-'))
+                .sort()
+                .reverse();
+            for (const name of matches) {
+                const srcDir = path.join(homeDir, base, 'extensions', name, 'src');
+                try {
+                    fs.accessSync(path.join(srcDir, 'cabbage', 'widgets'));
+                } catch {
+                    continue;
+                }
+                return srcDir.split(path.sep).join(path.posix.sep);
+            }
+        }
+        return '';
     }
 
     static getCabbageBinaryPath(type: string): string {
@@ -197,20 +261,67 @@ export class Settings {
         }
     }
 
-    static async getCabbageSettings() {
-        // Get the current user's home directory
+    /**
+     * Canonical location of the shared Cabbage settings file (used by the
+     * CabbageApp backend, not VS Code itself). This must match the backend:
+     * cabbage3/src/CabbageUtils.cpp File::getSettingsFile().
+     * Windows uses %LOCALAPPDATA%\Cabbage\settings.json (CSIDL_LOCAL_APPDATA).
+     */
+    static getCabbageSettingsFilePath(): string {
         const homeDir = os.homedir();
-        // Build your path dynamically
-        let settingsPath = "";
-
         if (os.platform() === 'darwin') {
-            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
+            return path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
         } else if (os.platform() === 'linux') {
-            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
+            return path.join(homeDir, '.config', 'Cabbage', 'settings.json');
         }
-        else {
-            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+        const localAppData = process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
+        return path.join(localAppData, 'Cabbage', 'settings.json');
+    }
+
+    /**
+     * Pre-unification Windows location. Older extension versions wrote the
+     * settings file here, which the backend never read. Kept for one-time
+     * migration only — do not use for new code.
+     */
+    private static getLegacyWindowsSettingsFilePath(): string {
+        return path.join(os.homedir(), 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
+    }
+
+    /**
+     * One-time migration of the legacy Windows settings file to the canonical
+     * location. Runs before any read; a no-op unless the canonical file is
+     * missing and a valid legacy file exists.
+     */
+    private static async migrateLegacyWindowsSettingsFileIfNeeded(canonicalPath: string): Promise<void> {
+        if (os.platform() !== 'win32') {
+            return;
         }
+        try {
+            try {
+                await vscode.workspace.fs.stat(vscode.Uri.file(canonicalPath));
+                return; // Canonical file already exists, nothing to do.
+            } catch {
+                // Canonical file missing — try to migrate the legacy one.
+            }
+            const legacyUri = vscode.Uri.file(Settings.getLegacyWindowsSettingsFilePath());
+            const data = await vscode.workspace.fs.readFile(legacyUri);
+            // Validate it's JSON before migrating.
+            JSON.parse(new TextDecoder('utf-8').decode(data));
+            await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(canonicalPath)));
+            await vscode.workspace.fs.writeFile(vscode.Uri.file(canonicalPath), data);
+            await vscode.workspace.fs.delete(legacyUri, { useTrash: false });
+            Commands.getOutputChannel().appendLine(
+                'Cabbage: Migrated settings file from legacy Windows location to ' + canonicalPath);
+        } catch (err) {
+            // Non-fatal: no legacy file, invalid JSON, or FS error — the
+            // defaults path in getCabbageSettings() handles it.
+            console.warn('Cabbage: Legacy settings migration skipped:', err);
+        }
+    }
+
+    static async getCabbageSettings() {
+        const settingsPath = Settings.getCabbageSettingsFilePath();
+        await Settings.migrateLegacyWindowsSettingsFileIfNeeded(settingsPath);
         const fileUri = vscode.Uri.file(settingsPath);
 
         try {
@@ -247,16 +358,7 @@ export class Settings {
 
     static async setCabbageSettings(newSettings: object) {
         // Get the path to the settings file
-        let settingsPath = '';
-        const homeDir = os.homedir();
-        if (os.platform() === 'darwin') {
-            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json'); // Updated path for macOS
-        } else if (os.platform() === 'linux') {
-            settingsPath = path.join(homeDir, '.config', 'Cabbage', 'settings.json');
-        }
-        else {
-            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
-        }
+        const settingsPath = Settings.getCabbageSettingsFilePath();
 
         const fileUri = vscode.Uri.file(settingsPath);
         try {
@@ -810,15 +912,7 @@ export class Settings {
     }
 
     static async resetSettingsFile() {
-        // Get the current user's home directory
-        const homeDir = os.homedir();
-        // Build your path dynamically
-        let settingsPath = "";
-        if (os.platform() === 'darwin') {
-            settingsPath = path.join(homeDir, 'Library', 'Application Support', 'Cabbage', 'settings.json');
-        } else {
-            settingsPath = path.join(homeDir, 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
-        }
+        const settingsPath = Settings.getCabbageSettingsFilePath();
         const fileUri = vscode.Uri.file(settingsPath);
         const userResponse = await vscode.window.showWarningMessage(
             'Are you sure you want to reset the CabbageApp (not vscode) settings file? A new default file will be created in its place.',
