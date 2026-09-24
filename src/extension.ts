@@ -585,6 +585,11 @@ export async function activate(context: vscode.ExtensionContext):
             await Settings.resetSettingsFile();
         }));
 
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.validateInstallation', async () => {
+            await Commands.validateInstallation();
+        }));
+
 
     const configurationChangeListener = vscode.workspace.onDidChangeConfiguration(
         (event: vscode.ConfigurationChangeEvent) => {

@@ -283,7 +283,7 @@ export class Settings {
      * settings file here, which the backend never read. Kept for one-time
      * migration only — do not use for new code.
      */
-    private static getLegacyWindowsSettingsFilePath(): string {
+    static getLegacyWindowsSettingsFilePath(): string {
         return path.join(os.homedir(), 'Local Settings', 'Application Data', 'Cabbage', 'settings.json');
     }
 

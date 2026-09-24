@@ -56,6 +56,7 @@ import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
+import { runAllChecks, formatReport, summarize, ValidationEnv } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
 /**
@@ -2210,6 +2211,69 @@ export class Commands {
      */
     static getProcesses(): (cp.ChildProcess | undefined)[] {
         return this.processes;
+    }
+
+    /**
+     * Report-only installation validation ("doctor"). Reads the shared
+     * settings file without creating it, runs every probe in
+     * validateInstallation.ts, prints the report to the output channel and
+     * shows a summary notification. Makes no changes of any kind.
+     */
+    static async validateInstallation(): Promise<void> {
+        const channel = Commands.getOutputChannel();
+        const settingsPath = Settings.getCabbageSettingsFilePath();
+        let settingsFileText: string | undefined;
+        try {
+            const data = await vscode.workspace.fs.readFile(vscode.Uri.file(settingsPath));
+            settingsFileText = new TextDecoder('utf-8').decode(data);
+        } catch {
+            settingsFileText = undefined; // Missing or unreadable — reported as a finding below.
+        }
+        const exists = (p: string): boolean => {
+            try {
+                return fs.existsSync(p);
+            } catch {
+                return false;
+            }
+        };
+        const listFiles = (dir: string): string[] =>
+            fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
+        const pathEnv = process.env.PATH || '';
+        const isOnPath = (name: string): boolean =>
+            pathEnv.split(path.delimiter).some((d) => {
+                try {
+                    return fs.existsSync(path.join(d, name));
+                } catch {
+                    return false;
+                }
+            });
+        const env: ValidationEnv = {
+            platform: os.platform(),
+            settingsPath,
+            legacySettingsPath: Settings.getLegacyWindowsSettingsFilePath(),
+            settingsFileText,
+            expectedPrimarySourceDir: Settings.getPathJsSourceDir(),
+            cabbageAppBinaryPath: Settings.getCabbageBinaryPath('CabbageApp'),
+            proServiceBinaryPath: Settings.getCabbageProBinaryPath('CabbageApp'),
+            proAppEnabled: vscode.workspace.getConfiguration('cabbage').get<boolean>('proAppEnabled', true),
+            exists,
+            listFiles,
+            isOnPath,
+        };
+        const results = runAllChecks(env);
+        channel.appendLine(formatReport(results));
+        channel.show(true);
+        const { fails, warns } = summarize(results);
+        if (fails === 0 && warns === 0) {
+            vscode.window.showInformationMessage('Cabbage installation looks healthy.');
+        } else {
+            const action = await vscode.window.showWarningMessage(
+                `Cabbage installation check: ${fails} failure(s), ${warns} warning(s). Remedies are listed in the Cabbage output channel.`,
+                'Show Details');
+            if (action === 'Show Details') {
+                channel.show(true);
+            }
+        }
     }
 
     /**

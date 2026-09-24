@@ -316,6 +316,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.validateInstallation",
+        "title": "Validate Installation",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.makeForDaisy",
         "title": "Make for Daisy",
         "category": "Cabbage"
@@ -603,6 +608,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
+    "test:unit": "npm run compile-tests && mocha \"out/test/unit/**/*.test.js\" --timeout 10000",
     "test": "vscode-test"
   },
   "devDependencies": {
