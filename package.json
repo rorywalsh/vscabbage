@@ -524,22 +524,22 @@
       },
       {
         "command": "cabbage.createNewCabbageEffect",
-        "title": "Create a new Cabbage Effect file",
+        "title": "Create Effect File (Cabbage UI)",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.createNewCabbageSynth",
-        "title": "Create a new Cabbage Synth file",
+        "title": "Create Synth File (Cabbage UI)",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.createVanillaVST3Effect",
-        "title": "Create Vanilla VST3 Effect",
+        "title": "Create Vanilla VST3 Effect Project (Custom UI)",
         "category": "Cabbage"
       },
       {
         "command": "cabbage.createVanillaVST3Synth",
-        "title": "Create Vanilla VST3 Synth",
+        "title": "Create Vanilla VST3 Synth Project (Custom UI)",
         "category": "Cabbage"
       },
       {
