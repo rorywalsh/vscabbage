@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Group all npm updates (including security fixes) into a single PR
+  # instead of one PR per vulnerability.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-all:
+        patterns:
+          - "*"
