@@ -138,7 +138,7 @@
         },
         "cabbage.audioDriver": {
           "type": "string",
-          "default": "32 samples",
+          "default": "",
           "description": "Selected audio driver. Use command palette to change."
         },
         "cabbage.recordingBitDepth": {
@@ -226,19 +226,6 @@
             "Open in a new column beside the active one"
           ],
           "description": "Choose which column to launch the instrument UI in."
-        },
-        "cabbage.defaultJsonFormatting": {
-          "type": "string",
-          "default": "Single line objects",
-          "description": "Choose an option",
-          "enum": [
-            "Singe line objects",
-            "Multiline objects"
-          ],
-          "enumDescriptions": [
-            "Formats each widget object to a single line enclosed with curly braces",
-            "Formats each widget object over multiple lines; typical of most JSON formatters"
-          ]
         },
         "cabbage.jsonIndentSpaces": {
           "type": "number",
@@ -570,21 +557,6 @@
       {
         "command": "cabbage.updateToCabbage3",
         "title": "Update old-style Cabbage code to JSON",
-        "category": "Cabbage"
-      },
-      {
-        "command": "cabbage.sendFileToChannel1and2",
-        "title": "to stereo inputs",
-        "category": "Cabbage"
-      },
-      {
-        "command": "cabbage.sendFileToChannel1",
-        "title": "to input 1",
-        "category": "Cabbage"
-      },
-      {
-        "command": "cabbage.sendFileToChannel2",
-        "title": "to input 2",
         "category": "Cabbage"
       },
       {

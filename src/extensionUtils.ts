@@ -747,27 +747,16 @@ be lost when working with the UI editor. -->\n`;
                     }
 
                     const config = vscode.workspace.getConfiguration("cabbage");
-                    const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
 
                     // Preserve top-level properties (e.g. package) when updating widgets
                     const cabbageObject = Array.isArray(parsed)
                         ? { widgets: cabbageJsonArray }
                         : { ...parsed, widgets: cabbageJsonArray };
 
-                    let formattedJson: string;
-                    const hasAdditionalTopLevelKeys = !Array.isArray(parsed)
-                        && Object.keys(parsed).some(key => key !== 'widgets');
-
-                    if (isSingleLine && !hasAdditionalTopLevelKeys) {
-                        // For single-line mode, format just the widgets array with custom formatter
-                        const formattedArray = ExtensionUtils.formatJsonObjects(cabbageJsonArray, '    ');
-                        formattedJson = `{\n    "widgets": ${formattedArray}\n}`;
-                    } else {
-                        // Use the same FracturedJson formatter and config as the format command
-                        const indentSpaces = config.get("jsonIndentSpaces", 4);
-                        const maxLength = config.get("jsonMaxLength", 120);
-                        formattedJson = formatJson(cabbageObject, { maxLength: maxLength, indent: indentSpaces });
-                    }
+                    // Use the FracturedJson formatter and config
+                    const indentSpaces = config.get("jsonIndentSpaces", 4);
+                    const maxLength = config.get("jsonMaxLength", 120);
+                    const formattedJson = formatJson(cabbageObject, { maxLength: maxLength, indent: indentSpaces });
 
                     const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
 

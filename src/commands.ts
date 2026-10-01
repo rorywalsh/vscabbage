@@ -2699,12 +2699,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
             this.vscodeOutputChannel.appendLine(`Export Pro: Read CSD file (${csdContent.length} bytes)`);
 
             // Setup resources directory
-            let resourcesDir = '';
-            if (config.get<boolean>('bundleResources')) {
-                resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
-            } else {
-                resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
-            }
+            const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
 
             // Setup project resources (for both encrypted and unencrypted)
             const indexDotHtml = ExtensionUtils.getIndexHtml();
@@ -3666,13 +3661,7 @@ i2 5 z
 </CsScore>
 </CsoundSynthesizer>`;
 
-            let resourcesDir = '';
-            if (config.get<boolean>('bundleResources')) {
-                resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
-            }
-            else {
-                resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
-            }
+            const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
 
             // Setup project resources (JS, CSS, index.html, CSD)
             await Commands.setupProjectResources(resourcesDir, vanillaIndexHtml, vanillaCsd, pluginName);
@@ -3839,13 +3828,7 @@ i2 5 z
         }
 
 
-        let resourcesDir = '';
-        if (config.get<boolean>('bundleResources')) {
-            resourcesDir = path.join(destinationPath, 'Contents', 'Resources');
-        }
-        else {
-            resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
-        }
+        const resourcesDir = ExtensionUtils.getResourcePath() + '/' + pluginName;
 
         let pathToCabbageJsSource = '';
         let cabbageCSS = '';
@@ -4300,29 +4283,12 @@ i2 5 z
             });
             console.log(`Removed ${originalLength - widgets.length} widgets`);
 
-            // Format and update the Cabbage section
+            // Format and update the Cabbage section using the FracturedJson formatter and config
             const config = vscode.workspace.getConfiguration("cabbage");
-            const isSingleLine = config.get("defaultJsonFormatting") === 'Single line objects';
-
-            let formattedArray: string;
-            let updatedRoot: any;
-            if (isSingleLine) {
-                if (Array.isArray(root)) {
-                    formattedArray = ExtensionUtils.formatJsonObjects(widgets, '    ');
-                    updatedRoot = widgets;
-                } else {
-                    updatedRoot = { ...root, widgets };
-                    const indentSpaces = config.get("jsonIndentSpaces", 4);
-                    const maxLength = config.get("jsonMaxLength", 120);
-                    formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
-                }
-            } else {
-                // Use the same FracturedJson formatter and config as the format command
-                const indentSpaces = config.get("jsonIndentSpaces", 4);
-                const maxLength = config.get("jsonMaxLength", 120);
-                updatedRoot = Array.isArray(root) ? widgets : { ...root, widgets };
-                formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
-            }
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+            const updatedRoot = Array.isArray(root) ? widgets : { ...root, widgets };
+            const formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
 
             const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
 
