@@ -940,7 +940,8 @@ export async function activate(context: vscode.ExtensionContext):
     });
 
     vscode.workspace.onDidSaveTextDocument((document) => {
-        if (document.fileName.endsWith('.csd') && Commands.hasCabbageServerStarted()) {
+        const compileOnSave = vscode.workspace.getConfiguration('cabbage').get<boolean>('compileOnSave', true);
+        if (compileOnSave && document.fileName.endsWith('.csd') && Commands.hasCabbageServerStarted()) {
             onCompileInstrument(context);
         }
     });

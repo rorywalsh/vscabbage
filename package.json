@@ -165,6 +165,11 @@
           "default": true,
           "description": "Clear console each time Csound is compiled."
         },
+        "cabbage.compileOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically compile .csd instruments when saving. Disable to compile manually via the Compile Cabbage Instrument command."
+        },
         "cabbage.propertyPanelPosition": {
           "type": "string",
           "enum": [
