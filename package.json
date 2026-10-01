@@ -609,7 +609,7 @@
     "get-port": "^7.1.0",
     "interactjs": "^1.10.27",
     "fracturedjsonjs": "^5.0.1",
-    "ws": "^8.16.0",
+    "ws": "^8.21.0",
     "xml2js": "^0.6.2"
   },
   "optionalDependencies": {
