@@ -1404,6 +1404,18 @@ export class Commands {
             command = Settings.getCabbageBinaryPath('CabbageApp');
         }
 
+        // Verbose-only spawn stamp so Debug vs Release / stale-copy mixups are obvious.
+        // Shows UTC ISO + local mtime of the exact binary being spawned.
+        try {
+            if (config.get("logVerbose")) {
+                const st = fs.statSync(command);
+                this.vscodeOutputChannel.appendLine(
+                    `Spawning CabbageApp: ${command} | mtime UTC ${st.mtime.toISOString()} | mtime local ${st.mtime.toString()} | ${st.size} bytes`);
+            }
+        } catch {
+            // Stat failure is already handled below via the existence check on spawn error
+        }
+
         // Spawn CabbageApp without port number - it will use stdin/stdout pipes
         const process = cp.spawn(command, [], {
             stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
@@ -2259,6 +2271,7 @@ export class Commands {
             exists,
             listFiles,
             isOnPath,
+            realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);
         channel.appendLine(formatReport(results));

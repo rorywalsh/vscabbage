@@ -283,6 +283,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.restartBackend",
+        "title": "Restart Backend",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.editMode",
         "title": "Edit Mode",
         "category": "Cabbage"

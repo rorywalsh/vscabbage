@@ -47,6 +47,14 @@ export interface ValidationEnv {
     proAppEnabled: boolean;
     /** Synchronous existence check for files/directories. */
     exists: (p: string) => boolean;
+    /**
+     * Junction/symlink-resolving canonicalisation (e.g. `fs.realpathSync`).
+     * Optional; when present, the legacy-settings check uses it to detect the
+     * case where the legacy path aliases the canonical file and avoid a
+     * false-positive warning that could never be cleared. Throws when the
+     * path does not exist.
+     */
+    realpath?: (p: string) => string;
     /** Lists file names (no directories) directly inside `dir`. Throws on error. */
     listFiles: (dir: string) => string[];
     /** True when an executable with this name is found on PATH. */
@@ -118,11 +126,14 @@ export function checkServiceBinary(env: ValidationEnv): CheckResult {
 }
 
 export function checkSettingsFile(env: ValidationEnv): CheckResult {
-    const base = { id: 'settingsFile', label: `Settings file (${env.settingsPath})` };
+    // Labelled "backend" to distinguish from the VS Code user settings.json:
+    // this is %LOCALAPPDATA%\Cabbage\settings.json, the file the CabbageApp
+    // backend reads (must match File::getSettingsFile() in cabbage3).
+    const base = { id: 'settingsFile', label: `Cabbage backend settings file (${env.settingsPath})` };
     if (env.settingsFileText === undefined) {
         return {
             ...base, status: 'warn', detail: 'Settings file is missing',
-            remedy: 'It is created automatically with defaults the next time the extension reads settings. If problems persist, run `Cabbage: Reset Cabbage App Settings Files`.',
+            remedy: 'It is created automatically with defaults the next time the extension reads settings. If problems persist, run `Cabbage: Reset CabbageApp (not vscode) settings file`.',
         };
     }
     let parsed: unknown;
@@ -131,13 +142,13 @@ export function checkSettingsFile(env: ValidationEnv): CheckResult {
     } catch {
         return {
             ...base, status: 'fail', detail: 'Settings file exists but is not valid JSON',
-            remedy: 'Run `Cabbage: Reset Cabbage App Settings Files` to replace it with defaults (your current file will be deleted).',
+            remedy: 'Run `Cabbage: Reset CabbageApp (not vscode) settings file` to replace it with defaults (your current file will be deleted).',
         };
     }
     if (typeof parsed !== 'object' || parsed === null || typeof (parsed as any)['currentConfig'] !== 'object') {
         return {
             ...base, status: 'fail', detail: 'Settings file is missing the `currentConfig` section (very old format)',
-            remedy: 'Run `Cabbage: Reset Cabbage App Settings Files` to replace it with defaults (your current file will be deleted).',
+            remedy: 'Run `Cabbage: Reset CabbageApp (not vscode) settings file` to replace it with defaults (your current file will be deleted).',
         };
     }
     return { ...base, status: 'pass', detail: 'Settings file exists, is valid JSON, and has a `currentConfig` section' };
@@ -164,7 +175,7 @@ export function checkJsSourceDirs(dirs: string[], env: ValidationEnv): CheckResu
     if (dirs.length === 0) {
         return {
             ...base, status: 'fail', detail: '`currentConfig.jsSourceDir` is missing or empty',
-            remedy: 'Run `Cabbage: Reset Cabbage App Settings Files`, or set the OS-specific `cabbage.pathToJsSource*` VS Code setting to your Cabbage Javascript folder.',
+            remedy: 'Run `Cabbage: Reset CabbageApp (not vscode) settings file`, or set the OS-specific `cabbage.pathToJsSource*` VS Code setting to your Cabbage Javascript folder.',
         };
     }
     const missing = dirs.filter((d) => !env.exists(d));
@@ -185,7 +196,7 @@ export function checkPrimarySource(dirs: string[], env: ValidationEnv): CheckRes
     if (dirs.length === 0) {
         return {
             ...base, status: 'fail', detail: 'No primary source directory configured',
-            remedy: 'Run `Cabbage: Reset Cabbage App Settings Files`, then `Cabbage: Restart Backend`.',
+            remedy: 'Run `Cabbage: Reset CabbageApp (not vscode) settings file`, then `Cabbage: Restart Backend`.',
         };
     }
     return dirs[0] === env.expectedPrimarySourceDir
@@ -229,6 +240,24 @@ export function checkLegacySettingsFile(env: ValidationEnv): CheckResult {
     const base = { id: 'legacySettingsFile', label: 'No stale legacy settings file' };
     if (env.platform !== 'win32') {
         return { ...base, status: 'pass', detail: 'Not applicable on this platform' };
+    }
+    // On modern Windows the pre-unification path can alias the canonical file
+    // via the well-known app-compat junctions (Local Settings -> AppData\Local,
+    // Application Data -> loopback onto AppData\Local). Without resolving, the
+    // check warns about the live settings file itself — and following the old
+    // remedy (delete it) would delete the live configuration. So resolve first.
+    if (env.realpath) {
+        try {
+            const canonical = env.realpath(env.settingsPath).toLowerCase();
+            const legacy = env.realpath(env.legacySettingsPath).toLowerCase();
+            if (canonical === legacy) {
+                return { ...base, status: 'pass', detail: 'Legacy path resolves to the same file as the canonical settings (junction alias) — no stale copy' };
+            }
+        } catch {
+            // Either path is missing — fall through to the existence check below.
+        }
+    } else if (env.settingsPath.toLowerCase() === env.legacySettingsPath.toLowerCase()) {
+        return { ...base, status: 'pass', detail: 'Legacy path is identical to the canonical settings path — no stale copy' };
     }
     return env.exists(env.legacySettingsPath)
         ? {
