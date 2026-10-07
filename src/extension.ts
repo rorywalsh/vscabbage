@@ -292,39 +292,70 @@ export async function activate(context: vscode.ExtensionContext):
     Promise<void> {
     Commands.initialize();
 
-    const currentVersion =
-        vscode.extensions.getExtension('cabbageaudio.vscabbage')?.packageJSON.version;
-    const previousVersion = context.globalState.get<string>('extensionVersion');
-
-    if (!previousVersion) {
-        // First-time install
-        onInstall();
-    } else if (previousVersion !== currentVersion) {
-        // Extension updated
-        vscode.window.showInformationMessage(
-            `Extension updated to version ${currentVersion}`);
-        await onUpdate(previousVersion, currentVersion);
-    }
-
-    // Ensure the extension's JS source path is current in the Cabbage settings.
-    // This handles cases where the extension was updated but the settings file
-    // still points to a stale versioned directory.
-    await Settings.ensureExtensionJsSourcePath();
-
-    // Update the stored version
-    context.globalState.update('extensionVersion', currentVersion);
-
-    // Cache all protected files at the start
-    const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
-    if (extension) {
-        const examplesPath = path.join(extension.extensionPath, 'examples');
-        const csdFiles = Commands.getCsdFiles(examplesPath);
-        csdFiles.forEach(file => {
-            originalContentCache[file] = fs.readFileSync(file, 'utf-8');
-        });
-    }
-
+    // Create the status bar entry point first: nothing below (version
+    // checks, settings repair, file caching) may prevent the primary
+    // launch UI from existing, especially across extension updates where
+    // the install directory is in flux on Windows.
     Commands.createStatusBarIcon(context);
+
+    // Set when the settings repair below rewrites a stale jsSourceDir, so
+    // a backend restart can be issued once commands are registered.
+    let settingsRepaired = false;
+
+    try {
+        const currentVersion =
+            vscode.extensions.getExtension('cabbageaudio.vscabbage')?.packageJSON.version;
+        const previousVersion = context.globalState.get<string>('extensionVersion');
+
+        if (!previousVersion) {
+            // First-time install
+            onInstall();
+        } else if (previousVersion !== currentVersion) {
+            // Extension updated. The new code only takes effect after a
+            // window reload, so offer it as a one-click action.
+            vscode.window.showInformationMessage(
+                `Cabbage extension updated to version ${currentVersion}. Reload to activate it.`,
+                'Reload Window').then(selection => {
+                if (selection === 'Reload Window') {
+                    vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
+            await onUpdate(previousVersion, currentVersion);
+        }
+
+        // Ensure the extension's JS source path is current in the Cabbage settings.
+        // This handles cases where the extension was updated but the settings file
+        // still points to a stale versioned directory.
+        settingsRepaired = await Settings.ensureExtensionJsSourcePath();
+
+        // Update the stored version
+        context.globalState.update('extensionVersion', currentVersion);
+    } catch (err) {
+        // Update-time I/O must never sink activation: log and carry on with
+        // defaults so the status bar, commands and backend stay usable.
+        console.error('Cabbage: activation update block failed, continuing:', err);
+        Commands.getOutputChannel().appendLine(`Cabbage: update check failed (${err}), continuing with current settings`);
+    }
+
+    // Cache all protected files at the start. Guarded per file: a single
+    // locked or vanishing file (common mid-update on Windows) must not
+    // reject activation and take the whole extension down with it.
+    try {
+        const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
+        if (extension) {
+            const examplesPath = path.join(extension.extensionPath, 'examples');
+            const csdFiles = Commands.getCsdFiles(examplesPath);
+            csdFiles.forEach(file => {
+                try {
+                    originalContentCache[file] = fs.readFileSync(file, 'utf-8');
+                } catch (readErr) {
+                    console.error(`Cabbage: skipping unreadable example file during cache: ${file}`, readErr);
+                }
+            });
+        }
+    } catch (err) {
+        console.error('Cabbage: example file caching failed, continuing:', err);
+    }
 
     // Create a decoration type for the warning comment so it stands out
     warningDecoration = vscode.window.createTextEditorDecorationType({
@@ -856,6 +887,18 @@ export async function activate(context: vscode.ExtensionContext):
                 console.warn('Cabbage: Error while restarting backend:', err);
             }
         }));
+
+    // The settings repair above may run before any command is registered
+    // (executeCommand('cabbage.restartBackend') from Settings is then a
+    // no-op). Now that commands exist, restart a running backend directly
+    // so the repair takes effect without manual intervention.
+    if (settingsRepaired && Commands.hasCabbageServerStarted && Commands.hasCabbageServerStarted()) {
+        try {
+            await vscode.commands.executeCommand('cabbage.restartBackend');
+        } catch (err) {
+            console.warn('Cabbage: post-repair backend restart failed:', err);
+        }
+    }
 
     // Register command for jumping to widget definition
     context.subscriptions.push(

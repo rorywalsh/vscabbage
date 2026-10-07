@@ -1630,6 +1630,11 @@ export class Commands {
                             // Show INFO lines with the INFO: prefix removed
                             const msg = line.replace('INFO:', '').trim();
                             this.vscodeOutputChannel.appendLine(msg);
+                        } else if (line.startsWith('WARNING:')) {
+                            // Backend warnings are always shown (the backend
+                            // no longer emits a WARNING level, but keep the
+                            // branch so any that appear stay visible).
+                            this.vscodeOutputChannel.appendLine(line);
                         } else if (line.startsWith('ERROR:')) {
                             // ERROR: prefix is from the C++ backend logger, not Csound.
                             // Show in output but do NOT treat as a Csound compilation error
@@ -1749,8 +1754,25 @@ export class Commands {
                 }
             }
 
-            // Show stderr output (errors, warnings) - filter large JSON
-            this.vscodeOutputChannel.appendLine(this.filterLargeJson(dataString, 'stderr'));
+            // Show stderr output (errors, warnings) - filter large JSON.
+            // Apply the same level/token filtering as stdout so verbose-off
+            // stays quiet (e.g. RtAudio/MidiIn chatter) and DEBUG lines are
+            // gated behind the logVerbose setting.
+            const stderrIgnoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
+            const showVerbose = !!vscode.workspace.getConfiguration("cabbage").get("logVerbose");
+            for (const rawLine of dataString.split('\n')) {
+                const errLine = rawLine.trim();
+                if (!errLine) {
+                    continue;
+                }
+                if (stderrIgnoredTokens.some(token => errLine.startsWith(token))) {
+                    continue;
+                }
+                if (errLine.startsWith('DEBUG:') && !showVerbose) {
+                    continue;
+                }
+                this.vscodeOutputChannel.appendLine(this.filterLargeJson(errLine, 'stderr'));
+            }
         });
         this.cabbageServerStarted = true;
 
