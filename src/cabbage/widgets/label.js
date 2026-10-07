@@ -3,6 +3,19 @@
 // See the LICENSE file for details.
 import { Cabbage } from "../cabbage.js";
 import { CabbageUtils } from "../utils.js";
+
+// Auto font sizing: fit single-line text inside the widget bounds.
+// Height leaves breathing room for ascenders/descenders; width leaves an
+// edge margin for all text alignments.
+const LABEL_AUTO_HEIGHT_FACTOR = 0.8;
+const LABEL_AUTO_WIDTH_FACTOR = 0.9;
+// Floor for auto-sized text; single-line SVG text clips past the box edge,
+// so extreme cases still clip rather than shrink to dust.
+const LABEL_MIN_AUTO_FONT_SIZE = 8;
+// Reference size (px) used when measuring text. Large values improve
+// precision; the result is only ever used as a scale ratio.
+const LABEL_MEASURE_REFERENCE_SIZE = 100;
+
 /**
  * Label class
  */
@@ -63,10 +76,55 @@ export class Label {
         });
     }
 
+    /**
+     * Measures single-line text width at the reference size. Canvas
+     * measurement scales linearly with font size for a given family.
+     * @param {string} text
+     * @param {string} fontFamily
+     * @returns {number} width in px at LABEL_MEASURE_REFERENCE_SIZE
+     */
+    static measureTextWidth(text, fontFamily) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${LABEL_MEASURE_REFERENCE_SIZE}px ${fontFamily}`;
+        return ctx.measureText(text).width;
+    }
+
+    /**
+     * Largest font size (px) that fits the text inside the widget bounds,
+     * honouring both height and measured text width.
+     * @returns {number}
+     */
+    getAutoFontSize() {
+        const bounds = this.props.bounds || {};
+        const heightFit = (bounds.height || 0) * LABEL_AUTO_HEIGHT_FACTOR;
+        const text = String((this.props.label && this.props.label.text) ?? '');
+        let widthFit = heightFit;
+        if (text.length > 0) {
+            const measured = Label.measureTextWidth(text, this.props.style.fontFamily);
+            if (measured > 0) {
+                widthFit = LABEL_MEASURE_REFERENCE_SIZE * ((bounds.width || 0) * LABEL_AUTO_WIDTH_FACTOR / measured);
+            }
+        }
+        return Math.max(LABEL_MIN_AUTO_FONT_SIZE, Math.floor(Math.min(heightFit, widthFit)));
+    }
+
+    /**
+     * Explicit sizes pass through untouched (user's responsibility);
+     * "auto" (and 0/empty, per house convention) fits the bounds.
+     * @returns {number|string}
+     */
+    getFontSize() {
+        const fontSize = this.props.style.fontSize;
+        if (fontSize === "auto" || fontSize === 0 || fontSize === "0" ||
+            fontSize === undefined || fontSize === null || fontSize === '') {
+            return this.getAutoFontSize();
+        }
+        return fontSize;
+    }
+
     getInnerHTML() {
-        const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0
-            ? Math.max(this.props.bounds.height, 12)
-            : this.props.style.fontSize; // Ensuring font size doesn't get too small
+        const fontSize = this.getFontSize();
 
         const alignMap = {
             'left': 'end',

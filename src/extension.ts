@@ -1079,9 +1079,9 @@ async function onCompileInstrument(context: vscode.ExtensionContext) {
         } else {
         }
 
-        // Notify backend via stdin/stdout pipes
-        Commands.sendMessageToCabbageApp({ command: "onFileChanged", lastSavedFileName: editor.fileName });
-
+        // The backend was already notified via Commands.onDidSave() above,
+        // which sends the identical onFileChanged message - sending it
+        // again here would queue a duplicate InitCabbage (double compile).
         const vscodeOutputChannel = Commands.getOutputChannel();
         if (config.get("clearConsoleOnCompile")) {
             vscodeOutputChannel.clear();

@@ -1071,6 +1071,14 @@ export class Commands {
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
 
+            // A (re)started backend invalidates any retained webview DOM: tell
+            // the webview to gate interaction until the new backend proves
+            // playable (backendReady). Without this, clicks hit a stale UI
+            // while the backend cold-builds.
+            if (this.getPanel()) {
+                this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
+            }
+
             const config = vscode.workspace.getConfiguration("cabbage");
             if (config.get("clearConsoleOnCompile")) {
                 this.getOutputChannel().clear();
@@ -1457,6 +1465,13 @@ export class Commands {
                 this.processes.splice(index, 1);
             }
 
+            // Backend is gone: gate the webview so retained widgets cannot be
+            // clicked while nothing backs them. A subsequent server start
+            // re-posts backendRestarted and the cycle resumes via backendReady.
+            if (this.getPanel()) {
+                this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
+            }
+
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
             this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
             this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
@@ -1584,6 +1599,16 @@ export class Commands {
                                         command: 'vuMeter',
                                         levels: msg['levels'],
                                         rms: msg['rms'],
+                                    });
+                                }
+                            }
+                            else if (msg['command'] === 'backendReady') {
+                                // Backend proves audio is flowing (or that no audio
+                                // device exists): lift the webview's gated overlay.
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.webview.postMessage({
+                                        command: 'backendReady',
                                     });
                                 }
                             }

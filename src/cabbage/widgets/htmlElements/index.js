@@ -9,7 +9,6 @@ export { CabbageOptionButton } from './cabbageOptionButton.js';
 export { CabbageGenTable } from './cabbageGenTable.js';
 export { CabbageLabel } from './cabbageLabel.js';
 export { CabbageImage } from './cabbageImage.js';
-export { CabbageListBox } from './cabbageListBox.js';
 export { CabbageComboBox } from './cabbageComboBox.js';
 export { CabbageGroupBox } from './cabbageGroupBox.js';
 export { CabbageCheckbox } from './cabbageCheckbox.js';
