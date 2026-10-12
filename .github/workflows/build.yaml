@@ -29,31 +29,26 @@ jobs:
           # Fetch tags
           git fetch --tags
 
-          # Get the latest tag, defaulting to 1.0.0-alpha
-          last_tag=$(git tag --sort=-v:refname | head -n 1 || echo "1.0.0-alpha")
-          echo "Last tag: $last_tag"
+          # Get the latest 3.0.x-beta tag, ignoring the old 1.0.x-alpha series.
+          # First beta starts at 3.0.0-beta to align with the Cabbage 3 rewrite.
+          last_tag=$(git tag --list "3.0.*-beta" --sort=-v:refname | head -n 1)
+          echo "Last beta tag: $last_tag"
 
-          # Extract major, minor, patch
-          if [[ "$last_tag" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.-]+)?$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
-            label=${BASH_REMATCH[4]}
+          if [ -z "$last_tag" ]; then
+            echo "No previous beta tag found. Starting at 3.0.0-beta."
+            new_version="3.0.0-beta"
+          elif [[ "$last_tag" =~ ^3\.0\.([0-9]+)-beta$ ]]; then
+            patch=${BASH_REMATCH[1]}
+            new_patch=$((patch + 1))
+            new_version="3.0.${new_patch}-beta"
           else
-            echo "Invalid tag format. Defaulting to 1.0.0-alpha."
-            major=0
-            minor=0
-            patch=0
-            label="-alpha"
-          fi 
-
-          # Increment patch version and append alpha label
-          new_patch=$((patch + 1))
-          new_version="${major}.${minor}.${new_patch}-alpha"
+            echo "Invalid tag format ($last_tag). Defaulting to 3.0.0-beta."
+            new_version="3.0.0-beta"
+          fi
           echo "New version: $new_version"
 
           # Set the new version as an output
-          echo "::set-output name=version::$new_version"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
 
   build_macos:
     needs: generate_tag
