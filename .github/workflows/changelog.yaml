@@ -1,0 +1,42 @@
+name: Update Changelog
+
+# Weekly backstop (plus manual runs) for CHANGELOG.md. Releases refresh the
+# changelog in the release job itself, so this only covers quiet weeks.
+# Pushes use the [auto-changelog] marker so build.yaml skips them.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Refresh CHANGELOG.md
+        run: bash get-commits.sh
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md .changelog-cursors
+          if git diff --cached --quiet; then
+            echo "No changelog changes to push."
+          else
+            git commit -m "Update changelog [auto-changelog]"
+            git push
+          fi

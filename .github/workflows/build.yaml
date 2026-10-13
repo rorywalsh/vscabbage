@@ -54,7 +54,7 @@ jobs:
     needs: generate_tag
     runs-on: macos-latest
        # Ensure it only runs on main, or when run_build is passed to commit message
-    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
+    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
@@ -336,7 +336,7 @@ jobs:
     needs: generate_tag
     runs-on: windows-latest
     # Ensure it only runs on main, or when run_build is passed to commit message
-    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build') 
+    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
@@ -574,7 +574,7 @@ jobs:
   build_linux:
     needs: generate_tag
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')
+    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
@@ -716,13 +716,19 @@ jobs:
   release:
     needs: [build_macos, build_windows, build_linux, generate_tag]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build')
+    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build') && !contains(github.event.head_commit.message, '[auto-changelog]')
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Refresh CHANGELOG.md for release notes
+        # Regenerates the changelog in the workspace (not committed) so the
+        # notes below always cover everything up to release time, even if the
+        # scheduled changelog workflow hasn't run yet this week.
+        run: bash get-commits.sh
 
       - name: Download macOS Artifact
         uses: actions/download-artifact@v4
@@ -776,7 +782,7 @@ jobs:
           NR >= 5 && NF >= 4 {
             repo = $2; gsub(/ /, "", repo)
             entry_date = $3; gsub(/ /, "", entry_date)
-            if ((repo == "vscabbage" || repo == "cabbage3") && entry_date >= prev_date) {
+            if ((repo == "vscabbage" || repo == "cabbage3" || repo == "cabbage") && entry_date >= prev_date) {
               message = $1; gsub(/^ +| +$/, "", message)
               if (message != "") {
                 printf "• %s (%s)\n", message, entry_date
@@ -802,6 +808,16 @@ jobs:
           
           echo "Generated release notes:"
           echo "$CHANGELOG_NOTES"
+
+          # Record which backend commit this release was built against. The
+          # build jobs check out cabbage develop at build time; re-resolve it
+          # here so the pairing is explicit in the release notes.
+          CABBAGE_SHA=$(git ls-remote https://github.com/rorywalsh/cabbage.git refs/heads/develop | cut -f1)
+          echo "Backend cabbage develop SHA at release time: $CABBAGE_SHA"
+          CHANGELOG_NOTES="$CHANGELOG_NOTES
+
+          Built against cabbage develop @ $CABBAGE_SHA"
+
           echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
           echo "$CHANGELOG_NOTES" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
