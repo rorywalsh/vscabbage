@@ -400,16 +400,32 @@ export class CabbageUtils {
   }
 
   /**
-   * show / hide Cabbage overlays
+   * show / hide Cabbage overlays. The overlay is the readiness gate: while it
+   * is visible it covers the panel and swallows all pointer input, so widgets
+   * can never be clicked before the backend proves playable (backendReady).
+   * @param {string} [text] - Status message shown under the logo.
    */
-  static showOverlay() {
+  static showOverlay(text) {
     const overlay = document.getElementById('fullScreenOverlay')
     if (overlay) {
       overlay.style.display = 'flex';
+      if (text !== undefined) {
+        const status = document.getElementById('overlayStatus');
+        if (status) {
+          status.textContent = text;
+        }
+      }
       const leftPanel = document.getElementById('LeftPanel');
       const rightPanel = document.getElementById('RightPanel');
       leftPanel.style.display = 'none';
       rightPanel.style.display = 'none';
+    }
+  }
+
+  static setOverlayText(text) {
+    const status = document.getElementById('overlayStatus');
+    if (status) {
+      status.textContent = text;
     }
   }
 

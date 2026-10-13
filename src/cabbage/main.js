@@ -25,6 +25,86 @@ setCabbageMode('nonDraggable');
 
 let widgetWrappers = null;
 
+// Readiness gate: while true, the fullscreen overlay covers the panel and all
+// widget interaction is blocked because no live backend backs the UI (cold
+// start, recompile, or server restart). Set on onFileChanged/backendRestarted,
+// cleared only by backendReady (audio provably flowing, or no audio device).
+// Live widgetUpdate echoes must not lift it early - see the gated hideOverlay
+// calls below.
+let uiGated = false;
+
+// Overlay timing: a modal that flashes on and off in ~200ms is worse than
+// none (users wonder what they missed), while one that vanishes too fast to
+// read is noise. So the overlay shows debounced and hides with a minimum
+// visible time. Fast recompiles never flash it; slow ones keep it readable.
+const OVERLAY_SHOW_DELAY = 250; // ms before the overlay appears after a rebuild starts
+const OVERLAY_MIN_VISIBLE = 600; // ms the overlay stays once shown
+let overlayShowTimer = 0; // pending delayed show (0 = none)
+let overlayHideTimer = 0; // pending delayed hide (0 = none)
+let overlayShownAt = 0; // performance.now() of the actual show (0 = hidden)
+
+function cancelOverlayHide() {
+    if (overlayHideTimer) {
+        clearTimeout(overlayHideTimer);
+        overlayHideTimer = 0;
+    }
+}
+
+function showOverlayNow(text) {
+    cancelOverlayHide();
+    CabbageUtils.showOverlay(text);
+    overlayShownAt = performance.now();
+}
+
+// Centralised hide: every path that hides the overlay must clear the
+// shown-stamp, otherwise a stale stamp makes requestOverlay() believe the
+// overlay is still up and later recompiles never show it.
+function hideOverlayNow() {
+    overlayShownAt = 0;
+    CabbageUtils.hideOverlay();
+}
+
+// Arm the overlay for a backend change: shows after OVERLAY_SHOW_DELAY unless
+// liftGate() cancels first (fast path: no flash at all). If already visible
+// (rapid successive saves), just refresh the message and keep the clock.
+function requestOverlay(text) {
+    cancelOverlayHide();
+    if (overlayShownAt) {
+        CabbageUtils.setOverlayText(text);
+        return;
+    }
+    if (overlayShowTimer) {
+        clearTimeout(overlayShowTimer);
+    }
+    overlayShowTimer = setTimeout(() => {
+        overlayShowTimer = 0;
+        showOverlayNow(text);
+    }, OVERLAY_SHOW_DELAY);
+}
+
+// Lift the readiness gate, honouring the minimum visible time so the overlay
+// never flickers on and off.
+function liftGate() {
+    if (overlayShowTimer) {
+        clearTimeout(overlayShowTimer);
+        overlayShowTimer = 0;
+    }
+    cancelOverlayHide();
+    uiGated = false;
+    if (!overlayShownAt) {
+        return;
+    }
+    const remaining = OVERLAY_MIN_VISIBLE - (performance.now() - overlayShownAt);
+    if (remaining <= 0) {
+        hideOverlayNow();
+    } else {
+        overlayHideTimer = setTimeout(() => {
+            overlayHideTimer = 0;
+            hideOverlayNow();
+        }, remaining);
+    }
+}
+
 // Buffer for csoundOutput messages that arrive before the widget is created
 const pendingCsoundOutputMessages = [];
 
@@ -42,7 +122,9 @@ initializeZoom();
 keyboardMidiInput.init();
 
 // Notify the plugin that Cabbage is ready to load
-CabbageUtils.showOverlay();
+// Boot shows immediately (no prior UI to flash over); the minimum visible
+// time still applies, which doubles as a conventional splash hold.
+showOverlayNow('Loading...');
 
 // Wrap async initialization in an IIFE with comprehensive error handling
 (async () => {
@@ -604,7 +686,13 @@ window.addEventListener('message', async (event) => {
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
             console.log("Cabbage - case 'widgetUpdate':", JSON.stringify(message).substring(0, 200));
-            CabbageUtils.hideOverlay(); // Hide the overlay before updating
+            // The readiness gate lifts only on backendReady: live echoes must
+            // not ungate early while audio is still spinning up.
+            if (!uiGated) {
+                hideOverlayNow();
+            } else if (overlayShownAt) {
+                CabbageUtils.setOverlayText('Starting audio...');
+            }
             const updateMsg = message;
             // Parse widgetJson to extract id if not present
             if (!updateMsg.id && updateMsg.widgetJson) {
@@ -630,6 +718,11 @@ window.addEventListener('message', async (event) => {
                 : updateMsg.channel;
             console.log(`main.js widgetUpdate: channel=${channelId}, hasWidgetJson=${updateMsg.hasOwnProperty('widgetJson')}, hasValue=${updateMsg.hasOwnProperty('value')}`, updateMsg.hasOwnProperty('value') ? `value=${updateMsg.value}` : '');
             await WidgetManager.updateWidget(updateMsg); // Update the widget with the new data
+            if (window.__cabbageRecompileT0) {
+                const recompileDt = performance.now() - window.__cabbageRecompileT0;
+                console.log(`[timing] widgetUpdate rendered id=${updateMsg.id} +${recompileDt.toFixed(0)}ms since clear`);
+                if (recompileDt > 5000) { window.__cabbageRecompileT0 = 0; }
+            }
             // If there are buffered csoundOutput messages and the widget now exists, replay them
             if (pendingCsoundOutputMessages.length > 0) {
                 const csoundOutputWidgetAfterUpdate = widgets.find(w =>
@@ -652,7 +745,12 @@ window.addEventListener('message', async (event) => {
         case 'batchWidgetUpdate':
             console.log(`main.js batchWidgetUpdate: processing ${message.widgets.length} widgets`);
             console.log(`main.js batchWidgetUpdate: first widget:`, message.widgets[0]);
-            CabbageUtils.hideOverlay();
+            // Gated like single updates above: only backendReady lifts it.
+            if (!uiGated) {
+                hideOverlayNow();
+            } else if (overlayShownAt) {
+                CabbageUtils.setOverlayText('Starting audio...');
+            }
 
             // Process all widgets in the batch
             for (const widgetData of message.widgets) {
@@ -664,6 +762,11 @@ window.addEventListener('message', async (event) => {
                 await WidgetManager.updateWidget(updateMsg);
             }
             console.log(`main.js batchWidgetUpdate: completed updating ${message.widgets.length} widgets`);
+            if (window.__cabbageRecompileT0) {
+                const recompileDt = performance.now() - window.__cabbageRecompileT0;
+                console.log(`[timing] batchWidgetUpdate rendered ${message.widgets.length} widgets +${recompileDt.toFixed(0)}ms since clear`);
+                window.__cabbageRecompileT0 = 0;
+            }
             break;
 
         // Called when the host triggers a parameter change in the UI
@@ -701,6 +804,17 @@ window.addEventListener('message', async (event) => {
             console.error('Cabbage: ERROR - onFileChanged should not be called in plugin interface!');
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
 
+            // Gate interaction until the rebuilt backend proves playable
+            // (backendReady). Debounced: fast recompiles never flash the
+            // overlay at all.
+            uiGated = true;
+            requestOverlay('Compiling...');
+
+            // Verbose recompile timing: mark the clear so dump-driven renders
+            // below can report save-to-render latency in the webview console.
+            window.__cabbageRecompileT0 = performance.now();
+            console.log(`[timing] onFileChanged clear @ ${window.__cabbageRecompileT0.toFixed(1)}ms`);
+
             // Clear pending widgets map to prevent race conditions during rebuild
             if (WidgetManager.pendingWidgets) {
                 WidgetManager.pendingWidgets.clear();
@@ -721,6 +835,41 @@ window.addEventListener('message', async (event) => {
             updateChildWidgetPointerEvents('nonDraggable');
             break;
 
+        // Called when the extension (re)starts the backend process. Any
+        // retained widgets belong to a dead backend (retainContextWhenHidden),
+        // so cover and clear them: clicks must have no live target until the
+        // new backend proves playable via backendReady.
+        case 'backendRestarted':
+            uiGated = true;
+            requestOverlay('Restarting backend...');
+            setCabbageMode('nonDraggable'); // Set the mode to non-draggable
+
+            // Clear pending widgets map to prevent race conditions during rebuild
+            if (WidgetManager.pendingWidgets) {
+                WidgetManager.pendingWidgets.clear();
+            }
+
+            // Clear the widgets array BEFORE removing MainForm
+            widgets.length = 0;
+
+            // Remove the MainForm element (this automatically removes all child widgets)
+            if (mainForm) {
+                mainForm.remove();
+            } else {
+                console.error("MainForm not found");
+            }
+
+            // Update child widget pointer events for performance mode
+            updateChildWidgetPointerEvents('nonDraggable');
+            break;
+
+        // Called when the backend proves audio is flowing (first audio
+        // callback after a stream start, or immediately when no audio device
+        // exists). Only this lifts the readiness gate.
+        case 'backendReady':
+            liftGate();
+            break;
+
         // Called when a file is selected from the file dialog
         case 'fileOpenFromVSCode':
             const fileData = JSON.parse(message.text);
@@ -738,7 +887,14 @@ window.addEventListener('message', async (event) => {
         // Called when entering edit mode. Converts existing widgets to draggable mode.
         case 'onEnterEditMode':
             console.error('Cabbage: ERROR - onEnterEditMode should never be called in plugin interface!');
-            CabbageUtils.hideOverlay(); // Hide the overlay
+            // Edit mode intentionally takes over the UI: drop any pending
+            // readiness timers and keep overlay state consistent (hidden).
+            if (overlayShowTimer) {
+                clearTimeout(overlayShowTimer);
+                overlayShowTimer = 0;
+            }
+            cancelOverlayHide();
+            hideOverlayNow(); // Hide the overlay
             setCabbageMode('draggable'); // Set the mode to draggable
 
             // Clear any existing selection

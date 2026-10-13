@@ -67,7 +67,9 @@ export class Settings {
     static getPathJsSourceDir(): string {
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (extension) {
-            Commands.getOutputChannel().appendLine('Cabbage: extension path: ' + extension.extensionPath);
+            if (vscode.workspace.getConfiguration('cabbage').get('logVerbose')) {
+                Commands.getOutputChannel().appendLine('Cabbage: extension path: ' + extension.extensionPath);
+            }
             // Construct the path to the src directory
             const returnPath = path.join(extension.extensionPath, 'src');
             // Replace backslashes with forward slashes

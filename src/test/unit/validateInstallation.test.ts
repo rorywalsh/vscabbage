@@ -123,8 +123,37 @@ describe('checkLegacySettingsFile', () => {
         assert.ok(r.remedy);
     });
     it('passes on Windows when no legacy file exists', () => {
-        const r = checkLegacySettingsFile(baseEnv({ platform: 'win32', exists: () => false }));
+        assert.strictEqual(checkLegacySettingsFile(baseEnv({ platform: 'win32', exists: () => false })).status, 'pass');
+    });
+    it('passes when the legacy path aliases the canonical file (junction)', () => {
+        const env = baseEnv({
+            platform: 'win32',
+            settingsPath: 'C:\\Users\\r\\AppData\\Local\\Cabbage\\settings.json',
+            legacySettingsPath: 'C:\\Users\\r\\Local Settings\\Application Data\\Cabbage\\settings.json',
+            exists: () => true,
+            realpath: (p: string) => p === 'C:\\Users\\r\\Local Settings\\Application Data\\Cabbage\\settings.json'
+                ? 'C:\\Users\\r\\AppData\\Local\\Cabbage\\settings.json'
+                : p,
+        });
+        const r = checkLegacySettingsFile(env);
         assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('junction alias'));
+    });
+    it('warns when the legacy file is genuinely distinct', () => {
+        const env = baseEnv({
+            platform: 'win32',
+            exists: () => true,
+            realpath: (p: string) => p,
+        });
+        assert.strictEqual(checkLegacySettingsFile(env).status, 'warn');
+    });
+    it('falls back to the existence check when realpath throws (missing file)', () => {
+        const env = baseEnv({
+            platform: 'win32',
+            exists: () => false,
+            realpath: () => { throw new Error('ENOENT'); },
+        });
+        assert.strictEqual(checkLegacySettingsFile(env).status, 'pass');
     });
 });
 

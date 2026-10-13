@@ -1071,6 +1071,14 @@ export class Commands {
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
 
+            // A (re)started backend invalidates any retained webview DOM: tell
+            // the webview to gate interaction until the new backend proves
+            // playable (backendReady). Without this, clicks hit a stale UI
+            // while the backend cold-builds.
+            if (this.getPanel()) {
+                this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
+            }
+
             const config = vscode.workspace.getConfiguration("cabbage");
             if (config.get("clearConsoleOnCompile")) {
                 this.getOutputChannel().clear();
@@ -1404,6 +1412,18 @@ export class Commands {
             command = Settings.getCabbageBinaryPath('CabbageApp');
         }
 
+        // Verbose-only spawn stamp so Debug vs Release / stale-copy mixups are obvious.
+        // Shows UTC ISO + local mtime of the exact binary being spawned.
+        try {
+            if (config.get("logVerbose")) {
+                const st = fs.statSync(command);
+                this.vscodeOutputChannel.appendLine(
+                    `Spawning CabbageApp: ${command} | mtime UTC ${st.mtime.toISOString()} | mtime local ${st.mtime.toString()} | ${st.size} bytes`);
+            }
+        } catch {
+            // Stat failure is already handled below via the existence check on spawn error
+        }
+
         // Spawn CabbageApp without port number - it will use stdin/stdout pipes
         const process = cp.spawn(command, [], {
             stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
@@ -1443,6 +1463,13 @@ export class Commands {
             const index = this.processes.indexOf(process);
             if (index > -1) {
                 this.processes.splice(index, 1);
+            }
+
+            // Backend is gone: gate the webview so retained widgets cannot be
+            // clicked while nothing backs them. A subsequent server start
+            // re-posts backendRestarted and the cycle resumes via backendReady.
+            if (this.getPanel()) {
+                this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
             }
 
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
@@ -1575,6 +1602,16 @@ export class Commands {
                                     });
                                 }
                             }
+                            else if (msg['command'] === 'backendReady') {
+                                // Backend proves audio is flowing (or that no audio
+                                // device exists): lift the webview's gated overlay.
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.webview.postMessage({
+                                        command: 'backendReady',
+                                    });
+                                }
+                            }
                         }
                     } catch (e) {
                         // Failed to parse JSON - log the error
@@ -1593,6 +1630,11 @@ export class Commands {
                             // Show INFO lines with the INFO: prefix removed
                             const msg = line.replace('INFO:', '').trim();
                             this.vscodeOutputChannel.appendLine(msg);
+                        } else if (line.startsWith('WARNING:')) {
+                            // Backend warnings are always shown (the backend
+                            // no longer emits a WARNING level, but keep the
+                            // branch so any that appear stay visible).
+                            this.vscodeOutputChannel.appendLine(line);
                         } else if (line.startsWith('ERROR:')) {
                             // ERROR: prefix is from the C++ backend logger, not Csound.
                             // Show in output but do NOT treat as a Csound compilation error
@@ -1712,8 +1754,25 @@ export class Commands {
                 }
             }
 
-            // Show stderr output (errors, warnings) - filter large JSON
-            this.vscodeOutputChannel.appendLine(this.filterLargeJson(dataString, 'stderr'));
+            // Show stderr output (errors, warnings) - filter large JSON.
+            // Apply the same level/token filtering as stdout so verbose-off
+            // stays quiet (e.g. RtAudio/MidiIn chatter) and DEBUG lines are
+            // gated behind the logVerbose setting.
+            const stderrIgnoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
+            const showVerbose = !!vscode.workspace.getConfiguration("cabbage").get("logVerbose");
+            for (const rawLine of dataString.split('\n')) {
+                const errLine = rawLine.trim();
+                if (!errLine) {
+                    continue;
+                }
+                if (stderrIgnoredTokens.some(token => errLine.startsWith(token))) {
+                    continue;
+                }
+                if (errLine.startsWith('DEBUG:') && !showVerbose) {
+                    continue;
+                }
+                this.vscodeOutputChannel.appendLine(this.filterLargeJson(errLine, 'stderr'));
+            }
         });
         this.cabbageServerStarted = true;
 
@@ -2259,6 +2318,7 @@ export class Commands {
             exists,
             listFiles,
             isOnPath,
+            realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);
         channel.appendLine(formatReport(results));

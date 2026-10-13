@@ -134,9 +134,18 @@ function applyZoom(leftPanel) {
     mainForm.style.transform = `scale(${zoomLevel})`;
     mainForm.style.transformOrigin = '0 0';
 
-    // Get the original dimensions
+    // Get the original dimensions. A zero measurement means the form (or an
+    // ancestor such as LeftPanel) is currently display:none - e.g. while the
+    // readiness overlay covers the UI during a rebuild - so there is no
+    // trustworthy size to persist. Writing zeros here permanently collapses
+    // MainForm (600x170 -> 0x0) with no later restore; bail out instead and
+    // keep the correct inline size setupFormWidget already applied.
     const originalWidth = mainForm.offsetWidth / zoomLevel; // Divide to get unscaled size
     const originalHeight = mainForm.offsetHeight / zoomLevel;
+    if (!(originalWidth > 0) || !(originalHeight > 0)) {
+        console.log('Cabbage: applyZoom skipped - MainForm not laid out (hidden), keeping existing size');
+        return;
+    }
 
     // Calculate how much space the scaled content needs
     const scaledWidth = originalWidth * zoomLevel;

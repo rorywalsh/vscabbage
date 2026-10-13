@@ -283,6 +283,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.restartBackend",
+        "title": "Restart Backend",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.editMode",
         "title": "Edit Mode",
         "category": "Cabbage"
@@ -615,5 +620,8 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
     "utf-8-validate": "^6.0.5"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.1.2"
   }
 }
