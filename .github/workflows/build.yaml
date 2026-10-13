@@ -64,7 +64,7 @@ jobs:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
         with:
-          repository: rorywalsh/cabbage3
+          repository: rorywalsh/cabbage
           path: cabbage3
           ref: develop
           fetch-depth: 1
@@ -346,7 +346,7 @@ jobs:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
         with:
-          repository: rorywalsh/cabbage3
+          repository: rorywalsh/cabbage
           path: cabbage3
           ref: develop
           fetch-depth: 1
@@ -584,7 +584,7 @@ jobs:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v2
         with:
-          repository: rorywalsh/cabbage3
+          repository: rorywalsh/cabbage
           path: cabbage3
           ref: develop
           fetch-depth: 1
