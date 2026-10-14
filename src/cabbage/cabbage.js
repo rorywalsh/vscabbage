@@ -359,10 +359,23 @@ export class Cabbage {
   }
 
   /**
-   * Send a widget state update to the Cabbage backend (used by property panel).
+   * Send a widget property update to the Cabbage backend.
    *
-   * @private
-   * @param {Object} widget - The widget configuration object to update
+   * The packet is merge-patched into the stored widget object, so this is the
+   * recommended way for a custom frontend to update widget properties such as
+   * `bounds` or `visible` at runtime. It is the counterpart to
+   * `sendControlData()`: values travel through `sendControlData()`, everything
+   * else travels through here.
+   *
+   * Merge-patch semantics: only the supplied properties are merged, but a
+   * `null` value deletes its key and arrays replace wholesale — always send
+   * complete arrays. Values cannot travel this way: `value` and `range.value`
+   * are stripped before sending, along with binding and runtime keys.
+   * Fire-and-forget: the backend applies the patch without echoing it back,
+   * and unknown ids fail silently.
+   *
+   * @param {Object} widget - Widget packet. Must identify the widget with an
+   * `id` (top-level or any `channels[].id`) plus the properties to change.
    * @param {Object|null} vscode - VS Code API object (null for plugin mode)
    */
   static sendWidgetUpdate(widget, vscode = null) {

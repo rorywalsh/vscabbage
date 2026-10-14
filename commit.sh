@@ -9,6 +9,12 @@
 #
 # Usage:
 #     bash commit.sh [-t type] [-s scope] [-m "message"] [-b "body"] [--push] [--no-push] [--dry-run]
+#     bash commit.sh --trigger-build [--no-release] [--push] [--dry-run]
+#
+# --trigger-build (vscabbage repo only) makes an empty commit on main that
+# starts the packaging workflow, which rebuilds cabbage develop fresh. The
+# backend SHA is embedded in the subject; --no-release adds a no_build body
+# so CI builds the .vsix artifacts without cutting a release.
 #
 # Anything not passed as a flag is prompted for. Works in any repo.
 # Examples:
@@ -44,6 +50,7 @@ usage() {
 }
 
 TYPE=""; SCOPE=""; MESSAGE=""; BODY=""; BODY_GIVEN=0; PUSH="ask"; DRY_RUN=0
+TRIGGER_BUILD=0; NO_RELEASE=0; ALLOW_EMPTY=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -54,6 +61,8 @@ while [ $# -gt 0 ]; do
         -p|--push)    PUSH="yes"; shift ;;
         --no-push)    PUSH="no"; shift ;;
         -n|--dry-run) DRY_RUN=1; shift ;;
+        --trigger-build) TRIGGER_BUILD=1; shift ;;
+        --no-release) NO_RELEASE=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -61,6 +70,87 @@ done
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Not inside a git repository."; exit 1; }
 
+if [ "$NO_RELEASE" = "1" ] && [ "$TRIGGER_BUILD" != "1" ]; then
+    echo "--no-release only applies with --trigger-build. Aborting."
+    exit 1
+fi
+
+# Backend-pickup trigger mode: an empty commit on vscabbage main whose only
+# purpose is to start the packaging workflow (which always builds cabbage
+# develop fresh, so this is how backend-only changes get packaged).
+# Hard-aborts on any detected issue; on success it composes SUBJECT/BODY and
+# falls through to the shared confirm/commit/push tail below.
+if [ "$TRIGGER_BUILD" = "1" ]; then
+    [ -n "$TYPE" ] && { echo "--type cannot be combined with --trigger-build. Aborting."; exit 1; }
+    [ -n "$SCOPE" ] && { echo "--scope cannot be combined with --trigger-build. Aborting."; exit 1; }
+    [ -n "$MESSAGE" ] && { echo "--message cannot be combined with --trigger-build. Aborting."; exit 1; }
+    [ "$BODY_GIVEN" = "1" ] && { echo "--body cannot be combined with --trigger-build. Aborting."; exit 1; }
+
+    # The packaging workflow lives in vscabbage; triggering from anywhere
+    # else would push a meaningless commit.
+    if ! git remote -v | grep -q "rorywalsh/vscabbage"; then
+        echo "Not in the vscabbage repository."
+        echo "cd to your vscabbage checkout and retry. Aborting."
+        exit 1
+    fi
+
+    # Only pushes to main start a build; a trigger anywhere else is a no-op.
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$BRANCH" != "main" ]; then
+        echo "Trigger mode requires the main branch (only pushes to main build)."
+        echo "Currently on '$BRANCH'. Aborting."
+        exit 1
+    fi
+
+    # Pushing a trigger also pushes any unpushed local commits, and a dirty
+    # tree means unrelated work is in flight: refuse to mix the two.
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "Working tree is not clean. Commit or stash your changes first."
+        echo "Aborting (refusing to push a trigger alongside other work)."
+        exit 1
+    fi
+
+    if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+        echo "Cannot resolve origin/main. Run 'git fetch origin' first. Aborting."
+        exit 1
+    fi
+    AHEAD=$(git rev-list --count origin/main..HEAD)
+    BEHIND=$(git rev-list --count HEAD..origin/main)
+    if [ "$AHEAD" != "0" ]; then
+        echo "Local main is $AHEAD commit(s) ahead of origin/main:"
+        git log --oneline origin/main..HEAD
+        echo "Push those first (or move them aside). Aborting."
+        exit 1
+    fi
+    if [ "$BEHIND" != "0" ]; then
+        echo "Local main is $BEHIND commit(s) behind origin/main."
+        echo "Pull/rebase first. Aborting."
+        exit 1
+    fi
+
+    # Record the backend commit this trigger picks up.
+    CABBAGE_SHA=$(git ls-remote https://github.com/rorywalsh/cabbage.git refs/heads/develop 2>/dev/null | cut -f1 | tr -d '[:space:]')
+    if [ -z "$CABBAGE_SHA" ]; then
+        echo "Could not resolve cabbage develop SHA (network?). Aborting."
+        exit 1
+    fi
+    CABBAGE_SHORT=$(echo "$CABBAGE_SHA" | cut -c 1-12)
+
+    # Keep the literal phrase "triggering build": get-commits.sh filters it
+    # out of CHANGELOG.md. The no_build marker goes in the body so the
+    # subject stays clean; head_commit.message covers the body too.
+    SUBJECT="build: triggering build for cabbage develop @ $CABBAGE_SHORT"
+    BODY=""
+    if [ "$NO_RELEASE" = "1" ]; then
+        BODY="no_build"
+    fi
+    # The tree is guaranteed clean above, so only an empty commit is possible.
+    ALLOW_EMPTY="--allow-empty"
+fi
+
+# The sections below are skipped in trigger mode (guarded): SUBJECT/BODY are
+# already composed above.
+if [ "$TRIGGER_BUILD" != "1" ]; then
 # Nothing staged? Offer to stage everything (the lazy default).
 # Dry runs never touch the index.
 if [ "$DRY_RUN" != "1" ] && git diff --cached --quiet; then
@@ -72,7 +162,9 @@ if [ "$DRY_RUN" != "1" ] && git diff --cached --quiet; then
     fi
     git diff --cached --quiet && { echo "Nothing to commit. Aborting."; exit 1; }
 fi
+fi # not trigger mode
 
+if [ "$TRIGGER_BUILD" != "1" ]; then
 # Category (the forcing function).
 valid_type() {
     for t in $TYPES; do
@@ -163,6 +255,7 @@ if [ -n "$SCOPE" ]; then
 else
     SUBJECT="$TYPE: $MESSAGE"
 fi
+fi # not trigger mode
 
 echo ""
 echo "  $SUBJECT"
@@ -184,9 +277,11 @@ if [ -n "$answer" ] && [ "$answer" != "Y" ] && [ "$answer" != "y" ]; then
 fi
 
 if [ -n "$BODY" ]; then
-    git commit -m "$SUBJECT" -m "$BODY" || exit 1
+    # shellcheck disable=SC2086: ALLOW_EMPTY is either empty or one flag.
+    git commit $ALLOW_EMPTY -m "$SUBJECT" -m "$BODY" || exit 1
 else
-    git commit -m "$SUBJECT" || exit 1
+    # shellcheck disable=SC2086: ALLOW_EMPTY is either empty or one flag.
+    git commit $ALLOW_EMPTY -m "$SUBJECT" || exit 1
 fi
 
 if [ "$PUSH" = "ask" ]; then
