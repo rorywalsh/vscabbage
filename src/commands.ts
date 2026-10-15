@@ -609,13 +609,19 @@ export class Commands {
                     const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
                     console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
                     const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+                    const seenTypes = new Set<string>();
                     for (const dir of cwDirs) {
                         const found = await ExtensionUtils.scanForCustomWidgets(dir);
                         console.warn(`Cabbage: customWidgetInfo push - dir "${dir}" found ${found.length} widgets:`, found.map(w => w.widgetType));
                         for (const w of found) {
+                            if (seenTypes.has(w.widgetType)) {
+                                console.warn(`Cabbage: duplicate custom widget type "${w.widgetType}" in "${dir}" ignored (first match wins)`);
+                                continue;
+                            }
                             const fp = path.join(dir, w.filename);
                             const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
                             if (uri) {
+                                seenTypes.add(w.widgetType);
                                 cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
                             }
                         }
@@ -766,11 +772,15 @@ export class Commands {
                 try {
                     const customDirs = await ExtensionUtils.getCustomWidgetDirectories();
                     const allWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+                    const seenTypes = new Set<string>();
 
                     for (const dir of customDirs) {
                         const widgets = await ExtensionUtils.scanForCustomWidgets(dir);
 
                         for (const widget of widgets) {
+                            if (seenTypes.has(widget.widgetType)) {
+                                continue;
+                            }
                             // Convert file system path to webview URI
                             const filePath = path.join(dir, widget.filename);
                             const webviewUri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(filePath));
@@ -778,6 +788,7 @@ export class Commands {
                             if (webviewUri) {
                                 // Use toString(true) to skip encoding, which prevents %2B instead of +
                                 const uriString = webviewUri.toString(true);
+                                seenTypes.add(widget.widgetType);
                                 allWidgets.push({
                                     widgetType: widget.widgetType,
                                     filename: widget.filename,
@@ -968,20 +979,27 @@ export class Commands {
         }
 
         // Add custom widget directories to local resource roots
-        // Note: getCustomWidgetDirectories returns paths to cabbage/widgets subdirectories,
-        // but we need to add the root custom folder to localResourceRoots so the webview
-        // can access the entire cabbage folder structure with relative imports
+        // Note: getCustomWidgetDirectories returns resolved widgets directories
+        // (e.g. <root>/cabbage/widgets or <root>/widgets). The webview needs
+        // the widgets dir plus its ancestors so relative imports such as
+        // `../cabbage.js` resolve regardless of which layout is used.
         try {
             const customWidgetDirs = await ExtensionUtils.getCustomWidgetDirectories();
+            const seenRoots = new Set<string>();
             for (const widgetsDir of customWidgetDirs) {
-                // Go up two levels: from cabbage/widgets to the root custom folder
-                const customRootDir = path.dirname(path.dirname(widgetsDir));
-                if (fs.existsSync(customRootDir)) {
-                    const uri = vscode.Uri.file(customRootDir);
-                    localResources.push(uri);
-                } else {
-                    console.warn('Cabbage: Custom root directory does not exist:', customRootDir);
+                let current: string | undefined = widgetsDir;
+                for (let level = 0; level < 3 && current; level++) {
+                    const norm = path.normalize(current);
+                    if (!seenRoots.has(norm) && fs.existsSync(norm)) {
+                        seenRoots.add(norm);
+                        localResources.push(vscode.Uri.file(norm));
+                    }
+                    const parent = path.dirname(current);
+                    current = parent && parent !== current ? parent : undefined;
                 }
+            }
+            if (customWidgetDirs.length === 0) {
+                console.warn('Cabbage: No custom widget directories resolved');
             }
         } catch (error) {
             console.error('Cabbage: Error adding custom widget directories:', error);

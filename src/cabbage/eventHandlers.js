@@ -1074,6 +1074,10 @@ export function setupFormHandlers() {
                 // Store FORM coordinates (accounting for zoom/pan) for widget insertion
                 const formCoords = screenToFormCoordinates(e.clientX, e.clientY);
                 mouseDownPosition = { x: formCoords.x, y: formCoords.y };
+                // Mirror to a global so late-bound menu items (added by
+                // WidgetManager.refreshWidgetMenu after custom widgets load)
+                // insert at the same right-click position.
+                try { window.__cabbageInsertPosition = mouseDownPosition; } catch (_) { }
 
                 // Show appropriate menu based on mode and selection
                 // Check if the right-click is on the form background (not on a widget)

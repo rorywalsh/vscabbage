@@ -104,7 +104,7 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "Custom widget folders. Each folder should contain a `cabbage` folder structure.\n\n**Recommended**: Use `Cabbage: Select Custom Widget Folder` command which automatically copies the required folder structure.\n\nManually added paths must contain: `cabbage/widgets/` subdirectory with all Cabbage framework files."
+          "markdownDescription": "Custom widget folders. Each folder should contain a `cabbage` folder structure.\n\n**Recommended**: Use `Cabbage: Select Custom Widget Folder` command which automatically copies the required folder structure.\n\nManually added paths are flexible: a root folder containing `cabbage/widgets`, a root containing `widgets`, the `cabbage` folder itself, or a `widgets` folder all resolve."
         },
         "cabbage.audioOutputDevice": {
           "type": "string",

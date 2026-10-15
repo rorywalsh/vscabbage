@@ -551,6 +551,111 @@ export class WidgetManager {
     }
 
     /**
+     * Rebuilds the form's right-click widget insertion menu from the current
+     * widget registry (built-in + custom). Called when late-discovered custom
+     * widgets arrive after the form was created — without this the context
+     * menu only ever shows the built-ins.
+     * Re-attached menu items use the last right-click position so insertion
+     * matches the original menu behaviour.
+     */
+    static refreshWidgetMenu() {
+        try {
+            const ulMenu = document.querySelector('.menu');
+            if (!ulMenu) {
+                return;
+            }
+            const currentWidgetTypes = getWidgetTypes();
+            const seen = new Set();
+            let menuItems = "";
+            currentWidgetTypes.forEach((widgetType) => {
+                if (seen.has(widgetType)) { return; }
+                seen.add(widgetType);
+                menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
+            });
+            ulMenu.innerHTML = menuItems;
+
+            // Bind insertion for the rebuilt items. Items created before a
+            // setupFormHandlers() pass already have listeners; skip those to
+            // avoid double-insertion.
+            ulMenu.querySelectorAll('.menuItem').forEach((item) => {
+                if (item.dataset && item.dataset.cabbageBound === '1') { return; }
+                if (item.dataset) { item.dataset.cabbageBound = '1'; }
+                item.addEventListener("pointerdown", async (e) => {
+                    e.stopImmediatePropagation();
+                    e.stopPropagation();
+                    let parent = e.target.closest('.wrapper');
+                    if (parent && parent.id === 'dynamicContextMenu') {
+                        return;
+                    }
+                    const { cabbageMode: mode } = await import("./sharedState.js");
+                    if (mode !== 'draggable') {
+                        console.warn('Cabbage: Insert widget prevented when not in draggable mode');
+                        return;
+                    }
+                    const type = (e.target.textContent || '').trim();
+                    if (!type) { return; }
+                    const contextMenu = document.querySelector(".wrapper");
+                    if (contextMenu) { contextMenu.style.visibility = "hidden"; }
+                    await WidgetManager.insertWidgetFromMenu(type);
+                });
+            });
+            console.log(`Cabbage: widget menu refreshed (${currentWidgetTypes.length} types)`);
+        } catch (err) {
+            console.error('Cabbage: refreshWidgetMenu failed:', err);
+        }
+    }
+
+    /**
+     * Shared insertion path for menu items bound by refreshWidgetMenu().
+     */
+    static async insertWidgetFromMenu(type) {
+        const { postMessageToVSCode } = await import("./sharedState.js");
+        const pos = (typeof window !== 'undefined' && window.__cabbageInsertPosition) || { x: 40, y: 40 };
+        console.warn("Cabbage: Adding widget of type:", type);
+        const uniqueId = CabbageUtils.getUniqueId(type, widgets);
+        let insertProps = { channels: [{ id: uniqueId }], top: pos.y - 20, left: pos.x - 20 };
+        let candidateIds = [uniqueId];
+        if (type === 'xyPad') {
+            const isChannelTaken = (id) => widgets.some(w => w.props && Array.isArray(w.props.channels) && w.props.channels.some(c => c && c.id === id));
+            let base = uniqueId;
+            let counter = 0;
+            while (isChannelTaken(`${base}x`) || isChannelTaken(`${base}y`)) {
+                counter += 1;
+                base = `${uniqueId}${counter}`;
+            }
+            candidateIds = [`${base}x`, `${base}y`];
+            const xyPadDefaults = await WidgetManager.createWidget('xyPad');
+            const defaultRanges = (xyPadDefaults && Array.isArray(xyPadDefaults.props.channels))
+                ? xyPadDefaults.props.channels.map(c => JSON.parse(JSON.stringify((c && c.range) || {})))
+                : [{}, {}];
+            insertProps = {
+                channels: [
+                    { id: candidateIds[0], event: 'mouseDragX', range: defaultRanges[0] || {} },
+                    { id: candidateIds[1], event: 'mouseDragY', range: defaultRanges[1] || {} }
+                ],
+                top: pos.y - 20,
+                left: pos.x - 20
+            };
+        }
+        await WidgetManager.insertWidget(type, insertProps, WidgetManager.getCurrentCsdPath());
+        const inserted = widgets.find(w => w.props && (candidateIds.includes(w.props.id) || (Array.isArray(w.props.channels) && w.props.channels.some(c => c && candidateIds.includes(c.id)))));
+        if (inserted) {
+            const src = inserted.originalProps || inserted.props || {};
+            const payload = JSON.parse(JSON.stringify(src));
+            if (inserted.props) {
+                if (!payload.id && inserted.props.id) payload.id = inserted.props.id;
+                if (!payload.type && inserted.props.type) payload.type = inserted.props.type;
+                if ((!payload.channels || payload.channels.length === 0) && Array.isArray(inserted.props.channels) && inserted.props.channels.length > 0) {
+                    payload.channels = inserted.props.channels.map(c => ({ id: c.id }));
+                }
+            }
+            postMessageToVSCode({ command: 'updateWidgetProps', text: JSON.stringify(payload) });
+        } else {
+            console.error("Cabbage: Unable to find inserted widget instance in widgets[] - cannot send update to VS Code");
+        }
+    }
+
+    /**
      * Inserts child widgets for a container widget (groupBox or image)
      * @param {object} parentWidget - The parent container widget
      * @param {HTMLElement} parentDiv - The parent's DOM element

@@ -2099,6 +2099,131 @@ ${csoundSection}`;
     }
 
     /**
+     * Expands a user-provided path: trims whitespace, expands leading `~`
+     * to the home directory and environment variables, and normalizes
+     * separators/trailing slashes.
+     */
+    static expandUserPath(p: string): string {
+        if (!p || typeof p !== 'string') { return ''; }
+        let out = p.trim();
+        if (out.startsWith('~')) {
+            out = path.join(os.homedir(), out.slice(1));
+        }
+        // Expand ${VAR} / $VAR and %VAR% (Windows)
+        out = out.replace(/\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g, (_m, braced, plain) => {
+            const name = braced || plain;
+            return process.env[name] ?? '';
+        });
+        if (process.platform === 'win32') {
+            out = out.replace(/%([^%]+)%/g, (_m, name) => process.env[name] ?? '');
+        }
+        return path.normalize(out);
+    }
+
+    /**
+     * Normalizes a directory for comparison (expanded, normalized,
+     * no trailing separator, case-normalized on Windows/macOS).
+     */
+    static normalizeDirForCompare(p: string): string {
+        let n = ExtensionUtils.expandUserPath(p);
+        if (n.length > 1 && (n.endsWith(path.sep) || n.endsWith('/'))) {
+            n = n.replace(/[/\\]+$/, '');
+        }
+        if (process.platform === 'win32' || process.platform === 'darwin') {
+            n = n.toLowerCase();
+        }
+        return n;
+    }
+
+    /**
+     * Resolves a user-configured custom widget location to the actual
+     * `widgets` directories that should be scanned. Accepts any of:
+     * - a root folder containing `cabbage/widgets` (recommended)
+     * - a root folder containing `widgets` (plugin-style layout)
+     * - the `cabbage` folder itself
+     * - the `widgets` folder itself
+     * Returns only directories that exist on disk (deduplicated).
+     */
+    static resolveWidgetDirectoriesForRoot(raw: string): string[] {
+        const expanded = ExtensionUtils.expandUserPath(raw);
+        if (!expanded) { return []; }
+        const isDir = (p: string) => {
+            try { return fs.statSync(p).isDirectory(); } catch { return false; }
+        };
+        const seen = new Set<string>();
+        const out: string[] = [];
+        const pushIfDir = (p: string) => {
+            const n = path.normalize(p);
+            if (!seen.has(n) && isDir(n)) {
+                seen.add(n);
+                out.push(n);
+            }
+        };
+
+        // Direct hits: user pointed straight at a widgets dir.
+        const base = path.basename(expanded);
+        if (base === 'widgets' && isDir(expanded)) {
+            pushIfDir(expanded);
+            return out;
+        }
+        if (/(cabbage[\\/]widgets|widgets)$/.test(expanded) && isDir(expanded)) {
+            pushIfDir(expanded);
+            return out;
+        }
+
+        // Otherwise treat as a root / cabbage dir and probe known layouts.
+        // Order matters: canonical layout first, then plugin-style fallbacks.
+        pushIfDir(path.join(expanded, 'cabbage', 'widgets'));
+        pushIfDir(path.join(expanded, 'widgets'));
+        // Bare-dir fallback: the configured folder itself holds .js widgets
+        // (covers users pointing directly at a widgets dir without the name).
+        pushIfDir(expanded);
+
+        return out;
+    }
+
+    /**
+     * Normalizes a folder chosen via the "Select Custom Widget Folder" dialog
+     * to the root custom folder (the folder that should contain `cabbage/`).
+     * Idempotent: picking the `cabbage` dir itself, its `widgets` subdir, or
+     * an already-configured root all resolve to the same root instead of
+     * nesting `cabbage/cabbage`.
+     */
+    static normalizeCustomWidgetRoot(selected: string): string {
+        const expanded = ExtensionUtils.expandUserPath(selected);
+        if (!expanded) { return ''; }
+        const existsDir = (p: string) => {
+            try { return fs.statSync(p).isDirectory(); } catch { return false; }
+        };
+        // Picked .../cabbage/widgets -> root is two levels up
+        if (/cabbage[\\/]widgets$/.test(expanded)) {
+            return path.normalize(path.dirname(path.dirname(expanded)));
+        }
+        const base = path.basename(expanded);
+        if (base === 'widgets') {
+            const parent = path.dirname(expanded);
+            // .../cabbage/widgets -> root is parent of `cabbage`
+            if (path.basename(parent) === 'cabbage') {
+                return path.normalize(path.dirname(parent));
+            }
+            return path.normalize(parent);
+        }
+        if (base === 'cabbage') {
+            // Already a root containing cabbage/ (e.g. re-selecting the same
+            // folder): keep it. A lone `cabbage` dir holding widgets/
+            // directly is the framework dir itself: root is its parent.
+            const hasNestedCabbage = existsDir(path.join(expanded, 'cabbage'));
+            const hasWidgets = existsDir(path.join(expanded, 'widgets'));
+            if (hasNestedCabbage || !hasWidgets) {
+                return path.normalize(expanded);
+            }
+            return path.normalize(path.dirname(expanded));
+        }
+        // Generic root (may already contain cabbage/): keep as-is.
+        return path.normalize(expanded);
+    }
+
+    /**
      * Gets custom widget directories from settings, excluding the default extension source.
      * Returns paths to the cabbage/widgets subdirectories within each custom directory.
      * @returns Array of custom widget directory paths (pointing to cabbage/widgets subdirs)
@@ -2106,19 +2231,62 @@ ${csoundSection}`;
     static async getCustomWidgetDirectories(): Promise<string[]> {
         const settings = await Settings.getCabbageSettings();
         const defPath = Settings.getPathJsSourceDir();
+        const defNorm = ExtensionUtils.normalizeDirForCompare(defPath);
         const jsSource = settings['currentConfig']['jsSourceDir'];
 
-        const dirs: string[] = Array.isArray(jsSource)
+        const fromSettings: string[] = Array.isArray(jsSource)
             ? jsSource as string[]
             : (typeof jsSource === 'string' && jsSource.length > 0)
                 ? [jsSource as string]
                 : [];
 
-        // Filter to only custom directories (not the default extension src path)
-        // and append /cabbage/widgets to each
-        return dirs
-            .filter(d => d !== defPath)
-            .map(d => path.join(d, 'cabbage', 'widgets'));
+        // Also honour the VS Code `cabbage.customWidgetDirectories` setting
+        // directly so manually added paths work even before they sync to the
+        // shared Cabbage settings file.
+        let fromVscode: string[] = [];
+        try {
+            fromVscode = vscode.workspace.getConfiguration('cabbage').get<string[]>('customWidgetDirectories') || [];
+        } catch { fromVscode = []; }
+
+        const roots: string[] = [];
+        const seenRoots = new Set<string>();
+        for (const raw of [...fromSettings, ...fromVscode]) {
+            if (!raw) { continue; }
+            const norm = ExtensionUtils.normalizeDirForCompare(raw);
+            if (norm && norm === defNorm) { continue; }
+            if (seenRoots.has(norm)) { continue; }
+            seenRoots.add(norm);
+            roots.push(raw);
+        }
+
+        // Resolve each root to its actual widgets dir(s); probe layouts so a
+        // root, the `cabbage` dir itself, or a `widgets` dir all work.
+        const resolved: string[] = [];
+        const seenResolved = new Set<string>();
+        for (const root of roots) {
+            // The stored value may already be a widgets dir (legacy/manual
+            // entries) — resolve handles that. Normalize roots that point
+            // inside the structure first so `.../cabbage` doesn't become
+            // `.../cabbage/cabbage/widgets`.
+            const asRoot = ExtensionUtils.normalizeCustomWidgetRoot(root);
+            for (const dir of ExtensionUtils.resolveWidgetDirectoriesForRoot(asRoot)) {
+                const key = ExtensionUtils.normalizeDirForCompare(dir);
+                if (!seenResolved.has(key)) {
+                    seenResolved.add(key);
+                    resolved.push(dir);
+                }
+            }
+            // Also probe the raw value itself (covers entries that already
+            // point at `cabbage` or `widgets` without normalization gaps).
+            for (const dir of ExtensionUtils.resolveWidgetDirectoriesForRoot(root)) {
+                const key = ExtensionUtils.normalizeDirForCompare(dir);
+                if (!seenResolved.has(key)) {
+                    seenResolved.add(key);
+                    resolved.push(dir);
+                }
+            }
+        }
+        return resolved;
     }
 
     /**

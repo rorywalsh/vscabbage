@@ -622,6 +622,46 @@ export class Settings {
     }
 
     /**
+     * Normalizes a folder to the root custom widget folder (the folder that
+     * should contain `cabbage/`). Idempotent: selecting the `cabbage` dir
+     * itself, its `widgets` subdir, or an already-configured root all
+     * resolve to the same root instead of nesting `cabbage/cabbage`.
+     * Kept local (mirrors ExtensionUtils) to avoid a Settings↔ExtensionUtils
+     * import cycle.
+     */
+    static normalizeCustomWidgetRoot(selected: string): string {
+        if (!selected || typeof selected !== 'string') { return ''; }
+        let expanded = selected.trim();
+        if (expanded.startsWith('~')) {
+            expanded = path.join(os.homedir(), expanded.slice(1));
+        }
+        expanded = path.normalize(expanded);
+        const existsDir = (p: string) => {
+            try { return fs.statSync(p).isDirectory(); } catch { return false; }
+        };
+        if (/cabbage[\\/]widgets$/.test(expanded)) {
+            return path.normalize(path.dirname(path.dirname(expanded)));
+        }
+        const base = path.basename(expanded);
+        if (base === 'widgets') {
+            const parent = path.dirname(expanded);
+            if (path.basename(parent) === 'cabbage') {
+                return path.normalize(path.dirname(parent));
+            }
+            return path.normalize(parent);
+        }
+        if (base === 'cabbage') {
+            const hasNestedCabbage = existsDir(path.join(expanded, 'cabbage'));
+            const hasWidgets = existsDir(path.join(expanded, 'widgets'));
+            if (hasNestedCabbage || !hasWidgets) {
+                return path.normalize(expanded);
+            }
+            return path.normalize(path.dirname(expanded));
+        }
+        return path.normalize(expanded);
+    }
+
+    /**
      * Prompts the user to select a custom widget directory and stores it alongside
      * the default JS source directory. The selected directory will be appended to
      * currentConfig.jsSourceDir (an array). Duplicate paths are ignored.
@@ -647,7 +687,11 @@ export class Settings {
             return;
         }
 
-        const folderPath = selectedPath[0].fsPath;
+        const pickedPath = selectedPath[0].fsPath;
+        // Normalize the picked folder to the root custom folder so
+        // re-selecting `.../cabbage` or `.../cabbage/widgets` doesn't nest
+        // `cabbage/cabbage` on repeat runs.
+        const folderPath = Settings.normalizeCustomWidgetRoot(pickedPath);
         const extension = vscode.extensions.getExtension('cabbageaudio.vscabbage');
         if (!extension) {
             vscode.window.showErrorMessage('Cabbage: Extension not found.');
@@ -704,6 +748,14 @@ export class Settings {
         }
 
         // Normalise into array and append custom folder if not present
+        // (normalized comparison so `~/x` vs `/Users/.../x` and trailing
+        // slashes don't create duplicates).
+        const normKey = (p: string) => {
+            let n = p.trim();
+            if (n.startsWith('~')) { n = path.join(os.homedir(), n.slice(1)); }
+            n = path.normalize(n).replace(/[/\\]+$/, '');
+            return (process.platform === 'win32' || process.platform === 'darwin') ? n.toLowerCase() : n;
+        };
         const current = settings['currentConfig']['jsSourceDir'];
         let dirs: string[] = [];
         if (Array.isArray(current)) {
@@ -714,17 +766,26 @@ export class Settings {
             dirs = [];
         }
 
+        // Migrate any legacy entries that point inside the structure
+        // (e.g. `.../cabbage`) up to the normalized root.
+        dirs = dirs.map(d => {
+            const n = Settings.normalizeCustomWidgetRoot(d);
+            return n || d;
+        });
+
         // Append custom folder if not already present
-        if (!dirs.includes(folderPath)) {
+        if (!dirs.some(d => normKey(d) === normKey(folderPath))) {
             dirs.push(folderPath);
         }
+        // Deduplicate (keep first occurrence)
+        dirs = dirs.filter((d, i) => dirs.findIndex(o => normKey(o) === normKey(d)) === i);
 
         settings['currentConfig']['jsSourceDir'] = dirs;
         await Settings.setCabbageSettings(settings);
 
         // Also update VS Code settings for visibility
         const defPath = Settings.getPathJsSourceDir();
-        const customDirs = dirs.filter(d => d !== defPath);
+        const customDirs = dirs.filter(d => normKey(d) !== normKey(defPath));
         const config = vscode.workspace.getConfiguration('cabbage');
         await config.update('customWidgetDirectories', customDirs, vscode.ConfigurationTarget.Global);
 
@@ -757,7 +818,17 @@ export class Settings {
         const dirs: string[] = Array.isArray(jsSource) ? jsSource as string[] : (typeof jsSource === 'string' && jsSource.length > 0) ? [jsSource as string] : [];
 
         // Custom directories are those not equal to the default extension src path
-        const customDirs = dirs.filter(d => d !== defPath);
+        // (normalized: legacy entries pointing inside the structure collapse
+        // to the same root).
+        const normKey = (p: string) => {
+            let n = (p || '').trim();
+            if (n.startsWith('~')) { n = path.join(os.homedir(), n.slice(1)); }
+            n = path.normalize(n).replace(/[/\\]+$/, '');
+            return (process.platform === 'win32' || process.platform === 'darwin') ? n.toLowerCase() : n;
+        };
+        const customDirs = dirs
+            .map(d => Settings.normalizeCustomWidgetRoot(d) || d)
+            .filter((d, i, arr) => normKey(d) !== normKey(defPath) && arr.findIndex(o => normKey(o) === normKey(d)) === i);
         if (customDirs.length === 0) {
             vscode.window.showErrorMessage('Cabbage: No custom widget directory configured. Use "Cabbage: Set Custom Widget Directory" first.');
             return;
