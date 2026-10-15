@@ -1602,6 +1602,18 @@ export class Commands {
                                     });
                                 }
                             }
+                            else if (msg['command'] === 'csoundOutputUpdate') {
+                                // Csound console output (printf, opcode messages, ...):
+                                // always forward to the webview so the csoundOutput
+                                // widget shows it, independent of logVerbose.
+                                const panel = Commands.getPanel();
+                                if (panel) {
+                                    panel.webview.postMessage({
+                                        command: 'csoundOutputUpdate',
+                                        text: msg['text'],
+                                    });
+                                }
+                            }
                             else if (msg['command'] === 'backendReady') {
                                 // Backend proves audio is flowing (or that no audio
                                 // device exists): lift the webview's gated overlay.
