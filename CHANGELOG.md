@@ -2,6 +2,340 @@
 
 | Message                                | Repo      | Date       | Commit                            |
 |----------------------------------------|-----------|------------|------------------------------------|
+| fix(widgets): Fix custom widget discovery for cabbage-dir la | vscabbage | 2026-10-15 | 9bec1d6324ce9f3aa592760a5e6c907f0c2b5cc8 |
+| Update @types/vscode version in package.json                 | vscabbage | 2026-10-15 | 74be9009dc97e0f08148f38d35dccf70bfed13cd |
+| fix: align TypeScript with ESLint peer range                 | vscabbage | 2026-10-15 | 6231e1f0bde80601a900d28ebbea8a6ee38cc4db |
+| Initial plan                                                 | vscabbage | 2026-10-15 | fd709e32a6960adf8ea3910ce8536aa6f07d99fd |
+| Update fetch-depth to 0 in build.yaml                        | vscabbage | 2026-10-15 | d0f36462c719681ff948412cb9712babad69bb8f |
+| fix(extension): forward csoundOutputUpdate messages to the w | vscabbage | 2026-10-15 | 04cdab1d2ac9657e89d54883a48f54e8edc7744c |
+| fix(engine): log Csound console output at info level so it a | cabbage   | 2026-10-15 | 9e3472f37f3cca3cb45dbb6cfec537cb734b1021 |
+| Bump the npm-all group across 1 directory with 17 updates    | vscabbage | 2026-10-14 | b94c2c90ecf7c0aeba1a5a970c0478b3c8eba1d7 |
+| docs(frontend): document sendWidgetUpdate merge-patch contra | vscabbage | 2026-10-14 | 5be004547e1e254fff6884e4405e5757c8da55d1 |
+| opcode(get): Rewrite the stale side-by-side TrigStructs test | cabbage   | 2026-10-14 | 86b26e4ec434d225986e98d9f290f14f8d4dabea |
+| opcode(get): Renamed cabbageGetWidgets to cabbageGetWidgetId | cabbage   | 2026-10-14 | 289082a8b8acdf9617c0dca25b9c5773babe21f1 |
+| opcode(get): Added stateless trigger getters, safe in k-rate | cabbage   | 2026-10-14 | 72ca21586f0e95be8d6971b546fdbe20247c3e99 |
+| feat(commits): Adding simple commit script to force better l | cabbage   | 2026-10-13 | 8e41317609150faef6b954385af8bbb205573d73 |
+| feat(commits): Adding simple commit script to force better l | vscabbage | 2026-10-13 | 6617996aa0728a04c53a45f80ddc621b992d723a |
+| Updating build.yml to ref cabbage repo, rather then deprecat | vscabbage | 2026-10-13 | 13cc3ce3579bcd1c5fae6e5315a53683940ebc19 |
+| Adding readme for test suite                                 | cabbage   | 2026-10-13 | b795d3434274ccdf08d520bc47b52a53d16d3eaf |
+| Adding overview document outlining how things works together | cabbage   | 2026-10-12 | b255aab56a860adc522dd4f514f35e887e796ebd |
+| Update README with branch map and Cabbage 2 pointer [skip ci | cabbage   | 2026-10-12 | 8da1841e063c9a97177b5775415258a3ef755429 |
+| Switch CI packaging from alpha to 3.0.0-beta series          | vscabbage | 2026-10-12 | 446147e2c1b91b60061cc63b4f55ab5dac58ea4d |
+| Addin cabbageGetWidgets and cabbageHasKey opcode, and updati | cabbage   | 2026-03-25 | af34a861e8fe264e214dd2f73fd9b6d791bc11d7 |
+| Improving handling for top level properties, and updating Li | cabbage   | 2026-03-16 | d9c229239f9b172cc3ee293c5ba939adfea28b91 |
+| Fixing issue with incoming MIDI notes, and updating CMakeLis | cabbage   | 2026-01-23 | 6160362433702ca68e5944742bb1264bfa20375e |
+| updating                                                     | cabbage   | 2025-11-10 | 1a715f4f01bcd3d1989871f45d2cb83000d6f6bf |
+| updating actions script for macos                            | cabbage   | 2025-10-22 | a21abfb39fcfda47696c0a3ed9e48e5f1e333221 |
+| updating actions script for macos                            | cabbage   | 2025-10-22 | 21cbce5d5720a4af96b49ee70e3425b259370377 |
+| updating actions script for macos                            | cabbage   | 2025-10-22 | bb3fb8c55ed97bf08727b595f78ae21c6e9c1d63 |
+| updating actions script for macos                            | cabbage   | 2025-10-22 | ede2431b92d58c54eb37b25360f4917567f251b4 |
+| updating gentable (no_build)                                 | cabbage   | 2025-10-04 | 96043aaf0ac47a2cacdc75739704128f1822072c |
+| updating to better handle widgets with multiple channels/ran | cabbage   | 2025-10-03 | dfc74c8587f3b9761b62d9b45db690bcc280d450 |
+| updating supporting for widgets with multiple channels       | cabbage   | 2025-10-02 | 090849377442b4ce08c180955774387ad79618fe |
+| updating info log for when widgets are declared with channel | cabbage   | 2025-08-31 | d507263b3b43a8e897347a25904ade8684d50c01 |
+| updating windows CI build                                    | cabbage   | 2025-08-21 | 23fcb7404a00f4819110581f268f6d2985abda1e |
+| updating windows CI build                                    | cabbage   | 2025-08-21 | 9492ae8ae9cb78614836d827a42f781cadfde71b |
+| updating Cmake build                                         | cabbage   | 2025-08-21 | 1b4f25ca6d8b8f9748bd0415c317eb3b5c555efe |
+| updating Cmake build                                         | cabbage   | 2025-08-21 | efab1d4de0b4f5a015482df19000170ff0c78f2f |
+| updating CI                                                  | cabbage   | 2025-08-21 | 19f7a2fb25581ba81790b9a5124ded656c4adc3d |
+| updating test to sort float/double issue                     | cabbage   | 2025-08-20 | d28e2af31a038f36b2196a2834b17027b6d73836 |
+| updating Cmake                                               | cabbage   | 2025-08-17 | bb21c8ec359fd46933f1fb8615779b0b65921950 |
+| updating plugin info header and update lattice deps          | cabbage   | 2025-08-17 | 650627f223dae3637579c1cc37338424b2478bc7 |
+| updating CabbagePluginInfo header to updated vst3 and AU exp | cabbage   | 2025-08-13 | 04bef14de9c1502a3f7c58aafe5f2c716f8a1079 |
+| updating CMakelists to reflect AU changes                    | cabbage   | 2025-08-13 | db5a82a22a02688acad65051a875299135b74c0a |
+| updating cmake                                               | cabbage   | 2025-08-13 | 47b0f94d040d197b2c085c399e19b32a7a62ed34 |
+| updating cmake                                               | cabbage   | 2025-08-13 | 2acb67e8b9f2535ac8fced230b2531d3192010d2 |
+| updating signal handlers for CabbageServer                   | cabbage   | 2025-07-27 | b567f7b93e05aac6de9b2df949454badcf02fb8b |
+| upsdating cmakelists.txt                                     | cabbage   | 2025-02-26 | f7e7067cc3dd3e4b774985a9ebace2b49f3f074d |
+| updating iplug deps                                          | cabbage   | 2025-02-26 | 6a40b679c6f76e7bcd54664b5ca7313ae457a708 |
+| updating windows build folders                               | cabbage   | 2025-02-26 | d8e7069381040e0b5336d516ad97ee9e170defe7 |
+| updating windows build folders                               | cabbage   | 2025-02-26 | 2e0730fcfc08196c5f4a18a3108f1fb2a8091734 |
+| updating build yaml                                          | cabbage   | 2025-02-26 | 69961e936910862293155516a0c98e24e6bc0a09 |
+| fixing issue whereby no valid input is found on soundcard    | cabbage   | 2025-02-26 | 2469a9e329d49cf230d00385bf8ad314dfbe4816 |
+| pushing update for websocket stuff on MacOS                  | cabbage   | 2025-02-25 | 486c916205027f3fc791add0625d71ef60b7922f |
+| updating cmake deps for iplug2                               | cabbage   | 2025-02-19 | 7aae93bb83a51446814e0b901dcdc497ce69a9c0 |
+| updating CabbageApp on windows to be true command line app - | cabbage   | 2025-02-19 | 5553965dc521013c85481015d4bd7362db11d11f |
+| adding initial delay to loading of CabbageApp to allow vscod | cabbage   | 2025-02-19 | 22f5357c9d38d9ab7a7ca6a5640a142c0e7a092a |
+| updating iplug2 deps                                         | cabbage   | 2025-02-18 | cfea684d52f051a7a733f12eeb17174225a29897 |
+| fixing some rtaudio issues on linux                          | cabbage   | 2025-02-17 | 50c62d6743dd6b6070827ec69d01948c4e871f00 |
+| updating iplug2 source                                       | cabbage   | 2025-02-16 | 7a82fe701ff5e2ac6655b3461e5f0b469ea515c1 |
+| updating iplug deps                                          | cabbage   | 2025-02-16 | d71080207b8e5353a65db99b0e1678ab6dfc77ee |
+| stopping deprecated warnings as errors                       | cabbage   | 2025-02-15 | 9d434acbabba91f296e386408304640f16505f35 |
+| implementing some basic rtaudio hook for linux               | cabbage   | 2025-02-15 | 920c4e919a7dc563640b0fb8f20d0e80bcf26821 |
+| updating host app code for CabbageApp - removing swell inter | cabbage   | 2025-02-14 | 1265ce2dba1e049b9c1b79938674b5dbf8cd36df |
+| removing swell stuff from MacOS CabbageApp target            | cabbage   | 2025-02-14 | f2035e50c92822ceab57604af7cf75879ac4fad4 |
+| fixing mmap instance tracker - still need to free memory, bu | cabbage   | 2025-02-13 | 54de3fdb8676bea2e20066c099532c2419a7a438 |
+| updating cppcodec dep                                        | cabbage   | 2025-02-13 | b9a0dce8bacb134dd3835f7768868b1b693e4ed7 |
+| updating generate hedader script                             | cabbage   | 2025-02-13 | 26f2121cf290167f2578423b0f102119d32a2fa3 |
+| updates to Linux branch                                      | cabbage   | 2025-02-11 | c568417d53e41feb401d028db114e41534ed8074 |
+| updating                                                     | cabbage   | 2025-02-11 | 3b9c77b76fdc8ad6d0ac52342c71ed5739fc057f |
+| more updates to linux webview work                           | cabbage   | 2025-02-11 | 1d9a6aceee991047e1f82974e486d8ca28071812 |
+| adding clang formatter                                       | cabbage   | 2025-02-11 | 4d69bb9bdade122a4beea80c912b27da2b98e9b8 |
+| updating linux webview stuff                                 | cabbage   | 2025-02-10 | 0886f1ca56594b980a07423ccc760420acb1d4fb |
+| fixing timer runloop issues with linux webview               | cabbage   | 2025-02-10 | 13bdc8094be4ebb1cfa01b5d5fcdd69e534e6d6a |
+| updating gitignore                                           | cabbage   | 2025-02-08 | b27230d1bf746b14b048adcd8826685c1e1b7249 |
+| about to move to using share memory for webview on Linux - p | cabbage   | 2025-02-07 | ae6bacdc9720c701dad29e7b3a233920e55e9dcc |
+| updating Linux webview code                                  | cabbage   | 2025-02-06 | 5266e88b70fe3218258cf2e6cd60b868c5dfcd7e |
+| fixing reparenting issues                                    | cabbage   | 2025-02-05 | fa8b65e5d0a1fffbce13dfe939297c93f11322bb |
+| updating webview                                             | cabbage   | 2025-02-05 | 3deed06f9da1798afcf4ee409fa356d9a64a0450 |
+| pushing more updates for Linux webview                       | cabbage   | 2025-02-05 | 56a395dd74c8c7b70d9d5628d212b92a8b56d494 |
+| clenning upsome files                                        | cabbage   | 2025-02-03 | de5d91a545934b47f9cc3de46804e5a883a1f3ec |
+| updating linux webview process testing                       | cabbage   | 2025-02-03 | d34057f3faaaaa5301b507cdc8c914d02d340d66 |
+| still messing around with linux webviews                     | cabbage   | 2025-01-29 | 77747e374c0d9758ad15e656edcdea3b296f1bc9 |
+| updating linux builds                                        | cabbage   | 2025-01-29 | 0e3c1ed17562678b90e1822f40a0d33fb8a9f336 |
+| updating cmake                                               | cabbage   | 2025-01-29 | 8853e570ddb07f63584e369d0005a727efb8f137 |
+| updating cmake                                               | cabbage   | 2025-01-29 | 19db8e5b423f3f2f8021eba39e4bb54ddd0a88a3 |
+| updating linux deps                                          | cabbage   | 2025-01-29 | a28663415c95bb7a886add722f0896f8c7d91ca3 |
+| updating linux webview stuff - trying to create a new proces | cabbage   | 2025-01-28 | 3ad61c6c8108a2461a7ef674f8d8ae9793ea36a5 |
+| fixing cmake error on config                                 | cabbage   | 2025-01-28 | 48fe3e80c3914037fe1091425450f80b73fd8537 |
+| exploring linux port                                         | cabbage   | 2025-01-28 | efab308d5fe3fa225f670b34d181de5de21dab57 |
+| updating some code with linux defs                           | cabbage   | 2025-01-23 | 6acc037d7cc41968e2fa57b1ac5f269d7766aff1 |
+| updating iplug tag                                           | cabbage   | 2025-01-22 | d9ca3739d1915ac5529292b8b830200a7227475e |
+| fixing case typos in fetch for vst3                          | cabbage   | 2025-01-22 | 99d6ddf7ee202978cb012c5f07643d3a1aa876e9 |
+| updating iplug2 repo                                         | cabbage   | 2025-01-22 | 1498585e8a9e683c3ac4fff2dea9fb7a31975165 |
+| updating iplug2 repo tag                                     | cabbage   | 2025-01-22 | 83aab7ddef3be777c31520a7bdf2faa342f57cf0 |
+| updating cmake scripts                                       | cabbage   | 2025-01-22 | ff06eb777b63032abff8dcc9b58fa5aa74c01287 |
+| updating before merge                                        | cabbage   | 2025-01-22 | 6c527cc03a49fc38541713ac216db77eed713ab5 |
+| updating iPlug2 repo hash for linux                          | cabbage   | 2025-01-22 | e6e42948840070ab93e4f3ff7f3991a7c1289f87 |
+| starting LINUX cmake integration                             | cabbage   | 2025-01-21 | 5d6384979bd84eb534be2afddc7fe5a7be5946ad |
+| fixing mutex error on windows                                | cabbage   | 2025-01-19 | f0bc6270600aed0c159e4094e04064eb593505ed |
+| adding file logger class                                     | cabbage   | 2025-01-19 | 0380795079321d4f6fb7633f3c53c7f46dbaba86 |
+| updated logging class and added file logger for plugins      | cabbage   | 2025-01-17 | de91de020ff6bfbc8ac90094c9ae51ca3828b57c |
+| adding support for alpha hex colours - adding array varient  | cabbage   | 2025-01-15 | f81629a10e3f2dfd33d683571f0166e20e9abb2a |
+| updating directory exists to handle utf8 chars               | cabbage   | 2025-01-14 | 0ba5e1ccee0abb3ccc279eed8e774af7689c581a |
+| adding debug log for when jsSourDir path is not found        | cabbage   | 2025-01-13 | b86d9e58148c5f824ca123dd4bd4b7edbaacc646 |
+| adding yet more error logging                                | cabbage   | 2025-01-13 | a4a6fd5544cdad8c7df5ab4a4bb5d454fa496381 |
+| adding more debugging to host callback functions             | cabbage   | 2025-01-13 | 2d4feb007180b7ffd7cd3a185991e6967cc6aeb5 |
+| adding low priority onParamChange callback                   | cabbage   | 2025-01-12 | bf6d09a82d27367c499937eb34c95ffe02c09ac8 |
+| fixing issues with VST3 automation updates, and adding debou | cabbage   | 2025-01-12 | e15ecf49d383f13f710de8c8dd86af92f2e941f9 |
+| fixing issue in tandalone build                              | cabbage   | 2025-01-07 | c4b48ef2169db8a0947fd8325493b9af7dff2231 |
+| refactoring utils classes                                    | cabbage   | 2025-01-07 | e15b9e0319c2e54fb17f7b7e20e4290384483882 |
+| updating file input functions to handle resampling           | cabbage   | 2025-01-06 | 0c8e235c46e81bf7a9155c7d1348ba86dfe63d81 |
+| updating file routing logic in standalone player             | cabbage   | 2025-01-06 | 7bae5582bc1adbceb24f424cb431e712b5fd332f |
+| updating utils                                               | cabbage   | 2024-12-23 | 34aaf7780549298276ee8d282cf636ee860ab81f |
+| adding default parameters to getCabbageSection               | cabbage   | 2024-12-23 | ec8a30da5c85bb6953e0acac7be896be1c8dacc1 |
+| fixing build error with sanitize path                        | cabbage   | 2024-12-23 | 670cd69d02e5c6056c264248df94f98b8fdfd517 |
+| adding more customisable channel IO config. including custom | cabbage   | 2024-12-21 | 93af661df9c9449a722ecdb904d81634a19ca89e |
+| adding getChannelConfig to cabbage::File class               | cabbage   | 2024-12-21 | a80ac1f0626cc1c88718acfae1cdd3d8fe609400 |
+| updating comments in processBlock                            | cabbage   | 2024-12-20 | cd3f7ead38ee7d443c94223ec094dbca0d5df654 |
+| update to iplug to allow discrete channel layouts            | cabbage   | 2024-12-20 | 57ed63ab67c48dbc79d23ad7dc4ce52dbcd15bbb |
+| adding mutlichannel support                                  | cabbage   | 2024-12-19 | 992cb176b7d203d2d5b4f4d232bcca0891d3ad0c |
+| updating git deps                                            | cabbage   | 2024-12-19 | f242b860b4497c353902286c6c287fec5ca0c897 |
+| adding functionality for reading channel IO from Cabbage fil | cabbage   | 2024-12-19 | 6cb5c284206bcfe38fc53621fec934a39691a813 |
+| updating hosting code                                        | cabbage   | 2024-12-18 | ac5fc4b250cf074b1910cc70770aff68f3ea0dd1 |
+| updating error logging                                       | cabbage   | 2024-12-18 | 737316fc921a0f8d225d092133277c530efef09c |
+| fixing more windows issues                                   | cabbage   | 2024-12-18 | f7f461602323dc0b1c0febd62329eebd40bcdc61 |
+| fixing typo in host code                                     | cabbage   | 2024-12-17 | 988ac38f7256745ecbee9f0b41c53da217dfbe6a |
+| fixing standalone wrapper to better handle sound cards with  | cabbage   | 2024-12-17 | d990fb07974840a0b52b9ba367622febdd065ce4 |
+| updating action file                                         | cabbage   | 2024-12-16 | abb739fe9daf0004216b0b5f62c5664d33f07b28 |
+| updating macos zip process in workflow                       | cabbage   | 2024-12-16 | 302b0d21409d58234b2f3bf5b0c5bb65322cc4e4 |
+| cleaning up cmake for windows                                | cabbage   | 2024-12-16 | d6e363f215005227767ba6b69a1f19f551e2da5a |
+| cleaning up cmake for windows                                | cabbage   | 2024-12-16 | f279cfaea7a2faafe312f1f6233d774fa3b4cb16 |
+| Update CabbageApp.cmake                                      | cabbage   | 2024-12-14 | 9e428371a6e7a57504b267b761710b2e9f11a375 |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-14 | b146fdd4c2b1756fda231ce866d35b8824996461 |
+| reverting pre-build step for cmake for windows               | cabbage   | 2024-12-14 | 4619566243c16a4ea0d5ee86816315c41d5033d7 |
+| updating windows scripts                                     | cabbage   | 2024-12-13 | e2fd2a4e7a07e72601a689f57d34edf9c1695fbf |
+| updating resources for AU Synths                             | cabbage   | 2024-12-13 | af78ea10e79a2112d9be4b0eecdebdeecd9ef2df |
+| fixing typo in host .cpp                                     | cabbage   | 2024-12-12 | eb409dfff7554ebcb42368569a303a1b355cf162 |
+| updating iplug dep                                           | cabbage   | 2024-12-12 | 2cc29fb5cbd45170dd352a1f4a079f2123c47bdd |
+| debugging genTable update issues                             | cabbage   | 2024-12-11 | 03ac41d6871c310362bbc16679f8f601b945363c |
+| removing cmake hack for modifying projects on windows. Now u | cabbage   | 2024-12-11 | fa294e8092afd4e9e5da6030567128af45f721d6 |
+| adding handling of non-autmatable parameters                 | cabbage   | 2024-12-10 | dde69c4ca9d20e7e01035cce58bc028fa9d21d09 |
+| fixing dll path on WIndows                                   | cabbage   | 2024-12-10 | 313fc8445512a34cb559fafa5abfdb485789bdae |
+| updating some host logic and tests                           | cabbage   | 2024-12-09 | 1751b54b2a053ccaa359b2e41d4ea9faa86410a7 |
+| moving parser implementation to seperate file                | cabbage   | 2024-12-09 | 4952b466a4eee0eb0f7bcae6231777b6d1d098df |
+| updating windows binary path                                 | cabbage   | 2024-12-09 | 23896484f9208fd73e061180d973923d3d50751a |
+| fixing binary name for Windows app in yaml                   | cabbage   | 2024-12-09 | 84306552a6d78129fbde5524b375a71170cc1547 |
+| removing some debug info                                     | cabbage   | 2024-12-08 | 8b9961ca7ab102f58a8ee146b1dfc4441940d2c6 |
+| adding back MacOS build to CI script                         | cabbage   | 2024-12-05 | ce0ad62d8edb1d0d50c9dd18613a9e35bab6c181 |
+| adding back MacOS build to CI script                         | cabbage   | 2024-12-05 | 322bcb75e86fe539edf8346ef013fd19245f95d8 |
+| adding synth builds to default list of builds                | cabbage   | 2024-12-05 | 68e134d27d9db16fa42fd666eeea781378dea41e |
+| updating cmake build scripts                                 | cabbage   | 2024-12-05 | 408ca04cad5b2f24cd29ce3ff85ecbc5d0401176 |
+| adding ixwebsockets to Stadndalone plugin build              | cabbage   | 2024-12-05 | 9a914ad4c6196e713dd4a1f9964450e48226c09e |
+| fixing logging issue                                         | cabbage   | 2024-12-05 | 424d1ac39b1f13c0d800d2c385081d6ec98c22bc |
+| updating windows VST3 Synth builds                           | cabbage   | 2024-12-05 | dba44504a759cdbf6f727b7128219ddfea473c57 |
+| adding vst3 synth cmake file                                 | cabbage   | 2024-12-05 | a2b3312291ccb5abd39b87d1211fa3a4e62703c5 |
+| fixing table error                                           | cabbage   | 2024-12-05 | 451d49372d7677f0d8d25968b66d20b80beed61c |
+| updsating windows CI builds                                  | cabbage   | 2024-12-04 | 556c54fb075802a4108e7958bbbecc9bf82bf565 |
+| updsating windows CI builds                                  | cabbage   | 2024-12-04 | 697745cefc473c10844b2296faa8e62490710c47 |
+| updsating windows CI builds                                  | cabbage   | 2024-12-04 | 110bdbe2d555e775fe82496bfd58a4ac55489a83 |
+| updating paths to windows binaries in CI build               | cabbage   | 2024-12-04 | 86cb4d628c06cb5c618d6c01ee6f2c2db5b41243 |
+| updating paths to windows binaries in CI build               | cabbage   | 2024-12-04 | f6b8260059d97fbaf47dc05c99ffc1edecd1fd97 |
+| adding verification steps to CI build for Windows            | cabbage   | 2024-12-04 | 779c952bea5cd9b6f46aadb5144079ac6a1e5df6 |
+| adding verification steps to CI build for Windows            | cabbage   | 2024-12-04 | 5751249d9ef0efa12ee9d4f1740b2b8079faf04b |
+| removing websockets lib from plugin builds                   | cabbage   | 2024-12-04 | a5324452457d0c64f96f00526c242ebfe2ffb493 |
+| commenting CabbageApp build in CI                            | cabbage   | 2024-12-04 | 18187276fa4755f367abab583b65d7f5cf4baffd |
+| updating plugin.ico                                          | cabbage   | 2024-12-04 | ea0ddd4f4cf16444b0ee1017788f0e6d8266ac25 |
+| preventing copy step on Windows                              | cabbage   | 2024-12-04 | ba12219bd6420caef1da2d6275fefcdad1b7d857 |
+| updating windows CI builds                                   | cabbage   | 2024-12-04 | 43f67bef2d9eb65ff6c9a478a8e24441f0d2c6db |
+| updating targets for windows build                           | cabbage   | 2024-12-04 | fbd8fe44c7c515950d11b377997bcaf8c89644bb |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | 82e113d188d820d815996cc6759189700a03b6c2 |
+| Update CabbageStandaloneApp.cmake                            | cabbage   | 2024-12-04 | 29f711210b5f5db66fa93ab7ccb8ee622ff18974 |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | acf7ad399200b78396964ec2ca147bc3eae9378d |
+| enabling all builds in windows CI                            | cabbage   | 2024-12-04 | 628135a5aaf36e3b30287c0b9dc1f44d0f3955e0 |
+| Update FindCSOUND.cmake                                      | cabbage   | 2024-12-04 | 2bc84621b08ed38b2b60ebbfa2278b83884831b6 |
+| updatning CabbageApp.cmake for Windows                       | cabbage   | 2024-12-04 | cba0acb22bfeb701a87b46305a616373de6b4cb4 |
+| moving to debug build for CI                                 | cabbage   | 2024-12-04 | 36325098cb1e703fe56227e508877839d0bdde8e |
+| adding rebuild step for windows CI                           | cabbage   | 2024-12-04 | 7910058ea63d8eda6c59ea2fd5e86c92a8944d4d |
+| adding readerwriter cinlude path for CI builds               | cabbage   | 2024-12-04 | 3ebe1cc0080543afa62b3846bd83bf32e45e0ba5 |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | ea3efbe4851ee190343caaeec38dcfcec27ef37c |
+| Update cabbage_project.cmake                                 | cabbage   | 2024-12-04 | 8bcc91fdae5fcd48b65c690c908d1df7b2a7a024 |
+| Update fetch_dependencies.cmake                              | cabbage   | 2024-12-04 | 874c7683426bf891fea4cd29aff691a7ae1db4b2 |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | ab5a4cb56ac95b146e269d3a6e9d941d18c249fa |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | db3a7c1d428763e9bce2a490b4a6874acdfba73b |
+| Update cabbage3.yaml                                         | cabbage   | 2024-12-04 | 39c3ce256b9dcbe8b0d83a2827226a5be82be2e5 |
+| Update fetch_dependencies.cmake                              | cabbage   | 2024-12-04 | 277f9936487b1de10b5b10e87cbc7544e22e9f24 |
+| Update fetch_dependencies.cmake                              | cabbage   | 2024-12-04 | ff07219edfcf497dc700aff9e349133e647fac73 |
+| trgint o fix readerwriter CI issue                           | cabbage   | 2024-12-04 | c1409801db84ba3971f81f78c5acb591adc5e827 |
+| updating readerwriterqueue                                   | cabbage   | 2024-12-04 | f7bd37c2db299e00f880a3ca64064b020442d2cf |
+| trgint o fix readerwriter CI issue                           | cabbage   | 2024-12-04 | 16bf2ce94e70802aca0e616c5458f2dac4bbce37 |
+| updating readerwriterqueue                                   | cabbage   | 2024-12-04 | 73563bae2c8939809663cbb0c64267a363b819a9 |
+| updating readerwriterqueue                                   | cabbage   | 2024-12-04 | f624142bbfcf2d552da82b34de3d69b1c73e2d58 |
+| updating readerwriterqueue                                   | cabbage   | 2024-12-04 | c4d659d9505e2978eb13e3c37827664220adb5f3 |
+| fixing windows compile errors                                | cabbage   | 2024-12-04 | 64d6ef4e98d79e9ab5acc0ad8a8e22c0c6aa17cc |
+| updating dep fetch for readerwriterqueue                     | cabbage   | 2024-12-04 | a9c5dfe25c1b6c8cad5fed373e454fcd0c38f8c3 |
+| adding dynamic port selection in case of tied ports in VS Co | cabbage   | 2024-12-03 | f7035dec8bf0635c287ff8cca465f616df0285bc |
+| checking windows CI builds for CabbageApp                    | cabbage   | 2024-12-03 | bc451765fe98b1c9b0432764c9f821a2c451920e |
+| fixing types in CabbageApp.cmake                             | cabbage   | 2024-12-03 | b67a5b63d734bf93e8380dbee92c753f68507102 |
+| checking windows CI builds for CabbageApp                    | cabbage   | 2024-12-03 | f6902b28a7556da68892b90f6f036e242d9ea1b3 |
+| checking windows CI builds for CabbageApp                    | cabbage   | 2024-12-03 | 7d36e1f1df56cecf26f42907854e824a68c6b5a3 |
+| checking windows CI builds for CabbageApp                    | cabbage   | 2024-12-03 | cc70393f5ebe488b875152b3bae621934c17323d |
+| pushing first windows yaml build and updating resource dir   | cabbage   | 2024-12-03 | fe20922b680174a29e0768f1d0cfe952c1ad3a5b |
+| updating some windows related build issues                   | cabbage   | 2024-12-02 | b7a97e2e8c21c10c1f0b5072b49d7a5d01f98354 |
+| fixing typo                                                  | cabbage   | 2024-12-02 | bb24aa2e08d619aba605e7c7ca5131aa3042abc3 |
+| updating fetch script                                        | cabbage   | 2024-12-02 | 5e20eae5280a9c8685096484a4d323bc5b02732f |
+| commenting out roboto font resource on windows               | cabbage   | 2024-12-02 | 03b624a7fc2cf9d3fe8671bf5870361b5f626932 |
+| updating workflows                                           | cabbage   | 2024-11-30 | 14b49daf4df9d1817f0b3abfb243561555c1b20a |
+| updating git fetch to align with latest cmake changes        | cabbage   | 2024-11-30 | 9bbf76675eb482775db10813465b8b5fd0c29faf |
+| updating git fetch to align with latest cmake changes        | cabbage   | 2024-11-30 | 136d1ec4aeb004b25249aed2dff81fbbd0f1a5d7 |
+| updating git fetch dep script                                | cabbage   | 2024-11-30 | a3cce7c32ba7b01af252025e7b865a788f23c605 |
+| updating fetch deps script                                   | cabbage   | 2024-11-30 | 6f40240bbe5b1833be6858f479a4cdedc1eee6ed |
+| fixing issue in processBlock whereby the input was being ove | cabbage   | 2024-11-29 | 3e8d2056bc4a4614fc29cac7b9a85590fe9355db |
+| updating generate dep script                                 | cabbage   | 2024-11-29 | 08916f2653d7722dc30c194d2ce302a9901a1c3c |
+| updating iplug2 HDA and adding simple utility script to gene | cabbage   | 2024-11-29 | 76f9c4f5830cffc91acf7fbf3ce2a27b96cc4d75 |
+| removing configs                                             | cabbage   | 2024-11-28 | b57cb52a1b953bf8cd6e8c1c433b9cc4fd3d06df |
+| Update license.md                                            | cabbage   | 2024-11-28 | 9558e2ba285bd7f360fa340cb8fae939f8a4e0d7 |
+| Update license.md                                            | cabbage   | 2024-11-28 | 97697ba688a4322a65f9d1482ad6103d280e2a3f |
+| updating license and copyright info                          | cabbage   | 2024-11-28 | 4e3d5a733c94d4ba73d4f4752e6f4413236d442f |
+| updating readme                                              | cabbage   | 2024-11-28 | 41385e9b0557b809c7086ded572e12d8b0658b86 |
+| fixing typos in CabbageApp define                            | cabbage   | 2024-11-28 | f590218762b392c88959c1e88e36c87aa98e5f2f |
+| updating main with cmake branch                              | cabbage   | 2024-11-28 | 796ed380338d3bc8cf03fe9883d11726cce325b5 |
+| removing action on main branch                               | cabbage   | 2024-11-07 | 770aa9870fbc4a16b0ec9b5045892fcbe3c90c4c |
+| adding CI build for MacOS                                    | cabbage   | 2024-11-07 | a0bdf0a2082764c2bc61017946440965bf6251d6 |
+| updating widget src files to work with objects for bounds/ra | cabbage   | 2024-09-29 | d0cedb20bf04aa11302d2bacf92bcae8f21c6f7a |
+| updating all cabbageSet opcodes to work with dot notation, u | cabbage   | 2024-09-27 | ccb6600bab01e68e07da2063f3f8994cd36b4f9c |
+| Update CMakeLists.txt                                        | cabbage   | 2024-09-25 | 8848258c83b44f190c6e4fcb88ad271cd0383d4b |
+| removing widget descriptor file                              | cabbage   | 2024-09-25 | 5dc35a7d9db8336643272d8d61d2925a2255ab5d |
+| removing CabbageWidgetDescriptor file and moving class to Ca | cabbage   | 2024-09-25 | e14c176b63418f3a779233a6f7df706e195d72b1 |
+| fixing some path issues on Window - updating generate.sh to  | cabbage   | 2024-09-25 | 214efc6169794ec8e90e47cbae0de9e7e6e0d666 |
+| fixing misc build errors on Windows - Build number: 0.0.99   | cabbage   | 2024-09-25 | ee24387a2f65db178370f8988ab369d344a862e8 |
+| moving generic webview functions into header file so it's mo | cabbage   | 2024-09-24 | 1a0a75fb78aa321a3b1f790c469c43907e87ad73 |
+| Upsating windows build section - it wasn't pulling in the cu | cabbage   | 2024-09-23 | bd45a858defd4a066a3b5970c410e7630908e051 |
+| Remove `git checkout cmake` command from README              | cabbage   | 2024-09-23 | 350fd0ebb327d435df946f19727120d3a7a54f71 |
+| Remove and ignore .DS_Store files                            | cabbage   | 2024-09-23 | 6b1a58e0094253055a84a5a69deba4805ea42d16 |
+| Remove redundant trailing slash in `cd` command              | cabbage   | 2024-09-23 | 0f9116350a8d1e3edaa66f66b92366e404a7dae4 |
+| Switch iPlug2 submodule to branch `cmake`                    | cabbage   | 2024-09-23 | ba23fbd63cc299a8118f7b148e49a739c59f4f68 |
+| Update IXWebSocket build instructions                        | cabbage   | 2024-09-23 | 4be7e3fa16b04b43b04f534fd3c6ee3aabffcf7a |
+| Cleanup whitespace                                           | cabbage   | 2024-09-22 | 3947dc5a25ef91f6d7a997f302e861b799143d8d |
+| updating readme                                              | cabbage   | 2024-09-22 | 419cd6fa0968b1925c53695ba5874e5f4abaa792 |
+| updating choc path - Build number: 0.0.100                   | cabbage   | 2024-09-22 | eee489cd262dd2ace7d3e4e3d722168bc717b024 |
+| updating choc path - Build number: 0.0.99                    | cabbage   | 2024-09-22 | 63649bed635ab63000f41d22e9dc161790f75083 |
+| updaring build instructions                                  | cabbage   | 2024-09-22 | 19c7dfdb44c2aa4dad9f65bfaf77f48cecdcb136 |
+| fixing path issue in patch                                   | cabbage   | 2024-09-22 | c34690185adfe9b490da3f2f0fcfd1bfabb02190 |
+| updating build instructions                                  | cabbage   | 2024-09-22 | f623714740da314c041ce6dff7750b4285b69cc7 |
+| updating readme.md                                           | cabbage   | 2024-09-22 | c9f92cba7ce7bb6ffe0efcd35c6a1624279bd0d8 |
+| updating cmakelists                                          | cabbage   | 2024-09-22 | f1bfd20a50a8e527f999e86e93775aea25404084 |
+| updating README.md                                           | cabbage   | 2024-09-22 | fd341004c661425149f7dc4b307bb921dfff6ac9 |
+| updating patches and various other things                    | cabbage   | 2024-09-22 | 3230538a2483fc362f8c9f140c89716a34674da3 |
+| adding choc submodule                                        | cabbage   | 2024-09-22 | 5132d9df10c7818002d556595baef867146a5b0b |
+| updating scripts                                             | cabbage   | 2024-09-22 | 32c457f1bc5f314f468bf36ba2307ff753383321 |
+| removing base delegate                                       | cabbage   | 2024-09-22 | f0a89b8ec876816976c8931c1bde3457de0ea482 |
+| updating submodules                                          | cabbage   | 2024-09-22 | 5e7bb04db80a89953387e4109dab1188aeaf44e7 |
+| updating cmakelists                                          | cabbage   | 2024-09-16 | 7b32f1a06086c01a38b8bf2a0dd6244d8d9f3165 |
+| removing widget descriptors in favour of runtime parsing of  | cabbage   | 2024-09-15 | e3c003a773f6525ee42baf4bdbdd656ecf3acb04 |
+| various updates to vore system - Build number: 0.0.97        | cabbage   | 2024-09-12 | 6a64086bb8055215f59161da87f4d9d4c5869380 |
+| updating builds for Windows                                  | cabbage   | 2024-09-12 | cf7b4c39b49cb386d6e51c215551eb7f210e0aa6 |
+| switching to JSON syntax - Build number: 0.0.96              | cabbage   | 2024-09-03 | b306326346290e5cc6339095c2e48a950568c1e0 |
+| moving toward json syntax - Build number: 0.0.95             | cabbage   | 2024-08-11 | 2505b171a0d831827959ab25b4daf0e3b0a7dc7a |
+| adding group/ungroup menu, and updating combobox - Build num | cabbage   | 2024-08-07 | bad454af257eb0f0e27d2ca7532d451f1efcb699 |
+| adding image, fixing label, and starting the process of port | cabbage   | 2024-08-01 | 3660d0e858466904780ce531beb41dbc703c8f97 |
+| removine all Csound query global vars code as they are movin | cabbage   | 2024-07-31 | 11a4a9ab069295cf9a1bbfd9c9f4d9b8c6bf8af0 |
+| widget JSONs now managed and owned by plugin processor - Bui | cabbage   | 2024-07-31 | bd74140327ede789ce4c495d49438ddf2842f374 |
+| updating current dev state - Build number: 0.0.90            | cabbage   | 2024-07-16 | 4f27a83d2a043f12b98c6c49efdaf1c7be342881 |
+| added combobox logic - Build number: 0.0.89                  | cabbage   | 2024-07-15 | dd553f34475e61032c62e4a79948aa90e0f2bd38 |
+| Build number: 0.0.88 VSCabbage: main.js  Cabbage: CMakeLists | cabbage   | 2024-07-05 | 8eded526ac8dee62211bf8d9481f893716d6266b |
+| Build number: 0.0.82 VSCabbage:  - Modified: vscabbage/dist/ | cabbage   | 2024-07-04 | 0a2833a42de4056c071d1260fd47a18e3ec7d606 |
+| Proposed Commit: - Version number: 0.0.81 ICabbage/Cabbage:  | cabbage   | 2024-07-04 | 846c7d941f631d82aa8082b96cfcaa144dea6912 |
+| updating - Version number:0.0.61                             | cabbage   | 2024-07-03 | 47b266bb879ecfdf490e1ae0d10b2e58e52e5aee |
+| updating - Version number:0.0.60                             | cabbage   | 2024-07-02 | da3f3d1e523a67df3c069b78bdc170f4122de6b7 |
+| updating - Version number:0.0.59                             | cabbage   | 2024-07-01 | 2c018a45787aaa97a759a88f66c176711f4884e4 |
+| updating button and various other interactions between JS an | cabbage   | 2024-06-29 | c15948f3a1e1c38ba3dc42cc77dc7b0f74116f5e |
+| update vscode extension so that we can browse for sound file | cabbage   | 2024-06-25 | 5f3e112223ef15d8962dcac70b9fcd87dddeaab7 |
+| adding trigger variant of cabbageGetValue for strings - Vers | cabbage   | 2024-06-22 | cb6802718a9a5b46404b0701c26a15457f0516f9 |
+| updating gentable code - Version number:0.0.55               | cabbage   | 2024-06-22 | d717c77104edb0cea3294c10051f8b718d05d6d9 |
+| updating gentable code - Version number:0.0.54               | cabbage   | 2024-06-22 | 56d3bb44b5395ac7a4630832d7b96cce9a8782b6 |
+| fixing gentable - Version number:0.0.53                      | cabbage   | 2024-06-19 | f37d17dd093b9f7711d5cf473660466483d8941b |
+| adding gentable - Version number:0.0.52                      | cabbage   | 2024-06-18 | f7e5f5acf0410f3b6ea6d401212ca0573a7572e2 |
+| adding native file browser for filebutton - Version number:0 | cabbage   | 2024-06-15 | 1c6d191539b099c56d7e1ef0dad936c67a8c1596 |
+| fixing form issue with getInnerHTML() - Version number:0.0.5 | cabbage   | 2024-06-14 | 6b2c0979c909a14d20df5d0bb44bd21e095d53c0 |
+| added tests the settings and getting every known identifier  | cabbage   | 2024-06-13 | 1ead22f76f0a4ec7c00d805227c82d8769eaf6a5 |
+| adding cabbageGet for single string args and values - also s | cabbage   | 2024-06-12 | adaa5e8e06230e3a970006ada994516f899bfb1f |
+| fixing labels and alignment - Version number:0.0.47          | cabbage   | 2024-06-11 | c8db0ea7ad0f001dfa4cedd7d8d1058f9f9cc107 |
+| adding alpha color picker thanks to https://taufik-nurrohman | cabbage   | 2024-06-11 | b1bd639b0595278e570a011b4a4dc4d343bc9211 |
+| adding alpha color picker thanks to https://taufik-nurrohman | cabbage   | 2024-06-11 | 8e1aed4e83a4796dbde1160a21c664e793457bcc |
+| fixing combobox and adding label - Version number:0.0.44     | cabbage   | 2024-06-10 | 8fbb76c8e45f8adfe865a7bd3c5c04b2f3709e3a |
+| adding button class - Version number:0.0.43                  | cabbage   | 2024-06-08 | 2b48107f54bf960c3f7773e611ba95d750c2572b |
+| adding ui updates for incoming midi notes - Version number:0 | cabbage   | 2024-06-07 | ed2ee6e1d39a5380733220b2f5e5ed0539544e8f |
+| adding MIDI handlers in both the JS and C++ side - Version n | cabbage   | 2024-06-07 | fe2860f4c717354afe1ceb69ad17015a33d98c16 |
+| finishing up phase one of sliders - Version number:0.0.40    | cabbage   | 2024-06-06 | b2f6b3f2e9b17857aa1fb61015429ec7202a8ab9 |
+| adding active and visible to sliders - Version number:0.0.39 | cabbage   | 2024-06-06 | 57fb27f213ccaff3ca07084569824a239bb38400 |
+| upsating slider classes - Version number:0.0.38              | cabbage   | 2024-06-06 | 6c626912e1f4f3f948a8a7b639f5cf7eb73d0003 |
+| updating hslider - replacing svg value box with input value  | cabbage   | 2024-06-06 | 220291cc0b8643e44a29e12e25ab916b187c81dd |
+| updating hslider with value text box element - Version numbe | cabbage   | 2024-06-06 | 8f3f8c4294712edeb2bb634559dc798a2a968c16 |
+| updating hslider with text element - Version number:0.0.35   | cabbage   | 2024-06-06 | 58cf89e94d4fca5129e1ad843487c0d0e315337d |
+| wrapping some functions in classes and adding v and h slider | cabbage   | 2024-06-03 | b18abe8e66c14bab97262a56d46f06f8027d2d91 |
+| updating css styling for rotary slider - Version number:0.0. | cabbage   | 2024-06-02 | f081d217cd55e7ed72a51f7f9e255ab446e039cf |
+| removing wanrings for ts file - Version number:0.0.32        | cabbage   | 2024-06-02 | d6174a9c8d620074f85bbbe1c4c61f7f92b91223 |
+| refactoring and fixing popup position - Version number:0.0.3 | cabbage   | 2024-06-02 | 4497cc46f42769147ab1738c4888eb11cc3a0622 |
+| updating before refactoring - Version number:0.0.30          | cabbage   | 2024-06-02 | b75aa5576a69f6cb2cd1a61b2a5670c0880b5415 |
+| fixing issue when dragging multiple elements in the UI desig | cabbage   | 2024-05-31 | 15b7a2c05ca33e5cf0ef69d66dd6d21eb102c7f3 |
+| updating UI designer - Version number:0.0.28                 | cabbage   | 2024-05-30 | 8ab498d62eabc3625885078c576dfe572f7ac9ad |
+| updsating UI designer - Version number:0.0.27                | cabbage   | 2024-05-30 | 1bc90e7cfee19eeaca3c751a35c54f6346945229 |
+| adding snapToSize to settings - Version number:0.0.26        | cabbage   | 2024-05-30 | d36f1f0cbfd9e7575ead08b42a0125a3193e5a97 |
+| updating selection logic - Version number:0.0.25             | cabbage   | 2024-05-30 | 8cd7971685ba148ffc6a0585dc387479270cd356 |
+| adding drag and select functionality to UI designer - Versio | cabbage   | 2024-05-30 | 7394eae8c2811e14bff456074d933fa78c90db3d |
+| updating styles, and organising property panels into section | cabbage   | 2024-05-28 | 58f2ce0d5d05581423bec52d165e8a6a6ef29cf6 |
+| fixing webview focus issue by adding respondOnFirstClick - V | cabbage   | 2024-05-26 | 2b806c0f7f036ec0e8ee580b17075e272e1fc7cd |
+| adding sample and updating various scripts - Version number: | cabbage   | 2024-05-21 | e284e382a40c8c2247e3fd4b9f150a19df75faeb |
+| added basic webview support to plugin interfaces - Version n | cabbage   | 2024-05-04 | ba6cb3df3466ee8ff16f3b4cea26cb187f35bd8d |
+| updating the CabbageFile class - Version number:0.0.19       | cabbage   | 2024-05-03 | c10b27d80dae8b063291c1f581c9e0d05f9030f8 |
+| removing uneeded folder - Version number:0.0.18              | cabbage   | 2024-05-03 | b1120f926530ada94b2c73e386b4eb9b33e96b7b |
+| adding hocus pocus scripts to help generate multiple project | cabbage   | 2024-05-03 | 8dba91a84ea93b3c73e8fcb809601b2651f540e6 |
+| adding basic indentifier update support - Version number:0.0 | cabbage   | 2024-05-02 | 5159afcd57f80d670aa06649ee68e053c36b7ad6 |
+| pushing latest pof updates - Version number:0.0.15           | cabbage   | 2024-05-02 | a09fef5fd1fc4e4b8780aa1c7d5a3fc6839920d3 |
+| added lock free queue for communicating between Csound and p | cabbage   | 2024-05-02 | 47d2d93fcbc39620da7bbdeca99e6c8f67e4a9c2 |
+| fixing more windows issues - Version number:0.0.13           | cabbage   | 2024-05-01 | 0adf631a2515d53efaf6b5e8ccc8b0c02ad66858 |
+| updating windows build and adding opcodes folder - Version n | cabbage   | 2024-05-01 | 461d5beef4278a3aff3dabf33b3a1e0a3262e6f8 |
+| fixing form in vscode extension - Version number:0.0.11      | cabbage   | 2024-05-01 | 41cd0d8f79ced3769ee7fd1fdd27d7d07bc23f00 |
+| updating - Version number:0.0.10                             | cabbage   | 2024-04-30 | 4d7224601f6d1ce3297f1e48ac8e397dd184ac08 |
+| updating readme                                              | cabbage   | 2024-04-30 | f0a5e3f675156754e95678df2a1dce3a37c282ff |
+| fixing commit script - Version number:0.0.9                  | cabbage   | 2024-04-30 | ffb59da9c69bff5408dfa74d200bc5b94a950906 |
+| fixing makefile for windows - Version number:0.0.8           | cabbage   | 2024-04-30 | e9c67e2e871cd0e1c055373d5ceb91e5774c7178 |
+| updating after gitignore                                     | cabbage   | 2024-04-30 | 22c385f61b3f57a74e262c44c8d9194c5e7d7ebe |
+| updating windows cmake lists - Version number:0.0.7          | cabbage   | 2024-04-30 | f46ff9e163638361c51165b3b8d4256825da0749 |
+| restructuring source files and adding new several new classe | cabbage   | 2024-04-29 | 5aba1caf308a7e1009f7f6410d443e1ea90a7d89 |
+| adding chanell communication - Version number:0.0.5          | cabbage   | 2024-04-29 | 9ee7cbe5fc7505c3eb4ee7b00d358ffc297a9a2d |
+| adding Csound to process block, and adding mechansim to pass | cabbage   | 2024-04-27 | dd09938082adbc9ef98ab26a87794d505428f87c |
+| adding basic Csound support - Version number:0.0.3           | cabbage   | 2024-04-26 | 2caf73baf0b6355b60cb12a8254b46889ffcfdb3 |
+| updating readme name - Version number:0.0.2                  | cabbage   | 2024-04-26 | 94462f9e02951e720b5116656b3739857dd6e31a |
+| updating project name - Version number:0.0.1                 | cabbage   | 2024-04-26 | 33dff1506f4a5af2652b9468bd92343336c776ba |
+| updating app dir                                             | cabbage   | 2024-04-26 | 77b34ff625145bf5b01b0aad93859f6ecc9b58df |
+| updating patch                                               | cabbage   | 2024-04-26 | 25c18dece6f088023c91c21065fb04551880ea53 |
+| adding CUSTOM_EDITOR patch                                   | cabbage   | 2024-04-26 | 8db644f89772be471e4ebeb903a0d70eb9fc8ced |
+| updating                                                     | cabbage   | 2024-04-26 | a2233c618fabac6ec053f45bc70efb444e6c7793 |
+| updating submodules                                          | cabbage   | 2024-04-26 | e3b0547a0ada16c8c3b4849d1ae81a310e784dbd |
+| adding icabbage project                                      | cabbage   | 2024-04-26 | f02130f553e7955d850ec80ee2e789d7b91ea058 |
+| adding vscode project                                        | cabbage   | 2024-04-26 | a7d38d554c837c0e616cb31439bb4b612fd69fe3 |
 | Harden activation across updates and gate backend noise behi | vscabbage | 2026-10-07 | 8116cfbabace5144622e6059a7de9b0391bb8b5f |
 | Split multi-line debug logs into single-line statements      | cabbage3  | 2026-10-07 | 9c465db02bfe2b1a319462489d11a6af7504f9c3 |
 | Silence success-path logs, promote warnings to errors        | cabbage3  | 2026-10-07 | 29c4dcc28a6fe1b7373574737dbdd3c6d033c521 |
