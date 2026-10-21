@@ -1,5 +1,5 @@
 
-# VSCabbage - ttps://cabbageaudio.com
+# [VSCabbage](https://cabbageaudio.com)
 
 **Build, edit, and preview Cabbage audio instruments directly in Visual Studio Code.**
 
