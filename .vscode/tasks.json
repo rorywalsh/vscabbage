@@ -4,6 +4,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "vscabbage: watch",
 			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$ts-webpack-watch",
@@ -31,7 +32,7 @@
 		{
 			"label": "tasks: watch-tests",
 			"dependsOn": [
-				"npm: watch",
+				"vscabbage: watch",
 				"npm: watch-tests"
 			],
 			"problemMatcher": []

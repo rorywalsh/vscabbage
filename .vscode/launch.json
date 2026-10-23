@@ -6,16 +6,16 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run Extension",
+			"name": "Run vscabbage Extension",
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder:vscabbage}"
 			],
 			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
+				"${workspaceFolder:vscabbage}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "vscabbage: watch"
 		}
 	]
 }
