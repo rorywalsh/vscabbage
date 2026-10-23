@@ -10,18 +10,14 @@ import os from 'os';
 import fs from 'fs';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
-import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 import { Settings } from './settings';
-
-// Helper to format JSON using FracturedJson
-function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
-    const formatter = new Formatter();
-    const fjOptions = new FracturedJsonOptions();
-    fjOptions.MaxTotalLineLength = options.maxLength;
-    fjOptions.IndentSpaces = options.indent;
-    formatter.Options = fjOptions;
-    return formatter.Serialize(obj) ?? '';
-}
+import { formatJsonText, minifyJsonText } from './utils/jsonFormat';
+import {
+    JsoncParseError,
+    parseCabbageJson,
+    parseJsonc,
+    reconcileJsonDocument,
+} from './utils/jsonc';
 
 
 /** 
@@ -55,8 +51,8 @@ export class ExtensionUtils {
         if (!showWarning) {
             return "";
         }
-        return `<!--⚠️ Warning: Any custom formatting (indentation, spacing, or comments) may 
-be lost when working with the UI editor. -->\n`;
+        return `<!--⚠️ Warning: Cabbage may reformat this JSON when using the UI editor.
+Comments are preserved, but whitespace and property ordering may change. -->\n`;
     }
 
     /**
@@ -504,7 +500,7 @@ be lost when working with the UI editor. -->\n`;
 
         let props: WidgetProps;
         try {
-            props = JSON.parse(jsonText);
+            props = parseJsonc<WidgetProps>(jsonText);
         } catch (error) {
             console.error("Failed to parse JSON text:", error);
             vscodeOutputChannel.append(`Failed to parse JSON text: ${error}`);
@@ -548,9 +544,9 @@ be lost when working with the UI editor. -->\n`;
             const cabbageContent = cabbageMatch[1].trim();
 
             try {
-                const parsed = JSON.parse(cabbageContent);
+                const parsed = parseCabbageJson(cabbageContent);
                 // Support both old array format and new object format with "widgets" key
-                const cabbageJsonArray = (Array.isArray(parsed) ? parsed : parsed.widgets) as WidgetProps[];
+                const cabbageJsonArray = parsed.widgets as WidgetProps[];
                 const hasFormType = cabbageJsonArray.some(obj => obj.type === 'form');
 
                 if (!hasFormType) {
@@ -748,20 +744,41 @@ be lost when working with the UI editor. -->\n`;
 
                     const config = vscode.workspace.getConfiguration("cabbage");
 
-                    // Preserve top-level properties (e.g. package) when updating widgets
-                    const cabbageObject = Array.isArray(parsed)
-                        ? { widgets: cabbageJsonArray }
-                        : { ...parsed, widgets: cabbageJsonArray };
-
-                    // Use the FracturedJson formatter and config
+                    // Use the FracturedJson formatter and config.
                     const indentSpaces = config.get("jsonIndentSpaces", 4);
                     const maxLength = config.get("jsonMaxLength", 120);
-                    const formattedJson = formatJson(cabbageObject, { maxLength: maxLength, indent: indentSpaces });
+                    const formatOptions = { maxLength: maxLength, indent: indentSpaces };
 
-                    const isInSameColumn = panel && textEditor && panel.viewColumn === textEditor.viewColumn;
+                    // Preserve top-level properties (e.g. package) and the
+                    // original root shape (legacy array vs object+widgets).
+                    const cabbageObject = Array.isArray(parsed.root)
+                        ? cabbageJsonArray
+                        : { ...parsed.root, widgets: cabbageJsonArray };
+
+                    // If this update is a channel rename, match the desired
+                    // widget against the old id so it is updated in place and
+                    // its comments are retained.
+                    const aliases: Record<string, string> = {};
+                    if (oldId) {
+                        const newId = getChannelId(props);
+                        if (newId && newId !== oldId) {
+                            aliases[oldId] = newId;
+                        }
+                    }
+
+                    // Patch only the values that changed instead of
+                    // re-serializing the whole object. This keeps comments and
+                    // formatting in untouched widgets.
+                    const reconciledJson = reconcileJsonDocument(cabbageContent, cabbageObject, formatOptions, aliases);
+                    let formattedJson = reconciledJson;
+                    try {
+                        formattedJson = formatJsonText(reconciledJson, formatOptions);
+                    } catch (formatError) {
+                        console.error('ExtensionUtils.updateText: failed to reformat Cabbage JSON:', formatError);
+                    }
 
                     // Build the updated cabbage section
-                    const updatedCabbageSection = this.getWarningComment() + `<Cabbage>${formattedJson}</Cabbage>`;
+                    const updatedCabbageSection = this.getWarningComment() + `<Cabbage>\n${formattedJson}\n</Cabbage>`;
 
                     // Get a FRESH text editor reference right before editing
                     // CRITICAL: The editor/document captured at the start of this function may be stale
@@ -821,14 +838,23 @@ be lost when working with the UI editor. -->\n`;
                     // All post-processing (highlighting, cursor restoration) removed to prevent LSP sync issues
                 }
             } catch (parseError) {
-                return;
+                // External JSON files are referenced with #include rather than
+                // a JSON payload. If the Cabbage section isn't inline JSON,
+                // update the included file instead of treating this as a
+                // fatal parse error.
+                if (cabbageContent.includes('#include')) {
+                    externalFile = ExtensionUtils.getExternalJsonFileName(cabbageContent, document.fileName);
+                }
+                if (!externalFile) {
+                    return;
+                }
             }
         } else {
             // No Cabbage section found, add one using the setting
             const config = vscode.workspace.getConfiguration("cabbage");
             const cabbageSectionPosition = config.get('cabbageSectionPlacement', 'top');
 
-            const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be rewritten by the Cabbage UI editor. This means any\ncustom formatting (indentation, spacing, or comments) may be\nlost when the file is saved through the editor.\n-->\n`;
+            const warningComment = `<!--\n⚠️ Warning:\nAlthough you can manually edit the Cabbage JSON code, it will\nalso be reformatted by the Cabbage UI editor. Comments are\npreserved, but whitespace and property ordering may change.\n-->\n`;
 
             const cabbageContent = warningComment + `
 <Cabbage>{
@@ -937,9 +963,8 @@ be lost when working with the UI editor. -->\n`;
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
 
-            // Parse and format the JSON content
-            const jsonObject = JSON.parse(jsonContent.trim());
-            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            // Reformat the text directly so JSONC comments are preserved.
+            const formattedJson = formatJsonText(jsonContent.trim(), { maxLength: maxLength, indent: indentSpaces });
             return beforeTag + '\n' + formattedJson + '\n' + afterTag;
         } catch (error) {
             // If JSON parsing fails, return the original section
@@ -948,21 +973,16 @@ be lost when working with the UI editor. -->\n`;
     }
 
     static collapseCabbageContent(cabbageContent: string): string {
-        let formattedCabbageText = '';
         try {
-            const parsed = JSON.parse(cabbageContent);
-            if (Array.isArray(parsed)) {
-                formattedCabbageText = ExtensionUtils.formatJsonObjects(parsed, '') + '\n';
-            } else if (parsed && typeof parsed === 'object') {
-                // Preserve top-level keys like "package" when collapsing object-form JSON
-                formattedCabbageText = JSON.stringify(parsed) + '\n';
-            } else {
-                formattedCabbageText = cabbageContent + '\n';
-            }
+            const config = vscode.workspace.getConfiguration("cabbage");
+            const indentSpaces = config.get("jsonIndentSpaces", 4);
+            const maxLength = config.get("jsonMaxLength", 120);
+
+            // Minify the text directly, keeping JSONC comments.
+            return minifyJsonText(cabbageContent, { maxLength: maxLength, indent: indentSpaces }) + '\n';
         } catch (error) {
-            formattedCabbageText = cabbageContent + '\n'; // If parsing fails, keep the original content
+            return cabbageContent + '\n'; // If parsing fails, keep the original content
         }
-        return formattedCabbageText;
     }
 
     static formatNonCabbageContent(lines: string[], indentString: string): string[] {
@@ -1473,7 +1493,14 @@ be lost when working with the UI editor. -->\n`;
 
     static async updateExternalJsonFile(editor: vscode.TextEditor, props: WidgetProps, defaultProps: WidgetProps, oldId?: string) {
         const document = editor.document;
-        const jsonArray = JSON.parse(document.getText()) as WidgetProps[];
+        const originalText = document.getText();
+        const parsedExternal = parseJsonc<any>(originalText);
+        const isArrayRoot = Array.isArray(parsedExternal);
+        const jsonArray = (isArrayRoot ? parsedExternal : parsedExternal?.widgets) as WidgetProps[];
+
+        if (!Array.isArray(jsonArray)) {
+            throw new Error('External Cabbage JSON must be an array of widgets or an object with a "widgets" array');
+        }
 
         // The property panel now sends minimized props; perform a deep-merge
         // into the external JSON array so nested updates don't clobber defaults.
@@ -1532,12 +1559,32 @@ be lost when working with the UI editor. -->\n`;
             }
         }
 
-        const updatedContent = JSON.stringify(jsonArray, null, 2);
+        const config = vscode.workspace.getConfiguration("cabbage");
+        const indentSpaces = config.get("jsonIndentSpaces", 4);
+        const maxLength = config.get("jsonMaxLength", 120);
+        const formatOptions = { maxLength: maxLength, indent: indentSpaces };
+
+        const aliases: Record<string, string> = {};
+        if (oldId) {
+            const newId = getChannelId(props);
+            if (newId && newId !== oldId) {
+                aliases[oldId] = newId;
+            }
+        }
+
+        const desiredRoot = isArrayRoot ? jsonArray : { ...parsedExternal, widgets: jsonArray };
+        const reconciled = reconcileJsonDocument(originalText, desiredRoot, formatOptions, aliases);
+        let updatedContent = reconciled;
+        try {
+            updatedContent = formatJsonText(reconciled, formatOptions);
+        } catch (formatError) {
+            console.error('ExtensionUtils.updateExternalJsonFile: failed to reformat JSON:', formatError);
+        }
 
         await editor.edit(editBuilder => {
             const entireRange = new vscode.Range(
                 document.positionAt(0),
-                document.positionAt(document.getText().length)
+                document.positionAt(originalText.length)
             );
             editBuilder.replace(entireRange, updatedContent);
         });
@@ -1786,13 +1833,15 @@ ${csoundSection}`;
             const match = editor.getText().match(cabbageRegex);
             let cabbageStartIndex = 0;
             if (match) {
-                cabbageStartIndex = match.index! + match[0].indexOf(match[1]);
+                const rawContent = match[1];
+                const leading = rawContent.length - rawContent.trimStart().length;
+                cabbageStartIndex = match.index! + match[0].indexOf(rawContent) + leading;
             }
 
             try {
-                const parsed = JSON.parse(cabbageContent);
+                const parsed = parseCabbageJson(cabbageContent);
                 // Support both old array format and new object format with "widgets" key
-                const jsonArray = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.widgets) ? parsed.widgets : []);
+                const jsonArray = parsed.widgets;
 
                 console.log(`ExtensionUtils: validateCabbageJSON checking ${jsonArray.length} widgets`);
 
@@ -1945,9 +1994,10 @@ ${csoundSection}`;
                 Commands.getOutputChannel().show();
 
                 // Set diagnostic for the error
+                const jsoncOffset = error instanceof JsoncParseError ? error.errors[0]?.offset : undefined;
                 const positionMatch = errorMessage.match(/at position (\d+)/);
-                if (positionMatch && match) {
-                    const jsonPosition = parseInt(positionMatch[1]);
+                const jsonPosition = jsoncOffset ?? (positionMatch ? parseInt(positionMatch[1]) : undefined);
+                if (jsonPosition !== undefined && match) {
                     const documentPosition = cabbageStartIndex + jsonPosition;
 
                     const beforeError = editor.getText().substring(0, documentPosition);
@@ -2306,14 +2356,10 @@ ${csoundSection}`;
 
         if (fs.existsSync(configPath)) {
             try {
-                // Strip comments before parsing (JSONC support).
-                // Only strip // at the start of a line (after optional whitespace) to
-                // avoid mangling URLs like "http://localhost:5173" that contain //.
+                // Parse as JSONC so comments are allowed. This also leaves
+                // strings containing // (e.g. http://localhost) untouched.
                 const raw = fs.readFileSync(configPath, 'utf8');
-                const stripped = raw
-                    .replace(/^\s*\/\/.*$/gm, '')
-                    .replace(/\/\*[\s\S]*?\*\//g, '');
-                const config = JSON.parse(stripped);
+                const config = parseJsonc<any>(raw);
 
                 if (typeof config.entry === 'string') {
                     const entry = config.entry.trim();
@@ -2378,7 +2424,7 @@ ${csoundSection}`;
             const text = fs.readFileSync(csdFilePath, 'utf8');
             const match = text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/);
             if (!match) { return null; }
-            const json = JSON.parse(match[1]);
+            const json = parseJsonc<any>(match[1]);
             const widgets: any[] = Array.isArray(json)
                 ? json
                 : (Array.isArray(json?.widgets) ? json.widgets : [json]);
