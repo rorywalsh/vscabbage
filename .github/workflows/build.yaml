@@ -387,10 +387,39 @@ jobs:
           Start-Sleep -Seconds 5
 
       - name: Verify Csound
+        shell: pwsh
         run: |
-          ls "C:\Program Files\Csound7"
-          ls "C:\Program Files\Csound7\lib"
-          ls "C:\Program Files\Csound7\include\csound"
+          # Csound 7.0.0's Windows package was rebuilt with USE_LIB64 and
+          # "csound7_64" library names. Older installers used lib\csound64.
+          # Accept both layouts so an upstream repackage doesn't break this job.
+          $root = "C:\Program Files\Csound7"
+          if (-not (Test-Path $root)) {
+            Write-Error "Csound is not installed at $root"
+            exit 1
+          }
+
+          Get-ChildItem $root
+          Get-ChildItem (Join-Path $root "bin")
+          Get-ChildItem (Join-Path $root "include\csound")
+
+          $dll = Get-ChildItem -Path (Join-Path $root "bin") -File |
+            Where-Object { $_.Name -in @("csound7_64.dll", "csound64.dll") } |
+            Select-Object -First 1
+          if (-not $dll) {
+            Write-Error "No Csound DLL found in $root\bin"
+            exit 1
+          }
+
+          $lib = Get-ChildItem -Path $root -Recurse -File |
+            Where-Object { $_.Name -in @("csound7_64.lib", "libcsound7_64.lib", "csound64.lib", "libcsound64.lib") } |
+            Select-Object -First 1
+          if (-not $lib) {
+            Write-Error "No Csound import library found under $root"
+            exit 1
+          }
+
+          Write-Host "Found Csound DLL: $($dll.FullName)"
+          Write-Host "Found Csound import library: $($lib.FullName)"
 
       - name: Configure and build
         shell: cmd

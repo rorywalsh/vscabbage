@@ -84,13 +84,21 @@ export function checkCsoundPresent(env: ValidationEnv): CheckResult {
             };
     }
     if (env.platform === 'win32') {
-        const dll = 'C:/Program Files/Csound7/bin/csound64.dll';
-        return env.exists(dll) || env.isOnPath('csound64.dll') || env.isOnPath('csound')
-            ? { ...base, status: 'pass', detail: `Found ${dll} or Csound on PATH` }
-            : {
-                ...base, status: 'fail', detail: `Not found: ${dll}, and no Csound on PATH`,
-                remedy: 'Install Csound 7 and ensure csound64.dll is in C:/Program Files/Csound7/bin or on PATH.',
-            };
+        const bin = 'C:/Program Files/Csound7/bin';
+        // Csound 7.0.0's Windows package was rebuilt with the csound7_64 name;
+        // older installers used csound64.dll. Accept both.
+        const dlls = ['csound7_64.dll', 'csound64.dll'];
+        const installed = dlls.map((name) => `${bin}/${name}`).find((p) => env.exists(p));
+        if (installed) {
+            return { ...base, status: 'pass', detail: `Found ${installed}` };
+        }
+        if (dlls.some((name) => env.isOnPath(name)) || env.isOnPath('csound')) {
+            return { ...base, status: 'pass', detail: 'Found Csound on PATH' };
+        }
+        return {
+            ...base, status: 'fail', detail: `Not found: ${bin}/csound7_64.dll or ${bin}/csound64.dll, and no Csound on PATH`,
+            remedy: 'Install Csound 7 and ensure csound7_64.dll (or csound64.dll) is in C:/Program Files/Csound7/bin or on PATH.',
+        };
     }
     const bin = '/usr/local/bin/csound';
     const lib = '/usr/local/lib/csound';

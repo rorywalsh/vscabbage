@@ -194,6 +194,16 @@ describe('checkCsoundPresent', () => {
         const env = baseEnv({ platform: 'win32', exists: () => false, isOnPath: () => true });
         assert.strictEqual(checkCsoundPresent(env).status, 'pass');
     });
+    it('accepts the csound7_64.dll name shipped by Csound 7.0.0 on Windows', () => {
+        const env = baseEnv({
+            platform: 'win32',
+            exists: (p) => p === 'C:/Program Files/Csound7/bin/csound7_64.dll',
+            isOnPath: () => false,
+        });
+        const r = checkCsoundPresent(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('csound7_64.dll'));
+    });
 });
 
 describe('runAllChecks', () => {

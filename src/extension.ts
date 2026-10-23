@@ -1162,22 +1162,26 @@ function pathExists(p: string): boolean {
 }
 
 /**
- * Function to check if csound64.dll is available in the system PATH
+ * Function to check if a Csound DLL is available in the system PATH.
+ * Csound 7.0.0's Windows package ships csound7_64.dll; older installers used
+ * csound64.dll. Accept both.
  */
 function isCsoundInPath(): boolean {
     try {
         const pathEnv = process.env.PATH || '';
         const pathDirs = pathEnv.split(path.delimiter);
+        const dllNames = ['csound7_64.dll', 'csound64.dll'];
 
         for (const dir of pathDirs) {
-            const dllPath = path.join(dir, 'csound64.dll');
-            if (fs.existsSync(dllPath)) {
-                return true;
+            for (const name of dllNames) {
+                if (fs.existsSync(path.join(dir, name))) {
+                    return true;
+                }
             }
         }
         return false;
     } catch (error) {
-        console.error('Error checking PATH for csound64.dll:', error);
+        console.error('Error checking PATH for Csound DLL:', error);
         return false;
     }
 }
@@ -1220,9 +1224,12 @@ function onInstall() {
             }
         }
     } else if (process.platform === 'win32') {
-        if (!pathExists('C:/Program Files/Csound7/bin/csound64.dll') && !isCsoundInPath()) {
+        const csoundBin = 'C:/Program Files/Csound7/bin';
+        const hasInstalledDll = ['csound7_64.dll', 'csound64.dll']
+            .some((name) => pathExists(`${csoundBin}/${name}`));
+        if (!hasInstalledDll && !isCsoundInPath()) {
             Commands.getOutputChannel().append(
-                'ERROR: C:/Program Files/Csound7/bin/csound64.dll not found and csound64.dll not found in PATH\nA version of Csound 7 is required for the Cabbage extension to work\nPlease ensure Csound 7 is installed and csound64.dll is in your PATH\n');
+                'ERROR: Csound DLL not found in C:/Program Files/Csound7/bin and not found in PATH\nA version of Csound 7 is required for the Cabbage extension to work\nPlease ensure Csound 7 is installed and csound7_64.dll (or csound64.dll) is in your PATH\n');
         }
     } else {
         if (!pathExists('/usr/local/bin/csound') &&
