@@ -223,6 +223,32 @@ describe('reconcileJsonDocument', () => {
         assert.ok(result.includes('/* range note */'));
     });
 
+    it('updates a generated form posted with a runtime id without losing comments', () => {
+        const text = `{
+    "widgets": [
+        // form note
+        {
+            "type": "form",
+            /* caption note */
+            "caption": { "text": "Hello" }
+        }
+    ]
+}`;
+        // Generated CSD forms are stored without an id, but the runtime posts
+        // them as MainForm. The first identified update must edit the existing
+        // form in place rather than delete and reinsert it.
+        const desired = parseJsonc<any>(text);
+        desired.widgets[0].id = 'MainForm';
+        desired.widgets[0].caption.text = 'Goodbye';
+
+        const result = reconcileJsonDocument(text, desired, formatOptions);
+        assert.ok(result.includes('// form note'));
+        assert.ok(result.includes('/* caption note */'));
+        assert.ok(result.includes('"text": "Goodbye"'));
+        assert.ok(!result.includes('"text": "Hello"'));
+        assert.strictEqual((result.match(/"type": "form"/g) || []).length, 1);
+    });
+
     it('removes a channel while keeping comments inside a retained channel', () => {
         const text = `{
     "widgets": [

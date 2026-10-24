@@ -540,16 +540,18 @@ function reconcileWidgets(
         const matchId = id ? (reverseAliases[id] ?? id) : '';
         let currentIndex = matchId ? findWidgetIndex(currentWidgets, matchId, matchedCurrent) : -1;
 
-        if (currentIndex === -1 && !matchId) {
-            // Widgets without any id can only be matched positionally.
-            if (
-                desiredIndex < currentWidgets.length &&
-                !matchedCurrent.has(desiredIndex) &&
-                !getWidgetId(currentWidgets[desiredIndex]) &&
-                currentWidgets[desiredIndex]?.type === desired?.type
-            ) {
-                currentIndex = desiredIndex;
-            }
+        if (currentIndex === -1) {
+            // Widgets stored without any id (generated CSD forms, for example,
+            // which only receive the runtime id MainForm when their properties
+            // are posted) must be matched by type. Otherwise a known desired id
+            // makes the lookup fail and the widget is deleted and reinserted,
+            // dropping every comment inside it.
+            currentIndex = currentWidgets.findIndex(
+                (currentWidget, index) =>
+                    !matchedCurrent.has(index) &&
+                    !getWidgetId(currentWidget) &&
+                    currentWidget?.type === desired?.type
+            );
         }
 
         if (currentIndex === -1) {
