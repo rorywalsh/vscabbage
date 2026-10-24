@@ -79,6 +79,91 @@ export function parseCabbageJson(text: string): CabbageJsonRoot {
     throw new Error('Invalid Cabbage JSON structure: Expected either an array of widgets or an object with a "widgets" array');
 }
 
+export interface CabbageIncludeDirective {
+    /** The filename quoted after #include. */
+    filename: string;
+    /** Offset of the '#' in the source text. */
+    offset: number;
+    /** Length of the whole directive. */
+    length: number;
+}
+
+const includeDirectivePattern = /#include[ \t]+"([^"\r\n]+\.json)"/y;
+
+/**
+ * Locate a real Cabbage #include directive outside JSONC comments and strings.
+ *
+ * A commented-out include inside malformed inline JSON must not be mistaken
+ * for an external-file reference, otherwise a widget edit could be redirected
+ * to an unrelated JSON file.
+ */
+export function findCabbageInclude(text: string): CabbageIncludeDirective | undefined {
+    enum State {
+        Normal,
+        LineComment,
+        BlockComment,
+        String,
+    }
+
+    let state = State.Normal;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        switch (state) {
+            case State.LineComment:
+                if (char === '\n') {
+                    state = State.Normal;
+                }
+                break;
+
+            case State.BlockComment:
+                if (char === '*' && next === '/') {
+                    state = State.Normal;
+                    i++;
+                }
+                break;
+
+            case State.String:
+                if (char === '\\') {
+                    i++;
+                } else if (char === '"') {
+                    state = State.Normal;
+                }
+                break;
+
+            case State.Normal:
+                if (char === '/' && next === '/') {
+                    state = State.LineComment;
+                    i++;
+                } else if (char === '/' && next === '*') {
+                    state = State.BlockComment;
+                    i++;
+                } else if (char === '"') {
+                    state = State.String;
+                } else if (char === '#') {
+                    const lineStart = text.lastIndexOf('\n', i - 1) + 1;
+                    if (!/^[ \t\r]*$/.test(text.slice(lineStart, i))) {
+                        continue;
+                    }
+
+                    includeDirectivePattern.lastIndex = i;
+                    const match = includeDirectivePattern.exec(text);
+                    if (match) {
+                        return {
+                            filename: match[1],
+                            offset: i,
+                            length: match[0].length,
+                        };
+                    }
+                }
+                break;
+        }
+    }
+
+    return undefined;
+}
+
 export function getWidgetsPath(root: any): JSONPath {
     return Array.isArray(root) ? [] : ['widgets'];
 }

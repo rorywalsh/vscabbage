@@ -14,6 +14,7 @@ import { Settings } from './settings';
 import { formatJsonText, minifyJsonText } from './utils/jsonFormat';
 import {
     JsoncParseError,
+    findCabbageInclude,
     parseCabbageJson,
     parseJsonc,
     reconcileJsonDocument,
@@ -841,8 +842,10 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                 // External JSON files are referenced with #include rather than
                 // a JSON payload. If the Cabbage section isn't inline JSON,
                 // update the included file instead of treating this as a
-                // fatal parse error.
-                if (cabbageContent.includes('#include')) {
+                // fatal parse error. Only a real directive counts: a
+                // commented-out include in malformed inline JSON must not
+                // redirect the edit to an unrelated file.
+                if (findCabbageInclude(cabbageContent)) {
                     externalFile = ExtensionUtils.getExternalJsonFileName(cabbageContent, document.fileName);
                 }
                 if (!externalFile) {
@@ -1592,12 +1595,12 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
 
 
     static getExternalJsonFileName(cabbageContent: string, csdFilePath: string): string {
-        // Regular expression to find the include statement
-        const includeRegex = /#include\s*"([^"]+\.json)"/;
-        const includeMatch = includeRegex.exec(cabbageContent);
+        // Find a real include directive, ignoring commented-out includes and
+        // include-like text inside strings.
+        const includeDirective = findCabbageInclude(cabbageContent);
 
-        if (includeMatch && includeMatch[1]) {
-            const includeFilename = includeMatch[1];
+        if (includeDirective) {
+            const includeFilename = includeDirective.filename;
 
             // Check if the path is relative, if so resolve it relative to the csd file
             if (!path.isAbsolute(includeFilename)) {

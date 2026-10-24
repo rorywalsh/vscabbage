@@ -4,6 +4,7 @@ import assert from 'assert';
 import { formatJsonText, minifyJsonText } from '../../utils/jsonFormat';
 import {
     describeJsoncError,
+    findCabbageInclude,
     getJsoncErrors,
     parseCabbageJson,
     parseJsonc,
@@ -39,6 +40,41 @@ describe('parseJsonc', () => {
         const object = parseCabbageJson('{ "package": {}, "widgets": [{"type":"form"}] }');
         assert.strictEqual(object.root.package !== undefined, true);
         assert.strictEqual(object.widgets[0].type, 'form');
+    });
+});
+
+describe('findCabbageInclude', () => {
+    it('ignores a commented-out include in invalid inline JSONC', () => {
+        const text = `{
+    // #include "other.json"
+    "widgets": [
+        { "type": "form", "size": { "width": 600, } }
+    ]
+}`;
+
+        // The document is malformed, but its only #include is commented out.
+        assert.ok(getJsoncErrors(text).length > 0);
+        assert.strictEqual(findCabbageInclude(text), undefined);
+    });
+
+    it('ignores include-like text inside strings and block comments', () => {
+        const text = `{
+    /* #include "block-comment.json" */
+    "caption": "// #include \\"inside-string.json\\""
+}`;
+
+        assert.strictEqual(findCabbageInclude(text), undefined);
+    });
+
+    it('finds a real include directive outside comments and strings', () => {
+        const text = `// #include "ignored.json"
+// Widgets live beside the CSD.
+#include "widgets.json"`;
+        const directive = findCabbageInclude(text);
+
+        assert.ok(directive);
+        assert.strictEqual(directive.filename, 'widgets.json');
+        assert.strictEqual(directive.offset, text.indexOf('#include "widgets.json"'));
     });
 });
 

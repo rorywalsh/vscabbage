@@ -16,7 +16,7 @@ import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
-import { describeJsoncError, getJsoncErrors, offsetToPosition } from './utils/jsonc';
+import { describeJsoncError, findCabbageInclude, getJsoncErrors, offsetToPosition } from './utils/jsonc';
 
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
@@ -45,8 +45,10 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
     const cabbageContent = rawCabbageContent.trim();
     const cabbageStartIndex = match.index! + match[0].indexOf(rawCabbageContent) + leadingWhitespace;
 
-    // Check if it's an external file reference
-    if (cabbageContent.includes('#include')) {
+    // Check if it's an external file reference. Only a real #include outside
+    // JSONC comments/strings counts; a commented-out include in malformed
+    // inline JSON must still be validated as inline JSON.
+    if (findCabbageInclude(cabbageContent)) {
         // External JSON file - we'll validate it when loaded
         return { valid: true };
     }
