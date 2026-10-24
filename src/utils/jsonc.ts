@@ -285,12 +285,77 @@ function deepEqual(a: any, b: any): boolean {
 interface JsonEdit {
     path: JSONPath;
     value: any;
+    /** Marks an edit that inserts a new array element rather than replacing a value. */
+    insertion?: boolean;
+}
+
+/**
+ * Find an order-preserving matching between two arrays of (mostly) unchanged
+ * elements. Elements match when they are deeply equal, or when they are plain
+ * objects sharing the same stable id (widget id / channel id).
+ *
+ * Returns one entry per desired element: the matched current index, or -1 when
+ * the element must be inserted. Current elements that are never matched must
+ * be removed.
+ */
+function matchArrayElements(current: any[], desired: any[]): number[] {
+    const matches = new Array<number>(desired.length).fill(-1);
+    if (current.length === 0 || desired.length === 0) {
+        return matches;
+    }
+
+    const canMatch = (currentIndex: number, desiredIndex: number): boolean => {
+        if (deepEqual(current[currentIndex], desired[desiredIndex])) {
+            return true;
+        }
+        if (isPlainObject(current[currentIndex]) && isPlainObject(desired[desiredIndex])) {
+            const currentId = getWidgetId(current[currentIndex]);
+            const desiredId = getWidgetId(desired[desiredIndex]);
+            return currentId !== '' && currentId === desiredId;
+        }
+        return false;
+    };
+
+    // Longest common subsequence over (current, desired); the arrays involved
+    // are small (channels, ranges, etc.), so the O(n*m) table is fine.
+    const table: number[][] = [];
+    for (let i = 0; i <= current.length; i++) {
+        table.push(new Array<number>(desired.length + 1).fill(0));
+    }
+    for (let i = current.length - 1; i >= 0; i--) {
+        for (let j = desired.length - 1; j >= 0; j--) {
+            let best = Math.max(table[i + 1][j], table[i][j + 1]);
+            if (canMatch(i, j)) {
+                best = Math.max(best, table[i + 1][j + 1] + 1);
+            }
+            table[i][j] = best;
+        }
+    }
+
+    let i = 0;
+    let j = 0;
+    while (i < current.length && j < desired.length) {
+        if (canMatch(i, j) && table[i][j] === table[i + 1][j + 1] + 1) {
+            matches[j] = i;
+            i++;
+            j++;
+        } else if (table[i + 1][j] >= table[i][j + 1]) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+
+    return matches;
 }
 
 /**
  * Build a list of minimal edits that turn `current` into `desired`.
  * Arrays of equal length are compared element-by-element so comments inside
- * array items are retained. Arrays that change length are replaced.
+ * array items are retained. Arrays that change length (for example, a channel
+ * added or removed through the property panel) keep their retained elements
+ * matched and emit element-level removals/insertions instead of replacing the
+ * whole array, so comments inside unchanged elements survive.
  */
 function diffJson(current: any, desired: any, path: JSONPath): JsonEdit[] {
     if (deepEqual(current, desired)) {
@@ -317,11 +382,46 @@ function diffJson(current: any, desired: any, path: JSONPath): JsonEdit[] {
         return edits;
     }
 
-    if (Array.isArray(current) && Array.isArray(desired) && current.length === desired.length) {
+    if (Array.isArray(current) && Array.isArray(desired)) {
         const edits: JsonEdit[] = [];
-        for (let i = 0; i < desired.length; i++) {
-            edits.push(...diffJson(current[i], desired[i], [...path, i]));
+
+        if (current.length === desired.length) {
+            for (let i = 0; i < desired.length; i++) {
+                edits.push(...diffJson(current[i], desired[i], [...path, i]));
+            }
+            return edits;
         }
+
+        const matches = matchArrayElements(current, desired);
+        const retainedCurrent = new Set<number>();
+        for (const currentIndex of matches) {
+            if (currentIndex >= 0) {
+                retainedCurrent.add(currentIndex);
+            }
+        }
+
+        // Patch retained elements at their original indices first.
+        for (let j = 0; j < desired.length; j++) {
+            if (matches[j] >= 0) {
+                edits.push(...diffJson(current[matches[j]], desired[j], [...path, matches[j]]));
+            }
+        }
+
+        // Remove elements that no longer exist (descending keeps indices valid).
+        for (let i = current.length - 1; i >= 0; i--) {
+            if (!retainedCurrent.has(i)) {
+                edits.push({ path: [...path, i], value: undefined });
+            }
+        }
+
+        // Insert new elements. Matches are order-preserving, so after the
+        // removals above the desired index is the correct insertion point.
+        for (let j = 0; j < desired.length; j++) {
+            if (matches[j] < 0) {
+                edits.push({ path: [...path, j], value: desired[j], insertion: true });
+            }
+        }
+
         return edits;
     }
 
@@ -461,7 +561,7 @@ function reconcileWidgets(
 
         const edits = diffJson(currentWidgets[currentIndex], desired, [...path, currentIndex]);
         for (const edit of edits) {
-            currentText = applyJsoncEdit(currentText, edit.path, edit.value, options);
+            currentText = applyJsoncEdit(currentText, edit.path, edit.value, options, edit.insertion === true);
         }
         if (edits.length > 0) {
             currentWidgets = getArrayAtPath(currentText, path);
@@ -532,7 +632,7 @@ export function reconcileJsonDocument(
             } else if (!deepEqual(currentRoot[key], desiredRoot[key])) {
                 const edits = diffJson(currentRoot[key], desiredRoot[key], [key]);
                 for (const edit of edits) {
-                    currentText = applyJsoncEdit(currentText, edit.path, edit.value, options);
+                    currentText = applyJsoncEdit(currentText, edit.path, edit.value, options, edit.insertion === true);
                 }
             }
         }

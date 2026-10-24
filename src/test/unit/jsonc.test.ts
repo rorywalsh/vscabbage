@@ -192,6 +192,72 @@ describe('reconcileJsonDocument', () => {
         assert.ok(result.includes('"id": "newButton"'));
         assert.strictEqual((result.match(/"id": "form1"/g) || []).length, 1);
     });
+
+    it('adds a channel without serializing comments out of retained channels', () => {
+        const text = `{
+    "widgets": [
+        {
+            "type": "horizontalSlider",
+            "id": "slider1",
+            "channels": [
+                {
+                    // retained channel note
+                    "id": "chan1",
+                    "event": "channel1",
+                    /* range note */
+                    "range": { "min": 0, "max": 10 }
+                }
+            ]
+        }
+    ]
+}`;
+        const desired = parseJsonc<any>(text);
+        desired.widgets[0].channels.push({ id: 'chan2', event: 'channel2', range: { min: 0, max: 1 } });
+
+        const result = reconcileJsonDocument(text, desired, formatOptions);
+        const channels = parseJsonc<any>(result).widgets[0].channels;
+        assert.strictEqual(channels.length, 2);
+        assert.strictEqual(channels[0].id, 'chan1');
+        assert.strictEqual(channels[1].id, 'chan2');
+        assert.ok(result.includes('// retained channel note'));
+        assert.ok(result.includes('/* range note */'));
+    });
+
+    it('removes a channel while keeping comments inside a retained channel', () => {
+        const text = `{
+    "widgets": [
+        {
+            "type": "horizontalSlider",
+            "id": "slider1",
+            "channels": [
+                {
+                    "id": "chan1",
+                    /* keep this note */
+                    "event": "channel1",
+                    "range": { // keep range note
+                        "min": 0,
+                        "max": 10
+                    }
+                },
+                // remove this channel
+                { "id": "chan2", "event": "channel2", "range": { "min": 0, "max": 1 } }
+            ]
+        }
+    ]
+}`;
+        const desired = parseJsonc<any>(text);
+        desired.widgets[0].channels = desired.widgets[0].channels.filter(
+            (channel: any) => channel.id !== 'chan2'
+        );
+
+        const result = reconcileJsonDocument(text, desired, formatOptions);
+        const channels = parseJsonc<any>(result).widgets[0].channels;
+        assert.strictEqual(channels.length, 1);
+        assert.strictEqual(channels[0].id, 'chan1');
+        assert.ok(result.includes('/* keep this note */'));
+        assert.ok(result.includes('// keep range note'));
+        assert.ok(!result.includes('"id": "chan2"'));
+    });
 });
 
 describe('reorderJsoncArrayValues', () => {
