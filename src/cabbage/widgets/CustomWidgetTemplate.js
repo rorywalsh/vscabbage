@@ -63,6 +63,9 @@ export class CustomWidgetTemplate {
          * @property {string} style.backgroundColor - Background color (hex or rgba)
          */
 
+        // IMPORTANT: The range object is required for value updates to work.
+        // The widgetManager updates channels[0].range.value when values arrive
+        // from the backend via cabbageSetValue. Without it, value updates fail silently.
         /** @type {WidgetProps} */
         this.props = {
             "bounds": {
@@ -74,9 +77,6 @@ export class CustomWidgetTemplate {
             "channels": [{
                 "id": "customWidget",
                 "event": "valueChanged",
-                // IMPORTANT: The range object is required for value updates to work.
-                // The widgetManager updates channels[0].range.value when values arrive
-                // from the backend via cabbageSetValue. Without it, value updates fail silently.
                 "range": {
                     "min": 0,
                     "max": 1,

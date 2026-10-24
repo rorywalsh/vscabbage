@@ -6,40 +6,17 @@ import * as vscode from 'vscode';
 import { ExtensionUtils } from './extensionUtils';
 import * as cp from "child_process";
 import { Settings } from './settings';
-import { Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 // @ts-ignore
 import { setCabbageMode, getCabbageMode, setVSCode } from './cabbage/sharedState.js';
 import * as path from 'path';
-
-// Helper to format JSON using FracturedJson
-function formatJson(obj: any, options: { maxLength: number; indent: number }): string {
-    const formatter = new Formatter();
-    const fjOptions = new FracturedJsonOptions();
-    fjOptions.MaxTotalLineLength = options.maxLength;
-    fjOptions.IndentSpaces = options.indent;
-    formatter.Options = fjOptions;
-    return formatter.Serialize(obj) ?? '';
-}
-
-/**
- * Helper to parse Cabbage JSON content - supports both formats
- * @param jsonContent - The JSON string from the Cabbage section
- * @returns Object with `root` (full parsed object) and `widgets` (array of widgets)
- */
-function parseCabbageJSON(jsonContent: string): { root: any, widgets: any[] } {
-    const parsed = JSON.parse(jsonContent);
-
-    // Support both old array format and new object format
-    if (Array.isArray(parsed)) {
-        // Legacy format: root is array
-        return { root: parsed, widgets: parsed };
-    } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.widgets)) {
-        // New format: root is object with "widgets" key
-        return { root: parsed, widgets: parsed.widgets };
-    } else {
-        throw new Error('Invalid Cabbage JSON structure: Expected either an array of widgets or an object with a "widgets" array');
-    }
-}
+import { formatJsonText } from './utils/jsonFormat';
+import {
+    getWidgetsPath,
+    parseCabbageJson as parseCabbageJSON,
+    reconcileJsonDocument,
+    reorderJsoncArrayValues,
+    widgetMatchesId,
+} from './utils/jsonc';
 
 function getPackageConfig(root: any, formWidget?: any): any {
     if (root && !Array.isArray(root) && typeof root === 'object' && root.package && typeof root.package === 'object') {
@@ -120,38 +97,28 @@ export class Commands {
         const jsonContent = match[1];
 
         try {
-            // Parse JSON (handling comments loosely if possible, but standard JSON.parse is strict)
-            // Cabbage JSON often contains comments which JSON.parse fails on.
-            // We need a way to parse this while preserving comments or at least parsing it successfully.
-            // Since the user mentioned "The widget JSON code should be lifted wholesale", 
-            // we should try to parse it using a lenient parser or eval (with safety checks) 
-            // OR use the existing ExtensionUtils.getCabbageJson which might handle this.
-
-            // Let's try to use Function constructor to parse relaxed JSON (with comments)
-            // This is what Cabbage often does internally or what we might need here.
-            // However, to preserve comments during rewrite, we would need a CST (Concrete Syntax Tree) parser.
-            // Standard JSON.stringify will strip comments.
-
-            // User requirement: "Comments are part of a valid "//": key, they should be kept."
-            // Ah! If comments are actual keys like "//": "...", then standard JSON.parse works!
-            // We just need to handle the surrounding brackets if they are missing or malformed?
-            // Usually Cabbage section is a JSON array [ ... ].
-
+            // Parsing is JSONC-aware (comments are allowed).
             const { root, widgets } = parseCabbageJSON(jsonContent);
             const reorderedWidgets = reorderWidgets(widgets);
+
+            // reorderWidgets returns the same widget objects in a new order.
+            // Convert that to a new-position -> old-position map so the source
+            // text of each widget (including comments inside it) can be moved.
+            const order = reorderedWidgets.map(widget => widgets.indexOf(widget));
+            if (order.some(index => index < 0)) {
+                throw new Error('Unable to match reordered widgets to the original document');
+            }
 
             // Get formatting settings from configuration
             const config = vscode.workspace.getConfiguration("cabbage");
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
 
-            // Preserve full root object (e.g. top-level package) when present
-            const newRoot = Array.isArray(root)
-                ? reorderedWidgets
-                : { ...root, widgets: reorderedWidgets };
-
-            // Stringify back to JSON using FracturedJson formatter
-            const newJsonContent = formatJson(newRoot, { maxLength: maxLength, indent: indentSpaces });
+            // Reorder the values in the existing text, then reformat with the
+            // comment-preserving formatter. Comments between widgets stay in
+            // their original positions; comments inside a widget move with it.
+            const reorderedJson = reorderJsoncArrayValues(jsonContent, getWidgetsPath(root), order);
+            const newJsonContent = formatJsonText(reorderedJson, { maxLength: maxLength, indent: indentSpaces });
 
             // Replace in editor
             const startPos = document.positionAt(match.index! + "<Cabbage>".length);
@@ -165,7 +132,7 @@ export class Commands {
 
         } catch (error) {
             console.error('Error reordering widgets:', error);
-            vscode.window.showErrorMessage('Failed to parse Cabbage JSON. Please ensure it is valid JSON.');
+            vscode.window.showErrorMessage('Failed to reorder widgets. Please ensure the Cabbage JSON is valid.');
         }
     }
 
@@ -2050,15 +2017,15 @@ export class Commands {
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
 
-            const jsonObject = JSON.parse(cabbageContent);
-            const formattedJson = formatJson(jsonObject, { maxLength: maxLength, indent: indentSpaces });
+            // Reformat the existing text directly so JSONC comments survive.
+            const formattedJson = formatJsonText(cabbageContent, { maxLength: maxLength, indent: indentSpaces });
 
             editor.edit(editBuilder => {
                 editBuilder.replace(range, '\n' + formattedJson + '\n');
             });
 
         } catch (error) {
-            vscode.window.showErrorMessage("Failed to parse and format JSON content.");
+            vscode.window.showErrorMessage("Failed to format JSON content. Please ensure it is valid JSON.");
         }
     }
 
@@ -4355,30 +4322,23 @@ i2 5 z
         try {
             const cabbageContent = match[1].trim();
             const parsed = parseCabbageJSON(cabbageContent);
-            let widgets = parsed.widgets;
             const root = parsed.root;
 
-            // Remove the widget with the specified channel
-            const originalLength = widgets.length;
-            widgets = widgets.filter((widget: any) => {
-                // Check if widget has direct id property
-                if (widget.id === channel) {
-                    return false;
-                }
-                // Check if widget has channels array with matching id
-                if (widget.channels && Array.isArray(widget.channels) && widget.channels.length > 0) {
-                    return widget.channels[0].id !== channel;
-                }
-                return true;
-            });
+            // Remove the widget with the specified channel. Match any channel
+            // id (not just channels[0]) and legacy `channel` fields too.
+            const originalLength = parsed.widgets.length;
+            const widgets = parsed.widgets.filter((widget: any) => !widgetMatchesId(widget, channel));
             console.log(`Removed ${originalLength - widgets.length} widgets`);
 
-            // Format and update the Cabbage section using the FracturedJson formatter and config
+            // Format and update the Cabbage section using the FracturedJson
+            // formatter and config. Reconciling against the original text
+            // retains comments in the remaining widgets.
             const config = vscode.workspace.getConfiguration("cabbage");
             const indentSpaces = config.get("jsonIndentSpaces", 4);
             const maxLength = config.get("jsonMaxLength", 120);
             const updatedRoot = Array.isArray(root) ? widgets : { ...root, widgets };
-            const formattedArray = formatJson(updatedRoot, { maxLength: maxLength, indent: indentSpaces });
+            const reconciled = reconcileJsonDocument(cabbageContent, updatedRoot, { maxLength, indent: indentSpaces });
+            const formattedArray = formatJsonText(reconciled, { maxLength: maxLength, indent: indentSpaces });
 
             const updatedCabbageSection = `<Cabbage>\n${formattedArray}\n</Cabbage>`;
 

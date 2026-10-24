@@ -16,6 +16,7 @@ import { setCabbageMode, getCabbageMode } from './cabbage/sharedState.js';
 import { Commands } from './commands';
 import { ExtensionUtils } from './extensionUtils';
 import { Settings } from './settings';
+import { describeJsoncError, findCabbageInclude, getJsoncErrors, offsetToPosition } from './utils/jsonc';
 
 // cache for protected files
 const originalContentCache: { [key: string]: string } = {};
@@ -39,141 +40,61 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
         return { valid: true };
     }
 
-    const cabbageContent = match[1].trim();
-    const cabbageStartIndex = match.index! + match[0].indexOf(match[1]);
+    const rawCabbageContent = match[1];
+    const leadingWhitespace = rawCabbageContent.length - rawCabbageContent.trimStart().length;
+    const cabbageContent = rawCabbageContent.trim();
+    const cabbageStartIndex = match.index! + match[0].indexOf(rawCabbageContent) + leadingWhitespace;
 
-    // Check if it's an external file reference
-    if (cabbageContent.includes('#include')) {
+    // Check if it's an external file reference. Only a real #include outside
+    // JSONC comments/strings counts; a commented-out include in malformed
+    // inline JSON must still be validated as inline JSON.
+    if (findCabbageInclude(cabbageContent)) {
         // External JSON file - we'll validate it when loaded
         return { valid: true };
     }
 
-    // Try to parse the JSON
-    try {
-        JSON.parse(cabbageContent);
+    // Parse as JSONC: // line comments and /* block comments */ are valid.
+    const errors = getJsoncErrors(cabbageContent);
+    if (errors.length === 0) {
         return { valid: true };
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-
-        // Try to extract position from error message (method 1: "at position X")
-        const positionMatch = errorMessage.match(/at position (\d+)/);
-        let position: { line: number; column: number } | undefined;
-
-        if (positionMatch) {
-            const jsonPosition = parseInt(positionMatch[1]);
-            // Convert JSON position to document position
-            const documentPosition = cabbageStartIndex + jsonPosition;
-
-            // Calculate line and column
-            const beforeError = documentText.substring(0, documentPosition);
-            const lines = beforeError.split('\n');
-            let line = lines.length - 1;
-            let column = lines[lines.length - 1].length;
-
-            // For errors about missing commas or braces, the position is at the unexpected token.
-            // If this looks like a missing comma, highlight the end of the previous line instead.
-            if (errorMessage.includes('Expected \',\'') || errorMessage.includes('Unexpected token') || errorMessage.includes('Unexpected string')) {
-                const allLines = documentText.split('\n');
-                const currentLine = allLines[line];
-                const trimmedStart = currentLine.trimStart();
-                const leadingWhitespace = currentLine.length - trimmedStart.length;
-
-                // If we're at the beginning of a line (after whitespace), it's likely a missing comma
-                if (column <= leadingWhitespace + 1) {
-                    // Highlight the end of the previous line where comma should be
-                    if (line > 0) {
-                        const prevLine = allLines[line - 1];
-                        const prevLineEnd = prevLine.length;
-                        line = line - 1;
-                        column = Math.max(0, prevLineEnd - 1);
-                    }
-                }
-            }
-
-            position = { line, column };
-        } else {
-            // Method 2: Try to extract the JSON snippet from the error message and find it in the document
-            // Error messages like: Unexpected token ']', ..."98\n    },\n]" is not valid JSON
-            // The snippet might have literal newlines or escaped \n
-            const snippetMatch = errorMessage.match(/\.{3}"([^"]+)"[\s\w]*is not valid JSON/);
-
-            if (snippetMatch) {
-                let snippet = snippetMatch[1];
-
-                // Try both: with escaped newlines converted and as-is
-                const snippetVariants = [
-                    snippet,
-                    snippet.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r')
-                ];
-
-                for (const variant of snippetVariants) {
-                    const snippetIndex = cabbageContent.indexOf(variant);
-
-                    if (snippetIndex !== -1) {
-                        // Found the snippet - the error is at the end of this snippet
-                        const documentPosition = cabbageStartIndex + snippetIndex + variant.length - 1;
-
-                        // Calculate line and column
-                        const beforeError = documentText.substring(0, documentPosition);
-                        const lines = beforeError.split('\n');
-                        const line = lines.length - 1;
-                        const column = lines[lines.length - 1].length;
-
-                        position = { line, column };
-                        break;
-                    }
-                }
-            }
-
-            // Method 3: If we still don't have a position and error mentions "Unexpected token",
-            // search for the problematic token in the Cabbage section
-            if (!position && errorMessage.includes('Unexpected token')) {
-                const tokenMatch = errorMessage.match(/Unexpected token[:\s]+'?([^\s'",]+)/i);
-                if (tokenMatch) {
-                    const unexpectedToken = tokenMatch[1];
-                    // For ']', search backwards from the end for a closing bracket after a comma
-                    const tokenIndex = cabbageContent.lastIndexOf(unexpectedToken);
-                    if (tokenIndex !== -1) {
-                        const documentPosition = cabbageStartIndex + tokenIndex;
-                        const beforeError = documentText.substring(0, documentPosition);
-                        const lines = beforeError.split('\n');
-                        const line = lines.length - 1;
-                        const column = lines[lines.length - 1].length;
-                        position = { line, column };
-                    }
-                }
-            }
-        }
-
-        // Post-process: For trailing comma errors (Unexpected token ']' or '}'), 
-        // check if we should highlight the previous line instead
-        if (position && errorMessage.includes('Unexpected token')) {
-            const allLines = documentText.split('\n');
-            const errorLine = allLines[position.line];
-
-            // If the error line starts with ] or } and previous line ends with comma, 
-            // highlight the previous line (where the trailing comma is)
-            if (errorLine && errorLine.trim().match(/^[\]\}]/) && position.line > 0) {
-                const prevLine = allLines[position.line - 1];
-                if (prevLine && prevLine.trimEnd().endsWith(',')) {
-                    // Move to the previous line, at the position of the trailing comma
-                    position = {
-                        line: position.line - 1,
-                        column: prevLine.trimEnd().length - 1
-                    };
-                }
-            }
-        }
-
-        // Clean up the error message to remove position info since we provide visual indicators
-        const cleanErrorMessage = errorMessage.replace(/\s*at position \d+.*$/, '').replace(/\s*\(line \d+ column \d+\).*$/, '');
-
-        return {
-            valid: false,
-            error: cleanErrorMessage,
-            position
-        };
     }
+
+    const firstError = errors[0];
+    const errorMessage = describeJsoncError(firstError, cabbageContent);
+    const documentPosition = cabbageStartIndex + firstError.offset;
+    let position = offsetToPosition(documentText, documentPosition);
+
+    // For errors about a missing comma, the parser stops at the next token.
+    // Highlight the end of the previous line where the comma belongs.
+    if (
+        errorMessage.includes("Expected ','") ||
+        errorMessage.includes('Unexpected token') ||
+        errorMessage.includes('Unexpected string')
+    ) {
+        const allLines = documentText.split('\n');
+        const currentLine = allLines[position.line] ?? '';
+        const trimmedStart = currentLine.trimStart();
+        const leading = currentLine.length - trimmedStart.length;
+        if (position.column <= leading + 1 && position.line > 0) {
+            const prevLine = allLines[position.line - 1];
+            position = { line: position.line - 1, column: Math.max(0, prevLine.length - 1) };
+        }
+    }
+
+    // Trailing comma: point at the comma on the previous line when possible.
+    if (errorMessage.includes('Trailing comma') && position.line > 0) {
+        const allLines = documentText.split('\n');
+        const prevLine = allLines[position.line - 1];
+        if (prevLine && prevLine.trimEnd().endsWith(',')) {
+            position = { line: position.line - 1, column: Math.max(0, prevLine.trimEnd().length - 1) };
+        }
+    }
+
+    return {
+        valid: false,
+        error: errorMessage,
+        position
+    };
 }
 
 /**
@@ -186,6 +107,19 @@ function validateCabbageJSON(documentText: string): { valid: boolean; error?: st
 function makeUserFriendlyErrorMessage(error: string, document: vscode.TextDocument, position: { line: number; column: number }): string {
     const line = document.lineAt(position.line).text;
     const prevLine = position.line > 0 ? document.lineAt(position.line - 1).text : '';
+
+    // Trailing comma (detected precisely by the JSONC parser).
+    if (error.includes('Trailing comma')) {
+        return `❌ Trailing comma not allowed in JSON.\n💡 Fix: Remove the comma before the closing ] or }.`;
+    }
+
+    // Unterminated comments/strings.
+    if (error.includes('unterminated comment')) {
+        return `❌ Unclosed block comment.\n💡 Fix: Add */ to close the comment.`;
+    }
+    if (error.includes('unterminated string')) {
+        return `❌ Unclosed string.\n💡 Fix: Add the missing closing double quote.`;
+    }
 
     // Check for trailing comma (most common issue)
     if ((error.includes('Expected double-quoted property name') || error.includes('Unexpected token')) &&
