@@ -588,13 +588,274 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Build and package extension on Windows
-        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
+        # Declare the platform target so the Marketplace serves the x64
+        # binaries only to x64 users (win32-arm64 accepts x64 packages).
+        run: vsce package --target win32-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
 
       - name: Upload VSIX artifact from Windows
         uses: actions/upload-artifact@v4
         with:
-          name: vscabbage-extension-windows
-          path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows.vsix
+          name: vscabbage-extension-windows-x64
+          path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
+
+# ========================================================================================
+#  Windows ARM64 build job
+# ========================================================================================
+
+  build_windows_arm:
+    needs: generate_tag
+    runs-on: windows-11-arm
+    # Ensure it only runs on main, or when run_build is passed to commit message
+    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
+    steps:
+      - name: Checkout source code for cabbage3
+        uses: actions/checkout@v2
+        with:
+          repository: rorywalsh/cabbage
+          path: cabbage3
+          ref: develop
+          fetch-depth: 0
+          submodules: true
+
+      - name: Verify cabbage3 directory
+        shell: cmd
+        run: |
+          ls -l
+          ls -l cabbage3
+
+      - name: Download and Extract Csound
+        shell: pwsh
+        run: |
+          # Csound ships a dedicated Windows ARM64 installer
+          Invoke-WebRequest -Uri "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-arm64-installer-${{ env.CSOUND_TAG }}.zip" -OutFile "csound7-arm.zip"
+          Expand-Archive -Path "csound7-arm.zip" -DestinationPath "csound7-arm" -Force
+
+          Write-Host "Contents of csound7-arm (for debug):"
+          Get-ChildItem -Path "csound7-arm" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          # The ARM64 installer zip contains a single .exe installer
+          $exe = Get-ChildItem -Path "csound7-arm" -Recurse -Filter "*.exe" -File | Select-Object -First 1
+
+          if (-not $exe) {
+            Write-Error "No .exe installer found in csound7-arm folder!"
+            exit 1
+          }
+
+          Write-Host "Found installer: $($exe.FullName)"
+          Copy-Item -Path $exe.FullName -Destination ".\csound-7-arm.exe" -Force
+
+      - name: Install Csound
+        shell: pwsh
+        run: |
+          Start-Process -FilePath ".\csound-7-arm.exe" -ArgumentList "/VERYSILENT" -Wait -Verb RunAs
+
+      - name: Wait for Installation to Complete
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 5
+
+      - name: Verify Csound
+        shell: pwsh
+        run: |
+          # Csound 7.0.0's Windows package was rebuilt with USE_LIB64 and
+          # "csound7_64" library names. Older installers used lib\csound64.
+          # Accept both layouts so an upstream repackage doesn't break this job.
+          $root = "C:\Program Files\Csound7"
+          if (-not (Test-Path $root)) {
+            Write-Error "Csound is not installed at $root"
+            exit 1
+          }
+
+          Get-ChildItem $root
+          Get-ChildItem (Join-Path $root "bin") -ErrorAction SilentlyContinue
+          Get-ChildItem (Join-Path $root "lib") -ErrorAction SilentlyContinue
+          Get-ChildItem (Join-Path $root "include\csound") -ErrorAction SilentlyContinue
+
+          $dll = Get-ChildItem -Path $root -Recurse -File |
+            Where-Object { $_.Name -in @("csound7_64.dll", "csound64.dll") } |
+            Select-Object -First 1
+          if (-not $dll) {
+            Write-Error "No Csound DLL found under $root"
+            exit 1
+          }
+
+          $lib = Get-ChildItem -Path $root -Recurse -File |
+            Where-Object { $_.Name -in @("csound7_64.lib", "libcsound7_64.lib", "csound64.lib", "libcsound64.lib") } |
+            Select-Object -First 1
+          if (-not $lib) {
+            Write-Error "No Csound import library found under $root"
+            exit 1
+          }
+
+          Write-Host "Found Csound DLL: $($dll.FullName)"
+          Write-Host "Found Csound import library: $($lib.FullName)"
+
+      - name: Configure and build
+        shell: cmd
+        run: |
+          cd cabbage3
+          cmake -S . -B build -DBUILD_ALL_TARGETS=ON -DCMAKE_BUILD_TYPE=Release -A ARM64
+
+      - name: Verify builds
+        shell: cmd
+        run: |
+          echo "Checking if the build artifacts exist for CabbageApp"
+          tree cabbage3/build/CabbageApp/Release
+          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
+          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
+          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
+
+      - name: Upload CabbageApp
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbageApp_arm64.exe
+          path: cabbage3/build/CabbageApp/Release/CabbageApp.exe
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3Effect
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect_arm64.vst3
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3Synth
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth_arm64.vst3
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageCLAPEffect
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect_arm64.clap
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageCLAPSynth
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth_arm64.clap
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3EffectARA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffectARA_arm64.vst3
+          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload CabbageVST3SynthARA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynthARA_arm64.vst3
+          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Checkout source code for vscabbage
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Update version in package.json
+        shell: pwsh
+        run: |
+          $env:VERSION = "${{ needs.generate_tag.outputs.version }}"
+          Write-Host "Updating package.json with version $env:VERSION"
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+      - name: Set up Node.js (v20) on Windows ARM64
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies on Windows ARM64
+        run: npm install
+
+      # Create CabbageBinaries folder
+      - name: Create CabbageBinaries folder
+        run: |
+          mkdir -p "./src/CabbageBinaries"
+          cd src
+          ls
+
+      # Download and copy the required artifacts into the vscabbage src directory
+      - name: Downloading CabbageApp
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbageApp_arm64.exe
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Effect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect_arm64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3Synth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth_arm64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageCLAPEffect
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect_arm64.clap
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageCLAPSynth
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth_arm64.clap
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3EffectARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffectARA_arm64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Downloading CabbageVST3SynthARA
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynthARA_arm64.vst3
+          path: "./src/CabbageBinaries"
+        continue-on-error: true
+
+      - name: Install vsce on Windows ARM64
+        run: npm install -g @vscode/vsce
+
+      - name: Build and package extension on Windows ARM64
+        # Declare the platform target so the Marketplace serves the ARM64
+        # binaries only to ARM64 users.
+        run: vsce package --target win32-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
+
+      - name: Upload VSIX artifact from Windows ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscabbage-extension-windows-arm
+          path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
 
 # ========================================================================================
 #  Linux build job
@@ -743,7 +1004,7 @@ jobs:
   # =============================================================================
   # steps to tag and release artifacts
   release:
-    needs: [build_macos, build_windows, build_linux, generate_tag]
+    needs: [build_macos, build_windows, build_windows_arm, build_linux, generate_tag]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build') && !contains(github.event.head_commit.message, '[auto-changelog]')
 
@@ -768,7 +1029,13 @@ jobs:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: vscabbage-extension-windows
+          name: vscabbage-extension-windows-x64
+          path: ./release
+
+      - name: Download Windows ARM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vscabbage-extension-windows-arm
           path: ./release
 
       - name: Download Linux Artifact
