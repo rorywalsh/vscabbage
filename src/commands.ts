@@ -3180,12 +3180,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * - Copies ALL built-in widgets (required by widgetTypes.js static imports)
      * - Copies ONLY used custom widgets (selective)
      * @param usedWidgets Set of widget type names used in the CSD
-     * @param allJsSourceDirs All JS source directories from Cabbage settings
+     * @param builtInWidgetsDir Directory containing the built-in widget .js files
+     * @param customWidgetDirs Directories containing custom widget .js files
      * @param destDir Destination cabbage directory
      */
     private static async copyUsedWidgets(
         usedWidgets: Set<string>,
-        allJsSourceDirs: string[],
+        builtInWidgetsDir: string,
+        customWidgetDirs: string[],
         destDir: string
     ): Promise<void> {
         const widgetsDestDir = path.join(destDir, 'widgets');
@@ -3199,30 +3201,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
             'groupBox', 'checkBox', 'csoundOutput', 'textEditor', 'xyPad'
         ];
 
-        // Find the built-in source directory (the one from VS Code extension or config)
-        // It should be the path to the cabbage directory itself
-        const builtInSourceDir = allJsSourceDirs.find(dir => {
-            // Check if this looks like a built-in directory (from vscabbage extension)
-            return dir.includes('vscabbage') || dir.includes('extension');
-        });
-
-        if (!builtInSourceDir) {
-            Commands.vscodeOutputChannel.appendLine('Export: WARNING - Could not find built-in widget directory. Using first available directory.');
-            // Fallback: just use the first directory if we can't find by name
-            if (allJsSourceDirs.length === 0) {
-                Commands.vscodeOutputChannel.appendLine('Export: ERROR - No widget directories available');
-                return;
-            }
-        }
-
-        const effectiveBuiltInSourceDir = builtInSourceDir || allJsSourceDirs[0];
-
         // Copy ALL built-in widgets (required by widgetTypes.js)
         Commands.vscodeOutputChannel.appendLine(`Export: Copying all ${builtInWidgets.length} built-in widgets...`);
         for (const widgetType of builtInWidgets) {
             const widgetFileName = `${widgetType}.js`;
-            // effectiveBuiltInSourceDir is the cabbage directory itself
-            const widgetPath = path.join(effectiveBuiltInSourceDir, 'widgets', widgetFileName);
+            const widgetPath = path.join(builtInWidgetsDir, widgetFileName);
 
             if (fs.existsSync(widgetPath)) {
                 await fs.promises.copyFile(
@@ -3241,28 +3224,58 @@ include $(SYSTEM_FILES_DIR)/Makefile
         if (customWidgets.length > 0) {
             Commands.vscodeOutputChannel.appendLine(`Export: Copying ${customWidgets.length} custom widgets...`);
 
+            // A custom widget's file name does not have to match its type -
+            // the type is declared inside the file's props. Scan the custom
+            // directories the same way the extension does at runtime so we
+            // find the file that actually defines each used widget.
+            const customWidgetFiles = new Map<string, string>();
+            for (const widgetsDir of customWidgetDirs) {
+                try {
+                    const foundWidgets = await ExtensionUtils.scanForCustomWidgets(widgetsDir);
+                    for (const widget of foundWidgets) {
+                        if (!customWidgetFiles.has(widget.widgetType)) {
+                            customWidgetFiles.set(widget.widgetType, path.join(widgetsDir, widget.filename));
+                            Commands.vscodeOutputChannel.appendLine(
+                                `Export:   Found custom widget ${widget.widgetType} at ${path.join(widgetsDir, widget.filename)}`);
+                        }
+                    }
+                } catch (err) {
+                    Commands.vscodeOutputChannel.appendLine(
+                        `Export: Warning - could not scan custom widget directory ${widgetsDir}: ${err}`);
+                }
+            }
+
             for (const widgetType of customWidgets) {
-                const widgetFileName = `${widgetType}.js`;
-                let copied = false;
+                let widgetPath = customWidgetFiles.get(widgetType) || '';
 
-                // Check custom directories (skip the built-in directory)
-                for (const jsSourceDir of allJsSourceDirs) {
-                    if (jsSourceDir === effectiveBuiltInSourceDir) continue; // Skip built-in
-
-                    const widgetPath = path.join(jsSourceDir, 'widgets', widgetFileName);
-
-                    if (fs.existsSync(widgetPath)) {
-                        await fs.promises.copyFile(
-                            widgetPath,
-                            path.join(widgetsDestDir, widgetFileName)
-                        );
-                        Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (custom) from ${jsSourceDir}`);
-                        copied = true;
-                        break;
+                // Fall back to the naming conventions used by the plugin's
+                // runtime auto-discovery if the file header could not be read.
+                if (!widgetPath) {
+                    const candidateNames = [
+                        `${widgetType}.js`,
+                        `${widgetType.charAt(0).toUpperCase()}${widgetType.slice(1)}.js`,
+                    ];
+                    for (const widgetsDir of customWidgetDirs) {
+                        for (const candidateName of candidateNames) {
+                            const candidatePath = path.join(widgetsDir, candidateName);
+                            if (fs.existsSync(candidatePath)) {
+                                widgetPath = candidatePath;
+                                break;
+                            }
+                        }
+                        if (widgetPath) {
+                            break;
+                        }
                     }
                 }
 
-                if (!copied) {
+                if (widgetPath) {
+                    await fs.promises.copyFile(
+                        widgetPath,
+                        path.join(widgetsDestDir, path.basename(widgetPath))
+                    );
+                    Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (custom) from ${widgetPath}`);
+                } else {
                     Commands.vscodeOutputChannel.appendLine(`Export:   ✗ ${widgetType} (custom widget not found)`);
                 }
             }
@@ -3421,22 +3434,23 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // Get paths
         const jsSourcePath = Commands.getJsSourcePath();
         const cabbageDestDir = path.join(resourcesDir, 'cabbage');
-        // Get custom widget directory from global Cabbage settings (not VS Code config)
-        const settings = await Settings.getCabbageSettings();
-        const jsSourceDirs = settings['currentConfig']?.['jsSourceDir'] || [];
-        const customWidgetDirs: string[] = Array.isArray(jsSourceDirs) ? jsSourceDirs : [];
+        // Custom widget dirs are resolved to the actual `widgets` directories
+        // from both the shared Cabbage settings file and the
+        // `cabbage.customWidgetDirectories` VS Code setting. This mirrors how
+        // the extension discovers custom widgets at runtime and copes with
+        // `root/widgets`, `root/cabbage/widgets`, etc.
+        const customWidgetDirs = await ExtensionUtils.getCustomWidgetDirectories();
+        const builtInWidgetsDir = path.join(jsSourcePath, 'widgets');
 
-        // Include the built-in widget directory so copyUsedWidgets can find it
-        const allJsSourceDirs = [jsSourcePath, ...customWidgetDirs];
-
-        Commands.vscodeOutputChannel.appendLine(`Export: Checking ${allJsSourceDirs.length} widget directories: ${JSON.stringify(allJsSourceDirs)}`);
+        Commands.vscodeOutputChannel.appendLine(
+            `Export: Checking ${customWidgetDirs.length} custom widget directories: ${JSON.stringify(customWidgetDirs)}`);
 
         // Copy core cabbage files (excluding widgets directory)
         await Commands.copyCabbageCore(jsSourcePath, cabbageDestDir);
 
         // Copy ALL built-in widgets (required by widgetTypes.js static imports)
         // Also copy any custom widgets that are used
-        await Commands.copyUsedWidgets(usedWidgets, allJsSourceDirs, cabbageDestDir);
+        await Commands.copyUsedWidgets(usedWidgets, builtInWidgetsDir, customWidgetDirs, cabbageDestDir);
 
         // Copy CSS file
         const cssPath = Commands.getCabbageCssPath();
