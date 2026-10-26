@@ -2303,6 +2303,14 @@ export class Commands {
                     return false;
                 }
             });
+        const isExecutable = (p: string): boolean => {
+            try {
+                fs.accessSync(p, fs.constants.X_OK);
+                return true;
+            } catch {
+                return false;
+            }
+        };
         const env: ValidationEnv = {
             platform: os.platform(),
             settingsPath,
@@ -2315,6 +2323,7 @@ export class Commands {
             exists,
             listFiles,
             isOnPath,
+            isExecutable,
             realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);

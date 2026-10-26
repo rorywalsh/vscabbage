@@ -5,6 +5,7 @@ import {
     normalizeSourceDirs,
     checkCsoundPresent,
     checkServiceBinary,
+    checkServiceBinaryExecutable,
     checkSettingsFile,
     checkJsSourceDirs,
     checkPrimarySource,
@@ -29,6 +30,7 @@ function baseEnv(overrides: Partial<ValidationEnv> = {}): ValidationEnv {
         exists: () => true,
         listFiles: () => ['form.js', 'rotarySlider.js', 'button.js'],
         isOnPath: () => false,
+        isExecutable: () => true,
         ...overrides,
     };
 }
@@ -206,15 +208,71 @@ describe('checkCsoundPresent', () => {
     });
 });
 
+describe('checkServiceBinaryExecutable', () => {
+    it('passes when the execute bit is set on macOS', () => {
+        const r = checkServiceBinaryExecutable(baseEnv());
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('/ext/bin/CabbageApp'));
+    });
+    it('fails when the execute bit is missing, with a chmod remedy', () => {
+        const r = checkServiceBinaryExecutable(baseEnv({ isExecutable: () => false }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.remedy && r.remedy.includes('chmod +x'));
+    });
+    it('checks the Pro binary when the Pro app is configured and enabled', () => {
+        const seen: string[] = [];
+        const env = baseEnv({
+            proServiceBinaryPath: '/pro/CabbageApp',
+            isExecutable: (p) => { seen.push(p); return true; },
+        });
+        const r = checkServiceBinaryExecutable(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.deepStrictEqual(seen, ['/pro/CabbageApp']);
+    });
+    it('checks the public binary when the Pro app is disabled', () => {
+        const seen: string[] = [];
+        const env = baseEnv({
+            proServiceBinaryPath: '/pro/CabbageApp',
+            proAppEnabled: false,
+            isExecutable: (p) => { seen.push(p); return true; },
+        });
+        const r = checkServiceBinaryExecutable(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.deepStrictEqual(seen, ['/ext/bin/CabbageApp']);
+    });
+    it('skips (warn, not fail) when the binary is missing so checkServiceBinary owns that failure', () => {
+        const r = checkServiceBinaryExecutable(baseEnv({ exists: () => false, isExecutable: () => false }));
+        assert.strictEqual(r.status, 'warn');
+    });
+    it('skips (warn, not fail) when the binary path could not be resolved', () => {
+        const r = checkServiceBinaryExecutable(baseEnv({ cabbageAppBinaryPath: '', isExecutable: () => false }));
+        assert.strictEqual(r.status, 'warn');
+    });
+    it('passes without probing on Windows', () => {
+        const r = checkServiceBinaryExecutable(baseEnv({
+            platform: 'win32',
+            isExecutable: () => { throw new Error('should not be called'); },
+        }));
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('Not applicable'));
+    });
+    it('warns (not crashes) when the stat throws', () => {
+        const r = checkServiceBinaryExecutable(baseEnv({ isExecutable: () => { throw new Error('EACCES'); } }));
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.detail.includes('EACCES'));
+    });
+});
+
 describe('runAllChecks', () => {
-    it('returns 7 results and never throws on hostile inputs', () => {
+    it('returns 8 results and never throws on hostile inputs', () => {
         const env = baseEnv({
             settingsFileText: '{broken',
             exists: () => { throw new Error('fs boom'); },
             listFiles: () => { throw new Error('ls boom'); },
+            isExecutable: () => { throw new Error('stat boom'); },
         });
         const results = runAllChecks(env);
-        assert.strictEqual(results.length, 7);
+        assert.strictEqual(results.length, 8);
         assert.ok(results.every((r) => r.id && r.label && r.detail));
     });
     it('a healthy env produces zero fails and warns', () => {
