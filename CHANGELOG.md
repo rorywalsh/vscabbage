@@ -2,6 +2,36 @@
 
 | Message                                | Repo      | Date       | Commit                            |
 |----------------------------------------|-----------|------------|------------------------------------|
+| fix(deps): downgraded typescript to ^6.0.3 so npm install re | vscabbage | 2026-10-25 | 947b36e485ff686603eb002f3ac1e988eadb2031 |
+| fix(export): copy custom widget files into exported plugin r | vscabbage | 2026-10-25 | bbde045f92e7b79cda8e1cdf965cf3823f30081c |
+| build(deps): bump lattice to 523cc57 for console-logging fix | cabbage   | 2026-10-24 | 3d0015e8011cac857ad1b52f80d7321d7e3aee32 |
+| fix(logging): configure logger early and opt into console ou | cabbage   | 2026-10-24 | 2e3b6d5e550cd63f109ff749b29f8d66abbc7333 |
+| fix(arm): Fix ARM64 sub-build architecture propagation in CM | cabbage   | 2026-10-24 | ee9325f5e8ef343a123a8da5dfed1c92656838bf |
+| Update Csound installation command with directory argument   | vscabbage | 2026-10-24 | 1a6b858707f4cac56f73a4d09ef4ff9191faccd6 |
+| Update Csound installation command with directory            | cabbage   | 2026-10-24 | cfc29d66977bc82509a6e88aa895f8694903db3b |
+| build(windowsCI): add ARM64 build and packaging support      | vscabbage | 2026-10-24 | 542be15f4b3c91bf82546ec7b6ccfefb1a4fcf28 |
+| build(CIWindows): add ARM64 build and packaging support      | cabbage   | 2026-10-24 | d47300afc0154ea2db2cbf149e8e7c8f89a2186d |
+| fix(jsonc): reconcile channels and unidentified forms withou | vscabbage | 2026-10-24 | a87cb8015f0117bccb57a7b2d8a3c10d422adf7e |
+| fix(jsonc): make parseCsdForWidgets routing comment-aware so | vscabbage | 2026-10-24 | 2ae6a18928a361deb7874cac8b6fc36715496957 |
+| fix(jsonc): ignore commented-out includes when resolving ext | vscabbage | 2026-10-24 | f9559386c2064c325f835a5092023c6808abe031 |
+| fix(jsonc): route parseCsdForWidgets via parsed widgets inst | cabbage   | 2026-10-24 | 6cf767eaa1bc809d70e129959d379fad79e3efdc |
+| Handle both LF and CR for line comments                      | cabbage   | 2026-10-23 | d7152d1f7894b9515a40aec1e5e5635f7338d328 |
+| fix(csound): support new Csound 7.0.0 Windows library layout | vscabbage | 2026-10-23 | 368e7075c1b7cc8005e656bb4812fa54ad619903 |
+| chore(tasks/launch): Updating vscode script to better manage | vscabbage | 2026-10-23 | c31c5277b22bfb9c2c046486b37a79ad892f8ccb |
+| build(cmake): Looks for Csound via its own installed CMake p | cabbage   | 2026-10-23 | e4ae48f2a6b4bac67d07fe69a93ced58e2e5f90f |
+| build(Csoundsearchpaths): Updating Csound library search pat | cabbage   | 2026-10-23 | f22eda29180d789b3683973b7e76ec54b7a9e887 |
+| build(githubaction): Updating csound library names for GH ac | cabbage   | 2026-10-23 | 1dd01fe6a12d74745e7367d7b85ef3361b962b39 |
+| build(csound7): Updating findCSOUND script to correctly pick | cabbage   | 2026-10-23 | 19c61b237f02b2b8e94a11d84aa6e071887d8b5a |
+| feat(jsonc): preserve comments in Cabbage JSON editing       | vscabbage | 2026-10-23 | 2fafe6f2b38d04ea85247942d48595f4a1d5e568 |
+| feat(jsonc): support comments in widget and CSD JSON parsing | cabbage   | 2026-10-23 | 4086f7c16eddb709f195b9c05e2e430bb2425aba |
+| Correct casing of 'vsCabbage' in README                      | vscabbage | 2026-10-21 | dc4d1e8d6c250740db16a5380d02c4aef466df29 |
+| Fix link formatting for VSCabbage in README                  | vscabbage | 2026-10-21 | bd202b875d3fe31e4197e88db1549a484c2b0fe1 |
+| Fix typo in project title in readme.md                       | vscabbage | 2026-10-21 | 33adc8883e3334729002c3e82a82b463ae7c8ab0 |
+| Revise readme content and update documentation link          | vscabbage | 2026-10-21 | 0f19311f82f7b8cf10b88eb2d79f036b4f4a64f7 |
+| build(csound): updating csound tag for latest release        | vscabbage | 2026-10-21 | fd6fdb65fc032ab2d74975bea457e8e04d9ee733 |
+| build(csound): updating csound tag for latest beta installer | cabbage   | 2026-10-21 | 28a30dcb7404a2fe34cb2ad46c5501ab7db43f34 |
+| Update Cabbage documentation link in README                  | vscabbage | 2026-10-21 | 32cb14f4231204b5485e8fe775e593924ef6a417 |
+| Bump the npm-all group with 5 updates                        | vscabbage | 2026-10-20 | de20ee8953a031f69f4df891e5990e6edecf297f |
 | fix(widgets): Fix custom widget discovery for cabbage-dir la | vscabbage | 2026-10-15 | 9bec1d6324ce9f3aa592760a5e6c907f0c2b5cc8 |
 | Update @types/vscode version in package.json                 | vscabbage | 2026-10-15 | 74be9009dc97e0f08148f38d35dccf70bfed13cd |
 | fix: align TypeScript with ESLint peer range                 | vscabbage | 2026-10-15 | 6231e1f0bde80601a900d28ebbea8a6ee38cc4db |
