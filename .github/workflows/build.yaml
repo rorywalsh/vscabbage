@@ -319,6 +319,21 @@ jobs:
       - name: Install vsce on macOS
         run: npm install -g @vscode/vsce
 
+      # actions/upload-artifact zips files and drops their modes, so the
+      # `chmod +x` applied to the built CabbageApp earlier in this job does not
+      # survive the upload/download round-trip. Restore the executable bit on
+      # the copy that is about to go into the VSIX, otherwise the extension
+      # ships a backend macOS cannot spawn.
+      - name: Restore executable bit on CabbageApp (macOS)
+        run: |
+          chmod -R +x ./src/CabbageBinaries/CabbageApp
+          if [ ! -x ./src/CabbageBinaries/CabbageApp ]; then
+            echo "::error::CabbageApp is still not executable after chmod"
+            ls -l ./src/CabbageBinaries
+            exit 1
+          fi
+          ls -l ./src/CabbageBinaries/CabbageApp
+
       - name: Build and package extension on macOS
         run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 

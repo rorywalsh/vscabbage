@@ -59,6 +59,11 @@ export interface ValidationEnv {
     listFiles: (dir: string) => string[];
     /** True when an executable with this name is found on PATH. */
     isOnPath: (name: string) => boolean;
+    /**
+     * True when `p` has its executable bit set (e.g. `fs.accessSync(p, X_OK)`).
+     * Meaningless on Windows, where the executable-bit checks skip it.
+     */
+    isExecutable: (p: string) => boolean;
 }
 
 /** Normalises a `currentConfig.jsSourceDir` value into a directory list. */
@@ -131,6 +136,38 @@ export function checkServiceBinary(env: ValidationEnv): CheckResult {
                 ? 'The Pro binary path is set but the Cabbage Server binary is missing there. Check cabbage.pathToCabbageProBinary, or disable cabbage.proAppEnabled to fall back to the public binary.'
                 : 'Reinstall the Cabbage extension, or point cabbage.pathToCabbageBinary at a directory containing the Cabbage Server binary.',
         };
+}
+
+export function checkServiceBinaryExecutable(env: ValidationEnv): CheckResult {
+    const base = { id: 'serviceBinaryExecutable', label: 'Cabbage Server is executable' };
+    // The execute bit is a POSIX concept; Windows decides executability by file
+    // extension / PATHEXT, so there is nothing meaningful to probe there.
+    if (env.platform === 'win32') {
+        return { ...base, status: 'pass', detail: 'Not applicable on Windows' };
+    }
+    // Same Pro/public precedence as checkServiceBinary() so both probes talk
+    // about the same file.
+    const usingPro = env.proServiceBinaryPath !== '' && env.proAppEnabled;
+    const binaryPath = usingPro ? env.proServiceBinaryPath : env.cabbageAppBinaryPath;
+    if (!binaryPath || !env.exists(binaryPath)) {
+        // checkServiceBinary() already reports the missing/unresolvable binary;
+        // don't duplicate that failure here.
+        return { ...base, status: 'warn', detail: 'Skipped: binary could not be resolved or is missing' };
+    }
+    try {
+        return env.isExecutable(binaryPath)
+            ? { ...base, status: 'pass', detail: `Executable bit set on ${binaryPath}` }
+            : {
+                ...base, status: 'fail',
+                detail: `Executable bit is NOT set on ${binaryPath}`,
+                remedy: 'The backend cannot be launched. Run `chmod +x "<path>"` on the binary above, or reinstall the Cabbage extension. The extension also repairs this automatically on the next backend start.',
+            };
+    } catch (err) {
+        return {
+            ...base, status: 'warn',
+            detail: `Could not stat ${binaryPath}: ${err instanceof Error ? err.message : String(err)}`,
+        };
+    }
 }
 
 export function checkSettingsFile(env: ValidationEnv): CheckResult {
@@ -287,6 +324,7 @@ export function runAllChecks(env: ValidationEnv): CheckResult[] {
     };
     safe(() => checkCsoundPresent(env), 'csound', 'Csound installed');
     safe(() => checkServiceBinary(env), 'serviceBinary', 'Cabbage Server');
+    safe(() => checkServiceBinaryExecutable(env), 'serviceBinaryExecutable', 'Cabbage Server is executable');
     safe(() => checkSettingsFile(env), 'settingsFile', 'Settings file');
     const parsed = parseSettings(env.settingsFileText);
     const dirs = parsed ? normalizeSourceDirs(parsed.jsSourceDir) : [];
