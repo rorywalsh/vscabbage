@@ -238,13 +238,29 @@ export const WidgetProps = {
 };
 
 /**
+ * Built-in widget type names. Fresh array so callers cannot mutate the registry.
+ * @returns {string[]}
+ */
+export function getBuiltinWidgetTypes() {
+	return Object.keys(BUILTIN_WIDGETS);
+}
+
+/**
+ * Custom widget type names registered so far.
+ * @returns {string[]}
+ */
+export function getCustomWidgetTypes() {
+	return Object.keys(CUSTOM_WIDGET_REGISTRY);
+}
+
+/**
  * Get all available widget types (built-in + custom).
  * Returns a fresh array each time to ensure custom widgets are included.
  * 
  * @returns {string[]} Array of all registered widget type names
  */
 export function getWidgetTypes() {
-	return Object.keys(BUILTIN_WIDGETS).concat(Object.keys(CUSTOM_WIDGET_REGISTRY));
+	return getBuiltinWidgetTypes().concat(getCustomWidgetTypes());
 }
 
 /**

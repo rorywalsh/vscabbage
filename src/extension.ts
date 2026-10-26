@@ -807,16 +807,12 @@ export async function activate(context: vscode.ExtensionContext):
                     // Small delay to let settings settle
                     await new Promise(resolve => setTimeout(resolve, 500));
                     await Commands.startCabbageServer(true);
-                } else {
-                    // If server isn't running, try to notify the webview to
-                    // rescan custom widgets (if panel exists). This is a
-                    // lightweight fallback used when restarting the native
-                    // backend isn't appropriate.
-                    const panel = Commands.getPanel();
-                    if (panel) {
-                        panel.webview.postMessage({ command: 'rescanCustomWidgets' });
-                    }
                 }
+                // Restarting CabbageApp does not reload the webview, and
+                // `rescanCustomWidgets` was never handled there. Always push
+                // a fresh custom-widget list so a widget created while the
+                // panel is open appears in the insert menu.
+                await Commands.pushCustomWidgetInfo();
             } catch (err) {
                 console.warn('Cabbage: Error while restarting backend:', err);
             }

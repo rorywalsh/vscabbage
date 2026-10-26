@@ -3,7 +3,7 @@
 // See the LICENSE file for details.
 
 // Import necessary modules and utilities
-import { widgetConstructors, getWidgetTypes } from "./widgetTypes.js";
+import { widgetConstructors, getBuiltinWidgetTypes, getCustomWidgetTypes } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
@@ -435,29 +435,18 @@ export class WidgetManager {
                 wrapperDiv.className = 'wrapper';
 
                 const contentDiv = document.createElement('div');
-                contentDiv.className = 'content';
+                contentDiv.className = 'content widget-menu';
                 contentDiv.style.overflowY = 'auto';
 
 
                 const ulMenu = document.createElement('ul');
                 ulMenu.className = 'menu';
 
-                // Prevent menu from closing when interacting with the scrollbar
-                const preventClose = (e) => {
-                    e.stopPropagation(); // Prevent click from closing the menu
-                };
+                WidgetManager.guardMenuScroll(contentDiv);
 
-                contentDiv.addEventListener('mousedown', preventClose);
-                contentDiv.addEventListener('pointerdown', preventClose);
-
-                // Populate the menu with widget types (get fresh list including custom widgets)
-                let menuItems = "";
-                const currentWidgetTypes = getWidgetTypes();
-                currentWidgetTypes.forEach((widget) => {
-                    menuItems += `<li class="menuItem"><span>${widget}</span></li>`;
-                });
-
-                ulMenu.innerHTML = menuItems;
+                // Populate the menu. Custom widgets live under an expandable
+                // "Custom Widgets" item rather than inline with the built-ins.
+                ulMenu.innerHTML = WidgetManager.widgetMenuMarkup();
 
                 // Append the inner elements to the form
                 contentDiv.appendChild(ulMenu);
@@ -513,12 +502,8 @@ export class WidgetManager {
         if (vscode) {
             const ulMenu = document.querySelector('.menu');
             if (ulMenu) {
-                let menuItems = "";
-                const currentWidgetTypes = getWidgetTypes();
-                currentWidgetTypes.forEach((widgetType) => {
-                    menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
-                });
-                ulMenu.innerHTML = menuItems;
+                ulMenu.innerHTML = WidgetManager.widgetMenuMarkup();
+                WidgetManager.guardMenuScroll(ulMenu.parentElement);
             } else {
                 console.error("Cabbage: Could not find .menu element to populate");
             }
@@ -551,6 +536,56 @@ export class WidgetManager {
     }
 
     /**
+     * Markup for the insert-widget menu. Built-ins are listed directly.
+     * Custom types sit under a "Custom Widgets" row that expands on hover.
+     * Expansion is pure CSS (.menuExpandGroup:hover in cabbage.css) — no
+     * click/pointerdown handlers here, so selecting the row can never trip
+     * the capture-phase pointer listeners that otherwise close the menu.
+     */
+    static widgetMenuMarkup() {
+        const item = (widgetType) => `<li class="menuItem"><span>${widgetType}</span></li>`;
+        const custom = getCustomWidgetTypes();
+        const builtin = getBuiltinWidgetTypes();
+        let html = "";
+        if (custom.length) {
+            html += `<li class="menuExpandGroup">
+                <div class="menuExpand">
+                    <span class="menuItemLabel">Custom Widgets</span>
+                    <span class="menuItemChevron" aria-hidden="true">&#9656;</span>
+                </div>
+                <ul class="customWidgetSubmenu">${custom.map(item).join("")}</ul>
+            </li>
+            <li class="menuSeparator" aria-hidden="true"></li>`;
+        }
+        html += builtin.map(item).join("");
+        return html;
+    }
+
+    /**
+     * Keep scrollbar / wheel interaction inside the insert menu from bubbling
+     * to the form, which hides the menu on pointerdown. Attached once per
+     * content element, including menus that already existed in the webview HTML.
+     */
+    static guardMenuScroll(contentDiv) {
+        if (!contentDiv) {
+            return;
+        }
+        contentDiv.classList.add('widget-menu');
+        if (contentDiv.dataset && contentDiv.dataset.cabbageScrollGuard === '1') {
+            return;
+        }
+        if (contentDiv.dataset) {
+            contentDiv.dataset.cabbageScrollGuard = '1';
+        }
+        const preventClose = (e) => {
+            e.stopPropagation();
+        };
+        contentDiv.addEventListener('mousedown', preventClose);
+        contentDiv.addEventListener('pointerdown', preventClose);
+        contentDiv.addEventListener('wheel', preventClose, { passive: true });
+    }
+
+    /**
      * Rebuilds the form's right-click widget insertion menu from the current
      * widget registry (built-in + custom). Called when late-discovered custom
      * widgets arrive after the form was created — without this the context
@@ -564,15 +599,9 @@ export class WidgetManager {
             if (!ulMenu) {
                 return;
             }
-            const currentWidgetTypes = getWidgetTypes();
-            const seen = new Set();
-            let menuItems = "";
-            currentWidgetTypes.forEach((widgetType) => {
-                if (seen.has(widgetType)) { return; }
-                seen.add(widgetType);
-                menuItems += `<li class="menuItem"><span>${widgetType}</span></li>`;
-            });
-            ulMenu.innerHTML = menuItems;
+            const currentWidgetTypes = getCustomWidgetTypes().concat(getBuiltinWidgetTypes());
+            ulMenu.innerHTML = WidgetManager.widgetMenuMarkup();
+            WidgetManager.guardMenuScroll(ulMenu.parentElement);
 
             // Bind insertion for the rebuilt items. Items created before a
             // setupFormHandlers() pass already have listeners; skip those to

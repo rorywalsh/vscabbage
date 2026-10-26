@@ -1363,7 +1363,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
   <div id="LeftPanel" class="full-height-div draggablePanel">
     <div id="MainForm" class="form resizeOnly">
       <div class="wrapper">
-        <div class="content" style="overflow-y: auto;">
+        <div class="content widget-menu" style="overflow-y: auto;">
           <ul class="menu">
           </ul>
         </div>

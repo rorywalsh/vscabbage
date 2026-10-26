@@ -682,6 +682,15 @@ window.addEventListener('message', async (event) => {
             widgetWrappers.setSnapSize(parseInt(message.text)); // Update snap size
             break;
 
+        // Extension asks the webview to re-request custom widgets (create
+        // widget / directory change). The listener installed at startup
+        // registers whatever comes back and refreshes the insert menu.
+        case 'rescanCustomWidgets':
+            if (vscode) {
+                vscode.postMessage({ command: 'getCustomWidgetInfo' });
+            }
+            break;
+
         // Called by the host (Cabbage plugin or VS-Code) to update each widget
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':

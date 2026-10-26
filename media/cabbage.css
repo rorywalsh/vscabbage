@@ -127,10 +127,24 @@
 	margin: 0;
 	padding: 5px;
 	list-style-type: none;
-	height: 340px;
+	height: auto;
 }
 
-.content .menuItem {
+/* Divider between custom widgets (listed first) and built-ins. */
+.wrapper .menuSeparator {
+	height: 1px;
+	margin: 4px 2px;
+	background: #d0d0d0;
+	list-style: none;
+	pointer-events: none;
+}
+
+.vscode-dark .wrapper .menuSeparator {
+	background: #3e3e42;
+}
+
+.content .menuItem,
+.content .menuExpand {
 	list-style: none;
 	font-size: 12px;
 	height: 30px;
@@ -142,19 +156,59 @@
 	margin-bottom: 2px;
 	padding: 0 2px 0 2px;
 	color: #1d1d1d;
+	box-sizing: border-box;
+}
+
+.content .menuExpand {
+	justify-content: space-between;
+	padding-right: 6px;
+}
+
+.menuExpandGroup {
+	list-style: none;
+}
+
+.menuItemChevron {
+	font-size: 9px;
+	opacity: 0.75;
+	margin-left: 8px;
+	transition: transform 80ms ease;
+}
+
+/* Hover-expands the Custom Widgets submenu — no click handler involved,
+   so opening the submenu can never close the menu itself. Hover is scoped
+   to the whole group so moving from the row onto the submenu stays open. */
+.menuExpandGroup:hover .menuItemChevron {
+	transform: rotate(90deg);
+}
+
+.customWidgetSubmenu {
+	display: none;
+	margin: 0 0 4px 0;
+	padding: 0 0 0 10px;
+	list-style: none;
+}
+
+.menuExpandGroup:hover .customWidgetSubmenu {
+	display: block;
 }
 
 /* Dark theme for menu items */
-.vscode-dark .content .menuItem {
+.vscode-dark .content .menuItem,
+.vscode-dark .content .menuExpand {
 	color: #cccccc;
 }
 
-.content .menuItem:hover {
+.content .menuItem:hover,
+.content .menuExpand:hover,
+.menuExpandGroup:hover .menuExpand {
 	background: #f2f2f2;
 }
 
 /* Dark theme for menu item hover */
-.vscode-dark .content .menuItem:hover {
+.vscode-dark .content .menuItem:hover,
+.vscode-dark .content .menuExpand:hover,
+.vscode-dark .menuExpandGroup:hover .menuExpand {
 	background: #094771;
 }
 
@@ -169,10 +223,12 @@
 	padding: 0px;
 }
 
-/* Explicitly style the scrollbar within your widget */
+/* Insert-widget context menu. Fixed height lives here, not on the ul,
+   so items past the fold scroll instead of being clipped. */
 .widget-menu {
-	overflow: auto;
-	/* Ensure scrolling is enabled */
+	max-height: 340px;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
 
 .widget-menu::-webkit-scrollbar {

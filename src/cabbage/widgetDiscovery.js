@@ -50,7 +50,6 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                 if (message && message.command === 'customWidgetInfo') {
                     console.log(`Cabbage: customWidgetInfo received, ${(message.widgets || []).length} widgets:`, (message.widgets || []).map(w => w.widgetType));
                     const widgets = message.widgets || [];
-                    let added = false;
                     widgets.forEach(w => {
                         const { widgetType, webviewPath, className } = w;
                         if (widgetType && webviewPath && className) {
@@ -58,7 +57,6 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                                 try {
                                     registerWidget(widgetType, webviewPath, className);
                                     discoveredWidgets.push(widgetType);
-                                    added = true;
                                     console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}`);
                                 } catch (err) {
                                     console.error(`Cabbage: Failed to register widget ${widgetType}:`, err);
@@ -66,7 +64,10 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                             }
                         }
                     });
-                    if (added && typeof onRefresh === 'function') {
+                    // Always refresh. A rescan of already-registered types still
+                    // needs to rebuild the menu if it was created before they
+                    // arrived, or wiped by a form rebuild.
+                    if (typeof onRefresh === 'function') {
                         onRefresh();
                     }
                 }

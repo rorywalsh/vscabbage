@@ -572,32 +572,7 @@ export class Commands {
                 // Proactively push custom widget info so the webview listener
                 // (installed before cabbageIsReadyToLoad is sent) catches it
                 // without a separate request/response round-trip.
-                try {
-                    const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
-                    console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
-                    const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
-                    const seenTypes = new Set<string>();
-                    for (const dir of cwDirs) {
-                        const found = await ExtensionUtils.scanForCustomWidgets(dir);
-                        console.warn(`Cabbage: customWidgetInfo push - dir "${dir}" found ${found.length} widgets:`, found.map(w => w.widgetType));
-                        for (const w of found) {
-                            if (seenTypes.has(w.widgetType)) {
-                                console.warn(`Cabbage: duplicate custom widget type "${w.widgetType}" in "${dir}" ignored (first match wins)`);
-                                continue;
-                            }
-                            const fp = path.join(dir, w.filename);
-                            const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
-                            if (uri) {
-                                seenTypes.add(w.widgetType);
-                                cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
-                            }
-                        }
-                    }
-                    console.warn('Cabbage: customWidgetInfo push - sending', cwWidgets.length, 'widgets');
-                    Commands.getPanel()?.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets });
-                } catch (cwErr) {
-                    console.error('Cabbage: Error pushing customWidgetInfo:', cwErr);
-                }
+                await Commands.pushCustomWidgetInfo();
                 break;
             }
 
@@ -736,51 +711,7 @@ export class Commands {
 
             case 'getCustomWidgetInfo':
                 // Webview is requesting all custom widget information
-                try {
-                    const customDirs = await ExtensionUtils.getCustomWidgetDirectories();
-                    const allWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
-                    const seenTypes = new Set<string>();
-
-                    for (const dir of customDirs) {
-                        const widgets = await ExtensionUtils.scanForCustomWidgets(dir);
-
-                        for (const widget of widgets) {
-                            if (seenTypes.has(widget.widgetType)) {
-                                continue;
-                            }
-                            // Convert file system path to webview URI
-                            const filePath = path.join(dir, widget.filename);
-                            const webviewUri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(filePath));
-
-                            if (webviewUri) {
-                                // Use toString(true) to skip encoding, which prevents %2B instead of +
-                                const uriString = webviewUri.toString(true);
-                                seenTypes.add(widget.widgetType);
-                                allWidgets.push({
-                                    widgetType: widget.widgetType,
-                                    filename: widget.filename,
-                                    className: widget.className,
-                                    webviewPath: uriString
-                                });
-                            }
-                        }
-                    }
-
-                    if (Commands.getPanel()) {
-                        Commands.getPanel()!.webview.postMessage({
-                            command: 'customWidgetInfo',
-                            widgets: allWidgets
-                        });
-                    }
-                } catch (error) {
-                    console.error('Cabbage: Error getting custom widget info:', error);
-                    if (Commands.getPanel()) {
-                        Commands.getPanel()!.webview.postMessage({
-                            command: 'customWidgetInfo',
-                            widgets: []
-                        });
-                    }
-                }
+                await Commands.pushCustomWidgetInfo();
                 break;
 
             case 'getCustomWidgetDirectories':
@@ -2259,6 +2190,53 @@ export class Commands {
      */
     static getPanel(): vscode.WebviewPanel | undefined {
         return this.panel;
+    }
+
+    /**
+     * Scan configured custom-widget directories and push the result to the
+     * open webview. Safe to call when no panel exists. Used on first load
+     * and after creating a widget / restarting the backend, so a newly saved
+     * widget shows up in the insert menu without recreating the panel.
+     */
+    static async pushCustomWidgetInfo(): Promise<void> {
+        const panel = Commands.getPanel();
+        if (!panel) {
+            return;
+        }
+        try {
+            const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
+            console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
+            const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+            const seenTypes = new Set<string>();
+            for (const dir of cwDirs) {
+                const found = await ExtensionUtils.scanForCustomWidgets(dir);
+                console.warn(`Cabbage: customWidgetInfo push - dir "${dir}" found ${found.length} widgets:`, found.map(w => w.widgetType));
+                for (const w of found) {
+                    if (seenTypes.has(w.widgetType)) {
+                        console.warn(`Cabbage: duplicate custom widget type "${w.widgetType}" in "${dir}" ignored (first match wins)`);
+                        continue;
+                    }
+                    const fp = path.join(dir, w.filename);
+                    const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
+                    if (uri) {
+                        seenTypes.add(w.widgetType);
+                        cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
+                    }
+                }
+            }
+            const target = Commands.getPanel();
+            if (!target) {
+                return;
+            }
+            console.warn('Cabbage: customWidgetInfo push - sending', cwWidgets.length, 'widgets');
+            target.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets });
+        } catch (cwErr) {
+            console.error('Cabbage: Error pushing customWidgetInfo:', cwErr);
+            const target = Commands.getPanel();
+            if (target) {
+                target.webview.postMessage({ command: 'customWidgetInfo', widgets: [] });
+            }
+        }
     }
 
     /**
