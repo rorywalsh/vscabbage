@@ -21,6 +21,8 @@ export class Form {
       "type": "form",
       "zIndex": 0,
 
+      "scaleSource": "host",
+
       "style": {
         "backgroundColor": "#004c6b",
         "opacity": 1

@@ -3687,7 +3687,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
             // Create vanilla CSD
             const vanillaCsd = `<Cabbage>{
     "widgets": [
-        {"type": "form", "caption": "${pluginName}", "size": {"width": 380, "height": 200}, "pluginId": "def1", "enableDevTools": true},
+        {"type": "form", "caption": "${pluginName}", "size": {"width": 380, "height": 200}, "scaleSource": "host", "pluginId": "def1", "enableDevTools": true},
         {
             "type": "rotarySlider",
             "channels": [

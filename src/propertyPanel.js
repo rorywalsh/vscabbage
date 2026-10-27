@@ -1448,6 +1448,22 @@ export class PropertyPanel {
                 });
                 input.value = value || 'Verdana'; // Set default value if none provided
             }
+            // Handle DPI scale source selection for the form widget
+            else if (key.toLowerCase() === 'scalesource') {
+                input = document.createElement('select');
+                const scaleSources = [
+                    { value: 'host', label: 'Host (use the scale sent by the DAW)' },
+                    { value: 'os', label: 'OS (use the operating system DPI)' }
+                ];
+
+                scaleSources.forEach((source) => {
+                    const option = document.createElement('option');
+                    option.value = source.value;
+                    option.textContent = source.label;
+                    input.appendChild(option);
+                });
+                input.value = value || 'host';
+            }
             // Handle text alignment selection
             else if (key.toLowerCase() === 'align' || key.toLowerCase().endsWith('.align')) {
                 input = document.createElement('select');
