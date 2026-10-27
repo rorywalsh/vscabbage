@@ -862,7 +862,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
             const cabbageContent = warningComment + `
 <Cabbage>{
     "widgets": [
-        {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"pluginId":"def1"},
+        {"type":"form","caption":"Untitled","size":{"height":300,"width":600},"scaleSource":"host","pluginId":"def1"},
         ${JSON.stringify(props, null, 4)}
     ]
 }</Cabbage>`;
@@ -1631,7 +1631,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
     "channelConfig": [ {"name": "Custom", "ins": "1", "outs": "2"}, {"name": "Mono", "ins": "1", "outs": "1"} ],    
     "enableDevTools": true,
     "widgets": [
-        {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}},${widgets}
+        {"type": "form", "caption": "${caption}", "size": {"width": 580, "height": 300}, "scaleSource": "host"},${widgets}
     ]
 }
 </Cabbage>`;
