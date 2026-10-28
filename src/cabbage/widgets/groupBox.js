@@ -42,7 +42,7 @@ export class GroupBox {
             },
 
             "label": {
-                "text": "Hello",
+                "text": "",
                 "offsetY": 0,
                 "align": "center"
             }
@@ -117,6 +117,12 @@ export class GroupBox {
             textAlign = 'center';
             textLeft = '50%';
             transform = 'translateX(-50%)';
+        }
+
+        // No text → don't cut a gap in the border (avoids a stray notch in the
+        // outline when the label is empty).
+        if (!this.props.label.text || !String(this.props.label.text).trim()) {
+            gapStart = gapEnd = -1;
         }
 
         return `

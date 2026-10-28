@@ -30,6 +30,7 @@ export class Button {
       "active": true,
       "automatable": true,
       "radioGroup": -1,
+      "latched": true,
       "type": "button",
 
       "persistence": {
@@ -95,6 +96,14 @@ export class Button {
       return '';
     }
     this.isMouseDown = false;
+
+    if (this.props.latched === false) {
+      // Momentary button: turn off on release.
+      const range = CabbageUtils.getChannelRange(this.props, 0, 'click');
+      this.props.channels[0].range.value = range.min;
+      Cabbage.sendControlData({ channel: CabbageUtils.getChannelId(this.props), value: this.props.channels[0].range.value }, this.vscode);
+    }
+
     CabbageUtils.updateInnerHTML(this.props, this);
   }
 
@@ -114,8 +123,11 @@ export class Button {
       this.props.channels[0].range.value = range.defaultValue;
     }
 
-    // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
-    if (this.props.radioGroup && this.props.radioGroup !== -1) {
+    if (this.props.latched === false) {
+      // Momentary button: turn on while pressed (turn off in pointerUp).
+      this.props.channels[0].range.value = range.max;
+    } else if (this.props.radioGroup && this.props.radioGroup !== -1) {
+      // For radioGroup buttons: if already on, stay on; if off, turn on and deactivate others
       if (this.props.channels[0].range.value === range.min) {
         this.props.channels[0].range.value = range.max;
         handleRadioGroup(this.props.radioGroup, CabbageUtils.getWidgetDivId(this.props));
