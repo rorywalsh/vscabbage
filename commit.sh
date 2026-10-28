@@ -103,8 +103,10 @@ if [ "$TRIGGER_BUILD" = "1" ]; then
     fi
 
     # Pushing a trigger also pushes any unpushed local commits, and a dirty
-    # tree means unrelated work is in flight: refuse to mix the two.
-    if [ -n "$(git status --porcelain)" ]; then
+    # tree means unrelated work is in flight: refuse to mix the two. Untracked
+    # files are excluded here — they are never pushed and the trigger commit is
+    # empty, so they can't leak into it.
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
         echo "Working tree is not clean. Commit or stash your changes first."
         echo "Aborting (refusing to push a trigger alongside other work)."
         exit 1
