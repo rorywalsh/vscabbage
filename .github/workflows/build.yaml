@@ -1007,6 +1007,21 @@ jobs:
       - name: Install vsce on Linux
         run: npm install -g @vscode/vsce
 
+      # actions/upload-artifact zips files and drops their modes, so the
+      # executable bit on the built CabbageApp does not survive the
+      # upload/download round-trip. Restore it on the copy that is about to
+      # go into the VSIX, otherwise the extension ships a Linux backend that
+      # cannot be spawned.
+      - name: Restore executable bit on CabbageApp (Linux)
+        run: |
+          chmod -R +x ./src/CabbageBinaries/CabbageApp
+          if [ ! -x ./src/CabbageBinaries/CabbageApp ]; then
+            echo "::error::CabbageApp is still not executable after chmod"
+            ls -l ./src/CabbageBinaries
+            exit 1
+          fi
+          ls -l ./src/CabbageBinaries/CabbageApp
+
       - name: Build and package extension on Linux
         run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
 
