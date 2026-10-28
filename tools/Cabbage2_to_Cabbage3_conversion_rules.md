@@ -4,15 +4,27 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 
 ## 1) Widget type renaming
 - `rslider` → `rotarySlider`
+- `hslider` → `horizontalSlider`
 - `vslider` → `verticalSlider`
+- `nslider` → `numberSlider`
 - `combobox` → `comboBox`
-- `vmeter` → `verticalSlider` (fallback approximation)
-- `image`, `button`, `form` kept as-is
+- `checkbox` → `checkBox`
+- `groupbox` → `groupBox`
+- `gentable` → `genTable`
+- `filebutton` → `fileButton`
+- `texteditor` → `textEditor`
+- `listbox` → `listBox`
+- `infobutton` → `infoButton`
+- `vmeter` → `verticalSlider` (fallback approximation; Cabbage 3 has no stock meter)
+- `soundfiler`, `signaldisplay` → no stock equivalent; manual review (`genTable` / custom widget)
+- `image`, `button`, `label`, `keyboard`, `form` kept as-is
 
 ## 2) Geometry mapping
 - `bounds(x,y,w,h)` → `"bounds": {"left":x, "top":y, "width":w, "height":h}`
-- `pos(x,y)` + `size(w,h)` → same `bounds` object in Cabbage 3
-- `form size(w,h)` → `"size": {"width":w, "height":h}`
+- `pos(x,y)` → `bounds.left` / `bounds.top`
+- `size(w,h)` (non-form) → `bounds.width` / `bounds.height`
+- `form size(w,h)` → `"size": {"width":w, "height":h}` (the form is the only widget without `left`/`top`)
+- All non-form widgets must end up with a complete `bounds` object (`left`, `top`, `width`, `height`); `pos()`/`size()` merge into it rather than producing a separate `size` field.
 
 ## 3) Channels and ranges
 - `channel("name")` →
@@ -94,19 +106,59 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
   - avoid explicit comboBox `range` unless required
 
 ## 13) `identChannel` migration rule (critical)
-- In Cabbage 3 there is no separate `identChannel` concept. A widget's main channel/id should be used for property and value updates.
-- Migration rule:
-  - remove `identChannel(...)` from widget declarations
-  - ensure widget has a stable main channel/id (`channels[0].id` for parameter widgets, top-level `id` for panel-style widgets)
-  - replace orchestra references that target the old ident channel string with the widget's main channel/id
-- If a Cabbage 2 widget had only `identChannel` and no `channel`, reuse that ident name as the widget channel/id to keep orchestra code stable.
 
-## 14) `chnset/chnget` rewrite rules for former ident channels
-- `chnget "oldIdent"` → `cabbageGetValue "mainChannel"` (value path)
-- `chnset kval, "oldIdent"` for value updates → `cabbageSetValue "mainChannel", kval, changed:k(kval)`
-- `chnset "property(value)", "oldIdent"` for property updates → `cabbageSet k(1), "mainChannel", "property", value`
-- `sprintf/sprintfk` property strings feeding `chnset` should be rewritten to direct `cabbageSet` calls with explicit property/value args.
-- Prefer `cabbageSetValue` for value-only traffic and `cabbageSet` for visual/property mutations.
+Cabbage 2 gives a widget two independent names:
+
+- `channel("name")` — the **value** channel (automatable parameter; read/written by the host, `chnget`, and the value form of `chnset`).
+- `identChannel("ident")` — a **separate handle** used only to address the widget for *property/appearance* updates (`chnset "prop(...)", "ident"`). Used on `label`/`image`/`plant`, and also alongside a `channel` on parameter widgets (e.g. `rslider … channel("frq") … identChannel("frqID")` so the orchestra can `chnset "visible(0)", "frqID"`).
+
+Cabbage 3 collapses this: a widget's **channel object** is the single addressable unit, and it serves *both* value and appearance traffic.
+
+- value traffic → `cabbageGetValue`/`cabbageSetValue` always query one of the channel objects (`channels[].id`, or the `"channel": "name"` shorthand).
+- appearance/property traffic → `cabbageSet`/`cabbageGet` address that **same** channel object; no separate identifier exists.
+
+Migration rule (always results in a **single** channel per widget):
+
+- `channel("name")` → a channel object with id `"name"`.
+- `identChannel("ident")` on a widget that **also** has `channel("name")` → **drop the ident**: emit one channel `{"id":"name"}` and rewrite orchestra appearance updates that used `"ident"` to target `"name"` instead (e.g. `chnset "visible(0)", "frqID"` → `cabbageSet "frq", "visible", 0`).
+- `identChannel("ident")` on a widget with **no** `channel` (label/image/plant) → a single channel `{"id":"ident"}`.
+- Multiple channels only arise from genuinely multi-channel widgets (e.g. `xyPad`), never from an identChannel.
+
+## 14) `chnset/chnget` rewrite rules
+
+Cabbage 2 overloads `chnset`/`chnget` for both values and properties; Cabbage 3 splits them into distinct opcodes.
+
+- `chnget "chan"` (value read) → `cabbageGetValue "chan"`
+- `chnset kVal, "chan"` (numeric value write) → `cabbageSetValue "chan", kVal`
+- `chnset SVal, "chan"` (string value write) → `cabbageSetValue "chan", SVal`
+- `chnset "prop(args)", "ident"` (property write) → `cabbageSet "channel", "prop", value`
+- property read (rare in Cabbage 2) → `cabbageGet "channel", "prop"`
+
+`cabbageSet` confirmed signatures (the first argument is a channel id):
+
+    cabbageSet "channel", "prop", value
+    cabbageSet kTrig, "channel", "prop", value
+    cabbageSet "channel", jsonObjectString   ; e.g. sprintf {{"visible":%d}}, 0
+
+`sprintf`/`sprintfk` attribute strings feeding `chnset` (e.g. `sprintf "bounds(%d,%d,%d,%d)", x,y,w,h`) must be decomposed into one `cabbageSet` call per property.
+
+**Dot notation only** — Cabbage 3 has no flat style tokens; every Cabbage 2 token maps to a nested (dotted) path that must match the widget's JSON property tree (see each widget's `rawDefaults`).
+
+| Cabbage 2 token | Cabbage 3 dotted path (runtime) |
+|---|---|
+| `colour(...)` | `style.backgroundColor` (image/label/form); `colour.on.fill` / `colour.off.fill` (button); `style.fill` (comboBox) |
+| `outlineColour(...)` | `style.borderColor` |
+| `outlineThickness(n)` | `style.borderWidth` |
+| `corners(n)` / `shape(...)` | `style.borderRadius` |
+| `alpha(x)` | `style.opacity` |
+| `fontColour(...)` / `textColour(...)` | `style.fontColor` (or `style.label.fontColor` for sliders) |
+| `text(...)` | `label.text` (label), `text` (textEditor), `text.on` / `text.off` (button) |
+| `bounds(x,y,w,h)` | `bounds.left` / `bounds.top` / `bounds.width` / `bounds.height` |
+| `visible(n)` | `visible` (one of the few remaining top-level flags) |
+
+The exact path is widget-specific (e.g. button colour is `colour.on/off.*`, slider track is `style.track.fillColor`, image colour is `style.backgroundColor`) — always verify against the target widget's `rawDefaults`; never assume a flat token survives.
+
+Prefer `cabbageSetValue`/`cabbageGetValue` for value-only traffic and `cabbageSet`/`cabbageGet` for property/visual mutations.
 
 ## 15) Additional Effects corpus lessons (77 Cabbage2 instruments sampled)
 - High-frequency legacy identifiers that need robust mapping support:
@@ -118,6 +170,19 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 ## 16) Legacy widget/syntax handling notes from Effects set
 - `groupbox` → `groupBox` with bounds/style preserved; if used only as a visual container, prefer top-level `id` + `cabbageSet` property control.
 - `plant(...)` blocks are legacy grouping syntax; flatten into explicit widget JSON objects and preserve relative bounds.
-- `latched` button behavior requires explicit mapping to Cabbage 3 button semantics; verify toggle behavior after conversion.
+- `latched(1)` / `latched(0)` → `latched: true` / `latched: false` on the button (Cabbage 3 button now supports a `latched` flag: `true` = toggle, `false` = momentary).
 - `trackercolour` maps to slider track styling in Cabbage 3 (`style.track.fillColor` where supported).
 - `soundfiler` is rare and typically requires a non-direct conversion path (commonly to `genTable`/custom UI); treat as manual-review required.
+
+## 17) `widgetArray` expansion
+- `widgetArray("name", N)` in Cabbage 2 expands to N widgets addressed by ident `name_ident1 … name_identN` (the orchestra builds the ident via `sprintf "name_ident%d", i`).
+- Cabbage 3 has no `widgetArray`; convert to one of:
+  - N explicit widget JSON objects (each with `"id": "name_ident<i>"` and, for parameter widgets, `"channel": "name<i>"`), or
+  - runtime creation with `cabbageCreate` for large/dynamic sets (see `examples/cabbageCreate.csd`).
+- Preserve the `name_ident%d` convention in the orchestra (`cabbageSet Sident, "prop", value`) so existing loops/macros keep working unchanged.
+
+## 18) `plant` grouping
+- `plant("Name")` blocks are legacy grouping syntax: a container widget (usually `image`, sometimes `groupbox`) followed by `plant("Name") { ... }`, optionally with `identChannel("NamePlant_ident")` so the orchestra can show/hide the whole group.
+- **Keep the container's original type** (image → image, groupbox → groupBox); just drop the `plant(...)` identifier.
+- Plant children's bounds are **relative** to the container, so offset each child by the container's `left`/`top` and flatten them as siblings (a container widget's `plant` does not change its own absolute bounds).
+- If the plant had an identChannel, it becomes a channel id (addressable via `cabbageSet`).

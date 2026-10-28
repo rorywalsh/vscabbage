@@ -33,6 +33,7 @@ import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
+import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { runAllChecks, formatReport, summarize, ValidationEnv } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -1711,15 +1712,72 @@ export class Commands {
      * Updates, or at least tries, old Cabbage syntax to JSON
      * @returns 
      */
-    static async updateCodeToJSON() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage("No active editor found.");
+    static async importCabbage2Instrument() {
+        const fileUris = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            filters: { 'Cabbage / CSD files': ['csd', 'txt'] },
+            defaultUri: Commands.lastFileDialogDirectory
+                ? vscode.Uri.file(Commands.lastFileDialogDirectory)
+                : undefined,
+            title: 'Import Cabbage 2 Instrument',
+        });
+
+        if (!fileUris || fileUris.length === 0) {
             return;
         }
 
-        // Call the new method in ExtensionUtils
-        await ExtensionUtils.convertCabbageCodeToJSON(editor);
+        const sourceUri = fileUris[0];
+        Commands.lastFileDialogDirectory = path.dirname(sourceUri.fsPath);
+
+        let sourceText: string;
+        try {
+            sourceText = fs.readFileSync(sourceUri.fsPath, 'utf-8');
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to read ${sourceUri.fsPath}: ${err}`);
+            return;
+        }
+
+        let result;
+        try {
+            result = convertCabbage2ToCabbage3(sourceText);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Cabbage 2 import failed: ${err}`);
+            return;
+        }
+
+        // Write a new Cabbage 3 file next to the source (never overwrite it).
+        const dir = path.dirname(sourceUri.fsPath);
+        const base = path.basename(sourceUri.fsPath, path.extname(sourceUri.fsPath));
+        let targetPath = path.join(dir, `${base}_Cabbage3.csd`);
+        let n = 2;
+        while (fs.existsSync(targetPath)) {
+            targetPath = path.join(dir, `${base}_Cabbage3_${n}.csd`);
+            n++;
+        }
+
+        try {
+            fs.writeFileSync(targetPath, result.text, 'utf-8');
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to write ${targetPath}: ${err}`);
+            return;
+        }
+
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+        await vscode.window.showTextDocument(document);
+
+        const output = Commands.getOutputChannel();
+        output.appendLine(`Imported Cabbage 2 instrument → ${targetPath}`);
+        output.appendLine(result.summary);
+        for (const warning of result.warnings) {
+            output.appendLine(`  ⚠ ${warning}`);
+        }
+        if (result.warnings.length > 0) {
+            output.show(true);
+        }
+
+        vscode.window.showInformationMessage(`Cabbage 2 import: ${result.summary}`);
     }
 
     /**

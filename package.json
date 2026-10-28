@@ -560,8 +560,8 @@
         "category": "Cabbage"
       },
       {
-        "command": "cabbage.updateToCabbage3",
-        "title": "Update old-style Cabbage code to JSON",
+        "command": "cabbage.importCabbage2Instrument",
+        "title": "Import Cabbage 2 Instrument",
         "category": "Cabbage"
       },
       {

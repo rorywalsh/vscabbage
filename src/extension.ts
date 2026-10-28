@@ -845,8 +845,8 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.moveCabbageSection();
         }));
     context.subscriptions.push(vscode.commands.registerCommand(
-        'cabbage.updateToCabbage3', () => {
-            Commands.updateCodeToJSON();
+        'cabbage.importCabbage2Instrument', () => {
+            Commands.importCabbage2Instrument();
         }));
 
     // Register command for reordering widgets
