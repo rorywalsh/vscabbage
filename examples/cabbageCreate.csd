@@ -4,7 +4,7 @@
     "pluginId"      : "def1",
     "enableDevTools": true,
     "channelConfig": [
-        { "name": "Stereo",    "ins": "2",   "outs": "2" },
+        { "name": "Stereo",    "ins": "2",   "outs": "2" }
     ],
     "widgets"       : [
         { "type": "form", "caption": "Template Effect", "size": {"width": 580, "height": 370} },

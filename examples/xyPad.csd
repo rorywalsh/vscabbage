@@ -37,6 +37,7 @@ instr 1
     outs aOut, aOut
 endin
 
+</CsInstruments>
 </CsoundSynthesizer>
 <CsScore>
 i1 0 [60*60*24*7]
