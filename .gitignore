@@ -17,3 +17,4 @@ tsconfig.lsif.json
 ._*
 .secrets
 node_modules
+AGENTS.md
