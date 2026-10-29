@@ -3103,6 +3103,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
             height: 100%;
             width: 100%;
             overflow: hidden;
+            /* Dark paint before the instrument form renders so the plugin
+               webview never flashes white on startup (WebView2's default
+               background is white; a transparent page lets it show through). */
+            background: #1e1e1e;
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
