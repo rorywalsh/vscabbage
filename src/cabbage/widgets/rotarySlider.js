@@ -172,8 +172,10 @@ export class RotarySlider {
       return '';
     }
     const popup = document.getElementById('popupValue');
-    popup.classList.add('hide');
-    popup.classList.remove('show');
+    if (popup) {
+      popup.classList.add('hide');
+      popup.classList.remove('show');
+    }
 
     // Release pointer capture
     if (this.activePointerId !== undefined && evt.target) {
@@ -267,10 +269,10 @@ export class RotarySlider {
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
-    const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup) {
+    if (popup && form && this.props.popup) {
+      const rect = form.getBoundingClientRect();
       const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
       popup.textContent = parseFloat(currentValue).toFixed(this.decimalPlaces);
 
@@ -314,8 +316,10 @@ export class RotarySlider {
 
     if (!this.isMouseDown) {
       const popup = document.getElementById('popupValue');
-      popup.classList.add('hide');
-      popup.classList.remove('show');
+      if (popup) {
+        popup.classList.add('hide');
+        popup.classList.remove('show');
+      }
     }
   }
 

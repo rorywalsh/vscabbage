@@ -96,8 +96,10 @@ export class VerticalSlider {
       return '';
     }
     const popup = document.getElementById('popupValue');
-    popup.classList.add('hide');
-    popup.classList.remove('show');
+    if (popup) {
+      popup.classList.add('hide');
+      popup.classList.remove('show');
+    }
 
     // Release pointer capture
     if (this.activePointerId !== undefined && this.widgetDiv) {
@@ -196,10 +198,10 @@ export class VerticalSlider {
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
-    const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup) {
+    if (popup && form && this.props.popup) {
+      const rect = form.getBoundingClientRect();
       popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
@@ -240,8 +242,10 @@ export class VerticalSlider {
 
     if (!this.isMouseDown) {
       const popup = document.getElementById('popupValue');
-      popup.classList.add('hide');
-      popup.classList.remove('show');
+      if (popup) {
+        popup.classList.add('hide');
+        popup.classList.remove('show');
+      }
     }
   }
 
@@ -253,6 +257,7 @@ export class VerticalSlider {
   }
 
   addEventListeners(widgetDiv) {
+    this.widgetDiv = widgetDiv;
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));

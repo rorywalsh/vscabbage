@@ -98,8 +98,10 @@ export class HorizontalRangeSlider {
 
   pointerUp(evt) {
     const popup = document.getElementById('popupValue');
-    popup.classList.add('hide');
-    popup.classList.remove('show');
+    if (popup) {
+      popup.classList.add('hide');
+      popup.classList.remove('show');
+    }
 
     // Release pointer capture
     if (this.activePointerId !== undefined && evt.target) {
@@ -177,10 +179,10 @@ export class HorizontalRangeSlider {
     const range = CabbageUtils.getChannelRange(this.props, 0);
     const popup = document.getElementById('popupValue');
     const form = document.getElementById('MainForm');
-    const rect = form.getBoundingClientRect();
     this.decimalPlaces = CabbageUtils.getDecimalPlaces(range.increment);
 
-    if (popup && this.props.popup) {
+    if (popup && form && this.props.popup) {
+      const rect = form.getBoundingClientRect();
       popup.textContent = this.props.valueText.prefix + parseFloat(this.props.channels[0].range.value ?? range.defaultValue).toFixed(this.decimalPlaces) + this.props.valueText.postfix;
 
       // Calculate the position for the popup
@@ -202,7 +204,7 @@ export class HorizontalRangeSlider {
         popup.classList.remove('right');
       }
 
-      const popupTop = rect.top + this.props.top; // Adjust top position relative to the form's top
+      const popupTop = rect.top + this.props.bounds.top + this.props.bounds.height * .45; // Adjust top position relative to the form's top
 
       // Set the calculated position
       popup.style.left = `${popupLeft}px`;
@@ -225,8 +227,10 @@ export class HorizontalRangeSlider {
 
     if (!this.isMouseDown) {
       const popup = document.getElementById('popupValue');
-      popup.classList.add('hide');
-      popup.classList.remove('show');
+      if (popup) {
+        popup.classList.add('hide');
+        popup.classList.remove('show');
+      }
     }
   }
 

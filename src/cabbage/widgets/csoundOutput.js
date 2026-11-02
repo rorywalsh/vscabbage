@@ -66,7 +66,7 @@ export class CsoundOutput {
     }
 
     getInnerHTML() {
-        const fontSize = this.props.style.fontSize === "auto" ? Math.max(this.props.height * 0.8, 12) : this.props.style.fontSize;
+        const fontSize = this.props.style.fontSize === "auto" ? Math.max(this.props.bounds.height * 0.8, 12) : this.props.style.fontSize;
         const alignMap = {
             'left': 'start',
             'center': 'center',
