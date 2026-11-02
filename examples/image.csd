@@ -21,7 +21,7 @@
 <CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 -m0d --midi-key=4 --midi-velocity-amp=5
-</CsOptions>e
+</CsOptions>
 <CsInstruments>
 ; Initialize the global variables.
 ksmps = 32
@@ -36,10 +36,10 @@ nchnls = 2
 ; even for commercial purposes, all without asking permission.
 
 instr 1
-    imageX:k, trigX:k = cabbageGetValue:k("image1X")
-    imageY:k, trigY:k = cabbageGetValue:k("image1Y")
-    printf("Current Mouse X Position: %f\n", trigX, imageX)
-    printf("Current Mouse Y Position: %f\n", trigY, imageY)
+    imageX:CabbageNumTrig = cabbageGetValue("image1X")
+    imageY:CabbageNumTrig = cabbageGetValue("image1Y")
+    printf("Current Mouse X Position: %f\n", imageX.trig, imageX.val)
+    printf("Current Mouse Y Position: %f\n", imageY.trig, imageY.val)
 endin
 
 

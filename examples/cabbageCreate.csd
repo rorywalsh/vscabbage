@@ -47,8 +47,6 @@ ksmps = 32
 nchnls = 2
 0dbfs = 1
 
-struct CabbageButton val:k, trig:k
-
 instr 1
 
     x:i, y:i init 0
@@ -96,8 +94,7 @@ instr 1
         column = (column+1) % numCols
     endif
 
-    shuffle:CabbageButton init 0, 0
-    shuffle.val, shuffle.trig = cabbageGetValue("shuffle")
+    shuffle:CabbageNumTrig = cabbageGetValue("shuffle")
     if shuffle.trig==1 then
         event("i", "SHUFFLE", 0, .5)
     endif

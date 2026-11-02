@@ -83,7 +83,7 @@
 <CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 -m0d --midi-key=4 --midi-velocity-amp=5
-</CsOptions>e
+</CsOptions>
 <CsInstruments>
 ; Initialize the global variables.
 ksmps = 32

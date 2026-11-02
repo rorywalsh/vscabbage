@@ -53,10 +53,10 @@ nchnls = 2
 
 instr 1
 
-    kVal, kTrig = cabbageGetValue("trigger")
+    trigger:CabbageNumTrig = cabbageGetValue("trigger")
 
-    if kTrig == 1 then
-        if kVal == 1 then
+    if trigger.trig == 1 then
+        if trigger.val == 1 then
             event("i", "Synth", 0, 3600)
         else
             iInstrNum = nstrnum("Synth")

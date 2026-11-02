@@ -39,9 +39,9 @@ nchnls 		= 	2
 ; even for commercial purposes, all without asking permission.
 
 instr	1
-    SFile, kTrig = cabbageGetValue("fileToOpen")
-    printf("File selected:%s", kTrig, SFile)
-    cabbageSet(kTrig, "gentable1", "file", SFile)
+    fileRes:CabbageStrTrig = cabbageGetValue("fileToOpen")
+    printf("File selected:%s", fileRes.trig, fileRes.val)
+    cabbageSet(fileRes.trig, "gentable1", "file", fileRes.val)
 endin
 
 </CsInstruments>

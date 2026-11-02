@@ -31,7 +31,12 @@
             "scrollbars": 1,
             "text"      : "This instrument shows an example..."
         },
-        { "type": "comboBox", "channel": "combo1", "bounds": {"left": 200, "top": 200, "width": 100, "height": 30}, "items": ["One", "Two", "Three"] }
+        {
+            "type"    : "comboBox",
+            "bounds"  : {"left": 200, "top": 200, "width": 100, "height": 30},
+            "channels": [ {"id": "combo1", "event": "valueChanged", "range": {}} ],
+            "items"   : ["One", "Two", "Three"]
+        }
     ]
 }
 
@@ -51,21 +56,21 @@ Test various string variants of cabbageSet opcodes.
 These opcodes provide an interface to widget properties.
 */
 instr TestStringSetOpcodes
-    k1 metro 1
+    switch:k = metro(10)
     if p4 == 0 then
-        cabbageSet "button1", "text.off", "p4 is 0"
+        cabbageSet("button1", "text.off", "p4 is 0")
     elseif p4 == 1 then
-        cabbageSet "button1", "text.off", "p4 is 1"
+        cabbageSet("button1", "text.off", "p4 is 1")
     elseif p4 == 2 then
-        cabbageSet "infoText", "text", "p4 is 2"
+        cabbageSet("infoText", "text", "p4 is 2")
     elseif p4 == 3 then
-        cabbageSet "infoText", sprintf({{"text":"%s"}}, "p4 is 3")
+        cabbageSet("infoText", sprintf({{"text":"%s"}}, "p4 is 3"))
     elseif p4 == 4 then
-        cabbageSet k1, "infoText", "text", "p4 is 4"
+        cabbageSet(switch, "infoText", "text", "p4 is 4")
     elseif p4 == 5 then
-        cabbageSet k1, "infoText", sprintf({{"text":"%s"}}, "p4 is 5")
+        cabbageSet(switch, "infoText", sprintf({{"text":"%s"}}, "p4 is 5"))
     elseif p4 == 6 then
-        cabbageSet "button1", "colour.off.fill", "#00ff00"
+        cabbageSet("button1", "colour.off.fill", "#00ff00")
     endif
 endin
 
@@ -74,18 +79,18 @@ Test various MYFLT variants of cabbageSet opcodes.
 These opcodes provide an interface to widget properties.
 */
 instr TestMYFLTSetOpcodes
-    k1 metro 10
-    kToggle = (oscili:k(1, 2) > 0 ? 1 : 0)
+    switch:k = metro(10)
+    toggle:k = (oscili:k(1, 2) > 0 ? 1 : 0)
     if p4 == 0 then
-        cabbageSet k1, "gain", "bounds.left", abs(randi:k(400, 10))
+        cabbageSet(switch, "gain", "bounds.left", abs(randi:k(400, 10)))
     elseif p4 == 1 then
-        cabbageSet k1, "gain", "visible", kToggle
+        cabbageSet(switch, "gain", "visible", toggle:k)
     elseif p4 == 2 then
-        cabbageSet "gain", "bounds.left", 10
+        cabbageSet("gain", "bounds.left", 10)
     elseif p4 == 3 then
-        cabbageSet "gain", sprintf({{"visible":%d}}, 0)
+        cabbageSet("gain", sprintf({{"visible":%d}}, 0))
     elseif p4 == 4 then
-        cabbageSet "gain", sprintf({{"visible":%d}}, 1)
+        cabbageSet("gain", sprintf({{"visible":%d}}, 1))
     endif
 endin
 

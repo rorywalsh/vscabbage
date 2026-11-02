@@ -52,10 +52,10 @@ ksmps = 32
 
 instr 1
 
-    val:k, trig:k = cabbageGetValue("trigger")
+    trigger:CabbageNumTrig = cabbageGetValue("trigger")
 
-    if trig == 1 then
-        if val == 1 then
+    if trigger.trig == 1 then
+        if trigger.val == 1 then
             event("i", "Synth", 0, 3600)
         else
             instrNum:i = nstrnum("Synth")

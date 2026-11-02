@@ -8,7 +8,11 @@
         {
             "type"       : "label",
             "channels"   : [
-                { "id": "label2", "event": "mousePressed", "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01} }
+                {
+                    "id"   : "label2",
+                    "event": "mousePressed",
+                    "range": {"min": 0, "max": 1, "defaultValue": 0, "skew": 1, "increment": 0.01}
+                }
             ],
             "bounds"     : {"left": 158, "top": 37, "width": 228, "height": 21},
             "label"      : {"text": "Don't label me!!"},
@@ -22,7 +26,7 @@
 <CsoundSynthesizer>
 <CsOptions>
 -n -d -+rtmidi=NULL -M0 -m0d --midi-key=4 --midi-velocity-amp=5
-</CsOptions>e
+</CsOptions>
 <CsInstruments>
 ; Initialize the global variables.
 ksmps = 32
@@ -34,11 +38,11 @@ nchnls = 2
 ;
 ; License: CC0 1.0 Universal
 ; You can copy, modify, and distribute this file,
-; even for co mmercial purposes, all without asking permission.
+; even for commercial purposes, all without asking permission.
 
 instr 1
-    kLabel  = cabbageGetValue:k("label2")
-    printk2(kLabel)
+    label:CabbageNumTrig  = cabbageGetValue("label2")
+    printfk("Label Click State:%d\n", label.trig, label.val)
 endin
 
 

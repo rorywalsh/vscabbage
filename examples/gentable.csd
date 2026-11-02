@@ -88,8 +88,8 @@ schedule("UpdateTable", 0, 0, 1, 0, 0, 0, 0, 0)
 instr	1
 
     ;toggle fill
-    fill:k, trig:k = cabbageGetValue("fill")
-    cabbageSet(trig, "gentable1", "fill", fill)
+    fillRes:CabbageNumTrig = cabbageGetValue("fill")
+    cabbageSet(fillRes.trig, "gentable1", "fill", fillRes.val)
 
     harm1:k = cabbageGetValue("harm1")
     harm2:k = cabbageGetValue("harm2")

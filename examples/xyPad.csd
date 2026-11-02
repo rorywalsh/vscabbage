@@ -1,21 +1,22 @@
 <Cabbage>
 {
-    "pluginId"      : "test",
+    "pluginId"      : "def1",
     "enableDevTools": true,
     "channelConfig" : [ {"name": "0 in 2 out", "ins": "0", "outs": "2"} ],
     "widgets"       : [
-        { "type": "form", "caption": "XyPad Test", "size": {"width": 400, "height": 400}, "guiMode": "queue" },
+        { "type": "form", "caption": "XY Pad Example", "size": {"width": 400, "height": 400}, "guiMode": "queue" },
         {
-            "type"   : "xyPad",
-            "bounds" : {"left": 20, "top": 20, "width": 350, "height": 350},
+            "type"    : "xyPad",
+            "bounds"  : {"left": 20, "top": 20, "width": 350, "height": 350},
             "channels": [
-                {"id": "cf", "event": "mouseDragX", "range": {"min": 100, "max": 10000, "defaultValue": 1000, "skew": 1, "increment": 0.001}},
-                {"id": "bw", "event": "mouseDragY", "range": {"min": 0, "max": 1, "defaultValue": 0.5, "skew": 1, "increment": 0.001}}
+                {"id": "bandwidth", "event": "mouseDragX", "range": {"min": 10, "max": 2000, "defaultValue": 200, "skew": 1, "increment": 0.001}},
+                {"id": "cutoff", "event": "mouseDragY", "range": {"min": 100, "max": 8000, "defaultValue": 1000, "skew": 1, "increment": 0.001}}
             ],
-            "label"  : {"textX": "Freq", "textY": "BW"}
+            "label"   : {"textX": "Bandwidth", "textY": "Cutoff"}
         }
     ]
 }
+
 </Cabbage>
 <CsoundSynthesizer>
 <CsOptions>
@@ -28,17 +29,17 @@ nchnls = 2
 0dbfs = 1
 
 instr 1
-    kFreq chnget "cf"
-    kBW chnget "bw"
+    kBW:k = cabbageGetValue("bandwidth")
+    kCutoff:k = cabbageGetValue("cutoff")
 
-    printks "Freq: %f, BW: %f\n", 0.5, kFreq, kBW
+    printks("Bandwidth: %f, Cutoff: %f\n", 0.5, kBW, kCutoff)
 
-    aOut oscili 0.2, kFreq
-    outs aOut, aOut
+    aSrc:a = vco2(0.5, 110, 12)
+    aOut:a butterbp aSrc, kCutoff, kBW
+    outs(aOut, aOut)
 endin
 
 </CsInstruments>
-</CsoundSynthesizer>
 <CsScore>
 i1 0 [60*60*24*7]
 </CsScore>
