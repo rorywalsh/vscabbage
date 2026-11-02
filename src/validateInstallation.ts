@@ -90,19 +90,30 @@ export function checkCsoundPresent(env: ValidationEnv): CheckResult {
     }
     if (env.platform === 'win32') {
         const bin = 'C:/Program Files/Csound7/bin';
-        // Csound 7.0.0's Windows package was rebuilt with the csound7_64 name;
-        // older installers used csound64.dll. Accept both.
-        const dlls = ['csound7_64.dll', 'csound64.dll'];
-        const installed = dlls.map((name) => `${bin}/${name}`).find((p) => env.exists(p));
-        if (installed) {
-            return { ...base, status: 'pass', detail: `Found ${installed}` };
+        // The bundled CabbageApp.exe links against csound7_64.dll specifically
+        // (Csound 7.0.0 renamed its Windows library from csound64.dll). Only
+        // accept that exact name, otherwise machines still carrying the old
+        // csound64.dll layout would get a false "pass" while the backend still
+        // fails to start with STATUS_DLL_NOT_FOUND.
+        const required = 'csound7_64.dll';
+        const legacy = 'csound64.dll';
+        if (env.exists(`${bin}/${required}`)) {
+            return { ...base, status: 'pass', detail: `Found ${bin}/${required}` };
         }
-        if (dlls.some((name) => env.isOnPath(name)) || env.isOnPath('csound')) {
-            return { ...base, status: 'pass', detail: 'Found Csound on PATH' };
+        if (env.isOnPath(required)) {
+            return { ...base, status: 'pass', detail: `Found ${required} on PATH` };
+        }
+        if (env.exists(`${bin}/${legacy}`) || env.isOnPath(legacy)) {
+            return {
+                ...base, status: 'fail',
+                detail: `Found only the older Csound library (${legacy}), but the bundled CabbageApp.exe requires ${required}`,
+                remedy: 'Install Csound 7.0.0 or newer so that csound7_64.dll is present in C:/Program Files/Csound7/bin or on PATH.',
+            };
         }
         return {
-            ...base, status: 'fail', detail: `Not found: ${bin}/csound7_64.dll or ${bin}/csound64.dll, and no Csound on PATH`,
-            remedy: 'Install Csound 7 and ensure csound7_64.dll (or csound64.dll) is in C:/Program Files/Csound7/bin or on PATH.',
+            ...base, status: 'fail',
+            detail: `Not found: ${bin}/${required} (or ${required} on PATH)`,
+            remedy: 'Install Csound 7.0.0 or newer so that csound7_64.dll is present in C:/Program Files/Csound7/bin or on PATH.',
         };
     }
     const bin = '/usr/local/bin/csound';

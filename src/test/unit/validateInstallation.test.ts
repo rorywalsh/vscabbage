@@ -206,6 +206,24 @@ describe('checkCsoundPresent', () => {
         assert.strictEqual(r.status, 'pass');
         assert.ok(r.detail.includes('csound7_64.dll'));
     });
+    it('fails on Windows when only the legacy csound64.dll is present', () => {
+        const env = baseEnv({
+            platform: 'win32',
+            exists: (p) => p === 'C:/Program Files/Csound7/bin/csound64.dll',
+            isOnPath: () => false,
+        });
+        const r = checkCsoundPresent(env);
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('csound64.dll'));
+        assert.ok(r.detail.includes('csound7_64.dll'));
+        assert.ok(r.remedy && r.remedy.includes('csound7_64.dll'));
+    });
+    it('fails on Windows when no Csound DLL is present', () => {
+        const env = baseEnv({ platform: 'win32', exists: () => false, isOnPath: () => false });
+        const r = checkCsoundPresent(env);
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.remedy);
+    });
 });
 
 describe('checkServiceBinaryExecutable', () => {

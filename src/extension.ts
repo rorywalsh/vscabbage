@@ -1092,21 +1092,17 @@ function pathExists(p: string): boolean {
 }
 
 /**
- * Function to check if a Csound DLL is available in the system PATH.
- * Csound 7.0.0's Windows package ships csound7_64.dll; older installers used
- * csound64.dll. Accept both.
+ * Function to check if the Csound DLL required by the bundled CabbageApp.exe
+ * is available in the system PATH. Csound 7.0.0's Windows package ships
+ * csound7_64.dll, which is the library name the backend links against.
  */
 function isCsoundInPath(): boolean {
     try {
         const pathEnv = process.env.PATH || '';
         const pathDirs = pathEnv.split(path.delimiter);
-        const dllNames = ['csound7_64.dll', 'csound64.dll'];
-
         for (const dir of pathDirs) {
-            for (const name of dllNames) {
-                if (fs.existsSync(path.join(dir, name))) {
-                    return true;
-                }
+            if (fs.existsSync(path.join(dir, 'csound7_64.dll'))) {
+                return true;
             }
         }
         return false;
@@ -1155,11 +1151,15 @@ function onInstall() {
         }
     } else if (process.platform === 'win32') {
         const csoundBin = 'C:/Program Files/Csound7/bin';
-        const hasInstalledDll = ['csound7_64.dll', 'csound64.dll']
-            .some((name) => pathExists(`${csoundBin}/${name}`));
-        if (!hasInstalledDll && !isCsoundInPath()) {
+        const requiredDll = 'csound7_64.dll';
+        const legacyDll = 'csound64.dll';
+        const hasRequired = pathExists(`${csoundBin}/${requiredDll}`) || isCsoundInPath();
+        if (!hasRequired) {
+            const hasLegacy = pathExists(`${csoundBin}/${legacyDll}`);
             Commands.getOutputChannel().append(
-                'ERROR: Csound DLL not found in C:/Program Files/Csound7/bin and not found in PATH\nA version of Csound 7 is required for the Cabbage extension to work\nPlease ensure Csound 7 is installed and csound7_64.dll (or csound64.dll) is in your PATH\n');
+                hasLegacy
+                    ? `ERROR: Found only the older Csound library (${legacyDll}), but the bundled CabbageApp.exe requires ${requiredDll}\nA version of Csound 7.0.0 or newer is required for the Cabbage extension to work\nPlease install the latest Csound 7 so that ${requiredDll} is in ${csoundBin} or on your PATH\n`
+                    : `ERROR: Csound DLL not found in ${csoundBin} and not found in PATH\nA version of Csound 7 is required for the Cabbage extension to work\nPlease ensure Csound 7 is installed and ${requiredDll} is in your PATH\n`);
         }
     } else {
         if (!pathExists('/usr/local/bin/csound') &&
