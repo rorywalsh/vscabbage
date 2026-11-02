@@ -2,6 +2,19 @@
 
 | Message                                | Repo      | Date       | Commit                            |
 |----------------------------------------|-----------|------------|------------------------------------|
+| fix(validateinstall): Updating validate install command to v | vscabbage | 2026-11-02 | d78df8f4b76e4effbe25a1dfe397c6991123de0e |
+| fix(webviewwhitescreen): Changing default colour of backgrou | vscabbage | 2026-10-29 | 0c45869ab00813bcb5b3ea4cdc6eb058f45aa186 |
+| fix(examples): close missing CsInstruments tag and remove tr | vscabbage | 2026-10-28 | b545cbbcb24e99bcbe27cf9ae5b8f6c767c1e0a6 |
+| fix(widgets): add button latched option and default empty gr | vscabbage | 2026-10-28 | 48f48582754f6528a75b58e998bd37b51e007481 |
+| feat(convert): add Cabbage 2 to Cabbage 3 importer           | vscabbage | 2026-10-28 | 4e3480207f7c0c0e3f856f37b4c4bad504570203 |
+| chore(gitignore/commit): Updating commit script and adding o | vscabbage | 2026-10-28 | 4527fc71fb686901473f4e45b58fcfd139040bd6 |
+| build(deps): bump lattice pin to fix/webview-transparent-bac | cabbage   | 2026-10-28 | daad9b60496943dad31f221c4477682f429a760f |
+| chore(gitignore): Updated gitignore                          | vscabbage | 2026-10-28 | a859aac9ed9be65000d130eec06c140641bb1165 |
+| build(CILinux): chmod +x CabbageApp before packaging on Linu | vscabbage | 2026-10-28 | ef91685588959ea5e01029c3cd5cbc2586893f4f |
+| build(deps): bump lattice to 28af718 for high DPI scaling su | cabbage   | 2026-10-27 | daec6a28519f91a49be54546211f7de6a1b478b8 |
+| feat(form): add scaleSource property to select the DPI scale | vscabbage | 2026-10-27 | 54d01b1f13706e9c725bc9604bc26d209d6e2ad3 |
+| feat(validate): check CabbageApp exec bit and restore it bef | vscabbage | 2026-10-26 | 1c3adaca8d32eea2cb6d4ac05d5efb337b202623 |
+| fix(widgets): custom widgets in insert menu via rescan push  | vscabbage | 2026-10-26 | 9699781dfe4fc1a6b10cc0abecb30de761c509c2 |
 | fix(deps): downgraded typescript to ^6.0.3 so npm install re | vscabbage | 2026-10-25 | 947b36e485ff686603eb002f3ac1e988eadb2031 |
 | fix(export): copy custom widget files into exported plugin r | vscabbage | 2026-10-25 | bbde045f92e7b79cda8e1cdf965cf3823f30081c |
 | build(deps): bump lattice to 523cc57 for console-logging fix | cabbage   | 2026-10-24 | 3d0015e8011cac857ad1b52f80d7321d7e3aee32 |
