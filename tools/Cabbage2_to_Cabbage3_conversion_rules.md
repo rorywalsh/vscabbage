@@ -16,7 +16,8 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `listbox` → `listBox`
 - `infobutton` → `infoButton`
 - `vmeter` → `verticalSlider` (fallback approximation; Cabbage 3 has no stock meter)
-- `soundfiler`, `signaldisplay` → no stock equivalent; manual review (`genTable` / custom widget)
+- `soundfiler` → `genTable` (waveform viewer). The `identChannel` becomes the genTable's top-level `id`, `selectableRegions` is enabled so `channel("beg","len")` keeps working, and a `"//"` note is added. The `tableNumber` and the file-loading `chnset "file(...)", "ident"` → `cabbageSet "id", "tableNumber", N` rewrite are file-specific, so they're left as a manual note in the generated file. `scrubberPosition(...)` has no genTable equivalent.
+- `signaldisplay` → no stock equivalent; manual review (custom widget)
 - `image`, `button`, `label`, `keyboard`, `form` kept as-is
 
 ## 2) Geometry mapping

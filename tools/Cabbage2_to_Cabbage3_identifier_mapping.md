@@ -146,6 +146,14 @@ Status legend:
 | `backgroundColour(...)` | `style.backgroundColor` (signaldisplay) | ✅ |
 | `fill(n)` | `fill` | ✅ |
 
+**`soundfiler` widget → `genTable`**: the `soundfiler` widget maps to `genTable`
+(see rules §1). The `identChannel("filer1")` becomes the genTable's top-level `id`, and
+`selectableRegions` is enabled so `channel("beg","len")` drives region selection
+(`channels[0]` = start sample, `channels[1]` = length). Set `"tableNumber"` to the ftable
+the orchestra loads (usually `1`), and replace the file-loading
+`chnset "file(...)", "filer1"` with `cabbageSet "filer1", "tableNumber", 1`.
+`scrubberPosition(...)` has no genTable equivalent.
+
 ## ListBox / ComboBox
 
 | Cabbage 2 | Cabbage 3 | Status |
@@ -214,7 +222,7 @@ Status legend:
 
 ## Widget type renames
 
-See rules doc §1 for the full `rslider`→`rotarySlider`, `hslider`→`horizontalSlider`, `combobox`→`comboBox`, etc. table. Additional Cabbage 2 types with no stock Cabbage 3 widget: `hmeter`/`vmeter`, `signaldisplay`, `soundfiler`, `eventsequencer`, `fftdisplay`, `encoder`, `textbox`, `light`, `screw`, `cvoutput`/`cvinput`, `oscserver`, `popupmenu`, `sourcebutton`, `path`, `presetbutton`, `loadbutton`, `directorylist`, `stepper`.
+See rules doc §1 for the full `rslider`→`rotarySlider`, `hslider`→`horizontalSlider`, `combobox`→`comboBox`, etc. table. `soundfiler` maps to `genTable` (waveform viewer; see the GenTable / Soundfiler section below). Additional Cabbage 2 types with no stock Cabbage 3 widget: `hmeter`/`vmeter`, `signaldisplay`, `eventsequencer`, `fftdisplay`, `encoder`, `textbox`, `light`, `screw`, `cvoutput`/`cvinput`, `oscserver`, `popupmenu`, `sourcebutton`, `path`, `presetbutton`, `loadbutton`, `directorylist`, `stepper`.
 
 ## Reserved channels (not widget identifiers)
 

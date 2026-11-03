@@ -74,6 +74,7 @@ const WIDGET_TYPE_MAP: Record<string, string> = {
     checkbox: 'checkBox',
     groupbox: 'groupBox',
     gentable: 'genTable',
+    soundfiler: 'genTable', // soundfiler → genTable (waveform viewer; tableNumber/file-loading manual)
     filebutton: 'fileButton',
     infobutton: 'infoButton',
     optionbutton: 'optionButton',
@@ -90,7 +91,7 @@ const WIDGET_TYPE_MAP: Record<string, string> = {
 
 // Widget types with no stock Cabbage 3 equivalent (kept, but flagged).
 const MANUAL_REVIEW_TYPES = new Set([
-    'soundfiler', 'signaldisplay', 'eventsequencer', 'fftdisplay', 'encoder',
+    'signaldisplay', 'eventsequencer', 'fftdisplay', 'encoder',
     'textbox', 'light', 'screw', 'cvoutput', 'cvinput', 'oscserver', 'popupmenu',
     'sourcebutton', 'path', 'presetbutton', 'loadbutton', 'directorylist',
     'keyboarddisplay', 'stepper',
@@ -928,6 +929,18 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             const b = w.json.bounds || (w.json.bounds = {});
             if (b.left === undefined) b.left = 0;
             if (b.top === undefined) b.top = 0;
+        }
+
+        // soundfiler → genTable: the Cabbage 2 soundfiler maps to a genTable that
+        // shows an orchestra-loaded ftable. Preserve the identChannel as the widget
+        // id (so cabbageSet can address it) and enable region selection. The
+        // tableNumber and the file-loading chnset rewrite are file-specific, so they
+        // are left as a manual note.
+        if (parsed.type === 'soundfiler') {
+            if (w.identChannel && !w.json.id) w.json.id = w.identChannel;
+            if (!w.json.selectableRegions) w.json.selectableRegions = true;
+            w.json['//'] = 'Cabbage 2 soundfiler → Cabbage 3 genTable: set "tableNumber" to the ftable that holds the loaded file, and rewrite the file-loading chnset to cabbageSet "<id>", "tableNumber", <n>.';
+            warnings.push('"soundfiler" → "genTable": set tableNumber and update the file-loading chnset manually (see rules §1)');
         }
 
         // Drop internal builder fields.
