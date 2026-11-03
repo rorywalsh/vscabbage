@@ -55,6 +55,10 @@ Status legend:
 | `visible(n)` | `visible` | ✅ |
 | `radioGroup(n)` | `radioGroup` | ✅ |
 
+> **comboBox / optionButton indices are 1-based in Cabbage 2, 0-based in Cabbage 3.**
+> The converter always emits `"indexOffset": true` on these widgets so `value(n)` keeps its
+> 1-based meaning and orchestra logic like `if combo==1/2/…` keeps working. See rules doc §12.
+
 ## Colour / style (common)
 
 | Cabbage 2 | Cabbage 3 | Status |

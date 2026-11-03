@@ -943,6 +943,13 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             warnings.push('"soundfiler" → "genTable": set tableNumber and update the file-loading chnset manually (see rules §1)');
         }
 
+        // Cabbage 2 combo boxes / option buttons are 1-based; Cabbage 3 is 0-based
+        // by default. Set indexOffset so value(n)/defaultValue stay 1-based and the
+        // orchestra's `if combo==1/2/…` logic keeps working (rules doc §12).
+        if (type === 'comboBox' || type === 'optionButton') {
+            w.json.indexOffset = true;
+        }
+
         // Drop internal builder fields.
         delete (w as any).channelNames;
         delete (w as any).identChannel;

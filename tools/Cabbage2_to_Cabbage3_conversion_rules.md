@@ -97,13 +97,13 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - Symptom to watch for: an image appears briefly and then disappears as later widgets mount; this usually indicates a layering issue, fixed by explicit `zIndex`.
 
 ## 12) ComboBox lessons learned (important)
+- **Cabbage 2 combo boxes (and option buttons) are 1-based; Cabbage 3 are 0-based by default.** The converter therefore always emits `"indexOffset": true` on `comboBox`/`optionButton`, so `value(n)` keeps its 1-based meaning and the orchestra's `if combo==1/2/…` logic keeps working. Without it, the channel value shifts by one and combobox-driven logic (e.g. visibility toggles) silently misbehaves.
 - You generally do **not** need to set an explicit `channels[0].range` for `comboBox`; range/index domain is inferred from `items`.
 - Prefer omitting manual comboBox `range` in migrations unless there is a very specific legacy reason to force it.
-- If Cabbage 2/Csound logic expects 1-based combo indices, set `"indexOffset": true`.
 - Main pitfall observed: manually forcing comboBox ranges can create off-by-one behaviour and item/index mismatches after conversion.
 - Practical rule used now:
   - keep `items`
-  - set `indexOffset` according to legacy logic
+  - set `"indexOffset": true`
   - avoid explicit comboBox `range` unless required
 
 ## 13) `identChannel` migration rule (critical)
