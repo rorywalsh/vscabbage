@@ -157,6 +157,13 @@ Cabbage 2 overloads `chnset`/`chnget` for both values and properties; Cabbage 3 
 | `bounds(x,y,w,h)` | `bounds.left` / `bounds.top` / `bounds.width` / `bounds.height` |
 | `visible(n)` | `visible` (one of the few remaining top-level flags) |
 
+**`visible` is special: use the k-rate triggered form.** `chnset "visible(0)", "ident"` almost
+always sits inside an `if changed(someComboBox)==1` block, so it must re-fire at k-rate when the
+condition changes. Emit `cabbageSet k(1), "channel", "visible", 0/1` (the 4-arg `kTrig` form), not
+the 3-arg i-rate `cabbageSet "channel", "visible", 0` — the i-rate form only runs once at init and
+so show/hide toggles driven by a combobox silently stop working. `k(1)` is a constant k-rate trigger
+and the backend's `isValueDifferent` check de-duplicates repeat sends.
+
 The exact path is widget-specific (e.g. button colour is `colour.on/off.*`, slider track is `style.track.fillColor`, image colour is `style.backgroundColor`) — always verify against the target widget's `rawDefaults`; never assume a flat token survives.
 
 Prefer `cabbageSetValue`/`cabbageGetValue` for value-only traffic and `cabbageSet`/`cabbageGet` for property/visual mutations.

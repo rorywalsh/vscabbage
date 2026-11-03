@@ -1093,7 +1093,11 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
 
     switch (name) {
         case 'visible':
-            return `cabbageSet "${channel}", "visible", ${num(args[0]) !== 0 ? 1 : 0}`;
+            // Use the k-rate triggered form so show/hide toggles re-fire when the
+            // surrounding `if changed(...)` condition becomes true at k-rate (the
+            // 3-arg i-rate form only runs once at init). `k(1)` is a constant k-rate
+            // trigger; the backend's isValueDifferent check de-duplicates repeat sends.
+            return `cabbageSet k(1), "${channel}", "visible", ${num(args[0]) !== 0 ? 1 : 0}`;
         case 'text': {
             const t = args.map(x => unquote(x).trim()).join(',');
             return `cabbageSet "${channel}", "text", ${JSON.stringify(args.length > 1 ? args.map(x => unquote(x)) : t)}`;
