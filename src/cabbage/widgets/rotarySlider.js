@@ -553,7 +553,7 @@ export class RotarySlider {
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
           ${filmStripElement}
         </svg>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelY}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${this.props.label.text}</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelY}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none; opacity: ${this.props.visible ? 1 : 0};">${this.props.label.text}</div>
       `;
       }
     }
@@ -684,7 +684,7 @@ export class RotarySlider {
         />
         </foreignObject>
         </svg>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${labelText}</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none; opacity: ${this.props.visible ? 1 : 0};">${labelText}</div>
       `;
     }
 
@@ -723,7 +723,7 @@ export class RotarySlider {
       <path d='${trackerArcPath}' id="arc" fill="none" stroke=${this.props.style.track.fillColor} stroke-width=${innerTrackerWidth} />
   <circle cx=${this.props.bounds.width / 2} cy=${this.props.bounds.height / 2} r=${thumbRadius} stroke=${this.props.style.thumb.borderColor} fill="${this.props.style.thumb.backgroundColor}" stroke-width=${this.props.style.thumb.borderWidth} ${thumbFilter} />
       </svg>
-      <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none;">${this.props.label.text}</div>
+      <div style="position: absolute; left: 50%; transform: translateX(-50%); top: ${labelTop}px; font-size: ${labelFontSize}px; font-family: ${this.props.style.label.fontFamily}; color: ${this.props.style.label.fontColor}; text-align: center; white-space: nowrap; pointer-events: none; opacity: ${this.props.visible ? 1 : 0};">${this.props.label.text}</div>
     `;
   }
 }
