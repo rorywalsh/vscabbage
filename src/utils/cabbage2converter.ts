@@ -1102,8 +1102,10 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
         case 'visible':
             // Use the k-rate triggered form so show/hide toggles re-fire when the
             // surrounding `if changed(...)` condition becomes true at k-rate (the
-            // 3-arg i-rate form only runs once at init). `k(1)` is a constant k-rate
-            // trigger; the backend's isValueDifferent check de-duplicates repeat sends.
+            // 3-arg i-rate form only runs once at init). `k(1)` is a placeholder
+            // trigger; the post-processing step below swaps it for the `changed`
+            // pulse variable so the toggle fires once per change (matching
+            // examples/cabbageSet.csd's `cabbageSet(kTrig, "ch", "visible", v)`).
             return `cabbageSet k(1), "${channel}", "visible", ${num(args[0]) !== 0 ? 1 : 0}`;
         case 'text': {
             const t = args.map(x => unquote(x).trim()).join(',');
@@ -1384,6 +1386,34 @@ export function rewriteOrchestra(
         changes++;
         return `; Cabbage2→3 manual conversion needed: ${_m}`;
     });
+
+    // Cabbage 3 visibility toggles need a k-rate trigger. `changed(<var>)` is
+    // the natural pulse, but calling it twice (once in the `if` condition, once
+    // as the cabbageSet trigger) returns 0 on the second call. Extract it into a
+    // k-rate variable and use that as the trigger (matches examples/cabbageSet.csd,
+    // which does `switch:k = metro(10)` + `cabbageSet(switch, …)`).
+    {
+        let triggerVar = '';
+        // Already-extracted number-rate `changed` (e.g. `kchange changed gkmode`).
+        // Excludes string-rate sources like `kNewFileTrg changed gSfilepath`.
+        const extracted = text.match(/\b([A-Za-z_]\w*)\s+changed\s+(?:g)?[ki][A-Za-z_]\w*\b/);
+        if (extracted) triggerVar = extracted[1];
+        // Inline `if changed(<var>)==1` — hoist it into a k-rate variable so the
+        // cabbageSet trigger is the `changed` pulse, not `k(1)`. Deliberately not
+        // matching `changed:k(<var>)`: a single instrument often mixes both forms
+        // for unrelated purposes (e.g. FogFilePlayer's `changed(gkPhsMode)` toggle
+        // plus `changed:k(kRecOut)`), and a global swap would pick the wrong pulse.
+        text = text.replace(
+            /^(\s*)if\s+changed\(([A-Za-z_]\w*)\)\s*==\s*1\s+then\b/gm,
+            (_m, indent: string, varName: string) => {
+                triggerVar = `${varName.replace(/^g/, '')}Changed`;
+                return `${indent}${triggerVar} changed ${varName}\n${indent}if ${triggerVar}==1 then`;
+            },
+        );
+        if (triggerVar) {
+            text = text.replace(/\bcabbageSet\s+k\(1\),/g, `cabbageSet ${triggerVar},`);
+        }
+    }
 
     return { text, changes, warnings };
 }
