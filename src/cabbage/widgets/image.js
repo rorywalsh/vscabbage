@@ -85,14 +85,15 @@ export class Image {
     }
 
     pointerMove(evt) {
-        CabbageUtils.handleMouseMove(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
+        CabbageUtils.handleMouseMove(evt, this.props, this.parameterIndex, this.vscode);
     }
 
     pointerDown(evt) {
-        CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable, (evt) => {
-            // Add up handler for release
-            const onUp = () => {
-                CabbageUtils.handleMouseUp(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
+        CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode, () => {
+            // Register a release handler so mouseReleaseLeft fires even if the
+            // pointer is released outside this widget.
+            const onUp = (upEvt) => {
+                CabbageUtils.handleMouseUp(upEvt, this.props, this.parameterIndex, this.vscode);
                 window.removeEventListener('pointerup', onUp);
             };
             window.addEventListener('pointerup', onUp);

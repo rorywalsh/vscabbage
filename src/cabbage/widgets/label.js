@@ -72,7 +72,7 @@ export class Label {
 
     addEventListeners(widgetDiv) {
         widgetDiv.addEventListener("pointerdown", (evt) => {
-            CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode, this.props.automatable);
+            CabbageUtils.handleMouseDown(evt, this.props, this.parameterIndex, this.vscode);
         });
     }
 
