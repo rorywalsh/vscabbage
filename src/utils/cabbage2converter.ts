@@ -1146,24 +1146,131 @@ const RESERVED_CHANNELS: Record<string, string> = {
 };
 
 /**
- * Cabbage 2 channels that no longer exist in Cabbage 3. Mouse position is now
- * delivered as widget channel events (`mouseMoveX`/`mouseMoveY`/
- * `mouseDragX`/`mouseDragY`) rather than reserved `MOUSE_*` channels.
+ * Cabbage 2 channels that no longer exist in Cabbage 3 and have no widget
+ * equivalent (dropped; left in place with a warning).
  */
 const REMOVED_CHANNELS = new Set([
-    'MOUSE_X', 'MOUSE_Y', 'MOUSE_DOWN_LEFT', 'MOUSE_DOWN_MIDDLE', 'MOUSE_DOWN_RIGHT',
     'MOUSEWHEEL_DELTA_X', 'MOUSEWHEEL_DELTA_Y',
     'LAST_FILE_DROPPED', 'LAST_TEXT_DROPPED',
 ]);
 
 /**
+ * Cabbage 2 mouse channels → Cabbage 3 image-widget mouse events.
+ *
+ * Cabbage 2 exposed the raw pointer as reserved channels (`MOUSE_X`,
+ * `MOUSE_Y`, `MOUSE_DOWN_LEFT`, …). Cabbage 3 removes those and instead
+ * delivers the pointer through widget channel `event`s (`mouseMoveX`,
+ * `mouseMoveY`, `mousePressLeft`, `mouseReleaseLeft`, …). To recreate the old
+ * values we add a transparent full-size `image` overlay that captures the
+ * pointer and exposes one channel per axis/button.
+ *
+ * Only the left button is implemented in the Cabbage 3 UI today; right/middle
+ * press events are listed in the editor but have no runtime handler, so they
+ * are flagged for manual review rather than auto-converted.
+ */
+export interface MouseChannelSpec {
+    /** Cabbage 3 channel id exposed to Csound. */
+    id: string;
+    /** Widget channel `event` name(s) that drive this id. */
+    events: string[];
+    /** True when the Cabbage 3 UI implements these events. */
+    supported: boolean;
+    /** Reason this channel is not auto-converted (when `supported` is false). */
+    note?: string;
+}
+
+export const MOUSE_CHANNELS: Record<string, MouseChannelSpec> = {
+    MOUSE_X: { id: 'mouseX', events: ['mouseMoveX'], supported: true },
+    MOUSE_Y: { id: 'mouseY', events: ['mouseMoveY'], supported: true },
+    MOUSE_DOWN_LEFT: { id: 'mouseDownLeft', events: ['mousePressLeft', 'mouseReleaseLeft'], supported: true },
+    MOUSE_DOWN_RIGHT: { id: 'mouseDownRight', events: ['mousePressRight', 'mouseReleaseRight'], supported: false, note: 'right-click press is not implemented in the Cabbage 3 UI' },
+    MOUSE_DOWN_MIDDLE: { id: 'mouseDownMiddle', events: ['mousePressMiddle', 'mouseReleaseMiddle'], supported: false, note: 'middle-click press is not implemented in the Cabbage 3 UI' },
+};
+
+/** Display order for mouse channels in the generated overlay. */
+const MOUSE_ORDER = ['MOUSE_X', 'MOUSE_Y', 'MOUSE_DOWN_LEFT', 'MOUSE_DOWN_RIGHT', 'MOUSE_DOWN_MIDDLE'];
+
+/**
+ * Return the MOUSE_* channel names referenced by `chnget "…"` in the orchestra,
+ * in a stable display order.
+ */
+export function detectMouseChannels(orchestraText: string): string[] {
+    const found = new Set<string>();
+    const re = /\bchnget\s+"([^"]+)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(orchestraText)) !== null) {
+        if (m[1] in MOUSE_CHANNELS) found.add(m[1]);
+    }
+    return MOUSE_ORDER.filter(c => found.has(c));
+}
+
+/**
+ * Build the transparent full-size image overlay that exposes the requested
+ * mouse channels. `mouseMoveX`/`mouseMoveY` are ranged over the form's pixel
+ * dimensions so the Csound values match the old Cabbage 2 `MOUSE_X`/`MOUSE_Y`
+ * pixel coordinates.
+ */
+export function buildMouseOverlayWidget(
+    formSize: { width: number; height: number },
+    used: string[],
+): Record<string, any> {
+    const channels: Record<string, any>[] = [];
+    for (const name of used) {
+        const spec = MOUSE_CHANNELS[name];
+        if (!spec) continue;
+        if (spec.events.length === 1 && (name === 'MOUSE_X' || name === 'MOUSE_Y')) {
+            channels.push({
+                id: spec.id,
+                event: spec.events[0],
+                range: {
+                    min: 0,
+                    max: name === 'MOUSE_X' ? formSize.width : formSize.height,
+                    defaultValue: 0,
+                    skew: 1,
+                    increment: 0.01,
+                },
+            });
+        } else {
+            for (const event of spec.events) {
+                channels.push({ id: spec.id, event });
+            }
+        }
+    }
+    return {
+        type: 'image',
+        bounds: { left: 0, top: 0, width: formSize.width, height: formSize.height },
+        automatable: true,
+        zIndex: 1000,
+        '//': 'Cabbage 2 → 3: transparent mouse overlay (converted from MOUSE_* reserved channels). If this instrument has other interactive widgets, adjust bounds/zIndex so the overlay does not block them.',
+        style: { backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent' },
+        channels,
+    };
+}
+
+/**
+ * Widget types that capture the pointer for their own interaction. A full-form
+ * mouse overlay placed on top of these would swallow their events, so the
+ * converter only auto-adds the overlay when the form contains none of them.
+ */
+const INTERACTIVE_WIDGET_TYPES = new Set([
+    'rotarySlider', 'horizontalSlider', 'verticalSlider', 'numberSlider',
+    'horizontalRangeSlider', 'verticalRangeSlider', 'xyPad',
+    'comboBox', 'listBox', 'optionButton', 'checkBox', 'button', 'infoButton',
+    'fileButton', 'textEditor', 'keyboard', 'genTable', 'soundfiler',
+]);
+
+/**
  * Rewrite `chnget`/`chnset` calls in the orchestra into Cabbage 3 opcodes.
  * Csound syntax has no parentheses: `chnget "chan"` and `chnset value, "chan"`.
+ * `mouseToConvert` lists the MOUSE_* channels the caller decided to convert
+ * (i.e. a mouse overlay was generated); other MOUSE_* channels are left in
+ * place with a manual-review marker.
  */
 export function rewriteOrchestra(
     orchestraText: string,
     identToChannel: Map<string, string>,
     channels: Set<string>,
+    mouseToConvert: Set<string> = new Set(),
 ): CsoundRewriteResult {
     let text = orchestraText;
     let changes = 0;
@@ -1178,8 +1285,20 @@ export function rewriteOrchestra(
             (first === 'g' && (varName[1] === 'k' || varName[1] === 'i'));
         if (!isControlRate) return _m; // a-rate / S-rate → leave chnget
 
+        if (chan in MOUSE_CHANNELS) {
+            const spec = MOUSE_CHANNELS[chan];
+            if (mouseToConvert.has(chan)) {
+                changes++;
+                return `${varName} cabbageGetValue "${spec.id}"  ; Cabbage2→3: was chnget "${chan}"`;
+            }
+            const reason = spec.supported
+                ? 'the form has interactive widgets, so the mouse overlay must be scoped manually (see rules §19)'
+                : spec.note;
+            warnings.push(`"${chan}" not converted — ${reason}; manual review required`);
+            return `; Cabbage2→3 MANUAL REVIEW: ${_m}  (${reason})`;
+        }
         if (REMOVED_CHANNELS.has(chan)) {
-            warnings.push(`"${chan}" is no longer a channel in Cabbage 3 — mouse position uses mouseMoveX/mouseMoveY widget events`);
+            warnings.push(`"${chan}" is no longer a channel in Cabbage 3 (no widget equivalent)`);
             return _m;
         }
         if (chan in RESERVED_CHANNELS) {
@@ -1197,7 +1316,7 @@ export function rewriteOrchestra(
     // chnset <expr>, "chan" → cabbageSetValue / cabbageSet (property)
     text = text.replace(/\bchnset\s+(.+),\s*"([^"]+)"/g, (_m, expr: string, chan: string) => {
         if (REMOVED_CHANNELS.has(chan)) {
-            warnings.push(`"${chan}" is no longer a channel in Cabbage 3 — mouse position uses mouseMoveX/mouseMoveY widget events`);
+            warnings.push(`"${chan}" is no longer a channel in Cabbage 3 (no widget equivalent)`);
             return _m;
         }
         if (chan in RESERVED_CHANNELS) {
@@ -1272,12 +1391,59 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
 
     const converted = convertCabbage2Section(body);
 
-    // Rewrite the orchestra (everything inside <CsInstruments>).
+    // Work out the MOUSE_* conversion plan before rewriting the orchestra so
+    // the rewrite knows which reads to convert. This is a notable, non-obvious
+    // migration step, so it is surfaced in the summary, the warnings, and as
+    // inline markers in the generated files.
     const orchestraRegex = /<CsInstruments>([\s\S]*?)<\/CsInstruments>/;
     const orchestraMatch = csdText.match(orchestraRegex);
+    const orchestraText = orchestraMatch ? orchestraMatch[1] : '';
+
+    const mouseUsed = detectMouseChannels(orchestraText);
+    const mouseToConvert = new Set<string>();
+    let mouseConvertedCount = 0;
+    let mouseReviewCount = 0;
+
+    if (mouseUsed.length > 0) {
+        const root = JSON.parse(converted.json) as Record<string, any>;
+        const widgets = Array.isArray(root.widgets) ? (root.widgets as Record<string, any>[]) : [];
+        const hasInteractive = widgets.some(
+            (w: Record<string, any>) => w && INTERACTIVE_WIDGET_TYPES.has(w.type),
+        );
+
+        const supported = mouseUsed.filter(c => MOUSE_CHANNELS[c].supported);
+        const unsupported = mouseUsed.filter(c => !MOUSE_CHANNELS[c].supported);
+
+        if (supported.length > 0 && !hasInteractive) {
+            // Safe to add a full-form overlay: nothing interactive to block.
+            const form = widgets.find((w: Record<string, any>) => w && w.type === 'form');
+            const size = (form && form.size && typeof form.size.width === 'number' && typeof form.size.height === 'number')
+                ? form.size
+                : { width: 600, height: 400 };
+            widgets.push(buildMouseOverlayWidget(size, supported));
+            for (const c of supported) mouseToConvert.add(c);
+            mouseConvertedCount = supported.length;
+            converted.json = JSON.stringify(root, null, 4);
+            converted.warnings.push(
+                `Converted mouse channel(s) ${supported.join(', ')} → added a transparent mouse-overlay image widget (mouseX/mouseY/mouseDownLeft) and rewrote chnget to cabbageGetValue`,
+            );
+        } else if (supported.length > 0) {
+            mouseReviewCount += supported.length;
+            converted.warnings.push(
+                `Mouse channel(s) ${supported.join(', ')} detected but the form has interactive widgets — not auto-adding the full-screen overlay (it would block them); add a scoped overlay manually (see rules §19)`,
+            );
+        }
+
+        for (const name of unsupported) {
+            mouseReviewCount++;
+            converted.warnings.push(`"${name}" not converted — ${MOUSE_CHANNELS[name].note}; manual review required`);
+        }
+    }
+
+    // Rewrite the orchestra (everything inside <CsInstruments>).
     let orchestraChanges = 0;
     if (orchestraMatch) {
-        const rewritten = rewriteOrchestra(orchestraMatch[1], converted.identToChannel, converted.channels);
+        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, mouseToConvert);
         orchestraChanges = rewritten.changes;
         converted.warnings.push(...rewritten.warnings);
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
@@ -1290,6 +1456,8 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     const summary =
         `Converted ${converted.channels.size} channel(s)` +
         (orchestraChanges ? `, rewrote ${orchestraChanges} chnget/chnset call(s)` : '') +
+        (mouseConvertedCount ? `, converted ${mouseConvertedCount} mouse channel(s)` : '') +
+        (mouseReviewCount ? `, ${mouseReviewCount} mouse channel(s) need manual review` : '') +
         (converted.warnings.length ? `, ${converted.warnings.length} warning(s)` : '');
 
     return { text: csdText, warnings: converted.warnings, summary };

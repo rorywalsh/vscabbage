@@ -186,3 +186,87 @@ Prefer `cabbageSetValue`/`cabbageGetValue` for value-only traffic and `cabbageSe
 - **Keep the container's original type** (image → image, groupbox → groupBox); just drop the `plant(...)` identifier.
 - Plant children's bounds are **relative** to the container, so offset each child by the container's `left`/`top` and flatten them as siblings (a container widget's `plant` does not change its own absolute bounds).
 - If the plant had an identChannel, it becomes a channel id (addressable via `cabbageSet`).
+
+## 19) Reserved `MOUSE_*` channels → mouse-overlay widget (critical)
+
+Cabbage 2 exposes the raw pointer as reserved channels read with `chnget`:
+
+```
+kMOUSE_X            chnget "MOUSE_X"            ; x position, in form pixels
+kMOUSE_Y            chnget "MOUSE_Y"            ; y position, in form pixels
+kMOUSE_DOWN_LEFT    chnget "MOUSE_DOWN_LEFT"    ; 1 while left button held
+```
+
+Cabbage 3 **removes** these reserved channels entirely. `chnget "MOUSE_X"` now reads
+`0` forever, so any interaction driven by them silently stops working (the UI still
+renders — only the input path is dead). Mouse position/button state must instead come
+from a widget's `channels[].event` (`mouseMoveX`/`mouseMoveY`, `mousePressLeft`/
+`mouseReleaseLeft`, …).
+
+**Migration:** add a transparent full-size `image` overlay that captures the pointer and
+exposes one channel per axis/button, then rewrite the reads to `cabbageGetValue`.
+
+| Cabbage 2 channel | Cabbage 3 channel id | widget event(s) |
+|---|---|---|
+| `MOUSE_X` | `mouseX` | `mouseMoveX` (range `0..formWidth`) |
+| `MOUSE_Y` | `mouseY` | `mouseMoveY` (range `0..formHeight`) |
+| `MOUSE_DOWN_LEFT` | `mouseDownLeft` | `mousePressLeft` + `mouseReleaseLeft` (same id) |
+| `MOUSE_DOWN_RIGHT` | `mouseDownRight` | `mousePressRight` + `mouseReleaseLeft` — **unsupported** |
+| `MOUSE_DOWN_MIDDLE` | `mouseDownMiddle` | `mousePressMiddle` + … — **unsupported** |
+
+The overlay widget (the converter emits this automatically):
+
+```json
+{
+    "type": "image",
+    "bounds": {"left": 0, "top": 0, "width": 850, "height": 430},
+    "automatable": true,
+    "zIndex": 1000,
+    "//": "Cabbage 2 → 3: transparent mouse overlay (converted from MOUSE_* reserved channels)",
+    "style": {"backgroundColor": "transparent", "borderWidth": 0, "borderColor": "transparent"},
+    "channels": [
+        {"id": "mouseX", "event": "mouseMoveX", "range": {"min": 0, "max": 850, "defaultValue": 0, "skew": 1, "increment": 0.01}},
+        {"id": "mouseY", "event": "mouseMoveY", "range": {"min": 0, "max": 430, "defaultValue": 0, "skew": 1, "increment": 0.01}},
+        {"id": "mouseDownLeft", "event": "mousePressLeft"},
+        {"id": "mouseDownLeft", "event": "mouseReleaseLeft"}
+    ]
+}
+```
+
+Orchestra rewrite:
+
+```
+kMOUSE_X            cabbageGetValue "mouseX"
+kMOUSE_Y            cabbageGetValue "mouseY"
+kMOUSE_DOWN_LEFT    cabbageGetValue "mouseDownLeft"
+```
+
+Rules and gotchas:
+
+- `automatable: true` is **required** — the image widget's mouse handlers bail out
+  unless the backend assigns each channel a `parameterIndex`, which only happens for
+  automatable widgets.
+- The `mouseMoveX`/`mouseMoveY` range must span the **form** pixel size (not 0..1) so
+  the values match the old `MOUSE_X`/`MOUSE_Y` pixel coordinates. Position channels
+  update on hover; the value at the instant of a click is the last hover position
+  (the press event fires `mousePressLeft` = 1 while the position holds), which is the
+  click position.
+- `mousePressLeft` sends `1` on press and `mouseReleaseLeft` sends `0` on release, so
+  they share one channel id to reproduce the old held-button state. A `trigger` opcode
+  on the channel still sees the rising edge exactly as before.
+- The overlay must sit **on top** (high `zIndex`) to receive the pointer. If the
+  instrument has other interactive widgets (sliders/buttons/genTable), a full-form
+  overlay will swallow their events — **scope the overlay's `bounds` and `zIndex`** to
+  just the mouse-interactive region in that case.
+- The converter only auto-adds the overlay when the form has **no interactive widgets**
+  (sliders, buttons, comboBox, genTable, keyboard, …). When interactive widgets are
+  present it leaves the `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` marker
+  and a warning telling you to scope the overlay manually — so it never silently
+  generates an overlay that blocks your controls.
+- **Right/middle buttons are not implemented** in the Cabbage 3 UI (`mousePressRight` /
+  `mousePressMiddle` have no runtime handler yet). `MOUSE_DOWN_RIGHT`/`MOUSE_DOWN_MIDDLE`
+  are **never** auto-converted; the converter flags them as manual-review and leaves the
+  `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` comment.
+- The conversion is surfaced clearly: the widget carries a `"//"` comment, the rewritten
+  orchestra line carries a `; Cabbage2→3: was chnget "…"` comment, and the import
+  summary reports `converted N mouse channel(s)` / `N mouse channel(s) need manual review`.
