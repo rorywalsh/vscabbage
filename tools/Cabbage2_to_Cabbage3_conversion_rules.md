@@ -261,12 +261,14 @@ Rules and gotchas:
 - The converter only auto-adds the overlay when the form has **no interactive widgets**
   (sliders, buttons, comboBox, genTable, keyboard, …). When interactive widgets are
   present it leaves the `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` marker
-  and a warning telling you to scope the overlay manually — so it never silently
-  generates an overlay that blocks your controls.
+  **plus a `varName = 0` definition** so the variable is still defined (the `chnget` was
+  its only definition; removing it would cause `used before defined` errors), and a
+  warning telling you to scope the overlay manually.
 - **Right/middle buttons are not implemented** in the Cabbage 3 UI (`mousePressRight` /
   `mousePressMiddle` have no runtime handler yet). `MOUSE_DOWN_RIGHT`/`MOUSE_DOWN_MIDDLE`
-  are **never** auto-converted; the converter flags them as manual-review and leaves the
-  `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` comment.
+  are **never** auto-converted; the converter flags them as manual-review, leaves the
+  `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` comment, and defines the
+  variable as `0`.
 - The conversion is surfaced clearly: the widget carries a `"//"` comment, the rewritten
   orchestra line carries a `; Cabbage2→3: was chnget "…"` comment, and the import
   summary reports `converted N mouse channel(s)` / `N mouse channel(s) need manual review`.

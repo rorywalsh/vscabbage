@@ -1295,7 +1295,10 @@ export function rewriteOrchestra(
                 ? 'the form has interactive widgets, so the mouse overlay must be scoped manually (see rules §19)'
                 : spec.note;
             warnings.push(`"${chan}" not converted — ${reason}; manual review required`);
-            return `; Cabbage2→3 MANUAL REVIEW: ${_m}  (${reason})`;
+            // Keep the variable defined (as 0) so downstream reads don't fail
+            // with "used before defined" — the original chnget was its only
+            // definition.
+            return `; Cabbage2→3 MANUAL REVIEW: ${_m}  (${reason})\n${varName} = 0`;
         }
         if (REMOVED_CHANNELS.has(chan)) {
             warnings.push(`"${chan}" is no longer a channel in Cabbage 3 (no widget equivalent)`);

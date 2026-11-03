@@ -249,7 +249,8 @@ The converter adds a transparent full-size `image` overlay (`automatable: true`,
 `zIndex`) with the required channels and rewrites `chnget "MOUSE_X"` →
 `cabbageGetValue "mouseX"` (etc.) — but only when the form has **no interactive
 widgets** (sliders/buttons/genTable/keyboard/…). When interactive widgets are present it
-leaves the `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` marker and warns you to
-scope the overlay manually, so it never blocks your controls. It is clearly noted: a
-`"//"` comment on the overlay, a `; Cabbage2→3: was chnget "…"` comment on each rewritten
-line, and a summary/warning on import.
+leaves the `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` marker and a
+`varName = 0` definition (so the variable is still defined and downstream reads don't
+error), and warns you to scope the overlay manually. It is clearly noted: a `"//"`
+comment on the overlay, a `; Cabbage2→3: was chnget "…"` comment on each rewritten line,
+and a summary/warning on import.
