@@ -126,7 +126,7 @@ const DROPPED_IDENTIFIERS = new Set([
     'author', 'factoryfolder', 'userfolder', 'latency', 'macrostrings', 'macronames',
     'isparent', 'glshader', 'urlinfo',
     // image / slider / gentable / keyboard tokens with no direct Cabbage 3 form
-    'line', 'zoom', 'popuptext', 'tablenumbers', 'tablecolours',
+    'line', 'zoom', 'popuptext', 'tablecolours',
     'tablecolour:0', 'tablecolour:1', 'midctrl', 'toggle',
     'textboxcolour', 'textboxoutlinecolour',
     // form CSS-like style string, and a common keyboard-colour typo
@@ -677,7 +677,8 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             if (css) setStyle(w, 'backgroundColor', css);
             return;
         }
-        case 'tablenumber': {
+        case 'tablenumber':
+        case 'tablenumbers': {
             w.json.tableNumber = toNumber(a[0]);
             return;
         }
@@ -1151,6 +1152,7 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
         case 'alpha':
             return `cabbageSet "${channel}", "style.opacity", ${num(args[0])}`;
         case 'tablenumber':
+        case 'tablenumbers':
             return `cabbageSet "${channel}", "tableNumber", ${num(args[0])}`;
         case 'tablecolour':
         case 'tablecolor': {
