@@ -53,6 +53,8 @@ export interface ConvertResult {
     identToChannel: Map<string, string>;
     /** set of all channel ids produced (value + ident-derived) */
     channels: Set<string>;
+    /** set of comboBox/optionButton channel ids (Cabbage 3 is 0-based; orchestra indices need a -1 shift) */
+    comboChannels: Set<string>;
 }
 
 export interface CsoundRewriteResult {
@@ -870,7 +872,7 @@ function setColor(w: WidgetBuilder, path: string, value: any): void {
  * Convert one parsed widget (and, for plants, its flattened children) into
  * Cabbage 3 JSON objects. Returns an array because widgetArray expands to N.
  */
-function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, counter: { n: number }): Record<string, any>[] {
+function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, counter: { n: number }): Record<string, any>[] {
     // Detect widgetArray("name", N) — expand to N widgets.
     const wa = parsed.tokens.find(t => t.name.toLowerCase() === 'widgetarray');
     const widgets: Record<string, any>[] = [];
@@ -944,10 +946,17 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         }
 
         // Cabbage 2 combo boxes / option buttons are 1-based; Cabbage 3 is 0-based
-        // by default. Set indexOffset so value(n)/defaultValue stay 1-based and the
-        // orchestra's `if combo==1/2/…` logic keeps working (rules doc §12).
+        // by default. We leave the widget 0-based and shift the orchestra's
+        // `if combo==1/2/…` comparisons down by one in rewriteOrchestra (tracked
+        // via comboChannels). This keeps the original Csound logic intact.
         if (type === 'comboBox' || type === 'optionButton') {
-            w.json.indexOffset = true;
+            for (const c of w.json.channels) {
+                if (c && c.id) comboChannels.add(c.id);
+                // Cabbage 2 `value(n)` is 1-based → Cabbage 3 `defaultValue` is 0-based.
+                if (c && c.range && typeof c.range.defaultValue === 'number' && c.range.defaultValue > 0) {
+                    c.range.defaultValue -= 1;
+                }
+            }
         }
 
         // Drop internal builder fields.
@@ -976,7 +985,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         const ox = container.bounds?.left ?? 0;
         const oy = container.bounds?.top ?? 0;
         for (const child of parsed.children || []) {
-            const childWidgets = convertWidget(child, warnings, identToChannel, channels, counter);
+            const childWidgets = convertWidget(child, warnings, identToChannel, channels, comboChannels, counter);
             if (ox !== 0 || oy !== 0) {
                 for (const cw of childWidgets) {
                     if (cw.bounds) {
@@ -1020,6 +1029,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const warnings: string[] = [];
     const identToChannel = new Map<string, string>();
     const channels = new Set<string>();
+    const comboChannels = new Set<string>();
 
     const lines = expandMacros(content).split('\n');
     const parsed: ParsedWidget[] = [];
@@ -1041,7 +1051,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const counter = { n: 0 };
 
     for (const p of parsed) {
-        const converted = convertWidget(p, warnings, identToChannel, channels, counter);
+        const converted = convertWidget(p, warnings, identToChannel, channels, comboChannels, counter);
         for (const w of converted) {
             if (w.type === 'form') {
                 form = w;
@@ -1082,6 +1092,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         warnings,
         identToChannel,
         channels,
+        comboChannels,
     };
 }
 
@@ -1296,11 +1307,13 @@ export function rewriteOrchestra(
     orchestraText: string,
     identToChannel: Map<string, string>,
     channels: Set<string>,
+    comboChannels: Set<string> = new Set(),
     mouseToConvert: Set<string> = new Set(),
 ): CsoundRewriteResult {
     let text = orchestraText;
     let changes = 0;
     const warnings: string[] = [];
+    const comboVars = new Set<string>(); // orchestra vars that read a comboBox/optionButton channel
 
     // chnget "chan" → cabbageGetValue "chan" (widget) / rename (reserved) / warn (removed)
     // Only rewrite k-rate / i-rate outputs; cabbageGetValue has no a-rate (or
@@ -1339,6 +1352,10 @@ export function rewriteOrchestra(
         // (e.g. audio sends) stay as plain chnget.
         if (!channels.has(chan)) return _m;
         changes++;
+        if (comboChannels.has(chan)) {
+            comboVars.add(varName);
+            return `${varName} cabbageGetValue "${chan}"  ; Cabbage2→3: comboBox "${chan}" is 0-based (was 1-based)`;
+        }
         return `${varName} cabbageGetValue "${chan}"`;
     });
 
@@ -1387,32 +1404,26 @@ export function rewriteOrchestra(
         return `; Cabbage2→3 manual conversion needed: ${_m}`;
     });
 
-    // Cabbage 3 visibility toggles need a k-rate trigger. `changed(<var>)` is
-    // the natural pulse, but calling it twice (once in the `if` condition, once
-    // as the cabbageSet trigger) returns 0 on the second call. Extract it into a
-    // k-rate variable and use that as the trigger (matches examples/cabbageSet.csd,
-    // which does `switch:k = metro(10)` + `cabbageSet(switch, …)`).
-    {
-        let triggerVar = '';
-        // Already-extracted number-rate `changed` (e.g. `kchange changed gkmode`).
-        // Excludes string-rate sources like `kNewFileTrg changed gSfilepath`.
-        const extracted = text.match(/\b([A-Za-z_]\w*)\s+changed\s+(?:g)?[ki][A-Za-z_]\w*\b/);
-        if (extracted) triggerVar = extracted[1];
-        // Inline `if changed(<var>)==1` — hoist it into a k-rate variable so the
-        // cabbageSet trigger is the `changed` pulse, not `k(1)`. Deliberately not
-        // matching `changed:k(<var>)`: a single instrument often mixes both forms
-        // for unrelated purposes (e.g. FogFilePlayer's `changed(gkPhsMode)` toggle
-        // plus `changed:k(kRecOut)`), and a global swap would pick the wrong pulse.
+    // Cabbage 3 combo boxes / option buttons are 0-based; Cabbage 2 was 1-based.
+    // Shift every `comboVar==N` comparison and `comboVar init N` default down by
+    // one, and drop the now-redundant manual `-1` the original authors wrote
+    // (e.g. `i(gkmode)-1`) to feed 0-based opcodes/arrays. The read site already
+    // carries a "0-based" note (added above), so these stay bare.
+    for (const varName of comboVars) {
+        const shift = (_m: string, prefix: string, n: string) =>
+            Number(n) > 0 ? `${prefix}${Number(n) - 1}` : _m;
         text = text.replace(
-            /^(\s*)if\s+changed\(([A-Za-z_]\w*)\)\s*==\s*1\s+then\b/gm,
-            (_m, indent: string, varName: string) => {
-                triggerVar = `${varName.replace(/^g/, '')}Changed`;
-                return `${indent}${triggerVar} changed ${varName}\n${indent}if ${triggerVar}==1 then`;
-            },
+            new RegExp(`\\b(${varName}\\s*==\\s*)(\\d+)\\b`, 'g'),
+            shift,
         );
-        if (triggerVar) {
-            text = text.replace(/\bcabbageSet\s+k\(1\),/g, `cabbageSet ${triggerVar},`);
-        }
+        text = text.replace(
+            new RegExp(`\\b(${varName}\\s+init\\s+)(\\d+)\\b`, 'g'),
+            shift,
+        );
+        text = text.replace(
+            new RegExp(`\\bi\\((${varName})\\)\\s*-\\s*1\\b`, 'g'),
+            (_m, v: string) => `i(${v})`,
+        );
     }
 
     return { text, changes, warnings };
@@ -1500,7 +1511,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     // Rewrite the orchestra (everything inside <CsInstruments>).
     let orchestraChanges = 0;
     if (orchestraMatch) {
-        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, mouseToConvert);
+        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, mouseToConvert);
         orchestraChanges = rewritten.changes;
         converted.warnings.push(...rewritten.warnings);
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
