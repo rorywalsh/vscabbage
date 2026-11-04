@@ -16,7 +16,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `listbox` → `listBox`
 - `infobutton` → `infoButton`
 - `vmeter` → `verticalSlider` (fallback approximation; Cabbage 3 has no stock meter)
-- `soundfiler` → `genTable` (waveform viewer). The `identChannel` becomes the genTable's top-level `id`, `selectableRegions` is enabled so `channel("beg","len")` keeps working, and a `"//"` note is added. The `tableNumber` and the file-loading `chnset "file(...)", "ident"` → `cabbageSet "id", "tableNumber", N` rewrite are file-specific, so they're left as a manual note in the generated file. `scrubberPosition(...)` has no genTable equivalent.
+- `soundfiler` → `genTable` (waveform viewer). The `identChannel` becomes the genTable's top-level `id`, `selectableRegions` is enabled so `channel("beg","len")` keeps working. The converter wires the display source from the orchestra: a `ftgen N, …, 1, gSfilepath` (gen 1 = load-from-file) sets `tableNumber: N`, and a `diskin2 gSfilepath` sets `file: gSfilepath`; the matching `chnset "file(%s)…", "ident"` is rewritten to `cabbageSet "id", "tableNumber", N` / `cabbageSet "id", "file", gSfilepath`. `scrubberPosition(...)` has no genTable equivalent.
 - `signaldisplay` → no stock equivalent; manual review (custom widget)
 - `image`, `button`, `label`, `keyboard`, `form` kept as-is
 

@@ -55,6 +55,8 @@ export interface ConvertResult {
     channels: Set<string>;
     /** set of comboBox/optionButton channel ids (Cabbage 3 is 0-based; orchestra indices need a -1 shift) */
     comboChannels: Set<string>;
+    /** set of soundfiler identChannel names (→ genTable; need tableNumber/file wiring) */
+    soundfilerIdents: Set<string>;
 }
 
 export interface CsoundRewriteResult {
@@ -872,7 +874,7 @@ function setColor(w: WidgetBuilder, path: string, value: any): void {
  * Convert one parsed widget (and, for plants, its flattened children) into
  * Cabbage 3 JSON objects. Returns an array because widgetArray expands to N.
  */
-function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, counter: { n: number }): Record<string, any>[] {
+function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, soundfilerIdents: Set<string>, counter: { n: number }): Record<string, any>[] {
     // Detect widgetArray("name", N) — expand to N widgets.
     const wa = parsed.tokens.find(t => t.name.toLowerCase() === 'widgetarray');
     const widgets: Record<string, any>[] = [];
@@ -936,13 +938,12 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         // soundfiler → genTable: the Cabbage 2 soundfiler maps to a genTable that
         // shows an orchestra-loaded ftable. Preserve the identChannel as the widget
         // id (so cabbageSet can address it) and enable region selection. The
-        // tableNumber and the file-loading chnset rewrite are file-specific, so they
-        // are left as a manual note.
+        // tableNumber (or file, for diskin2) is wired by detectSoundfilerLoading
+        // from the orchestra's ftgen/diskin2 in convertCabbage2ToCabbage3.
         if (parsed.type === 'soundfiler') {
             if (w.identChannel && !w.json.id) w.json.id = w.identChannel;
+            if (w.identChannel) soundfilerIdents.add(w.identChannel);
             if (!w.json.selectableRegions) w.json.selectableRegions = true;
-            w.json['//'] = 'Cabbage 2 soundfiler → Cabbage 3 genTable: set "tableNumber" to the ftable that holds the loaded file, and rewrite the file-loading chnset to cabbageSet "<id>", "tableNumber", <n>.';
-            warnings.push('"soundfiler" → "genTable": set tableNumber and update the file-loading chnset manually (see rules §1)');
         }
 
         // Cabbage 2 combo boxes / option buttons are 1-based; Cabbage 3 is 0-based
@@ -985,7 +986,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         const ox = container.bounds?.left ?? 0;
         const oy = container.bounds?.top ?? 0;
         for (const child of parsed.children || []) {
-            const childWidgets = convertWidget(child, warnings, identToChannel, channels, comboChannels, counter);
+            const childWidgets = convertWidget(child, warnings, identToChannel, channels, comboChannels, soundfilerIdents, counter);
             if (ox !== 0 || oy !== 0) {
                 for (const cw of childWidgets) {
                     if (cw.bounds) {
@@ -1030,6 +1031,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const identToChannel = new Map<string, string>();
     const channels = new Set<string>();
     const comboChannels = new Set<string>();
+    const soundfilerIdents = new Set<string>();
 
     const lines = expandMacros(content).split('\n');
     const parsed: ParsedWidget[] = [];
@@ -1051,7 +1053,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const counter = { n: 0 };
 
     for (const p of parsed) {
-        const converted = convertWidget(p, warnings, identToChannel, channels, comboChannels, counter);
+        const converted = convertWidget(p, warnings, identToChannel, channels, comboChannels, soundfilerIdents, counter);
         for (const w of converted) {
             if (w.type === 'form') {
                 form = w;
@@ -1093,6 +1095,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         identToChannel,
         channels,
         comboChannels,
+        soundfilerIdents,
     };
 }
 
@@ -1241,6 +1244,53 @@ export function detectMouseChannels(orchestraText: string): string[] {
     return MOUSE_ORDER.filter(c => found.has(c));
 }
 
+export interface SoundfilerLoading {
+    tableNumber?: number;
+    file?: string;
+}
+
+/**
+ * Work out the soundfiler → genTable tableNumber/file wiring from the orchestra.
+ * A Cabbage 2 soundfiler is refreshed via
+ *   `Smessage sprintfk "file(%s)", gSfilepath` + `chnset Smessage, "filer1"`.
+ * If the file is loaded into a ftable (`ftgen N, 0, 0, 1, gSfilepath, …`) the
+ * genTable needs `tableNumber: N`; if it's streamed (`diskin2 gSfilepath`) it
+ * needs `file: gSfilepath`. Returns ident → { tableNumber | file }.
+ */
+export function detectSoundfilerLoading(
+    orchestraText: string,
+    soundfilerIdents: Set<string>,
+): Map<string, SoundfilerLoading> {
+    const result = new Map<string, SoundfilerLoading>();
+
+    // Match the sprintfk + chnset pair in one go so a reused msgVar (Smessage in
+    // two different instrs) doesn't collide: `Smessage sprintfk "file(%s)", path`
+    // on one line, `chnset Smessage, "ident"` on the next.
+    const identToPath = new Map<string, string>();
+    const pairRe = /\b([A-Za-z_]\w*)\s+sprintfk\s+"file\(%s\)"\s*,\s*([A-Za-z_]\w*)[^\n]*\n\s*chnset\s+\1\s*,\s*"([A-Za-z_]\w*)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = pairRe.exec(orchestraText)) !== null) {
+        identToPath.set(m[3], m[2]);
+    }
+
+    for (const ident of soundfilerIdents) {
+        const path = identToPath.get(ident);
+        if (!path) continue;
+
+        // ftgen N, …, 1, <path> (gen 1 = "load from file") — the file is in ftable N.
+        const ftgenRe = new RegExp(`\\bftgen\\s+(\\d+)[^\\n]*?,\\s*1\\s*,\\s*${path}\\b`);
+        const fm = orchestraText.match(ftgenRe);
+        if (fm) {
+            result.set(ident, { tableNumber: Number(fm[1]) });
+            continue;
+        }
+        if (new RegExp(`\\bdiskin2\\b[^\\n]*\\b${path}\\b`).test(orchestraText)) {
+            result.set(ident, { file: path });
+        }
+    }
+    return result;
+}
+
 /**
  * Build the transparent full-size image overlay that exposes the requested
  * mouse channels. `mouseMoveX`/`mouseMoveY` are ranged over the form's pixel
@@ -1308,6 +1358,7 @@ export function rewriteOrchestra(
     identToChannel: Map<string, string>,
     channels: Set<string>,
     comboChannels: Set<string> = new Set(),
+    soundfilerLoading: Map<string, { tableNumber?: number; file?: string }> = new Map(),
     mouseToConvert: Set<string> = new Set(),
 ): CsoundRewriteResult {
     let text = orchestraText;
@@ -1371,6 +1422,18 @@ export function rewriteOrchestra(
             return `chnset ${expr.trim()}, "${target}"`;
         }
         const trimmedExpr = expr.trim();
+        // soundfiler → genTable file-loading: `chnset Smessage, "filer1"` becomes a
+        // tableNumber/file refresh rather than a property-string chnset.
+        if (soundfilerLoading.has(chan)) {
+            const loading = soundfilerLoading.get(chan)!;
+            changes++;
+            if (loading.tableNumber !== undefined) {
+                return `cabbageSet "${chan}", "tableNumber", ${loading.tableNumber}  ; Cabbage2→3: soundfiler → genTable, refresh waveform`;
+            }
+            if (loading.file !== undefined) {
+                return `cabbageSet "${chan}", "file", ${loading.file}  ; Cabbage2→3: soundfiler → genTable, display file`;
+            }
+        }
         const targetChannel = identToChannel.get(chan);
         if (targetChannel) {
             // Ident channel → property update. Only rewrite literal property
@@ -1508,10 +1571,26 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         }
     }
 
+    // soundfiler → genTable: wire tableNumber (ftgen) / file (diskin2) from the
+    // orchestra and patch the genTable widgets.
+    const soundfilerLoading = detectSoundfilerLoading(orchestraText, converted.soundfilerIdents);
+    if (soundfilerLoading.size > 0) {
+        const root = JSON.parse(converted.json) as Record<string, any>;
+        const widgets = Array.isArray(root.widgets) ? (root.widgets as Record<string, any>[]) : [];
+        for (const w of widgets) {
+            if (w.type !== 'genTable' || typeof w.id !== 'string') continue;
+            const loading = soundfilerLoading.get(w.id);
+            if (!loading) continue;
+            if (loading.tableNumber !== undefined) w.tableNumber = loading.tableNumber;
+            if (loading.file !== undefined) w.file = loading.file;
+        }
+        converted.json = JSON.stringify(root, null, 4);
+    }
+
     // Rewrite the orchestra (everything inside <CsInstruments>).
     let orchestraChanges = 0;
     if (orchestraMatch) {
-        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, mouseToConvert);
+        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, soundfilerLoading, mouseToConvert);
         orchestraChanges = rewritten.changes;
         converted.warnings.push(...rewritten.warnings);
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
