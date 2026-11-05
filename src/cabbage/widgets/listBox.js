@@ -63,6 +63,7 @@ export class ListBox {
             "visible": true,
             "active": true,
             "automatable": true,
+            "singleClick": false,
             "type": "listBox",
             "zIndex": 0,
 
@@ -97,8 +98,9 @@ export class ListBox {
 
         this.vscode = null;
         this.widgetDiv = null;
-        // Item currently highlighted in the UI. Single clicks move this without
-        // notifying Csound, double clicks commit it to the channel.
+        // Item currently highlighted in the UI. By default single clicks move
+        // this without notifying Csound and double clicks commit it to the
+        // channel. Setting singleClick true makes a single click commit too.
         this.highlightIndex = -1;
         // Channel value and items the highlight was last resolved from. Used to
         // detect updates coming from the host (Csound, presets, automation).
@@ -139,9 +141,14 @@ export class ListBox {
             return;
         }
 
-        // Highlight only - the channel value changes on double click
+        // Highlight the row. The channel value normally changes on double
+        // click, but singleClick commits it immediately.
         this.highlightIndex = index;
         this.updateItemColours(evt.currentTarget);
+
+        if (this.props.singleClick) {
+            this.commitSelection(index);
+        }
     }
 
     pointerDoubleClick(evt) {
@@ -156,6 +163,16 @@ export class ListBox {
             return;
         }
 
+        this.commitSelection(index);
+    }
+
+    /**
+     * Commits the given item index to the widget's channel and notifies
+     * Csound. Called on double click, or on single click when the
+     * singleClick property is enabled.
+     * @param {number} index
+     */
+    commitSelection(index) {
         const items = this.getItemsArray();
         const channel = this.props.channels[0];
         const channelType = (channel && channel.type) || "number";
