@@ -11,3 +11,11 @@ updates:
       npm-all:
         patterns:
           - "*"
+    ignore:
+      # TypeScript 7 is the native (Go) compiler; ts-loader and
+      # @typescript-eslint (both used here) don't support it yet.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
+      # Keep @types/vscode aligned with engines.vscode (^1.88).
+      - dependency-name: "@types/vscode"
+        versions: [">=1.89.0"]
