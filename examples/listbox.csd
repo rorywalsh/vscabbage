@@ -10,10 +10,11 @@
             "style"   : {"fontColor": "#d1d1d1"},
             "channels": [ {"id": "info", "event": "valueChanged"} ],
             "bounds"  : {"left": 0, "top": 10, "width": 600, "height": 40},
-            "label"   : {"text": "Single-click an item to highlight it. Double-click an item to send it to Csound."}
+            "label"   : {"text": "Single-click an item to send it to Csound."}
         },
         {
             "type"    : "listBox",
+            "singleClick": true,
             "items"   : ["A3", "C4", "D4", "E4", "G4", "A4"],
             "bounds"  : {"left": 12, "top": 56, "width": 174, "height": 102},
             "channels": [
@@ -30,7 +31,7 @@
             "readOnly": 1,
             "wrap"    : 1,
             "style"   : {"fontSize": 12},
-            "label"   : {"text": "Double-click a note..."}
+            "label"   : {"text": "Click a note..."}
         }
     ]
 }
@@ -56,8 +57,8 @@ nchnls = 2
 instr 1
     sel:CabbageNumTrig = cabbageGetValue("note")
 
-    ; The listbox only sends its value on double-click, so each
-    ; trigger corresponds to a deliberate user selection.
+    ; The listbox is configured with singleClick, so each click
+    ; sends its value immediately.
     if sel.trig == 1 then
         event("i", "Tone", 0, 1, sel.val)
     endif
@@ -70,7 +71,7 @@ instr Tone
     iIdx = int(p4)
     iIdx = (iIdx < 0 || iIdx > 5 ? 0 : iIdx)
 
-    cabbageSet("infoText", "label.text", sprintf("You double-clicked %s", SNotes[iIdx]))
+    cabbageSet("infoText", "label.text", sprintf("You clicked %s", SNotes[iIdx]))
 
     aEnv = madsr(0.01, 0.1, 0.7, 0.4)
     a1 = oscili(0.3*aEnv, iFreqs[iIdx])
