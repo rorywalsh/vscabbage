@@ -521,7 +521,7 @@ export class WidgetManager {
             if (typeof widget.updateSVG === 'function') {
                 widget.updateSVG();
                 // Form widget uses 'style' instead of 'colour'
-                const fillColor = widget.props.style?.fill || widget.props.colour?.fill || '#000000';
+                const fillColor = widget.props.style?.backgroundColor || widget.props.colour?.backgroundColor || '#000000';
                 const selectionColour = CabbageColours.invertColor(fillColor);
                 CabbageColours.changeSelectedBorderColor(selectionColour);
             }
