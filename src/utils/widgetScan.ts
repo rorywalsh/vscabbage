@@ -57,6 +57,119 @@ const READ_CONCURRENCY = 6;
 const HEADER_BYTES = 16 * 1024;
 
 /**
+ * A genuine widget builds a `props` object in its constructor and gives it a
+ * layout-ish key (`bounds`, `channels`, `zIndex`). Requiring this keeps helper
+ * classes, web components and framework utilities from being registered as
+ * widgets.
+ */
+const WIDGET_PROPS_OBJECT = /this\.props\s*=\s*\{/;
+const WIDGET_LAYOUT_KEY = /["'](?:bounds|channels|zIndex)["']\s*:/;
+
+/**
+ * Framework folders that may exist inside a copied custom `widgets` folder but
+ * never contain user widgets.
+ */
+const IGNORED_DIRECTORY_NAMES = new Set([
+    'node_modules',
+    'htmlElements',
+]);
+
+/** Reads a quoted JavaScript string starting at `start` (which points at the quote). */
+function readString(source: string, start: number): { value: string; end: number } {
+    const quote = source[start];
+    let value = '';
+    let i = start + 1;
+    while (i < source.length) {
+        const ch = source[i];
+        if (ch === '\\') {
+            value += source[i + 1] ?? '';
+            i += 2;
+            continue;
+        }
+        if (ch === quote) {
+            return { value, end: i + 1 };
+        }
+        value += ch;
+        i++;
+    }
+    return { value, end: i };
+}
+
+/**
+ * Finds the widget's own `type` property inside the `this.props = { ... }`
+ * literal. Nested objects (for example channel descriptors) also have `type`
+ * keys, so only depth-1 string keys are considered.
+ */
+function findWidgetTypeInProps(content: string): string | null {
+    const match = WIDGET_PROPS_OBJECT.exec(content);
+    if (!match) {
+        return null;
+    }
+
+    let i = content.indexOf('{', match.index);
+    if (i < 0) {
+        return null;
+    }
+
+    let depth = 0;
+    while (i < content.length) {
+        const ch = content[i];
+
+        if (ch === '"' || ch === "'" || ch === '`') {
+            const token = readString(content, i);
+            if (depth === 1 && token.value === 'type') {
+                let j = token.end;
+                while (j < content.length && /\s/.test(content[j])) { j++; }
+                if (content[j] === ':') {
+                    j++;
+                    while (j < content.length && /\s/.test(content[j])) { j++; }
+                    const valueQuote = content[j];
+                    if (valueQuote === '"' || valueQuote === "'" || valueQuote === '`') {
+                        const value = readString(content, j).value;
+                        if (/^[A-Za-z_$][\w$]*$/.test(value)) {
+                            return value;
+                        }
+                    }
+                }
+            }
+            i = token.end;
+            continue;
+        }
+
+        if (ch === '/' && content[i + 1] === '/') {
+            const newline = content.indexOf('\n', i);
+            if (newline < 0) { break; }
+            i = newline + 1;
+            continue;
+        }
+
+        if (ch === '/' && content[i + 1] === '*') {
+            const close = content.indexOf('*/', i + 2);
+            if (close < 0) { break; }
+            i = close + 2;
+            continue;
+        }
+
+        if (ch === '{' || ch === '[' || ch === '(') {
+            depth++;
+            i++;
+            continue;
+        }
+
+        if (ch === '}' || ch === ']' || ch === ')') {
+            depth--;
+            if (depth === 0) { break; }
+            i++;
+            continue;
+        }
+
+        i++;
+    }
+
+    return null;
+}
+
+/**
  * Returns true when a file name should be treated as a widget candidate.
  * Templates, tests, hidden files and non-JavaScript files are skipped.
  */
@@ -69,11 +182,11 @@ function isWidgetCandidate(name: string): boolean {
 
 /**
  * Returns true when a directory should not be descended into. Hidden
- * directories and `node_modules` are ignored; symlinks are never followed
- * (handled by the caller) to avoid loops.
+ * directories, `node_modules` and framework folders are ignored; symlinks are
+ * never followed (handled by the caller) to avoid loops.
  */
 function isIgnoredDirectory(name: string): boolean {
-    return name.startsWith('.') || name === 'node_modules';
+    return name.startsWith('.') || IGNORED_DIRECTORY_NAMES.has(name);
 }
 
 /**
@@ -89,14 +202,18 @@ export function extractWidgetInfoFromFile(content: string): WidgetInfo | null {
             return null;
         }
 
+        // Reject ordinary exported classes. A widget initialises `this.props`
+        // with a layout-ish object in its constructor.
+        if (!WIDGET_PROPS_OBJECT.test(content) || !WIDGET_LAYOUT_KEY.test(content)) {
+            return null;
+        }
+
         const className = classMatch[1];
 
-        // Try to find widget type from the constructor
-        // Look for: "type": "widgetType"
-        const typeMatch = content.match(/"type"\s*:\s*"(\w+)"/);
-
-        // If no type found in props, use lowercase class name as fallback
-        const widgetType = typeMatch ? typeMatch[1] : className.charAt(0).toLowerCase() + className.slice(1);
+        // Read the widget's own `type` key (depth 1 of the props object).
+        // Falling back to the class name keeps older widgets working.
+        const widgetType = findWidgetTypeInProps(content)
+            ?? className.charAt(0).toLowerCase() + className.slice(1);
 
         return { className, widgetType };
     } catch (error) {

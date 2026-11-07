@@ -2042,11 +2042,20 @@ ${csoundSection}`;
 
         // Otherwise treat as a root / cabbage dir and probe known layouts.
         // Order matters: canonical layout first, then plugin-style fallbacks.
-        pushIfDir(path.join(expanded, 'cabbage', 'widgets'));
-        pushIfDir(path.join(expanded, 'widgets'));
+        const canonicalWidgets = path.join(expanded, 'cabbage', 'widgets');
+        const pluginWidgets = path.join(expanded, 'widgets');
+        const hasCanonicalWidgets = isDir(canonicalWidgets);
+        const hasPluginWidgets = isDir(pluginWidgets);
+        pushIfDir(canonicalWidgets);
+        pushIfDir(pluginWidgets);
         // Bare-dir fallback: the configured folder itself holds .js widgets
         // (covers users pointing directly at a widgets dir without the name).
-        pushIfDir(expanded);
+        // Only use it when the folder is not a root wrapping a widgets dir,
+        // otherwise a recursive scan would walk the whole custom folder
+        // (including framework code and unrelated projects).
+        if (!hasCanonicalWidgets && !hasPluginWidgets) {
+            pushIfDir(expanded);
+        }
 
         return out;
     }
