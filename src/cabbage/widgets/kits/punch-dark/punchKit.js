@@ -241,6 +241,13 @@ export function attachPointerDrag(widgetDiv, handlers = {}) {
         window.removeEventListener("pointerup", finish);
         window.removeEventListener("pointercancel", finish);
         handlers.onEnd?.(event);
+
+        // A mouse/touch drag focuses the slider div. Release it so the
+        // performance keyboard keeps receiving ASCII note keys.
+        const slider = widgetDiv.querySelector('[role="slider"]');
+        if (slider && typeof slider.blur === "function") {
+            slider.blur();
+        }
     };
 
     const start = (event) => {

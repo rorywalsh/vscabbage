@@ -162,6 +162,15 @@ export class VintageCheckbox {
         widgetDiv.dataset.vintageBound = "1";
         this.widgetDiv = widgetDiv;
 
+        // Release the focus the hidden native checkbox gains on mouse click.
+        // Keyboard activation keeps focus so Space can still toggle it.
+        widgetDiv.addEventListener("pointerup", () => {
+            const input = widgetDiv.querySelector(".vintage-checkbox-input");
+            if (input && typeof input.blur === "function") {
+                input.blur();
+            }
+        });
+
         widgetDiv.addEventListener("change", (event) => {
             if (!this.props.active || isEditMode()) {
                 return;
