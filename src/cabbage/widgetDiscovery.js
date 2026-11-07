@@ -51,13 +51,13 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                     console.log(`Cabbage: customWidgetInfo received, ${(message.widgets || []).length} widgets:`, (message.widgets || []).map(w => w.widgetType));
                     const widgets = message.widgets || [];
                     widgets.forEach(w => {
-                        const { widgetType, webviewPath, className } = w;
+                        const { widgetType, webviewPath, className, category } = w;
                         if (widgetType && webviewPath && className) {
                             if (!discoveredWidgets.includes(widgetType)) {
                                 try {
-                                    registerWidget(widgetType, webviewPath, className);
+                                    registerWidget(widgetType, webviewPath, className, category);
                                     discoveredWidgets.push(widgetType);
-                                    console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}`);
+                                    console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}${category ? ` [${category}]` : ''}`);
                                 } catch (err) {
                                     console.error(`Cabbage: Failed to register widget ${widgetType}:`, err);
                                 }

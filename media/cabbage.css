@@ -177,8 +177,10 @@
 
 /* Hover-expands the Custom Widgets submenu — no click handler involved,
    so opening the submenu can never close the menu itself. Hover is scoped
-   to the whole group so moving from the row onto the submenu stays open. */
-.menuExpandGroup:hover .menuItemChevron {
+   to the whole group so moving from the row onto the submenu stays open.
+   Direct-child selectors keep a nested category submenu collapsed until its
+   own row is hovered. */
+.menuExpandGroup:hover > .menuExpand .menuItemChevron {
 	transform: rotate(90deg);
 }
 
@@ -189,7 +191,7 @@
 	list-style: none;
 }
 
-.menuExpandGroup:hover .customWidgetSubmenu {
+.menuExpandGroup:hover > .customWidgetSubmenu {
 	display: block;
 }
 
@@ -201,14 +203,14 @@
 
 .content .menuItem:hover,
 .content .menuExpand:hover,
-.menuExpandGroup:hover .menuExpand {
+.menuExpandGroup:hover > .menuExpand {
 	background: #f2f2f2;
 }
 
 /* Dark theme for menu item hover */
 .vscode-dark .content .menuItem:hover,
 .vscode-dark .content .menuExpand:hover,
-.vscode-dark .menuExpandGroup:hover .menuExpand {
+.vscode-dark .menuExpandGroup:hover > .menuExpand {
 	background: #094771;
 }
 

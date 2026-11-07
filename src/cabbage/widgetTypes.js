@@ -74,7 +74,7 @@ const BUILTIN_WIDGETS = {
 
 /**
  * Registry for custom widgets (loaded dynamically)
- * Format: "widgetType": { file: "full_uri", class: "ClassName" }
+ * Format: "widgetType": { file: "full_uri", class: "ClassName", category: "Category" }
  */
 const CUSTOM_WIDGET_REGISTRY = {};
 
@@ -185,7 +185,7 @@ async function getWidget(type) {
 					// Cache it for future use
 					customWidgetCache[type] = WidgetClass;
 					// Also register it in the registry
-					CUSTOM_WIDGET_REGISTRY[type] = { file: modulePath, class: className };
+					CUSTOM_WIDGET_REGISTRY[type] = { file: modulePath, class: className, category: '' };
 					return WidgetClass;
 				}
 			} catch (e) {
@@ -254,6 +254,26 @@ export function getCustomWidgetTypes() {
 }
 
 /**
+ * Custom widget types grouped by category. Widgets discovered directly in the
+ * widgets folder are grouped under the empty-string key; widgets found in a
+ * category subfolder are grouped under that folder's name.
+ *
+ * @returns {Object<string, string[]>} Category name -> widget type names
+ */
+export function getCustomWidgetCategories() {
+	const groups = {};
+	for (const type of Object.keys(CUSTOM_WIDGET_REGISTRY)) {
+		const info = CUSTOM_WIDGET_REGISTRY[type];
+		const category = (info && info.category) ? info.category : '';
+		if (!groups[category]) {
+			groups[category] = [];
+		}
+		groups[category].push(type);
+	}
+	return groups;
+}
+
+/**
  * Get all available widget types (built-in + custom).
  * Returns a fresh array each time to ensure custom widgets are included.
  * 
@@ -296,8 +316,9 @@ export async function initialiseDefaultProps(type) {
  * @param {string} type - The widget type name (e.g., "myCustomWidget")
  * @param {string} file - The full webview URI to the widget module
  * @param {string} className - The exported class name (e.g., "MyCustomWidget")
+ * @param {string} [category] - Optional category (from the widget's subfolder)
  */
-export function registerWidget(type, file, className) {
+export function registerWidget(type, file, className, category = '') {
 	if (type in BUILTIN_WIDGETS) {
 		console.error(`Cannot register custom widget "${type}" - this conflicts with a built-in widget`);
 		return;
@@ -307,7 +328,7 @@ export function registerWidget(type, file, className) {
 		console.warn(`Custom widget type "${type}" is already registered. Overwriting.`);
 	}
 
-	CUSTOM_WIDGET_REGISTRY[type] = { file, class: className };
+	CUSTOM_WIDGET_REGISTRY[type] = { file, class: className, category: category || '' };
 
 	// Update the widgetTypes export to reflect the new registry state
 	widgetTypes = Object.keys(BUILTIN_WIDGETS).concat(Object.keys(CUSTOM_WIDGET_REGISTRY));

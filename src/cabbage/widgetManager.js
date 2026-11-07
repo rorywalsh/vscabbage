@@ -3,7 +3,7 @@
 // See the LICENSE file for details.
 
 // Import necessary modules and utilities
-import { widgetConstructors, getBuiltinWidgetTypes, getCustomWidgetTypes } from "./widgetTypes.js";
+import { widgetConstructors, getBuiltinWidgetTypes, getCustomWidgetTypes, getCustomWidgetCategories } from "./widgetTypes.js";
 import { CabbageUtils, CabbageColours } from "../cabbage/utils.js";
 import { vscode, cabbageMode, widgets } from "../cabbage/sharedState.js";
 import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.js";
@@ -538,22 +538,45 @@ export class WidgetManager {
     /**
      * Markup for the insert-widget menu. Built-ins are listed directly.
      * Custom types sit under a "Custom Widgets" row that expands on hover.
-     * Expansion is pure CSS (.menuExpandGroup:hover in cabbage.css) — no
-     * click/pointerdown handlers here, so selecting the row can never trip
-     * the capture-phase pointer listeners that otherwise close the menu.
+     * Widgets discovered in category subfolders are grouped into a nested
+     * submenu per category (first folder level only).
+     * Expansion is pure CSS (.menuExpandGroup:hover > .customWidgetSubmenu in
+     * cabbage.css) — no click/pointerdown handlers here, so selecting the row
+     * can never trip the capture-phase pointer listeners that otherwise close
+     * the menu.
      */
     static widgetMenuMarkup() {
-        const item = (widgetType) => `<li class="menuItem"><span>${widgetType}</span></li>`;
+        const escape = (text) => String(text).replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[ch]));
+        const item = (widgetType) => `<li class="menuItem"><span>${escape(widgetType)}</span></li>`;
+        const byCategory = (a, b) => a.localeCompare(b);
         const custom = getCustomWidgetTypes();
         const builtin = getBuiltinWidgetTypes();
         let html = "";
         if (custom.length) {
+            const groups = getCustomWidgetCategories();
+            const uncategorised = (groups[""] || []).slice().sort(byCategory);
+            const categories = Object.keys(groups).filter((category) => category).sort(byCategory);
+
+            let customItems = uncategorised.map(item).join("");
+            for (const category of categories) {
+                const types = groups[category].slice().sort(byCategory);
+                customItems += `<li class="menuExpandGroup">
+                    <div class="menuExpand">
+                        <span class="menuItemLabel">${escape(category)}</span>
+                        <span class="menuItemChevron" aria-hidden="true">&#9656;</span>
+                    </div>
+                    <ul class="customWidgetSubmenu">${types.map(item).join("")}</ul>
+                </li>`;
+            }
+
             html += `<li class="menuExpandGroup">
                 <div class="menuExpand">
                     <span class="menuItemLabel">Custom Widgets</span>
                     <span class="menuItemChevron" aria-hidden="true">&#9656;</span>
                 </div>
-                <ul class="customWidgetSubmenu">${custom.map(item).join("")}</ul>
+                <ul class="customWidgetSubmenu">${customItems}</ul>
             </li>
             <li class="menuSeparator" aria-hidden="true"></li>`;
         }

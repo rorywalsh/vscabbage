@@ -2264,7 +2264,7 @@ export class Commands {
         try {
             const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
             console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
-            const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+            const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }> = [];
             const seenTypes = new Set<string>();
             for (const dir of cwDirs) {
                 const found = await ExtensionUtils.scanForCustomWidgets(dir);
@@ -2278,7 +2278,7 @@ export class Commands {
                     const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
                     if (uri) {
                         seenTypes.add(w.widgetType);
-                        cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
+                        cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true), category: w.category });
                     }
                 }
             }
