@@ -59,11 +59,11 @@ const STYLES = `
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: repeating-conic-gradient(from 240deg,
-        color-mix(in srgb, var(--vintage-ink) 55%, transparent) 0deg 1deg,
-        transparent 1deg 30deg);
+        var(--vintage-muted) 0deg 1.5deg,
+        transparent 1.5deg 30deg);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
     mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-    opacity: 0.4;
+    opacity: 0.7;
     content: "";
     pointer-events: none;
 }
@@ -76,8 +76,8 @@ const STYLES = `
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: repeating-conic-gradient(from 240deg,
-        var(--vintage-accent) 0deg 1deg,
-        transparent 1deg 30deg);
+        var(--vintage-accent) 0deg 1.5deg,
+        transparent 1.5deg 30deg);
     -webkit-mask:
         radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)),
         conic-gradient(from var(--vintage-start, 240deg),
