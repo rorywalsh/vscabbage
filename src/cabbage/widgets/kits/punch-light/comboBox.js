@@ -16,6 +16,7 @@ import {
 
 const STYLES = `
 .punch-combo-widget {
+    --punch-accent: #8cc700;
     --punch-ink: #1f1f1f;
     --punch-surface: #f0f1ed;
     box-sizing: border-box;
@@ -47,8 +48,11 @@ const STYLES = `
     outline: none;
 }
 .punch-combo-widget .punch-select:focus-visible {
-    outline: 2px solid #0b63a5;
-    outline-offset: 2px;
+    outline: none;
+    border-color: color-mix(in srgb, var(--punch-accent, #8cc700), var(--punch-ink, #1f1f1f) 15%);
+    box-shadow:
+        inset 0 1px 2px rgb(76 85 61 / 8%),
+        0 0 0 2px color-mix(in srgb, var(--punch-accent, #8cc700), transparent 75%);
 }
 .punch-combo-widget::after {
     position: absolute;
@@ -136,7 +140,7 @@ export class PunchComboBox {
 
         return `
             <div class="punch-combo-widget"
-                 style="--punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f0f1ed")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
+                 style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f0f1ed")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <select class="punch-select" aria-label="${escapeHtml(labelText || "Combo box")}">
                     ${options}
                 </select>

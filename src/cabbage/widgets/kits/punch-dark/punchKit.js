@@ -26,7 +26,7 @@ export function sliderColors() {
 
 /** Combo boxes only use text and surface colors. */
 export function comboColors() {
-    return { text: PALETTE.text, surface: PALETTE.surface };
+    return { accent: PALETTE.accent, text: PALETTE.text, surface: PALETTE.surface };
 }
 
 /** Checkboxes/buttons use accent, text and surface. */
