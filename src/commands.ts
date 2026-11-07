@@ -2673,6 +2673,29 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
 
     /**
+     * Returns the active editor only when it is a real .csd file on disk.
+     * Export commands read the instrument from the active editor, so using a
+     * non-file document (for example the "Cabbage output" channel opened in an
+     * editor) previously produced an unhandled ENOENT from fs.readFile.
+     */
+    private static getActiveCsdEditor(): vscode.TextEditor | undefined {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('Cabbage: No active editor. Open a .csd file before exporting.');
+            return undefined;
+        }
+
+        if (editor.document.uri.scheme !== 'file' || !editor.document.fileName.toLowerCase().endsWith('.csd')) {
+            vscode.window.showErrorMessage(
+                `Cabbage: "${editor.document.fileName}" is not a .csd file on disk. Open your instrument's .csd file and try again.`
+            );
+            return undefined;
+        }
+
+        return editor;
+    }
+
+    /**
      * Export instrument
      */
     static async exportInstrument(type: string) {
@@ -2696,18 +2719,17 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 ? { 'CLAP Plugin': ['clap'] }
                 : { 'VST3 Plugin': ['vst3'] };
 
+        const editor = Commands.getActiveCsdEditor();
+        if (!editor) {
+            return;
+        }
+
         const fileUri = await vscode.window.showSaveDialog({
             saveLabel: 'Save Pro Plugin',
             filters
         });
 
         if (!fileUri) {
-            return;
-        }
-
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('No active editor found');
             return;
         }
 
@@ -2795,9 +2817,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
             this.vscodeOutputChannel.appendLine(`Export Pro: Starting plugin export - ${pluginName}`);
             this.vscodeOutputChannel.appendLine('='.repeat(60));
 
-            // Read CSD content
+            // Read CSD content from the editor buffer so unsaved changes are included
             const csdFilePath = editor.document.fileName;
-            let csdContent = await fs.promises.readFile(csdFilePath, 'utf8');
+            const csdContent = editor.document.getText();
             this.vscodeOutputChannel.appendLine(`Export Pro: Read CSD file (${csdContent.length} bytes)`);
 
             // Setup resources directory
@@ -3911,17 +3933,17 @@ i2 5 z
                 ? { 'CLAP Plugin': ['clap'] }
                 : { 'VST3 Plugin': ['vst3'] };
 
+        const editor = Commands.getActiveCsdEditor();
+        if (!editor) {
+            return;
+        }
+
         const fileUri = await vscode.window.showSaveDialog({
             saveLabel: 'Save Plugin',
             filters
         });
 
         if (!fileUri) {
-            return;
-        }
-
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
             return;
         }
 
@@ -4063,12 +4085,9 @@ i2 5 z
             this.vscodeOutputChannel.appendLine(`Export: Starting plugin export - ${pluginName}`);
             this.vscodeOutputChannel.appendLine('='.repeat(60));
 
-            // Read CSD content first so we can extract used widgets
-            let csdContent = '';
-            if (editor) {
-                csdContent = await fs.promises.readFile(editor.document.fileName, 'utf8');
-                this.vscodeOutputChannel.appendLine(`Export: Read CSD file (${csdContent.length} bytes)`);
-            }
+            // Read CSD content from the editor buffer so unsaved changes are included
+            const csdContent = editor.document.getText();
+            this.vscodeOutputChannel.appendLine(`Export: Read CSD file (${csdContent.length} bytes)`);
 
             // Setup project resources (JS, CSS, index.html, CSD) with actual CSD content
             const indexDotHtml = ExtensionUtils.getIndexHtml();
