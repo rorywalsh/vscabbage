@@ -1637,6 +1637,14 @@ ${csoundSection}`;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+    {
+        "imports": {
+            "cabbage": "./cabbage/cabbage.js",
+            "cabbage/": "./cabbage/"
+        }
+    }
+    </script>
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
     <style>

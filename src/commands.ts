@@ -17,6 +17,8 @@ import {
     reorderJsoncArrayValues,
     widgetMatchesId,
 } from './utils/jsonc';
+import { buildKitWidgetShims } from './utils/widgetKitExport';
+import { WidgetKit } from './utils/widgetScan';
 
 function getPackageConfig(root: any, formWidget?: any): any {
     if (root && !Array.isArray(root) && typeof root === 'object' && root.package && typeof root.package === 'object') {
@@ -3310,6 +3312,26 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const widgetsDestDir = path.join(destDir, 'widgets');
         await fs.promises.mkdir(widgetsDestDir, { recursive: true });
 
+        // Resolve the active widget kit once. Its overrides are wired up after
+        // the normal widget copies so the kit always wins.
+        let activeKit: WidgetKit | undefined;
+        try {
+            const activeKitId = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            if (activeKitId) {
+                const kits = await ExtensionUtils.getWidgetKits();
+                activeKit = kits.find((kit) => kit.id === activeKitId);
+                if (activeKit) {
+                    Commands.vscodeOutputChannel.appendLine(`Export: Active widget kit: ${activeKit.name || activeKit.id}`);
+                } else {
+                    Commands.vscodeOutputChannel.appendLine(
+                        `Export: Warning - widget kit "${activeKitId}" not found; using built-in widgets`);
+                }
+            }
+        } catch (err) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Warning - could not resolve widget kit: ${err}`);
+        }
+        const kitWidgetTypes = new Set((activeKit?.widgets || []).map((widget) => widget.widgetType));
+
         // List of all built-in widgets (must match widgetTypes.js static imports)
         const builtInWidgets = [
             'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider',
@@ -3363,6 +3385,13 @@ include $(SYSTEM_FILES_DIR)/Makefile
             }
 
             for (const widgetType of customWidgets) {
+                // Supplied by the active kit; a shim is written after the
+                // normal copies so there is nothing to find here.
+                if (kitWidgetTypes.has(widgetType)) {
+                    Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (active kit)`);
+                    continue;
+                }
+
                 let widgetPath = customWidgetFiles.get(widgetType) || '';
 
                 // Fall back to the naming conventions used by the plugin's
@@ -3398,6 +3427,34 @@ include $(SYSTEM_FILES_DIR)/Makefile
             }
         } else {
             Commands.vscodeOutputChannel.appendLine('Export: No custom widgets to copy');
+        }
+
+        if (activeKit) {
+            await Commands.copyActiveWidgetKit(activeKit, widgetsDestDir);
+        }
+    }
+
+    /**
+     * Copies the active kit into the exported widgets folder and writes
+     * re-export shims so the plugin's static built-in imports resolve to the
+     * kit classes.
+     */
+    private static async copyActiveWidgetKit(activeKit: WidgetKit, widgetsDestDir: string): Promise<void> {
+        try {
+            const kitFolderName = path.basename(activeKit.directory);
+            const kitDestDir = path.join(widgetsDestDir, 'kits', kitFolderName);
+            await fs.promises.mkdir(path.dirname(kitDestDir), { recursive: true });
+            await fs.promises.cp(activeKit.directory, kitDestDir, { recursive: true });
+            Commands.vscodeOutputChannel.appendLine(
+                `Export: Copied widget kit "${activeKit.name || activeKit.id}" to ${kitDestDir}`);
+
+            const shims = buildKitWidgetShims(kitFolderName, activeKit.widgets);
+            for (const shim of shims) {
+                await fs.promises.writeFile(path.join(widgetsDestDir, shim.filename), shim.content, 'utf8');
+                Commands.vscodeOutputChannel.appendLine(`Export:   ✓ kit shim ${shim.filename}`);
+            }
+        } catch (err) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Warning - failed to copy widget kit: ${err}`);
         }
     }
 

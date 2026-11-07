@@ -51,7 +51,39 @@ import { CabbageUtils } from "cabbage/utils.js";
 The webview provides an import map for `cabbage` and `cabbage/*`, so these work
 at any folder depth.
 
+## Styling
+
+Each widget owns its own styling; there is no shared kit stylesheet mechanism.
+
+- **Simplest:** use inline `style="..."` attributes in `getInnerHTML()` (this is
+  what `CustomWidgetTemplate.js` does).
+- **Class-based CSS** (`:hover`, pseudo-elements, `@keyframes`) can be added by
+  returning a `<style>` block, but that duplicates the rules per widget
+  instance. To add the rules once, guard an injection from the widget code:
+
+  ```js
+  if (!window.__studioDarkButtonStyle) {
+      const style = document.createElement('style');
+      style.textContent = `
+          .sd-button:hover { filter: brightness(1.2); }
+      `;
+      document.head.appendChild(style);
+      window.__studioDarkButtonStyle = true;
+  }
+  ```
+
+- Do **not** use `import './style.css'` — widget files are loaded as native ES
+  modules in the webview, and browsers cannot import CSS that way.
+
 ## Selecting a kit
 
 Set `cabbage.widgetKit` to the kit id (for example `studio-dark`). Leave it empty
 to use the built-in widgets. Reload the instrument after changing it.
+
+## Exporting
+
+When you export a plugin, the active kit is copied into the exported
+`cabbage/widgets/kits/` folder. Widgets that override a built-in type are wired
+up through small re-export shims in `cabbage/widgets/`, so the exported plugin
+uses the kit's classes without changing the `.csd`.
+
