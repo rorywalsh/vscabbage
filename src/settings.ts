@@ -621,10 +621,12 @@ export class Settings {
         }
 
         // Selecting a different widget kit changes which classes back the
-        // built-in widget types, so rescan and tell the user to reload.
+        // built-in widget types in the webview. This does not require a
+        // CabbageApp restart (and restarting here can race with process
+        // termination). Push the new registry and ask the user to reload.
         if (event.affectsConfiguration('cabbage.widgetKit')) {
             try {
-                await vscode.commands.executeCommand('cabbage.restartBackend');
+                await Commands.pushCustomWidgetInfo();
                 if (Commands.getPanel()) {
                     vscode.window.showInformationMessage('Cabbage: Widget kit changed. Reload the instrument to apply it.');
                 }
