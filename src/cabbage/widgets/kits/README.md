@@ -75,9 +75,22 @@ Each widget owns its own styling; there is no shared kit stylesheet mechanism.
 - Do **not** use `import './style.css'` — widget files are loaded as native ES
   modules in the webview, and browsers cannot import CSS that way.
 
+## Bundled kits
+
+This folder ships with two kits:
+
+- **Punch Light** (`punch-light`)
+- **Punch Dark** (`punch-dark`)
+
+They share identical widget code and differ only in the default `style.color`
+palette in `punchKit.js`. Any color can still be overridden per widget from the
+property panel.
+
 ## Selecting a kit
 
-Set `cabbage.widgetKit` to the kit id (for example `studio-dark`). Leave it empty
+Run **Cabbage: Select Widget Kit** from the command palette, or set
+`cabbage.widgetKit` to the kit id (for example `punch-light`). Leave it empty
+to use the built-in widgets.
 to use the built-in widgets. Reload the instrument after changing it.
 
 ## Exporting
