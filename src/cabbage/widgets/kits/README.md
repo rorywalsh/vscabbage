@@ -77,13 +77,16 @@ Each widget owns its own styling; there is no shared kit stylesheet mechanism.
 
 ## Bundled kits
 
-This folder ships with two kits:
+This folder ships with four kits:
 
 - **Punch Light** (`punch-light`)
 - **Punch Dark** (`punch-dark`)
+- **Vintage Light** (`vintage-light`)
+- **Vintage Dark** (`vintage-dark`)
 
-They share identical widget code and differ only in the default `style.color`
-palette in `punchKit.js`. Any color can still be overridden per widget from the
+Each light/dark pair shares identical widget code and differs only in the
+default `style.color` palette in its kit helper (`punchKit.js` or
+`vintageKit.js`). Any color can still be overridden per widget from the
 property panel.
 
 ## Selecting a kit
