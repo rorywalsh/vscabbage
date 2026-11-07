@@ -19,6 +19,12 @@ import {
     parseJsonc,
     reconcileJsonDocument,
 } from './utils/jsonc';
+import {
+    extractWidgetInfoFromFile as extractWidgetInfoFromFileUtil,
+    scanForCustomWidgets as scanForCustomWidgetsUtil,
+    scanForWidgetKits,
+    WidgetKit,
+} from './utils/widgetScan';
 
 
 /** 
@@ -1133,12 +1139,26 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
             ? `<div id="VuMeter" class="vu-meter vu-${vuMeterPosition}${vuMeterShowReadouts ? '' : ' vu-no-readouts'}" data-readouts="${vuMeterShowReadouts ? 'on' : 'off'}"></div>`
             : '';
 
+        // Stable import aliases for custom widgets and widget kits, so they can
+        // live at any folder depth without relative-import gymnastics.
+        // `mainJS` points at <cabbage base>/main.js.
+        const cabbageBaseUrl = mainJS.toString().replace(/\/main\.js(?:\?.*)?$/, '');
+        const importMap = `<script type="importmap">
+{
+  "imports": {
+    "cabbage": "${cabbageBaseUrl}/cabbage.js",
+    "cabbage/": "${cabbageBaseUrl}/"
+  }
+}
+</script>`;
+
         return `
 <!doctype html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
+  ${importMap}
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="module" src="${interactJS}"></script>
@@ -1617,6 +1637,14 @@ ${csoundSection}`;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+    {
+        "imports": {
+            "cabbage": "./cabbage/cabbage.js",
+            "cabbage/": "./cabbage/"
+        }
+    }
+    </script>
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
     <style>
@@ -1945,70 +1973,13 @@ ${csoundSection}`;
     }
 
     /**
-     * Scans a directory for custom widget files and extracts their metadata.
+     * Scans a directory (recursively) for custom widget files and extracts
+     * their metadata. Subdirectories are treated as widget categories.
      * @param directory The absolute path to the directory to scan
      * @returns Array of widget file information objects
      */
-    static async scanForCustomWidgets(directory: string): Promise<Array<{ filename: string, className: string, widgetType: string }>> {
-        const widgets: Array<{ filename: string, className: string, widgetType: string }> = [];
-
-        // List of built-in widget types to skip (these shouldn't be registered as custom widgets)
-        const builtInWidgets = new Set([
-            'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider', 'numberSlider',
-            'keyboard', 'form', 'button', 'fileButton', 'infoButton', 'optionButton',
-            'genTable', 'label', 'image', 'listBox', 'comboBox', 'groupBox', 'checkBox',
-            'csoundOutput', 'textEditor', 'xyPad'
-        ]);
-
-        try {
-            // Non-blocking check for existence
-            const stat = await fs.promises.stat(directory).catch(() => null);
-            if (!stat || !stat.isDirectory()) return widgets;
-
-            const dirents = await fs.promises.readdir(directory, { withFileTypes: true });
-
-            // Filter candidate files (no templates, tests or hidden files)
-            const candidates = dirents
-                .filter(d => d.isFile() && d.name.endsWith('.js') && !d.name.startsWith('.') && !d.name.includes('Template') && !d.name.includes('test'))
-                .map(d => d.name);
-
-            // Concurrency limit for reading file headers
-            const CONCURRENCY = 6;
-            let idx = 0;
-
-            const readHeader = async (fileName: string) => {
-                const filePath = path.join(directory, fileName);
-                try {
-                    const fh = await fs.promises.open(filePath, 'r');
-                    // read up to 16KB - usually enough to find export/class/type
-                    const buf = new Uint8Array(16 * 1024);
-                    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
-                    await fh.close();
-                    const content = new TextDecoder('utf-8').decode(buf.subarray(0, bytesRead)).replace(/\0/g, '');
-                    const widgetInfo = this.extractWidgetInfoFromFile(content);
-                    if (widgetInfo && !builtInWidgets.has(widgetInfo.widgetType)) {
-                        widgets.push({ filename: fileName, className: widgetInfo.className, widgetType: widgetInfo.widgetType });
-                    }
-                } catch (err) {
-                    // keep silent for read errors to avoid spamming extension host logs
-                    // but keep debug output available
-                    console.debug && console.debug(`Cabbage: scan read error ${fileName}:`, (err as any)?.message || err);
-                }
-            };
-
-            const workers = new Array(Math.min(CONCURRENCY, candidates.length)).fill(0).map(async () => {
-                while (idx < candidates.length) {
-                    const file = candidates[idx++];
-                    await readHeader(file);
-                }
-            });
-
-            await Promise.all(workers);
-        } catch (error) {
-            console.error(`Cabbage: Error scanning directory ${directory}:`, (error as any)?.message || error);
-        }
-
-        return widgets;
+    static async scanForCustomWidgets(directory: string): Promise<Array<{ filename: string, className: string, widgetType: string, category: string }>> {
+        return scanForCustomWidgetsUtil(directory);
     }
 
     /**
@@ -2017,27 +1988,7 @@ ${csoundSection}`;
      * @returns Object with className and widgetType, or null
      */
     static extractWidgetInfoFromFile(content: string): { className: string, widgetType: string } | null {
-        try {
-            // Match: export class ClassName
-            const classMatch = content.match(/export\s+class\s+(\w+)/);
-            if (!classMatch) {
-                return null;
-            }
-
-            const className = classMatch[1];
-
-            // Try to find widget type from the constructor
-            // Look for: "type": "widgetType"
-            const typeMatch = content.match(/"type"\s*:\s*"(\w+)"/);
-
-            // If no type found in props, use lowercase class name as fallback
-            const widgetType = typeMatch ? typeMatch[1] : className.charAt(0).toLowerCase() + className.slice(1);
-
-            return { className, widgetType };
-        } catch (error) {
-            console.error('Cabbage: Error extracting widget info:', error);
-            return null;
-        }
+        return extractWidgetInfoFromFileUtil(content);
     }
 
     /**
@@ -2115,11 +2066,20 @@ ${csoundSection}`;
 
         // Otherwise treat as a root / cabbage dir and probe known layouts.
         // Order matters: canonical layout first, then plugin-style fallbacks.
-        pushIfDir(path.join(expanded, 'cabbage', 'widgets'));
-        pushIfDir(path.join(expanded, 'widgets'));
+        const canonicalWidgets = path.join(expanded, 'cabbage', 'widgets');
+        const pluginWidgets = path.join(expanded, 'widgets');
+        const hasCanonicalWidgets = isDir(canonicalWidgets);
+        const hasPluginWidgets = isDir(pluginWidgets);
+        pushIfDir(canonicalWidgets);
+        pushIfDir(pluginWidgets);
         // Bare-dir fallback: the configured folder itself holds .js widgets
         // (covers users pointing directly at a widgets dir without the name).
-        pushIfDir(expanded);
+        // Only use it when the folder is not a root wrapping a widgets dir,
+        // otherwise a recursive scan would walk the whole custom folder
+        // (including framework code and unrelated projects).
+        if (!hasCanonicalWidgets && !hasPluginWidgets) {
+            pushIfDir(expanded);
+        }
 
         return out;
     }
@@ -2229,6 +2189,41 @@ ${csoundSection}`;
             }
         }
         return resolved;
+    }
+
+    /**
+     * Discovers widget kits from the extension's bundled widgets folder and
+     * from every custom widget directory. Canonical (bundled) kits win when a
+     * user kit reuses the same id.
+     */
+    static async getWidgetKits(): Promise<WidgetKit[]> {
+        const kits: WidgetKit[] = [];
+        const seenIds = new Set<string>();
+
+        const addKitsFrom = async (widgetsDirectory: string): Promise<void> => {
+            const found = await scanForWidgetKits(widgetsDirectory);
+            for (const kit of found) {
+                if (seenIds.has(kit.id)) {
+                    console.warn(`Cabbage: duplicate widget kit id "${kit.id}" ignored (first match wins)`);
+                    continue;
+                }
+                seenIds.add(kit.id);
+                kits.push(kit);
+            }
+        };
+
+        // Kits shipped with the extension.
+        const jsSourceDir = Settings.getPathJsSourceDir();
+        if (jsSourceDir) {
+            await addKitsFrom(path.join(jsSourceDir, 'cabbage', 'widgets'));
+        }
+
+        // Kits provided by user custom widget directories.
+        for (const widgetsDir of await ExtensionUtils.getCustomWidgetDirectories()) {
+            await addKitsFrom(widgetsDir);
+        }
+
+        return kits;
     }
 
     /**

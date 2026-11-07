@@ -17,6 +17,12 @@ import {
     reorderJsoncArrayValues,
     widgetMatchesId,
 } from './utils/jsonc';
+import {
+    applyKitWidgetImportOverrides,
+    buildKitImportOverrides,
+    buildKitWidgetShims,
+} from './utils/widgetKitExport';
+import { WidgetKit } from './utils/widgetScan';
 
 function getPackageConfig(root: any, formWidget?: any): any {
     if (root && !Array.isArray(root) && typeof root === 'object' && root.package && typeof root.package === 'object') {
@@ -565,15 +571,15 @@ export class Commands {
                 break;
 
             case 'cabbageIsReadyToLoad': {
+                // Push the widget/kit registry BEFORE the backend starts sending
+                // widget data, otherwise built-in overrides can race and a
+                // widget may be instantiated with its unthemed class.
+                await Commands.pushCustomWidgetInfo();
                 // Forward to C++ backend - it will send widgets and queue table updates
                 this.sendMessageToCabbageApp({
                     command: "cabbageIsReadyToLoad",
                     text: ""
                 });
-                // Proactively push custom widget info so the webview listener
-                // (installed before cabbageIsReadyToLoad is sent) catches it
-                // without a separate request/response round-trip.
-                await Commands.pushCustomWidgetInfo();
                 break;
             }
 
@@ -2264,7 +2270,7 @@ export class Commands {
         try {
             const cwDirs = await ExtensionUtils.getCustomWidgetDirectories();
             console.warn('Cabbage: customWidgetInfo push - scanning dirs:', cwDirs);
-            const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string }> = [];
+            const cwWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }> = [];
             const seenTypes = new Set<string>();
             for (const dir of cwDirs) {
                 const found = await ExtensionUtils.scanForCustomWidgets(dir);
@@ -2278,22 +2284,115 @@ export class Commands {
                     const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
                     if (uri) {
                         seenTypes.add(w.widgetType);
-                        cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true) });
+                        cwWidgets.push({ widgetType: w.widgetType, filename: w.filename, className: w.className, webviewPath: uri.toString(true), category: w.category });
                     }
                 }
             }
+
+            // Widget kits (bundled + user). Kit widgets may override built-in
+            // types; the active kit is chosen via `cabbage.widgetKit`.
+            const activeKit = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            const kits = await ExtensionUtils.getWidgetKits();
+            const kitPayloads: Array<{
+                id: string;
+                name: string;
+                description?: string;
+                widgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }>;
+            }> = [];
+            for (const kit of kits) {
+                const kitWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }> = [];
+                for (const w of kit.widgets) {
+                    const fp = path.join(kit.directory, w.filename);
+                    const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
+                    if (!uri) {
+                        continue;
+                    }
+                    kitWidgets.push({
+                        widgetType: w.widgetType,
+                        filename: w.filename,
+                        className: w.className,
+                        webviewPath: uri.toString(true),
+                        category: w.category,
+                    });
+                }
+                kitPayloads.push({ id: kit.id, name: kit.name, description: kit.description, widgets: kitWidgets });
+            }
+
             const target = Commands.getPanel();
             if (!target) {
                 return;
             }
-            console.warn('Cabbage: customWidgetInfo push - sending', cwWidgets.length, 'widgets');
-            target.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets });
+            console.warn(
+                'Cabbage: customWidgetInfo push - sending',
+                cwWidgets.length,
+                'widgets and',
+                kitPayloads.length,
+                'kits (active:',
+                activeKit || 'none',
+                ')',
+            );
+            target.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets, kits: kitPayloads, activeKit });
         } catch (cwErr) {
             console.error('Cabbage: Error pushing customWidgetInfo:', cwErr);
             const target = Commands.getPanel();
             if (target) {
-                target.webview.postMessage({ command: 'customWidgetInfo', widgets: [] });
+                target.webview.postMessage({ command: 'customWidgetInfo', widgets: [], kits: [], activeKit: '' });
             }
+        }
+    }
+
+    /**
+     * Prompts for the active widget kit and stores the choice in the
+     * `cabbage.widgetKit` setting. Changing the setting triggers a rescan via
+     * the configuration watcher.
+     */
+    static async selectWidgetKit(): Promise<void> {
+        try {
+            const kits = await ExtensionUtils.getWidgetKits();
+            const config = vscode.workspace.getConfiguration('cabbage');
+            const current = config.get<string>('widgetKit', '') || '';
+
+            interface KitPick extends vscode.QuickPickItem {
+                kitId: string;
+            }
+
+            const items: KitPick[] = [{
+                label: '$(circle-slash) None',
+                description: current === '' ? 'Active — built-in widgets' : 'Use built-in widgets',
+                kitId: '',
+            }];
+            for (const kit of kits) {
+                items.push({
+                    label: kit.name || kit.id,
+                    description: current === kit.id ? `Active — ${kit.id}` : kit.id,
+                    detail: kit.description
+                        || `${kit.widgets.length} widget${kit.widgets.length === 1 ? '' : 's'}`,
+                    kitId: kit.id,
+                });
+            }
+
+            const picked = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select the active widget kit',
+                matchOnDescription: true,
+                matchOnDetail: true,
+            });
+            if (!picked || picked.kitId === current) {
+                return;
+            }
+
+            // A workspace value overrides the global value. Update the scope
+            // that is actually in effect, otherwise the QuickPick reports a
+            // successful change while the active kit stays the same.
+            const inspected = config.inspect<string>('widgetKit');
+            const target = inspected?.workspaceValue !== undefined
+                ? vscode.ConfigurationTarget.Workspace
+                : vscode.ConfigurationTarget.Global;
+            await config.update('widgetKit', picked.kitId, target);
+            Commands.vscodeOutputChannel.appendLine(
+                `Cabbage: widget kit set to ${picked.kitId || '(none)'}`);
+        } catch (err) {
+            console.error('Cabbage: Failed to select widget kit', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to select widget kit: ${String(err)}`);
         }
     }
 
@@ -3115,6 +3214,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+    {
+        "imports": {
+            "cabbage": "./cabbage/cabbage.js",
+            "cabbage/": "./cabbage/"
+        }
+    }
+    </script>
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
     <style>
@@ -3264,6 +3371,26 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const widgetsDestDir = path.join(destDir, 'widgets');
         await fs.promises.mkdir(widgetsDestDir, { recursive: true });
 
+        // Resolve the active widget kit once. Its overrides are wired up after
+        // the normal widget copies so the kit always wins.
+        let activeKit: WidgetKit | undefined;
+        try {
+            const activeKitId = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            if (activeKitId) {
+                const kits = await ExtensionUtils.getWidgetKits();
+                activeKit = kits.find((kit) => kit.id === activeKitId);
+                if (activeKit) {
+                    Commands.vscodeOutputChannel.appendLine(`Export: Active widget kit: ${activeKit.name || activeKit.id}`);
+                } else {
+                    Commands.vscodeOutputChannel.appendLine(
+                        `Export: Warning - widget kit "${activeKitId}" not found; using built-in widgets`);
+                }
+            }
+        } catch (err) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Warning - could not resolve widget kit: ${err}`);
+        }
+        const kitWidgetTypes = new Set((activeKit?.widgets || []).map((widget) => widget.widgetType));
+
         // List of all built-in widgets (must match widgetTypes.js static imports)
         const builtInWidgets = [
             'rotarySlider', 'horizontalSlider', 'horizontalRangeSlider', 'verticalSlider',
@@ -3317,6 +3444,13 @@ include $(SYSTEM_FILES_DIR)/Makefile
             }
 
             for (const widgetType of customWidgets) {
+                // Supplied by the active kit; a shim is written after the
+                // normal copies so there is nothing to find here.
+                if (kitWidgetTypes.has(widgetType)) {
+                    Commands.vscodeOutputChannel.appendLine(`Export:   ✓ ${widgetType} (active kit)`);
+                    continue;
+                }
+
                 let widgetPath = customWidgetFiles.get(widgetType) || '';
 
                 // Fall back to the naming conventions used by the plugin's
@@ -3352,6 +3486,52 @@ include $(SYSTEM_FILES_DIR)/Makefile
             }
         } else {
             Commands.vscodeOutputChannel.appendLine('Export: No custom widgets to copy');
+        }
+
+        if (activeKit) {
+            await Commands.copyActiveWidgetKit(activeKit, widgetsDestDir, destDir);
+        }
+    }
+
+    /**
+     * Copies the active kit into the exported widgets folder.
+     *
+     * Built-in overrides are wired into `widgetTypes.js` by rewriting its
+     * static imports. The built-in widget modules themselves are left
+     * untouched so widgets that subclass them (FileButton and InfoButton both
+     * extend Button) keep working. Kit-only widgets get re-export shims in
+     * `widgets/` for the plugin's dynamic auto-discovery.
+     */
+    private static async copyActiveWidgetKit(
+        activeKit: WidgetKit,
+        widgetsDestDir: string,
+        cabbageDestDir: string,
+    ): Promise<void> {
+        try {
+            const kitFolderName = path.basename(activeKit.directory);
+            const kitDestDir = path.join(widgetsDestDir, 'kits', kitFolderName);
+            await fs.promises.mkdir(path.dirname(kitDestDir), { recursive: true });
+            await fs.promises.cp(activeKit.directory, kitDestDir, { recursive: true });
+            Commands.vscodeOutputChannel.appendLine(
+                `Export: Copied widget kit "${activeKit.name || activeKit.id}" to ${kitDestDir}`);
+
+            const shims = buildKitWidgetShims(kitFolderName, activeKit.widgets);
+            for (const shim of shims) {
+                await fs.promises.writeFile(path.join(widgetsDestDir, shim.filename), shim.content, 'utf8');
+                Commands.vscodeOutputChannel.appendLine(`Export:   ✓ kit shim ${shim.filename}`);
+            }
+
+            const importOverrides = buildKitImportOverrides(kitFolderName, activeKit.widgets);
+            if (importOverrides.length > 0) {
+                const widgetTypesPath = path.join(cabbageDestDir, 'widgetTypes.js');
+                const source = await fs.promises.readFile(widgetTypesPath, 'utf8');
+                const patched = applyKitWidgetImportOverrides(source, importOverrides);
+                await fs.promises.writeFile(widgetTypesPath, patched, 'utf8');
+                Commands.vscodeOutputChannel.appendLine(
+                    `Export:   ✓ themed ${importOverrides.length} built-in widget import(s) in widgetTypes.js`);
+            }
+        } catch (err) {
+            Commands.vscodeOutputChannel.appendLine(`Export: Warning - failed to copy widget kit: ${err}`);
         }
     }
 

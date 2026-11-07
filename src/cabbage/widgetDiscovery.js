@@ -19,7 +19,13 @@
  * 5. Returns the list of discovered widget types
  */
 
-import { registerWidget } from './widgetTypes.js';
+import {
+    registerWidget,
+    registerWidgetKit,
+    registerKitWidget,
+    resetWidgetKits,
+    setActiveWidgetKit,
+} from './widgetTypes.js';
 
 /**
  * Discovers and registers custom widgets from configured directories.
@@ -51,19 +57,45 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                     console.log(`Cabbage: customWidgetInfo received, ${(message.widgets || []).length} widgets:`, (message.widgets || []).map(w => w.widgetType));
                     const widgets = message.widgets || [];
                     widgets.forEach(w => {
-                        const { widgetType, webviewPath, className } = w;
+                        const { widgetType, webviewPath, className, category } = w;
                         if (widgetType && webviewPath && className) {
                             if (!discoveredWidgets.includes(widgetType)) {
                                 try {
-                                    registerWidget(widgetType, webviewPath, className);
+                                    registerWidget(widgetType, webviewPath, className, category);
                                     discoveredWidgets.push(widgetType);
-                                    console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}`);
+                                    console.log(`Cabbage: Registered custom widget: ${widgetType} -> ${webviewPath}${category ? ` [${category}]` : ''}`);
                                 } catch (err) {
                                     console.error(`Cabbage: Failed to register widget ${widgetType}:`, err);
                                 }
                             }
                         }
                     });
+
+                    // Widget kits: may deliberately override built-in types.
+                    // Each payload is a complete snapshot, so replace the
+                    // previous registry. Otherwise a kit or widget file that
+                    // was deleted on disk would keep its dynamic import.
+                    const kits = message.kits || [];
+                    resetWidgetKits();
+                    kits.forEach(kit => {
+                        if (!kit || !kit.id) {
+                            return;
+                        }
+                        registerWidgetKit(kit.id, kit.name, kit.description);
+                        (kit.widgets || []).forEach(w => {
+                            if (w && w.widgetType && w.webviewPath && w.className) {
+                                try {
+                                    registerKitWidget(kit.id, w.widgetType, w.webviewPath, w.className);
+                                    console.log(`Cabbage: Registered kit widget: ${w.widgetType} -> ${kit.id} -> ${w.webviewPath}`);
+                                } catch (err) {
+                                    console.error(`Cabbage: Failed to register kit widget ${w.widgetType} (${kit.id}):`, err);
+                                }
+                            }
+                        });
+                    });
+                    const activeKit = setActiveWidgetKit(message.activeKit || '');
+                    console.log(`Cabbage: widget kits loaded: ${kits.length}, active: ${activeKit || 'none'}`);
+
                     // Always refresh. A rescan of already-registered types still
                     // needs to rebuild the menu if it was created before they
                     // arrived, or wiped by a form rebuild.

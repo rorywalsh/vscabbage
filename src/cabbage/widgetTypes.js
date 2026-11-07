@@ -74,14 +74,44 @@ const BUILTIN_WIDGETS = {
 
 /**
  * Registry for custom widgets (loaded dynamically)
- * Format: "widgetType": { file: "full_uri", class: "ClassName" }
+ * Format: "widgetType": { file: "full_uri", class: "ClassName", category: "Category" }
  */
 const CUSTOM_WIDGET_REGISTRY = {};
+
+/**
+ * Widget kits. A kit may deliberately override a built-in type (for example a
+ * themed `button`) or provide kit-only types.
+ * Format: "kitId": { id, name, description, widgets: { "type": { file, class } } }
+ */
+const WIDGET_KITS = {};
+
+/** Currently selected kit id, or '' for built-ins only. */
+let activeWidgetKit = '';
 
 /**
  * Cache for dynamically loaded custom widget constructors
  */
 const customWidgetCache = {};
+
+/**
+ * Clears cached constructors so a newly selected kit takes effect.
+ */
+function clearWidgetCache() {
+	for (const key of Object.keys(customWidgetCache)) {
+		delete customWidgetCache[key];
+	}
+}
+
+/**
+ * Returns the active kit's entry for a type, or null.
+ */
+function getActiveKitWidgetInfo(type) {
+	if (!activeWidgetKit || !WIDGET_KITS[activeWidgetKit]) {
+		return null;
+	}
+	const widgets = WIDGET_KITS[activeWidgetKit].widgets;
+	return widgets && widgets[type] ? widgets[type] : null;
+}
 
 /**
  * Gets a widget constructor - built-in widgets return immediately, custom widgets load dynamically.
@@ -91,6 +121,28 @@ const customWidgetCache = {};
  * @throws {Error} - If the widget type is not registered or fails to load
  */
 async function getWidget(type) {
+	// The active kit wins over built-ins. This is what allows a kit to theme
+	// an existing type without changing the CSD (`"type": "button"` stays).
+	const kitWidgetInfo = getActiveKitWidgetInfo(type);
+	if (kitWidgetInfo) {
+		if (customWidgetCache[type]) {
+			return customWidgetCache[type];
+		}
+		try {
+			const module = await import(`${kitWidgetInfo.file}?t=${Date.now()}`);
+			const WidgetClass = module[kitWidgetInfo.class];
+			if (!WidgetClass) {
+				console.error(`Cabbage: Available exports in module:`, Object.keys(module));
+				throw new Error(`Class "${kitWidgetInfo.class}" not found in widget kit file ${kitWidgetInfo.file}`);
+			}
+			customWidgetCache[type] = WidgetClass;
+			return WidgetClass;
+		} catch (error) {
+			console.error(`Cabbage: Failed to load kit widget "${type}":`, error);
+			throw error;
+		}
+	}
+
 	// Check if it's a built-in widget (return immediately - no async loading needed!)
 	if (type in BUILTIN_WIDGETS) {
 		return BUILTIN_WIDGETS[type];
@@ -185,7 +237,7 @@ async function getWidget(type) {
 					// Cache it for future use
 					customWidgetCache[type] = WidgetClass;
 					// Also register it in the registry
-					CUSTOM_WIDGET_REGISTRY[type] = { file: modulePath, class: className };
+					CUSTOM_WIDGET_REGISTRY[type] = { file: modulePath, class: className, category: '' };
 					return WidgetClass;
 				}
 			} catch (e) {
@@ -216,16 +268,24 @@ export const widgetConstructors = new Proxy({}, {
 		return getWidget(prop);
 	},
 	has(target, prop) {
-		// Check if widget type is registered (built-in or custom)
-		return prop in BUILTIN_WIDGETS || prop in CUSTOM_WIDGET_REGISTRY;
+		// Check if widget type is registered (built-in, custom or active kit)
+		return prop in BUILTIN_WIDGETS || prop in CUSTOM_WIDGET_REGISTRY || getActiveKitWidgetInfo(prop) !== null;
 	},
 	ownKeys(target) {
-		// Return all registered widget types (built-in + custom)
-		return Object.keys(BUILTIN_WIDGETS).concat(Object.keys(CUSTOM_WIDGET_REGISTRY));
+		// Return all registered widget types (built-in + custom + active kit)
+		const types = Object.keys(BUILTIN_WIDGETS).concat(Object.keys(CUSTOM_WIDGET_REGISTRY));
+		if (activeWidgetKit && WIDGET_KITS[activeWidgetKit]) {
+			for (const type of Object.keys(WIDGET_KITS[activeWidgetKit].widgets)) {
+				if (!types.includes(type)) {
+					types.push(type);
+				}
+			}
+		}
+		return types;
 	},
 	getOwnPropertyDescriptor(target, prop) {
 		// Required for Object.keys() to work on the proxy
-		if (prop in BUILTIN_WIDGETS || prop in CUSTOM_WIDGET_REGISTRY) {
+		if (prop in BUILTIN_WIDGETS || prop in CUSTOM_WIDGET_REGISTRY || getActiveKitWidgetInfo(prop) !== null) {
 			return { enumerable: true, configurable: true };
 		}
 	}
@@ -251,6 +311,136 @@ export function getBuiltinWidgetTypes() {
  */
 export function getCustomWidgetTypes() {
 	return Object.keys(CUSTOM_WIDGET_REGISTRY);
+}
+
+/**
+ * Custom widget types grouped by category. Widgets discovered directly in the
+ * widgets folder are grouped under the empty-string key; widgets found in a
+ * category subfolder are grouped under that folder's name.
+ *
+ * @returns {Object<string, string[]>} Category name -> widget type names
+ */
+export function getCustomWidgetCategories() {
+	const groups = {};
+	for (const type of Object.keys(CUSTOM_WIDGET_REGISTRY)) {
+		const info = CUSTOM_WIDGET_REGISTRY[type];
+		const category = (info && info.category) ? info.category : '';
+		if (!groups[category]) {
+			groups[category] = [];
+		}
+		groups[category].push(type);
+	}
+	return groups;
+}
+
+/**
+ * Registers a widget kit's metadata. Kit widgets are registered separately
+ * with registerKitWidget().
+ *
+ * @param {string} id - Kit id (also used by the `cabbage.widgetKit` setting)
+ * @param {string} [name] - Human-readable kit name
+ * @param {string} [description] - Optional description
+ */
+export function registerWidgetKit(id, name, description) {
+	if (!id) {
+		return;
+	}
+	if (!WIDGET_KITS[id]) {
+		WIDGET_KITS[id] = {
+			id,
+			name: name || id,
+			description: description || '',
+			widgets: {},
+		};
+		return;
+	}
+	// Only overwrite metadata when the caller actually supplied it. A widget
+	// registration calls this to ensure the kit exists and must not reset the
+	// display name/description that discovery already registered.
+	if (name !== undefined) {
+		WIDGET_KITS[id].name = name || id;
+	}
+	if (description !== undefined) {
+		WIDGET_KITS[id].description = description || '';
+	}
+}
+
+/**
+ * Replaces the kit registry with a fresh discovery snapshot. Without this,
+ * removing a kit or a widget from a kit leaves its old dynamic import
+ * registered, so selecting that kit still tries to load a deleted file.
+ */
+export function resetWidgetKits() {
+	for (const id of Object.keys(WIDGET_KITS)) {
+		delete WIDGET_KITS[id];
+	}
+	clearWidgetCache();
+}
+
+/**
+ * Registers a widget that belongs to a kit. Unlike registerWidget(), built-in
+ * type names are allowed here: that is how a kit themes an existing widget
+ * while the CSD keeps `"type": "button"`.
+ *
+ * @param {string} kitId - Kit id
+ * @param {string} type - Widget type to provide
+ * @param {string} file - Full webview URI to the widget module
+ * @param {string} className - Exported class name
+ */
+export function registerKitWidget(kitId, type, file, className) {
+	if (!kitId || !type || !file || !className) {
+		return;
+	}
+	if (!WIDGET_KITS[kitId]) {
+		registerWidgetKit(kitId);
+	}
+	WIDGET_KITS[kitId].widgets[type] = { file, class: className };
+	if (activeWidgetKit === kitId) {
+		delete customWidgetCache[type];
+	}
+}
+
+/**
+ * Selects the active kit. An unknown or empty id falls back to built-ins.
+ *
+ * @param {string} kitId
+ * @returns {string} The active kit id ('' when none)
+ */
+export function setActiveWidgetKit(kitId) {
+	const next = (kitId && WIDGET_KITS[kitId]) ? kitId : '';
+	if (next !== activeWidgetKit) {
+		activeWidgetKit = next;
+		clearWidgetCache();
+	}
+	return activeWidgetKit;
+}
+
+/** @returns {string} Active kit id, or '' when using built-ins only. */
+export function getActiveWidgetKit() {
+	return activeWidgetKit;
+}
+
+/** @returns {string} Active kit display name, or ''. */
+export function getActiveWidgetKitName() {
+	return (activeWidgetKit && WIDGET_KITS[activeWidgetKit]) ? WIDGET_KITS[activeWidgetKit].name : '';
+}
+
+/** @returns {string[]} All widget types provided by the active kit. */
+export function getActiveKitWidgetTypes() {
+	return (activeWidgetKit && WIDGET_KITS[activeWidgetKit])
+		? Object.keys(WIDGET_KITS[activeWidgetKit].widgets)
+		: [];
+}
+
+/**
+ * Widget types provided by the active kit that are not built-ins. These are
+ * the only kit widgets that should appear as extra menu entries; overrides of
+ * built-ins already appear once in the built-in list.
+ *
+ * @returns {string[]}
+ */
+export function getActiveKitExtraWidgetTypes() {
+	return getActiveKitWidgetTypes().filter((type) => !(type in BUILTIN_WIDGETS));
 }
 
 /**
@@ -296,8 +486,9 @@ export async function initialiseDefaultProps(type) {
  * @param {string} type - The widget type name (e.g., "myCustomWidget")
  * @param {string} file - The full webview URI to the widget module
  * @param {string} className - The exported class name (e.g., "MyCustomWidget")
+ * @param {string} [category] - Optional category (from the widget's subfolder)
  */
-export function registerWidget(type, file, className) {
+export function registerWidget(type, file, className, category = '') {
 	if (type in BUILTIN_WIDGETS) {
 		console.error(`Cannot register custom widget "${type}" - this conflicts with a built-in widget`);
 		return;
@@ -307,7 +498,7 @@ export function registerWidget(type, file, className) {
 		console.warn(`Custom widget type "${type}" is already registered. Overwriting.`);
 	}
 
-	CUSTOM_WIDGET_REGISTRY[type] = { file, class: className };
+	CUSTOM_WIDGET_REGISTRY[type] = { file, class: className, category: category || '' };
 
 	// Update the widgetTypes export to reflect the new registry state
 	widgetTypes = Object.keys(BUILTIN_WIDGETS).concat(Object.keys(CUSTOM_WIDGET_REGISTRY));

@@ -619,6 +619,21 @@ export class Settings {
                 console.error('Cabbage: Error syncing customWidgetDirectories to settings file:', err);
             }
         }
+
+        // Selecting a different widget kit changes which classes back the
+        // built-in widget types in the webview. This does not require a
+        // CabbageApp restart (and restarting here can race with process
+        // termination). Push the new registry and ask the user to reload.
+        if (event.affectsConfiguration('cabbage.widgetKit')) {
+            try {
+                await Commands.pushCustomWidgetInfo();
+                if (Commands.getPanel()) {
+                    vscode.window.showInformationMessage('Cabbage: Widget kit changed. Reload the instrument to apply it.');
+                }
+            } catch (err) {
+                console.warn('Cabbage: Failed to apply widget kit change:', err);
+            }
+        }
     }
 
     /**
@@ -715,6 +730,22 @@ export class Settings {
         try {
             // Copy the entire cabbage directory recursively, excluding internal widget files
             await Settings.copyDirectoryRecursive(sourceCabbageDir, targetCabbageDir, (sourcePath, name, type) => {
+                const relativeSource = path.relative(sourceCabbageDir, sourcePath).split(path.sep).join('/');
+
+                // Framework demo/web-component files are not needed in a custom
+                // widget folder (and discovery ignores them).
+                if (relativeSource === 'widgets/htmlElements' || relativeSource.startsWith('widgets/htmlElements/')) {
+                    return false;
+                }
+                if (relativeSource === 'widgets/test.html') {
+                    return false;
+                }
+                // Bundled widget kits stay with the extension; users can add
+                // their own kits under <customRoot>/cabbage/widgets/kits.
+                if (relativeSource === 'widgets/kits' || relativeSource.startsWith('widgets/kits/')) {
+                    return false;
+                }
+
                 // If this is a file in the widgets directory, check if it's a built-in widget
                 if (type === vscode.FileType.File && sourcePath.includes(path.join('cabbage', 'widgets'))) {
                     // Skip built-in widget files
@@ -741,6 +772,33 @@ export class Settings {
                 return true; // Copy everything else (and overwrite infrastructure files)
             });
             Commands.getOutputChannel().appendLine(`Cabbage: Copied cabbage folder structure to ${targetCabbageDir} (excluding internal widget files)`);
+
+            // Older versions copied framework-only files into custom folders.
+            // Remove them so they don't linger alongside the user's widgets.
+            if (path.resolve(targetCabbageDir) !== path.resolve(sourceCabbageDir)) {
+                const stalePaths = [
+                    path.join(targetCabbageDir, 'widgets', 'htmlElements'),
+                    path.join(targetCabbageDir, 'widgets', 'test.html'),
+                ];
+                for (const stalePath of stalePaths) {
+                    try {
+                        if (fs.existsSync(stalePath)) {
+                            fs.rmSync(stalePath, { recursive: true, force: true });
+                            Commands.getOutputChannel().appendLine(`Cabbage: Removed stale framework path: ${stalePath}`);
+                        }
+                    } catch (err) {
+                        Commands.getOutputChannel().appendLine(`Cabbage: Could not remove ${stalePath}: ${String(err)}`);
+                    }
+                }
+            }
+
+            // Give user kits a conventional home: <customRoot>/cabbage/widgets/kits
+            try {
+                const userKitsDir = path.join(targetCabbageDir, 'widgets', 'kits');
+                await vscode.workspace.fs.createDirectory(vscode.Uri.file(userKitsDir));
+            } catch (err) {
+                // Non-fatal; the folder is optional.
+            }
         } catch (err) {
             console.error('Cabbage: Failed to copy cabbage folder', err);
             vscode.window.showErrorMessage(`Cabbage: Failed to copy cabbage folder: ${String(err)}`);
