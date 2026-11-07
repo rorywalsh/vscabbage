@@ -50,23 +50,6 @@ const STYLES = `
     width: 100%;
     min-height: 0;
 }
-.vintage-knob-well::before {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: calc(var(--vintage-knob-size) + 24px);
-    height: calc(var(--vintage-knob-size) + 24px);
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: repeating-conic-gradient(from 240deg,
-        color-mix(in srgb, var(--vintage-ink) 70%, transparent) 0deg 0.8deg,
-        transparent 0.8deg 12deg);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-    opacity: 0.45;
-    content: "";
-    pointer-events: none;
-}
 .vintage-knob {
     position: relative;
     isolation: isolate;
@@ -75,20 +58,14 @@ const STYLES = `
     flex: 0 0 auto;
     border: 4px solid color-mix(in srgb, var(--vintage-surface) 55%, var(--vintage-ink) 25%);
     border-radius: 50%;
-    background:
-        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, .9) 0%, rgba(255, 255, 255, 0) 36%),
-        repeating-conic-gradient(from 0deg,
-            color-mix(in srgb, var(--vintage-surface) 45%, #000) 0deg 3deg,
-            color-mix(in srgb, var(--vintage-surface) 75%, #fff) 3deg 6deg),
-        radial-gradient(circle,
-            color-mix(in srgb, var(--vintage-surface) 70%, #fff) 0%,
-            var(--vintage-surface) 60%,
-            color-mix(in srgb, var(--vintage-surface) 55%, #000) 100%);
+    background: radial-gradient(circle at 32% 26%,
+        color-mix(in srgb, var(--vintage-surface) 80%, #fff) 0%,
+        var(--vintage-surface) 55%,
+        color-mix(in srgb, var(--vintage-surface) 55%, #000) 100%);
     box-shadow:
-        inset 0 2px 3px rgba(255, 255, 255, .75),
-        inset 0 -4px 7px rgba(0, 0, 0, .35),
-        0 2px 0 rgba(255, 255, 255, .35),
-        0 5px 9px rgba(0, 0, 0, .5);
+        inset 0 2px 3px rgba(255, 255, 255, .65),
+        inset 0 -3px 6px rgba(0, 0, 0, .3),
+        0 4px 8px rgba(0, 0, 0, .45);
     cursor: grab;
     touch-action: none;
     outline: none;
@@ -110,22 +87,6 @@ const STYLES = `
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 3px));
     mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 3px));
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .6));
-}
-.vintage-arc-glow {
-    position: absolute;
-    z-index: -1;
-    inset: -17px;
-    border-radius: 50%;
-    background: conic-gradient(
-        from var(--vintage-start, 240deg),
-        var(--vintage-accent) 0deg var(--vintage-sweep, 0deg),
-        transparent var(--vintage-sweep, 0deg) 360deg
-    );
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 3px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 3px));
-    filter: blur(1px) drop-shadow(0 0 4px var(--vintage-accent));
-    opacity: 0.8;
-    pointer-events: none;
 }
 .vintage-knob::after {
     position: absolute;
@@ -259,7 +220,6 @@ export class VintageRotarySlider {
                     <div class="vintage-knob" role="slider" tabindex="0"
                          aria-label="${escapeHtml(labelText || "Rotary slider")}"
                          aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}">
-                        <span class="vintage-arc-glow" aria-hidden="true"></span>
                         <span class="vintage-indicator" aria-hidden="true"></span>
                     </div>
                 </div>

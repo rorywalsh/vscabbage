@@ -44,7 +44,7 @@ const STYLES = `
     width: 100%;
     height: 100%;
     min-width: 96px;
-    padding: 8px 34px 8px 12px;
+    padding: 0 30px 0 10px;
     border: 2px solid color-mix(in srgb, var(--vintage-track) 55%, #000);
     border-radius: 5px;
     background: linear-gradient(180deg,
@@ -56,9 +56,10 @@ const STYLES = `
     color: var(--vintage-accent);
     font: inherit;
     font-family: "Courier New", monospace;
-    font-size: 12.5px;
+    font-size: 11.5px;
     font-weight: 700;
-    letter-spacing: .04em;
+    line-height: 1;
+    letter-spacing: 0;
     text-shadow: 0 0 4px color-mix(in srgb, var(--vintage-accent), transparent 50%);
     cursor: pointer;
     outline: none;
