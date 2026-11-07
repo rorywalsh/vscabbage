@@ -231,6 +231,8 @@ export class VintageRotarySlider {
         const value = getValue(this.props);
         const ratio = ratioFromValue(value, range);
         const sweep = ratio * 240;
+        // Extend slightly past the sweep so the tick at the max position is lit.
+        const tickSweep = ratio > 0 ? sweep + 1.5 : 0;
         const angle = 240 + sweep;
         const color = this.props.style?.color || {};
         const size = Math.max(28, Math.min(this.props.bounds.width * 0.66, this.props.bounds.height * 0.42));
@@ -244,7 +246,7 @@ export class VintageRotarySlider {
 
         return `
             <div class="vintage-knob-widget"
-                 style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-muted:${escapeHtml(color.muted || "#6b6258")}; --vintage-track:${escapeHtml(color.track || "#4a443c")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; --vintage-knob-size:${size}px; --vintage-start:240deg; --vintage-range:240deg; --vintage-sweep:${sweep}deg; --vintage-angle:${angle}deg; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
+                 style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-muted:${escapeHtml(color.muted || "#6b6258")}; --vintage-track:${escapeHtml(color.track || "#4a443c")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; --vintage-knob-size:${size}px; --vintage-start:240deg; --vintage-range:240deg; --vintage-sweep:${tickSweep}deg; --vintage-angle:${angle}deg; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <div class="vintage-knob-well">
                     <div class="vintage-knob" role="slider" tabindex="0"
                          aria-label="${escapeHtml(labelText || "Rotary slider")}"
