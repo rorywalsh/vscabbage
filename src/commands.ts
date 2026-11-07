@@ -567,15 +567,15 @@ export class Commands {
                 break;
 
             case 'cabbageIsReadyToLoad': {
+                // Push the widget/kit registry BEFORE the backend starts sending
+                // widget data, otherwise built-in overrides can race and a
+                // widget may be instantiated with its unthemed class.
+                await Commands.pushCustomWidgetInfo();
                 // Forward to C++ backend - it will send widgets and queue table updates
                 this.sendMessageToCabbageApp({
                     command: "cabbageIsReadyToLoad",
                     text: ""
                 });
-                // Proactively push custom widget info so the webview listener
-                // (installed before cabbageIsReadyToLoad is sent) catches it
-                // without a separate request/response round-trip.
-                await Commands.pushCustomWidgetInfo();
                 break;
             }
 
