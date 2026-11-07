@@ -209,7 +209,7 @@ export class VintageHorizontalSlider {
             <div class="vintage-hslider-widget"
                  style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-muted:${escapeHtml(color.muted || "#6b6258")}; --vintage-track:${escapeHtml(color.track || "#4a443c")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 ${label}
-                <div class="vintage-hslider" role="slider" tabindex="0"
+                <div class="vintage-hslider" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                      aria-label="${escapeHtml(labelText || "Horizontal slider")}"
                      aria-orientation="horizontal"
                      aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}"

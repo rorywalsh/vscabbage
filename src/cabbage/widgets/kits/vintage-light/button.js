@@ -12,6 +12,7 @@ import {
     isEditMode,
     sendValue,
     toggleColors,
+    updateInnerHTMLPreservingFocus,
 } from "./vintageKit.js";
 
 const STYLES = `
@@ -181,6 +182,8 @@ export class VintageButton {
                  style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <button type="button" class="vintage-control-button"
                         aria-pressed="${isOn ? "true" : "false"}"
+                        aria-disabled="${this.props.active ? "false" : "true"}"
+                        ${this.props.active ? "" : "disabled"}
                         aria-label="${escapeHtml(labelText || "Button")}">
                     <span class="vintage-button-indicator" aria-hidden="true"></span>
                     ${label}
@@ -206,7 +209,8 @@ export class VintageButton {
 
         if (latched) {
             widgetDiv.addEventListener("click", (event) => {
-                if (isEditMode() || !event.target.closest(".vintage-control-button")) {
+                if (!this.props.active || isEditMode()
+                    || !event.target.closest(".vintage-control-button")) {
                     return;
                 }
 
@@ -234,7 +238,7 @@ export class VintageButton {
                 if (inRadioGroup) {
                     handleRadioGroup(radioGroup, CabbageUtils.getWidgetDivId(this.props));
                 }
-                CabbageUtils.updateInnerHTML(this.props, this);
+                updateInnerHTMLPreservingFocus(this, ".vintage-control-button");
                 sendValue(this, next, "complete");
             });
             return;
@@ -242,7 +246,7 @@ export class VintageButton {
 
         // Momentary button: on while pressed.
         const setMomentary = (isDown) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const range = getRange(this.props, 0, "click");
@@ -255,7 +259,7 @@ export class VintageButton {
             }
             const next = isDown ? range.max : range.min;
             channel.range.value = next;
-            CabbageUtils.updateInnerHTML(this.props, this);
+            updateInnerHTMLPreservingFocus(this, ".vintage-control-button");
             sendValue(this, next, isDown ? "begin" : "end");
         };
 
@@ -271,5 +275,24 @@ export class VintageButton {
         });
         widgetDiv.addEventListener("pointercancel", () => setMomentary(false));
         widgetDiv.addEventListener("pointerleave", () => setMomentary(false));
+
+        const isMomentaryKey = (event) => event.key === " " || event.key === "Enter";
+
+        widgetDiv.addEventListener("keydown", (event) => {
+            if (event.repeat || !isMomentaryKey(event)
+                || !event.target.closest(".vintage-control-button")) {
+                return;
+            }
+            event.preventDefault();
+            setMomentary(true);
+        });
+        widgetDiv.addEventListener("keyup", (event) => {
+            if (!isMomentaryKey(event)
+                || !event.target.closest(".vintage-control-button")) {
+                return;
+            }
+            event.preventDefault();
+            setMomentary(false);
+        });
     }
 }

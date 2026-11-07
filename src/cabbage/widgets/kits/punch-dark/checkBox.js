@@ -132,7 +132,7 @@ export class PunchCheckbox {
         return `
             <label class="punch-checkbox-widget"
                    style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f5f6f3")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "inline-flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <input class="punch-checkbox-input" type="checkbox"${checked ? " checked" : ""}>
+                <input class="punch-checkbox-input" type="checkbox"${checked ? " checked" : ""}${this.props.active ? "" : " disabled"}>
                 <span class="punch-box" aria-hidden="true"></span>
                 ${label}
             </label>`;
@@ -153,7 +153,7 @@ export class PunchCheckbox {
         this.widgetDiv = widgetDiv;
 
         widgetDiv.addEventListener("change", (event) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const input = event.target.closest(".punch-checkbox-input");

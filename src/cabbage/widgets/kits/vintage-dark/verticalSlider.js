@@ -210,7 +210,7 @@ export class VintageVerticalSlider {
         return `
             <div class="vintage-vslider-widget"
                  style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-muted:${escapeHtml(color.muted || "#6b6258")}; --vintage-track:${escapeHtml(color.track || "#4a443c")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <div class="vintage-vslider" role="slider" tabindex="0"
+                <div class="vintage-vslider" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                      aria-label="${escapeHtml(labelText || "Vertical slider")}"
                      aria-orientation="vertical"
                      aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}"

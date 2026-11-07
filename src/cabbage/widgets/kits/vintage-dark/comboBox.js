@@ -188,7 +188,7 @@ export class VintageComboBox {
         return `
             <div class="vintage-combo-widget"
                  style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <select class="vintage-select" aria-label="${escapeHtml(labelText || "Combo box")}">
+                <select class="vintage-select" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
                     ${options}
                 </select>
             </div>`;
@@ -209,7 +209,7 @@ export class VintageComboBox {
         this.widgetDiv = widgetDiv;
 
         widgetDiv.addEventListener("change", (event) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const select = event.target.closest(".vintage-select");

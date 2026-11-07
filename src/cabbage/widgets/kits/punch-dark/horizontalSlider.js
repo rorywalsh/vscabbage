@@ -171,7 +171,7 @@ export class PunchHorizontalSlider {
             <div class="punch-hslider-widget"
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-muted:${escapeHtml(color.muted || "#525252")}; --punch-track:${escapeHtml(color.track || "#d3d5cf")}; --punch-surface:${escapeHtml(color.surface || "#f5f6f3")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 ${label}
-                <div class="punch-hslider" role="slider" tabindex="0"
+                <div class="punch-hslider" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                      aria-label="${escapeHtml(labelText || "Horizontal slider")}"
                      aria-orientation="horizontal"
                      aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}"

@@ -142,7 +142,7 @@ export class VintageCheckbox {
         return `
             <label class="vintage-checkbox-widget"
                    style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "inline-flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <input class="vintage-checkbox-input" type="checkbox"${checked ? " checked" : ""}>
+                <input class="vintage-checkbox-input" type="checkbox"${checked ? " checked" : ""}${this.props.active ? "" : " disabled"}>
                 <span class="vintage-box" aria-hidden="true"></span>
                 ${label}
             </label>`;
@@ -163,7 +163,7 @@ export class VintageCheckbox {
         this.widgetDiv = widgetDiv;
 
         widgetDiv.addEventListener("change", (event) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const input = event.target.closest(".vintage-checkbox-input");

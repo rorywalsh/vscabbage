@@ -93,13 +93,13 @@ property panel.
 
 Run **Cabbage: Select Widget Kit** from the command palette, or set
 `cabbage.widgetKit` to the kit id (for example `punch-light`). Leave it empty
-to use the built-in widgets.
 to use the built-in widgets. Reload the instrument after changing it.
 
 ## Exporting
 
 When you export a plugin, the active kit is copied into the exported
-`cabbage/widgets/kits/` folder. Widgets that override a built-in type are wired
-up through small re-export shims in `cabbage/widgets/`, so the exported plugin
-uses the kit's classes without changing the `.csd`.
+`cabbage/widgets/kits/` folder. Built-in overrides are wired into the exported
+`widgetTypes.js` imports, while kit-only widgets get small re-export shims in
+`cabbage/widgets/`. The original built-in modules stay in place, so widgets such
+as `FileButton` and `InfoButton` that subclass `Button` keep working.
 

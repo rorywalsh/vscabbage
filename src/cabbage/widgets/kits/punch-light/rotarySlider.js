@@ -209,7 +209,7 @@ export class PunchRotarySlider {
             <div class="punch-knob-widget"
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-muted:${escapeHtml(color.muted || "#525252")}; --punch-track:${escapeHtml(color.track || "#d3d5cf")}; --punch-surface:${escapeHtml(color.surface || "#f5f6f3")}; --punch-knob-size:${size}px; --punch-start:240deg; --punch-range:240deg; --punch-sweep:${sweep}deg; --punch-angle:${angle}deg; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <div class="punch-knob-well">
-                    <div class="punch-knob" role="slider" tabindex="0"
+                    <div class="punch-knob" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                          aria-label="${escapeHtml(labelText || "Rotary slider")}"
                          aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}">
                         <span class="punch-arc-glow" aria-hidden="true"></span>

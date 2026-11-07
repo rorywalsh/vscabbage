@@ -170,7 +170,7 @@ export class PunchComboBox {
         return `
             <div class="punch-combo-widget"
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f0f1ed")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <select class="punch-select" aria-label="${escapeHtml(labelText || "Combo box")}">
+                <select class="punch-select" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
                     ${options}
                 </select>
             </div>`;
@@ -191,7 +191,7 @@ export class PunchComboBox {
         this.widgetDiv = widgetDiv;
 
         widgetDiv.addEventListener("change", (event) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const select = event.target.closest(".punch-select");

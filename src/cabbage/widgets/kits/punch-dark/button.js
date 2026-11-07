@@ -12,6 +12,7 @@ import {
     isEditMode,
     sendValue,
     toggleColors,
+    updateInnerHTMLPreservingFocus,
 } from "./punchKit.js";
 
 const STYLES = `
@@ -174,6 +175,8 @@ export class PunchButton {
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f5f6f3")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <button type="button" class="punch-control-button"
                         aria-pressed="${isOn ? "true" : "false"}"
+                        aria-disabled="${this.props.active ? "false" : "true"}"
+                        ${this.props.active ? "" : "disabled"}
                         aria-label="${escapeHtml(labelText || "Button")}">
                     <span class="punch-button-indicator" aria-hidden="true"></span>
                     ${label}
@@ -199,7 +202,8 @@ export class PunchButton {
 
         if (latched) {
             widgetDiv.addEventListener("click", (event) => {
-                if (isEditMode() || !event.target.closest(".punch-control-button")) {
+                if (!this.props.active || isEditMode()
+                    || !event.target.closest(".punch-control-button")) {
                     return;
                 }
 
@@ -227,7 +231,7 @@ export class PunchButton {
                 if (inRadioGroup) {
                     handleRadioGroup(radioGroup, CabbageUtils.getWidgetDivId(this.props));
                 }
-                CabbageUtils.updateInnerHTML(this.props, this);
+                updateInnerHTMLPreservingFocus(this, ".punch-control-button");
                 sendValue(this, next, "complete");
             });
             return;
@@ -235,7 +239,7 @@ export class PunchButton {
 
         // Momentary button: on while pressed.
         const setMomentary = (isDown) => {
-            if (isEditMode()) {
+            if (!this.props.active || isEditMode()) {
                 return;
             }
             const range = getRange(this.props, 0, "click");
@@ -248,7 +252,7 @@ export class PunchButton {
             }
             const next = isDown ? range.max : range.min;
             channel.range.value = next;
-            CabbageUtils.updateInnerHTML(this.props, this);
+            updateInnerHTMLPreservingFocus(this, ".punch-control-button");
             sendValue(this, next, isDown ? "begin" : "end");
         };
 
@@ -264,5 +268,24 @@ export class PunchButton {
         });
         widgetDiv.addEventListener("pointercancel", () => setMomentary(false));
         widgetDiv.addEventListener("pointerleave", () => setMomentary(false));
+
+        const isMomentaryKey = (event) => event.key === " " || event.key === "Enter";
+
+        widgetDiv.addEventListener("keydown", (event) => {
+            if (event.repeat || !isMomentaryKey(event)
+                || !event.target.closest(".punch-control-button")) {
+                return;
+            }
+            event.preventDefault();
+            setMomentary(true);
+        });
+        widgetDiv.addEventListener("keyup", (event) => {
+            if (!isMomentaryKey(event)
+                || !event.target.closest(".punch-control-button")) {
+                return;
+            }
+            event.preventDefault();
+            setMomentary(false);
+        });
     }
 }

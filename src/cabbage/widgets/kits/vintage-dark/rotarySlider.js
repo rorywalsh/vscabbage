@@ -248,7 +248,7 @@ export class VintageRotarySlider {
             <div class="vintage-knob-widget"
                  style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-muted:${escapeHtml(color.muted || "#6b6258")}; --vintage-track:${escapeHtml(color.track || "#4a443c")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; --vintage-knob-size:${size}px; --vintage-start:240deg; --vintage-range:240deg; --vintage-sweep:${tickSweep}deg; --vintage-angle:${angle}deg; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
                 <div class="vintage-knob-well">
-                    <div class="vintage-knob" role="slider" tabindex="0"
+                    <div class="vintage-knob" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                          aria-label="${escapeHtml(labelText || "Rotary slider")}"
                          aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}">
                         <span class="vintage-indicator" aria-hidden="true"></span>

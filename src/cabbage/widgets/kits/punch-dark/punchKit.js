@@ -56,6 +56,29 @@ export function ensureStyles(id, css) {
     injectedStyles.add(id);
 }
 
+/**
+ * Re-renders a widget while keeping keyboard focus on its interactive
+ * element. `getInnerHTML()` replaces the focused node, so without this a
+ * slider loses focus after a single arrow-key press and a button loses focus
+ * after being toggled.
+ */
+export function updateInnerHTMLPreservingFocus(widget, selector = '[role="slider"]') {
+    const activeElement = typeof document !== "undefined" ? document.activeElement : null;
+    const container = widget.widgetDiv
+        || (typeof document !== "undefined" ? CabbageUtils.getWidgetDiv(widget.props) : null);
+    const shouldRestore = !!(widget.props?.active !== false
+        && activeElement && container && container.contains(activeElement));
+
+    CabbageUtils.updateInnerHTML(widget.props, widget);
+
+    if (shouldRestore) {
+        const next = container.querySelector(selector);
+        if (next && typeof next.focus === "function") {
+            next.focus({ preventScroll: true });
+        }
+    }
+}
+
 export function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
         "&": "&amp;",
@@ -167,6 +190,12 @@ export function sendValue(widget, value, gesture = "value") {
  * Returns the snapped value.
  */
 export function setValue(widget, value, gesture = "value", render = true) {
+    // Keyboard events still reach a widget whose pointer-events are disabled.
+    // Refuse to change or send a value when the widget is inactive.
+    if (widget.props?.active === false) {
+        return getValue(widget.props);
+    }
+
     const range = getRange(widget.props);
     const next = snapValue(value, range);
     const channel = widget.props.channels?.[0];
@@ -177,7 +206,7 @@ export function setValue(widget, value, gesture = "value", render = true) {
         channel.range.value = next;
     }
     if (render) {
-        CabbageUtils.updateInnerHTML(widget.props, widget);
+        updateInnerHTMLPreservingFocus(widget, '[role="slider"]');
     }
     sendValue(widget, next, gesture);
     return next;

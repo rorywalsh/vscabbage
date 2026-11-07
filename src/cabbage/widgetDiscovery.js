@@ -19,7 +19,13 @@
  * 5. Returns the list of discovered widget types
  */
 
-import { registerWidget, registerWidgetKit, registerKitWidget, setActiveWidgetKit } from './widgetTypes.js';
+import {
+    registerWidget,
+    registerWidgetKit,
+    registerKitWidget,
+    resetWidgetKits,
+    setActiveWidgetKit,
+} from './widgetTypes.js';
 
 /**
  * Discovers and registers custom widgets from configured directories.
@@ -66,7 +72,11 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                     });
 
                     // Widget kits: may deliberately override built-in types.
+                    // Each payload is a complete snapshot, so replace the
+                    // previous registry. Otherwise a kit or widget file that
+                    // was deleted on disk would keep its dynamic import.
                     const kits = message.kits || [];
+                    resetWidgetKits();
                     kits.forEach(kit => {
                         if (!kit || !kit.id) {
                             return;

@@ -17,7 +17,11 @@ import {
     reorderJsoncArrayValues,
     widgetMatchesId,
 } from './utils/jsonc';
-import { buildKitWidgetShims } from './utils/widgetKitExport';
+import {
+    applyKitWidgetImportOverrides,
+    buildKitImportOverrides,
+    buildKitWidgetShims,
+} from './utils/widgetKitExport';
 import { WidgetKit } from './utils/widgetScan';
 
 function getPackageConfig(root: any, formWidget?: any): any {
@@ -2376,7 +2380,14 @@ export class Commands {
                 return;
             }
 
-            await config.update('widgetKit', picked.kitId, vscode.ConfigurationTarget.Global);
+            // A workspace value overrides the global value. Update the scope
+            // that is actually in effect, otherwise the QuickPick reports a
+            // successful change while the active kit stays the same.
+            const inspected = config.inspect<string>('widgetKit');
+            const target = inspected?.workspaceValue !== undefined
+                ? vscode.ConfigurationTarget.Workspace
+                : vscode.ConfigurationTarget.Global;
+            await config.update('widgetKit', picked.kitId, target);
             Commands.vscodeOutputChannel.appendLine(
                 `Cabbage: widget kit set to ${picked.kitId || '(none)'}`);
         } catch (err) {
@@ -3478,16 +3489,24 @@ include $(SYSTEM_FILES_DIR)/Makefile
         }
 
         if (activeKit) {
-            await Commands.copyActiveWidgetKit(activeKit, widgetsDestDir);
+            await Commands.copyActiveWidgetKit(activeKit, widgetsDestDir, destDir);
         }
     }
 
     /**
-     * Copies the active kit into the exported widgets folder and writes
-     * re-export shims so the plugin's static built-in imports resolve to the
-     * kit classes.
+     * Copies the active kit into the exported widgets folder.
+     *
+     * Built-in overrides are wired into `widgetTypes.js` by rewriting its
+     * static imports. The built-in widget modules themselves are left
+     * untouched so widgets that subclass them (FileButton and InfoButton both
+     * extend Button) keep working. Kit-only widgets get re-export shims in
+     * `widgets/` for the plugin's dynamic auto-discovery.
      */
-    private static async copyActiveWidgetKit(activeKit: WidgetKit, widgetsDestDir: string): Promise<void> {
+    private static async copyActiveWidgetKit(
+        activeKit: WidgetKit,
+        widgetsDestDir: string,
+        cabbageDestDir: string,
+    ): Promise<void> {
         try {
             const kitFolderName = path.basename(activeKit.directory);
             const kitDestDir = path.join(widgetsDestDir, 'kits', kitFolderName);
@@ -3500,6 +3519,16 @@ include $(SYSTEM_FILES_DIR)/Makefile
             for (const shim of shims) {
                 await fs.promises.writeFile(path.join(widgetsDestDir, shim.filename), shim.content, 'utf8');
                 Commands.vscodeOutputChannel.appendLine(`Export:   ✓ kit shim ${shim.filename}`);
+            }
+
+            const importOverrides = buildKitImportOverrides(kitFolderName, activeKit.widgets);
+            if (importOverrides.length > 0) {
+                const widgetTypesPath = path.join(cabbageDestDir, 'widgetTypes.js');
+                const source = await fs.promises.readFile(widgetTypesPath, 'utf8');
+                const patched = applyKitWidgetImportOverrides(source, importOverrides);
+                await fs.promises.writeFile(widgetTypesPath, patched, 'utf8');
+                Commands.vscodeOutputChannel.appendLine(
+                    `Export:   ✓ themed ${importOverrides.length} built-in widget import(s) in widgetTypes.js`);
             }
         } catch (err) {
             Commands.vscodeOutputChannel.appendLine(`Export: Warning - failed to copy widget kit: ${err}`);

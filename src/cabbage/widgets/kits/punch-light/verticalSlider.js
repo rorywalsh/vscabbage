@@ -183,7 +183,7 @@ export class PunchVerticalSlider {
         return `
             <div class="punch-vslider-widget"
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-muted:${escapeHtml(color.muted || "#525252")}; --punch-track:${escapeHtml(color.track || "#d3d5cf")}; --punch-surface:${escapeHtml(color.surface || "#f5f6f3")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <div class="punch-vslider" role="slider" tabindex="0"
+                <div class="punch-vslider" role="slider" tabindex="${this.props.active ? "0" : "-1"}" aria-disabled="${this.props.active ? "false" : "true"}"
                      aria-label="${escapeHtml(labelText || "Vertical slider")}"
                      aria-orientation="vertical"
                      aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${value}"

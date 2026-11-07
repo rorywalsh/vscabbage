@@ -341,7 +341,7 @@ export function getCustomWidgetCategories() {
  * @param {string} [name] - Human-readable kit name
  * @param {string} [description] - Optional description
  */
-export function registerWidgetKit(id, name = id, description = '') {
+export function registerWidgetKit(id, name, description) {
 	if (!id) {
 		return;
 	}
@@ -354,8 +354,27 @@ export function registerWidgetKit(id, name = id, description = '') {
 		};
 		return;
 	}
-	WIDGET_KITS[id].name = name || id;
-	WIDGET_KITS[id].description = description || '';
+	// Only overwrite metadata when the caller actually supplied it. A widget
+	// registration calls this to ensure the kit exists and must not reset the
+	// display name/description that discovery already registered.
+	if (name !== undefined) {
+		WIDGET_KITS[id].name = name || id;
+	}
+	if (description !== undefined) {
+		WIDGET_KITS[id].description = description || '';
+	}
+}
+
+/**
+ * Replaces the kit registry with a fresh discovery snapshot. Without this,
+ * removing a kit or a widget from a kit leaves its old dynamic import
+ * registered, so selecting that kit still tries to load a deleted file.
+ */
+export function resetWidgetKits() {
+	for (const id of Object.keys(WIDGET_KITS)) {
+		delete WIDGET_KITS[id];
+	}
+	clearWidgetCache();
 }
 
 /**
@@ -372,7 +391,9 @@ export function registerKitWidget(kitId, type, file, className) {
 	if (!kitId || !type || !file || !className) {
 		return;
 	}
-	registerWidgetKit(kitId);
+	if (!WIDGET_KITS[kitId]) {
+		registerWidgetKit(kitId);
+	}
 	WIDGET_KITS[kitId].widgets[type] = { file, class: className };
 	if (activeWidgetKit === kitId) {
 		delete customWidgetCache[type];
