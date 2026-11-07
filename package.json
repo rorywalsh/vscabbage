@@ -500,6 +500,11 @@
         "category": "Cabbage"
       },
       {
+        "command": "cabbage.selectWidgetKit",
+        "title": "Select Widget Kit",
+        "category": "Cabbage"
+      },
+      {
         "command": "cabbage.setCustomWidgetDirectory",
         "title": "Select Custom Widget Folder",
         "category": "Cabbage"

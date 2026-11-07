@@ -2338,6 +2338,54 @@ export class Commands {
     }
 
     /**
+     * Prompts for the active widget kit and stores the choice in the
+     * `cabbage.widgetKit` setting. Changing the setting triggers a rescan via
+     * the configuration watcher.
+     */
+    static async selectWidgetKit(): Promise<void> {
+        try {
+            const kits = await ExtensionUtils.getWidgetKits();
+            const config = vscode.workspace.getConfiguration('cabbage');
+            const current = config.get<string>('widgetKit', '') || '';
+
+            interface KitPick extends vscode.QuickPickItem {
+                kitId: string;
+            }
+
+            const items: KitPick[] = [{
+                label: '$(circle-slash) None',
+                description: current === '' ? 'Active — built-in widgets' : 'Use built-in widgets',
+                kitId: '',
+            }];
+            for (const kit of kits) {
+                items.push({
+                    label: kit.name || kit.id,
+                    description: current === kit.id ? `Active — ${kit.id}` : kit.id,
+                    detail: kit.description
+                        || `${kit.widgets.length} widget${kit.widgets.length === 1 ? '' : 's'}`,
+                    kitId: kit.id,
+                });
+            }
+
+            const picked = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select the active widget kit',
+                matchOnDescription: true,
+                matchOnDetail: true,
+            });
+            if (!picked || picked.kitId === current) {
+                return;
+            }
+
+            await config.update('widgetKit', picked.kitId, vscode.ConfigurationTarget.Global);
+            Commands.vscodeOutputChannel.appendLine(
+                `Cabbage: widget kit set to ${picked.kitId || '(none)'}`);
+        } catch (err) {
+            console.error('Cabbage: Failed to select widget kit', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to select widget kit: ${String(err)}`);
+        }
+    }
+
+    /**
      * Retrieves the list of processes managed by the Commands class.
      * @returns An array of active or undefined child processes.
      */

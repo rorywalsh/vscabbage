@@ -501,6 +501,10 @@ export async function activate(context: vscode.ExtensionContext):
         'cabbage.createNewCustomWidget', async () => {
             await Settings.createNewCustomWidget();
         }));
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.selectWidgetKit', async () => {
+            await Commands.selectWidgetKit();
+        }));
 
     // Command to set custom comment decoration color
     context.subscriptions.push(vscode.commands.registerCommand(
