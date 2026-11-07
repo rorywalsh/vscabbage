@@ -205,6 +205,16 @@ export class VintageButton {
         widgetDiv.dataset.vintageBound = "1";
         this.widgetDiv = widgetDiv;
 
+        // A mouse click focuses the native button. Release that focus again so
+        // the performance keyboard keeps receiving ASCII note keys. Keyboard
+        // activation does not fire pointerup, so it keeps focus for a11y.
+        widgetDiv.addEventListener("pointerup", () => {
+            const button = widgetDiv.querySelector(".vintage-control-button");
+            if (button && typeof button.blur === "function") {
+                button.blur();
+            }
+        });
+
         const latched = this.props.latched !== false;
 
         if (latched) {
