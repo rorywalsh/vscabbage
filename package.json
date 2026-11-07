@@ -618,6 +618,7 @@
     "@typescript-eslint/parser": "^8.71.1",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.0",
     "eslint": "^10.14.0",
     "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
@@ -625,7 +626,6 @@
     "webpack-cli": "^7.3.1"
   },
   "dependencies": {
-    "@vscode/vsce": "^4.1.0",
     "get-port": "^7.2.0",
     "interactjs": "^1.10.28",
     "fracturedjsonjs": "^5.1.0",
