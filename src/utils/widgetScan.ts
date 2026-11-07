@@ -77,12 +77,14 @@ const HEADER_BYTES = 16 * 1024;
 
 /**
  * A genuine widget builds a `props` object in its constructor and gives it a
- * layout-ish key (`bounds`, `channels`, `zIndex`). Requiring this keeps helper
+ * layout-ish key (`bounds`, `channels`, `zIndex`). Requiring these keeps helper
  * classes, web components and framework utilities from being registered as
- * widgets.
+ * widgets. Props may be built with a helper function, so the assignment itself
+ * is not required to be a bare object literal.
  */
+const WIDGET_PROPS_ASSIGNMENT = /this\.props\s*=/;
 const WIDGET_PROPS_OBJECT = /this\.props\s*=\s*\{/;
-const WIDGET_LAYOUT_KEY = /["'](?:bounds|channels|zIndex)["']\s*:/;
+const WIDGET_LAYOUT_KEY = /["']?\b(?:bounds|channels|zIndex)\b["']?\s*:/;
 
 /**
  * Framework folders that may exist inside a copied custom `widgets` folder but
@@ -224,8 +226,8 @@ export function extractWidgetInfoFromFile(content: string): WidgetInfo | null {
         }
 
         // Reject ordinary exported classes. A widget initialises `this.props`
-        // with a layout-ish object in its constructor.
-        if (!WIDGET_PROPS_OBJECT.test(content) || !WIDGET_LAYOUT_KEY.test(content)) {
+        // with a layout-ish object.
+        if (!WIDGET_PROPS_ASSIGNMENT.test(content) || !WIDGET_LAYOUT_KEY.test(content)) {
             return null;
         }
 

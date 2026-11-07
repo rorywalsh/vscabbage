@@ -128,6 +128,21 @@ describe('extractWidgetInfoFromFile', () => {
         assert.deepStrictEqual(info, { className: 'MyKnob', widgetType: 'myKnob' });
     });
 
+    it('accepts widgets that build props with a helper and declare the type explicitly', () => {
+        const info = extractWidgetInfoFromFile(`
+            export class PunchButton {
+                constructor() {
+                    this.props = {
+                        ...baseProps("button", { bounds: {}, channels: [] }),
+                        "type": "button",
+                    };
+                }
+                getInnerHTML() { return ""; }
+            }
+        `);
+        assert.deepStrictEqual(info, { className: 'PunchButton', widgetType: 'button' });
+    });
+
     it('returns null for files that do not export a class', () => {
         assert.strictEqual(extractWidgetInfoFromFile('const x = 1;'), null);
     });
