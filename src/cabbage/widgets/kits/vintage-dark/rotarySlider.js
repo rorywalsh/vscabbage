@@ -59,11 +59,39 @@ const STYLES = `
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: repeating-conic-gradient(from 240deg,
-        color-mix(in srgb, var(--vintage-ink) 65%, transparent) 0deg 1deg,
+        color-mix(in srgb, var(--vintage-ink) 55%, transparent) 0deg 1deg,
         transparent 1deg 30deg);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
     mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-    opacity: 0.5;
+    opacity: 0.4;
+    content: "";
+    pointer-events: none;
+}
+.vintage-knob-well::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--vintage-knob-size) + 24px);
+    height: calc(var(--vintage-knob-size) + 24px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: repeating-conic-gradient(from 240deg,
+        var(--vintage-accent) 0deg 1deg,
+        transparent 1deg 30deg);
+    -webkit-mask:
+        radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)),
+        conic-gradient(from var(--vintage-start, 240deg),
+            #000 0deg var(--vintage-sweep, 0deg),
+            transparent var(--vintage-sweep, 0deg) 360deg);
+    -webkit-mask-composite: source-in;
+    mask:
+        radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)),
+        conic-gradient(from var(--vintage-start, 240deg),
+            #000 0deg var(--vintage-sweep, 0deg),
+            transparent var(--vintage-sweep, 0deg) 360deg);
+    mask-composite: intersect;
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--vintage-accent), transparent 45%));
+    opacity: 0.95;
     content: "";
     pointer-events: none;
 }
@@ -89,22 +117,6 @@ const STYLES = `
 }
 .vintage-knob:active { cursor: grabbing; }
 .vintage-knob:focus-visible { outline: 2px solid var(--vintage-accent); outline-offset: 4px; }
-.vintage-knob::before {
-    position: absolute;
-    z-index: -1;
-    inset: -17px;
-    border-radius: 50%;
-    content: "";
-    background: conic-gradient(
-        from var(--vintage-start, 240deg),
-        var(--vintage-accent) 0deg var(--vintage-sweep, 0deg),
-        color-mix(in srgb, var(--vintage-track) 70%, #000) var(--vintage-sweep, 0deg) var(--vintage-range, 240deg),
-        transparent var(--vintage-range, 240deg) 360deg
-    );
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 3px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 3px));
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .6));
-}
 .vintage-knob::after {
     position: absolute;
     z-index: 1;
