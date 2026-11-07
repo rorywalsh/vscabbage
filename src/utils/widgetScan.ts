@@ -31,11 +31,30 @@ export interface WidgetFileInfo {
     category: string;
     className: string;
     widgetType: string;
+    /** Kit id when the widget was discovered inside a kit. */
+    kit?: string;
 }
 
 export interface WidgetInfo {
     className: string;
     widgetType: string;
+}
+
+/** Optional metadata read from a kit's `kit.json` manifest. */
+export interface WidgetKitManifest {
+    id?: unknown;
+    name?: unknown;
+    description?: unknown;
+}
+
+export interface WidgetKit {
+    id: string;
+    name: string;
+    description?: string;
+    /** Absolute path to the kit folder. */
+    directory: string;
+    /** Widgets discovered inside the kit (built-in type overrides allowed). */
+    widgets: WidgetFileInfo[];
 }
 
 /**
@@ -67,11 +86,13 @@ const WIDGET_LAYOUT_KEY = /["'](?:bounds|channels|zIndex)["']\s*:/;
 
 /**
  * Framework folders that may exist inside a copied custom `widgets` folder but
- * never contain user widgets.
+ * never contain user widgets. `kits` is reserved for widget kits and is scanned
+ * separately via `scanForWidgetKits`.
  */
 const IGNORED_DIRECTORY_NAMES = new Set([
     'node_modules',
     'htmlElements',
+    'kits',
 ]);
 
 /** Reads a quoted JavaScript string starting at `start` (which points at the quote). */
@@ -260,7 +281,7 @@ interface CandidateFile {
  * Reads a batch of candidate files with bounded concurrency, preserving the
  * input order in the returned array (nulls for non-widgets).
  */
-async function readWidgetInfos(files: CandidateFile[]): Promise<Array<WidgetFileInfo | null>> {
+async function readWidgetInfos(files: CandidateFile[], allowBuiltInTypes: boolean): Promise<Array<WidgetFileInfo | null>> {
     const results: Array<WidgetFileInfo | null> = new Array(files.length).fill(null);
     let next = 0;
 
@@ -269,7 +290,7 @@ async function readWidgetInfos(files: CandidateFile[]): Promise<Array<WidgetFile
             const index = next++;
             const file = files[index];
             const info = await readWidgetInfo(file.absolutePath);
-            if (!info || BUILT_IN_WIDGET_TYPES.has(info.widgetType)) {
+            if (!info || (!allowBuiltInTypes && BUILT_IN_WIDGET_TYPES.has(info.widgetType))) {
                 continue;
             }
             const segments = file.relativePath.split('/');
@@ -287,19 +308,28 @@ async function readWidgetInfos(files: CandidateFile[]): Promise<Array<WidgetFile
     return results;
 }
 
+export interface ScanOptions {
+    /** Include widgets whose type matches a built-in widget (used for kits). */
+    allowBuiltInTypes?: boolean;
+}
+
 /**
  * Recursively scans a directory for custom widget files.
  *
  * Subdirectories are treated as categories: a widget at
  * `sliders/MyKnob.js` is reported with `category: 'sliders'` and
  * `filename: 'sliders/MyKnob.js'`. Deeper nesting is allowed; the category is
- * always the first path segment.
+ * always the first path segment. The reserved `kits/` folder is not scanned
+ * here — use {@link scanForWidgetKits}.
  *
  * @param directory The absolute path to the directory to scan
+ * @param options Set `allowBuiltInTypes` when scanning a kit, where overriding
+ *   a built-in widget type is intentional
  * @returns Array of widget file information objects, in stable path order
  */
-export async function scanForCustomWidgets(directory: string): Promise<WidgetFileInfo[]> {
+export async function scanForCustomWidgets(directory: string, options: ScanOptions = {}): Promise<WidgetFileInfo[]> {
     const widgets: WidgetFileInfo[] = [];
+    const allowBuiltInTypes = options.allowBuiltInTypes === true;
 
     try {
         // Non-blocking check for existence
@@ -357,7 +387,7 @@ export async function scanForCustomWidgets(directory: string): Promise<WidgetFil
                 }
             }
 
-            const infos = await readWidgetInfos(files);
+            const infos = await readWidgetInfos(files, allowBuiltInTypes);
             for (const info of infos) {
                 if (info) {
                     widgets.push(info);
@@ -369,4 +399,75 @@ export async function scanForCustomWidgets(directory: string): Promise<WidgetFil
     }
 
     return widgets;
+}
+
+/**
+ * Reads a kit manifest (`kit.json`) if present. Missing or malformed manifests
+ * are tolerated: the folder name is used as the kit id/name.
+ */
+async function readKitManifest(kitDirectory: string, fallbackId: string): Promise<{ id: string; name: string; description?: string }> {
+    const manifestPath = path.join(kitDirectory, 'kit.json');
+    try {
+        const text = await fs.promises.readFile(manifestPath, 'utf8');
+        const parsed = JSON.parse(text) as WidgetKitManifest;
+        const id = typeof parsed.id === 'string' && parsed.id.trim() ? parsed.id.trim() : fallbackId;
+        const name = typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim() : id;
+        const description = typeof parsed.description === 'string' ? parsed.description : undefined;
+        return { id, name, description };
+    } catch (error) {
+        if ((error as any)?.code !== 'ENOENT') {
+            console.warn(`Cabbage: Could not read kit manifest ${manifestPath}:`, (error as any)?.message || error);
+        }
+        return { id: fallbackId, name: fallbackId };
+    }
+}
+
+/**
+ * Scans `<widgetsDirectory>/kits` for widget kits.
+ *
+ * Each immediate subdirectory is a kit. An optional `kit.json` manifest can
+ * provide `id`, `name` and `description`; otherwise the folder name is used.
+ * Kit widgets may deliberately redeclare a built-in widget type.
+ *
+ * @param widgetsDirectory The widgets directory that may contain a `kits` folder
+ * @returns Array of kits in stable folder order
+ */
+export async function scanForWidgetKits(widgetsDirectory: string): Promise<WidgetKit[]> {
+    const kits: WidgetKit[] = [];
+    const kitsDirectory = path.join(widgetsDirectory, 'kits');
+
+    try {
+        const stat = await fs.promises.stat(kitsDirectory).catch(() => null);
+        if (!stat || !stat.isDirectory()) {
+            return kits;
+        }
+
+        const dirents = await fs.promises.readdir(kitsDirectory, { withFileTypes: true });
+        dirents.sort((a, b) => a.name.localeCompare(b.name));
+
+        for (const dirent of dirents) {
+            if (!dirent.isDirectory() || dirent.name.startsWith('.')) {
+                continue;
+            }
+
+            const kitDirectory = path.join(kitsDirectory, dirent.name);
+            const manifest = await readKitManifest(kitDirectory, dirent.name);
+            const widgets = await scanForCustomWidgets(kitDirectory, { allowBuiltInTypes: true });
+            for (const widget of widgets) {
+                widget.kit = manifest.id;
+            }
+
+            kits.push({
+                id: manifest.id,
+                name: manifest.name,
+                description: manifest.description,
+                directory: kitDirectory,
+                widgets,
+            });
+        }
+    } catch (error) {
+        console.error(`Cabbage: Error scanning widget kits in ${kitsDirectory}:`, (error as any)?.message || error);
+    }
+
+    return kits;
 }

@@ -7,6 +7,7 @@ import path from 'path';
 import {
     extractWidgetInfoFromFile,
     scanForCustomWidgets,
+    scanForWidgetKits,
 } from '../../utils/widgetScan';
 
 let tempDirs: string[] = [];
@@ -277,5 +278,78 @@ describe('scanForCustomWidgets', () => {
             widgets.map((widget) => widget.filename),
             ['RootWidget.js', 'aCategory/AWidget.js', 'zCategory/ZWidget.js'],
         );
+    });
+
+    it('ignores the reserved kits folder during a normal scan', async () => {
+        const root = await makeTempDir();
+        await writeWidget(root, 'kits/StudioDark/button.js', 'Button', 'button');
+        await writeWidget(root, 'MyKnob.js', 'MyKnob', 'myKnob');
+
+        const widgets = await scanForCustomWidgets(root);
+
+        assert.deepStrictEqual(widgets.map((widget) => widget.widgetType), ['myKnob']);
+    });
+});
+
+describe('scanForWidgetKits', () => {
+    it('returns an empty array when there is no kits folder', async () => {
+        const root = await makeTempDir();
+        assert.deepStrictEqual(await scanForWidgetKits(root), []);
+    });
+
+    it('discovers kits, manifest metadata, categories and built-in overrides', async () => {
+        const root = await makeTempDir();
+        await writeRaw(root, 'kits/StudioDark/kit.json', JSON.stringify({
+            id: 'studio-dark',
+            name: 'Studio Dark',
+            description: 'A darker take on the built-ins',
+        }));
+        await writeWidget(root, 'kits/StudioDark/button.js', 'Button', 'button');
+        await writeWidget(root, 'kits/StudioDark/inputs/MyKnob.js', 'MyKnob', 'myKnob');
+
+        const kits = await scanForWidgetKits(root);
+
+        assert.strictEqual(kits.length, 1);
+        const [kit] = kits;
+        assert.strictEqual(kit.id, 'studio-dark');
+        assert.strictEqual(kit.name, 'Studio Dark');
+        assert.strictEqual(kit.description, 'A darker take on the built-ins');
+
+        const byType = new Map(kit.widgets.map((widget) => [widget.widgetType, widget]));
+        assert.deepStrictEqual(byType.get('button'), {
+            filename: 'button.js',
+            category: '',
+            className: 'Button',
+            widgetType: 'button',
+            kit: 'studio-dark',
+        });
+        assert.deepStrictEqual(byType.get('myKnob'), {
+            filename: 'inputs/MyKnob.js',
+            category: 'inputs',
+            className: 'MyKnob',
+            widgetType: 'myKnob',
+            kit: 'studio-dark',
+        });
+    });
+
+    it('uses the folder name when kit.json is missing', async () => {
+        const root = await makeTempDir();
+        await writeWidget(root, 'kits/MinimalKit/MyKnob.js', 'MyKnob', 'myKnob');
+
+        const kits = await scanForWidgetKits(root);
+
+        assert.strictEqual(kits.length, 1);
+        assert.strictEqual(kits[0].id, 'MinimalKit');
+        assert.strictEqual(kits[0].name, 'MinimalKit');
+    });
+
+    it('skips hidden kit folders', async () => {
+        const root = await makeTempDir();
+        await writeWidget(root, 'kits/.hidden/MyKnob.js', 'MyKnob', 'myKnob');
+        await writeWidget(root, 'kits/VisibleKit/MyKnob.js', 'MyKnob', 'myKnob');
+
+        const kits = await scanForWidgetKits(root);
+
+        assert.deepStrictEqual(kits.map((kit) => kit.id), ['VisibleKit']);
     });
 });

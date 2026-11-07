@@ -2282,17 +2282,55 @@ export class Commands {
                     }
                 }
             }
+
+            // Widget kits (bundled + user). Kit widgets may override built-in
+            // types; the active kit is chosen via `cabbage.widgetKit`.
+            const activeKit = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            const kits = await ExtensionUtils.getWidgetKits();
+            const kitPayloads: Array<{
+                id: string;
+                name: string;
+                description?: string;
+                widgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }>;
+            }> = [];
+            for (const kit of kits) {
+                const kitWidgets: Array<{ widgetType: string, filename: string, className: string, webviewPath: string, category: string }> = [];
+                for (const w of kit.widgets) {
+                    const fp = path.join(kit.directory, w.filename);
+                    const uri = Commands.getPanel()?.webview.asWebviewUri(vscode.Uri.file(fp));
+                    if (!uri) {
+                        continue;
+                    }
+                    kitWidgets.push({
+                        widgetType: w.widgetType,
+                        filename: w.filename,
+                        className: w.className,
+                        webviewPath: uri.toString(true),
+                        category: w.category,
+                    });
+                }
+                kitPayloads.push({ id: kit.id, name: kit.name, description: kit.description, widgets: kitWidgets });
+            }
+
             const target = Commands.getPanel();
             if (!target) {
                 return;
             }
-            console.warn('Cabbage: customWidgetInfo push - sending', cwWidgets.length, 'widgets');
-            target.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets });
+            console.warn(
+                'Cabbage: customWidgetInfo push - sending',
+                cwWidgets.length,
+                'widgets and',
+                kitPayloads.length,
+                'kits (active:',
+                activeKit || 'none',
+                ')',
+            );
+            target.webview.postMessage({ command: 'customWidgetInfo', widgets: cwWidgets, kits: kitPayloads, activeKit });
         } catch (cwErr) {
             console.error('Cabbage: Error pushing customWidgetInfo:', cwErr);
             const target = Commands.getPanel();
             if (target) {
-                target.webview.postMessage({ command: 'customWidgetInfo', widgets: [] });
+                target.webview.postMessage({ command: 'customWidgetInfo', widgets: [], kits: [], activeKit: '' });
             }
         }
     }
@@ -3115,6 +3153,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+    {
+        "imports": {
+            "cabbage": "./cabbage/cabbage.js",
+            "cabbage/": "./cabbage/"
+        }
+    }
+    </script>
     <title>Welcome to Cabbage</title>
     <link rel="stylesheet" href="cabbage.css">
     <style>

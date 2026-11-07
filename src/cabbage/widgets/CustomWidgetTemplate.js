@@ -2,8 +2,8 @@
 // Copyright (c) 2024 Rory Walsh
 // See the LICENSE file for details.
 
-import { Cabbage } from "../cabbage.js";
-import { CabbageUtils } from "../utils.js";
+import { Cabbage } from "cabbage";
+import { CabbageUtils } from "cabbage/utils.js";
 
 /**
  * Custom Widget Template Class
@@ -12,9 +12,9 @@ import { CabbageUtils } from "../utils.js";
  * It provides the essential structure and methods needed for a widget to function
  * within the VS Code extension environment.
  *
- * RELATIVE IMPORTS: This template uses relative imports like the built-in widgets.
- * When you set a custom widget directory, the entire cabbage folder structure is
- * copied to your directory, so these relative imports will work correctly.
+ * STABLE IMPORTS: The `cabbage` and `cabbage/*` specifiers are provided by an
+ * import map in the webview. Use them instead of relative paths so this file
+ * works whether it lives directly in `widgets/` or in a category/kit subfolder.
  *
  * This template renders a simple rectangular shape based on the style properties
  * (backgroundColor, borderRadius, opacity).

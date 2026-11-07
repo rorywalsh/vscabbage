@@ -619,6 +619,19 @@ export class Settings {
                 console.error('Cabbage: Error syncing customWidgetDirectories to settings file:', err);
             }
         }
+
+        // Selecting a different widget kit changes which classes back the
+        // built-in widget types, so rescan and tell the user to reload.
+        if (event.affectsConfiguration('cabbage.widgetKit')) {
+            try {
+                await vscode.commands.executeCommand('cabbage.restartBackend');
+                if (Commands.getPanel()) {
+                    vscode.window.showInformationMessage('Cabbage: Widget kit changed. Reload the instrument to apply it.');
+                }
+            } catch (err) {
+                console.warn('Cabbage: Failed to apply widget kit change:', err);
+            }
+        }
     }
 
     /**
@@ -725,6 +738,11 @@ export class Settings {
                 if (relativeSource === 'widgets/test.html') {
                     return false;
                 }
+                // Bundled widget kits stay with the extension; users can add
+                // their own kits under <customRoot>/cabbage/widgets/kits.
+                if (relativeSource === 'widgets/kits' || relativeSource.startsWith('widgets/kits/')) {
+                    return false;
+                }
 
                 // If this is a file in the widgets directory, check if it's a built-in widget
                 if (type === vscode.FileType.File && sourcePath.includes(path.join('cabbage', 'widgets'))) {
@@ -770,6 +788,14 @@ export class Settings {
                         Commands.getOutputChannel().appendLine(`Cabbage: Could not remove ${stalePath}: ${String(err)}`);
                     }
                 }
+            }
+
+            // Give user kits a conventional home: <customRoot>/cabbage/widgets/kits
+            try {
+                const userKitsDir = path.join(targetCabbageDir, 'widgets', 'kits');
+                await vscode.workspace.fs.createDirectory(vscode.Uri.file(userKitsDir));
+            } catch (err) {
+                // Non-fatal; the folder is optional.
             }
         } catch (err) {
             console.error('Cabbage: Failed to copy cabbage folder', err);

@@ -19,7 +19,7 @@
  * 5. Returns the list of discovered widget types
  */
 
-import { registerWidget } from './widgetTypes.js';
+import { registerWidget, registerWidgetKit, registerKitWidget, setActiveWidgetKit } from './widgetTypes.js';
 
 /**
  * Discovers and registers custom widgets from configured directories.
@@ -64,6 +64,28 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                             }
                         }
                     });
+
+                    // Widget kits: may deliberately override built-in types.
+                    const kits = message.kits || [];
+                    kits.forEach(kit => {
+                        if (!kit || !kit.id) {
+                            return;
+                        }
+                        registerWidgetKit(kit.id, kit.name, kit.description);
+                        (kit.widgets || []).forEach(w => {
+                            if (w && w.widgetType && w.webviewPath && w.className) {
+                                try {
+                                    registerKitWidget(kit.id, w.widgetType, w.webviewPath, w.className);
+                                    console.log(`Cabbage: Registered kit widget: ${w.widgetType} -> ${kit.id} -> ${w.webviewPath}`);
+                                } catch (err) {
+                                    console.error(`Cabbage: Failed to register kit widget ${w.widgetType} (${kit.id}):`, err);
+                                }
+                            }
+                        });
+                    });
+                    const activeKit = setActiveWidgetKit(message.activeKit || '');
+                    console.log(`Cabbage: widget kits loaded: ${kits.length}, active: ${activeKit || 'none'}`);
+
                     // Always refresh. A rescan of already-registered types still
                     // needs to rebuild the menu if it was created before they
                     // arrived, or wiped by a form rebuild.

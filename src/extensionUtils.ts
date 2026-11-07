@@ -22,6 +22,8 @@ import {
 import {
     extractWidgetInfoFromFile as extractWidgetInfoFromFileUtil,
     scanForCustomWidgets as scanForCustomWidgetsUtil,
+    scanForWidgetKits,
+    WidgetKit,
 } from './utils/widgetScan';
 
 
@@ -1137,12 +1139,26 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
             ? `<div id="VuMeter" class="vu-meter vu-${vuMeterPosition}${vuMeterShowReadouts ? '' : ' vu-no-readouts'}" data-readouts="${vuMeterShowReadouts ? 'on' : 'off'}"></div>`
             : '';
 
+        // Stable import aliases for custom widgets and widget kits, so they can
+        // live at any folder depth without relative-import gymnastics.
+        // `mainJS` points at <cabbage base>/main.js.
+        const cabbageBaseUrl = mainJS.toString().replace(/\/main\.js(?:\?.*)?$/, '');
+        const importMap = `<script type="importmap">
+{
+  "imports": {
+    "cabbage": "${cabbageBaseUrl}/cabbage.js",
+    "cabbage/": "${cabbageBaseUrl}/"
+  }
+}
+</script>`;
+
         return `
 <!doctype html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
+  ${importMap}
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="module" src="${interactJS}"></script>
@@ -2165,6 +2181,41 @@ ${csoundSection}`;
             }
         }
         return resolved;
+    }
+
+    /**
+     * Discovers widget kits from the extension's bundled widgets folder and
+     * from every custom widget directory. Canonical (bundled) kits win when a
+     * user kit reuses the same id.
+     */
+    static async getWidgetKits(): Promise<WidgetKit[]> {
+        const kits: WidgetKit[] = [];
+        const seenIds = new Set<string>();
+
+        const addKitsFrom = async (widgetsDirectory: string): Promise<void> => {
+            const found = await scanForWidgetKits(widgetsDirectory);
+            for (const kit of found) {
+                if (seenIds.has(kit.id)) {
+                    console.warn(`Cabbage: duplicate widget kit id "${kit.id}" ignored (first match wins)`);
+                    continue;
+                }
+                seenIds.add(kit.id);
+                kits.push(kit);
+            }
+        };
+
+        // Kits shipped with the extension.
+        const jsSourceDir = Settings.getPathJsSourceDir();
+        if (jsSourceDir) {
+            await addKitsFrom(path.join(jsSourceDir, 'cabbage', 'widgets'));
+        }
+
+        // Kits provided by user custom widget directories.
+        for (const widgetsDir of await ExtensionUtils.getCustomWidgetDirectories()) {
+            await addKitsFrom(widgetsDir);
+        }
+
+        return kits;
     }
 
     /**
