@@ -50,6 +50,23 @@ const STYLES = `
     width: 100%;
     min-height: 0;
 }
+.vintage-knob-well::before {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--vintage-knob-size) + 24px);
+    height: calc(var(--vintage-knob-size) + 24px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: repeating-conic-gradient(from 240deg,
+        color-mix(in srgb, var(--vintage-ink) 65%, transparent) 0deg 1deg,
+        transparent 1deg 30deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+    opacity: 0.5;
+    content: "";
+    pointer-events: none;
+}
 .vintage-knob {
     position: relative;
     isolation: isolate;
