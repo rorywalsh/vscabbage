@@ -91,9 +91,10 @@ export class PunchComboBox {
         this.vscode = null;
         this.parameterIndex = 0;
         this.widgetDiv = null;
+        this.defaultLabelCleared = false;
         this.hiddenProps = [
             'parameterIndex', 'children', 'currentCsdFile', 'value',
-            'populate', 'valueText',
+            'valueText',
             'label.align', 'label.offsetX', 'label.offsetY',
             'style.borderRadius', 'style.borderWidth', 'style.borderColor', 'style.backgroundColor',
             'style.fontFamily', 'style.fontSize', 'style.fontColor', 'style.textAlign',
@@ -103,6 +104,9 @@ export class PunchComboBox {
     }
 
     getItems() {
+        if (typeof this.props.items === "string") {
+            return this.props.items.split(",").map((item) => item.trim()).filter(Boolean);
+        }
         if (Array.isArray(this.props.items) && this.props.items.length > 0) {
             return this.props.items;
         }
@@ -112,10 +116,30 @@ export class PunchComboBox {
         return [fallback];
     }
 
+    getDisplayText(item) {
+        const text = String(item ?? "");
+        if (this.props.populate?.fullFileAndPath === false) {
+            const lastSlash = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"));
+            const filename = lastSlash >= 0 ? text.substring(lastSlash + 1) : text;
+            const lastDot = filename.lastIndexOf(".");
+            return lastDot > 0 ? filename.substring(0, lastDot) : filename;
+        }
+        return text;
+    }
+
     getSelectedIndex(items, range) {
-        const raw = this.props.channels?.[0]?.range?.value;
+        const channel = this.props.channels?.[0];
+        const savedStringValue = channel?.stringValue;
+        if (channel?.type === "string" && savedStringValue) {
+            const found = items.findIndex((item) => String(item) === String(savedStringValue));
+            if (found >= 0) {
+                return found;
+            }
+        }
+
+        const raw = channel?.range?.value;
         if (typeof raw === "string") {
-            const found = items.indexOf(raw);
+            const found = items.findIndex((item) => String(item) === raw);
             return found >= 0 ? found : 0;
         }
         const value = Number(raw);
@@ -133,10 +157,15 @@ export class PunchComboBox {
         const selected = this.getSelectedIndex(items, range);
         const color = this.props.style?.color || {};
         const labelText = typeof this.props.label?.text === "string" ? this.props.label.text : "";
-        const options = items.map((item, index) => {
-            const text = String(item ?? "");
-            return `<option value="${escapeHtml(text)}"${index === selected ? " selected" : ""}>${escapeHtml(text)}</option>`;
-        }).join("");
+        const showDefaultLabel = !!(this.props.populate?.defaultLabel && !this.defaultLabelCleared);
+        const options = (showDefaultLabel
+            ? [`<option value="" selected>${escapeHtml(this.props.populate.defaultLabel)}</option>`]
+            : []).concat(items.map((item, index) => {
+                const text = String(item ?? "");
+                const display = this.getDisplayText(item);
+                const isSelected = !showDefaultLabel && index === selected;
+                return `<option value="${escapeHtml(text)}"${isSelected ? " selected" : ""}>${escapeHtml(display)}</option>`;
+            })).join("");
 
         return `
             <div class="punch-combo-widget"
@@ -179,8 +208,14 @@ export class PunchComboBox {
                 channel.range = range;
             }
 
-            const index = select.selectedIndex;
-            const valueToSend = this.props.indexOffset ? index + 1 : index;
+            const showDefaultLabel = !!(this.props.populate?.defaultLabel && !this.defaultLabelCleared);
+            const itemIndex = select.selectedIndex - (showDefaultLabel ? 1 : 0);
+            if (itemIndex < 0) {
+                return;
+            }
+            this.defaultLabelCleared = true;
+
+            const valueToSend = this.props.indexOffset ? itemIndex + 1 : itemIndex;
             channel.range.value = valueToSend;
 
             const channelType = channel.type || "number";
@@ -190,6 +225,7 @@ export class PunchComboBox {
 
             const messageValue = channelType === "string" ? select.value : valueToSend;
             sendValue(this, messageValue, "complete");
+            CabbageUtils.updateInnerHTML(this.props, this);
         });
     }
 }

@@ -15,6 +15,7 @@ import {
     sendValue,
     setValue,
     sliderColors,
+    valueFromRatio,
 } from "./punchKit.js";
 
 const STYLES = `
@@ -235,21 +236,25 @@ export class PunchRotarySlider {
         this.widgetDiv = widgetDiv;
 
         let dragStartY = 0;
-        let dragStartValue = 0;
+        let dragStartRatio = 0;
 
         attachPointerDrag(widgetDiv, {
             shouldStart: (event) => !!event.target.closest(".punch-knob"),
             onStart: (event) => {
                 dragStartY = event.clientY;
-                dragStartValue = getValue(this.props);
-                sendValue(this, dragStartValue, "begin");
+                dragStartRatio = ratioFromValue(getValue(this.props), getRange(this.props));
+                sendValue(this, getValue(this.props), "begin");
             },
             onMove: (event) => {
                 const range = getRange(this.props);
                 const rect = widgetDiv.getBoundingClientRect();
                 const distance = Math.max(1, rect.height * 0.9);
-                const next = dragStartValue + ((dragStartY - event.clientY) / distance) * (range.max - range.min);
-                setValue(this, next, "value");
+                const nextRatio = CabbageUtils.clamp(
+                    dragStartRatio - (event.clientY - dragStartY) / distance,
+                    0,
+                    1,
+                );
+                setValue(this, valueFromRatio(nextRatio, range), "value");
             },
             onEnd: () => {
                 sendValue(this, getValue(this.props), "end");

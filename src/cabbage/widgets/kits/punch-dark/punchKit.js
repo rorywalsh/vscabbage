@@ -128,13 +128,21 @@ export function formatValue(value, props, range) {
     return `${prefix}${Number(value).toFixed(places)}${postfix}`;
 }
 
+/**
+ * Position ratio (0..1) for a value, taking skew into account. This is the
+ * inverse of valueFromRatio: skewed ranges move the thumb/fill/arc in linear
+ * position space.
+ */
 export function ratioFromValue(value, range) {
     const min = Number(range.min) || 0;
     const max = Number(range.max) || 0;
     if (max === min) {
         return 0;
     }
-    return CabbageUtils.clamp((Number(value) - min) / (max - min), 0, 1);
+    const normalized = CabbageUtils.clamp((Number(value) - min) / (max - min), 0, 1);
+    const skew = Number(range.skew);
+    const safeSkew = Number.isFinite(skew) && skew > 0 ? skew : 1;
+    return Math.pow(normalized, safeSkew);
 }
 
 export function valueFromRatio(ratio, range) {
