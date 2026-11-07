@@ -715,6 +715,17 @@ export class Settings {
         try {
             // Copy the entire cabbage directory recursively, excluding internal widget files
             await Settings.copyDirectoryRecursive(sourceCabbageDir, targetCabbageDir, (sourcePath, name, type) => {
+                const relativeSource = path.relative(sourceCabbageDir, sourcePath).split(path.sep).join('/');
+
+                // Framework demo/web-component files are not needed in a custom
+                // widget folder (and discovery ignores them).
+                if (relativeSource === 'widgets/htmlElements' || relativeSource.startsWith('widgets/htmlElements/')) {
+                    return false;
+                }
+                if (relativeSource === 'widgets/test.html') {
+                    return false;
+                }
+
                 // If this is a file in the widgets directory, check if it's a built-in widget
                 if (type === vscode.FileType.File && sourcePath.includes(path.join('cabbage', 'widgets'))) {
                     // Skip built-in widget files
@@ -741,6 +752,25 @@ export class Settings {
                 return true; // Copy everything else (and overwrite infrastructure files)
             });
             Commands.getOutputChannel().appendLine(`Cabbage: Copied cabbage folder structure to ${targetCabbageDir} (excluding internal widget files)`);
+
+            // Older versions copied framework-only files into custom folders.
+            // Remove them so they don't linger alongside the user's widgets.
+            if (path.resolve(targetCabbageDir) !== path.resolve(sourceCabbageDir)) {
+                const stalePaths = [
+                    path.join(targetCabbageDir, 'widgets', 'htmlElements'),
+                    path.join(targetCabbageDir, 'widgets', 'test.html'),
+                ];
+                for (const stalePath of stalePaths) {
+                    try {
+                        if (fs.existsSync(stalePath)) {
+                            fs.rmSync(stalePath, { recursive: true, force: true });
+                            Commands.getOutputChannel().appendLine(`Cabbage: Removed stale framework path: ${stalePath}`);
+                        }
+                    } catch (err) {
+                        Commands.getOutputChannel().appendLine(`Cabbage: Could not remove ${stalePath}: ${String(err)}`);
+                    }
+                }
+            }
         } catch (err) {
             console.error('Cabbage: Failed to copy cabbage folder', err);
             vscode.window.showErrorMessage(`Cabbage: Failed to copy cabbage folder: ${String(err)}`);
