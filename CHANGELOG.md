@@ -2,6 +2,46 @@
 
 | Message                                | Repo      | Date       | Commit                            |
 |----------------------------------------|-----------|------------|------------------------------------|
+| fix(widget-kits): release pointer focus for performance keyb | vscabbage | 2026-11-07 | cc36d922fa336a8cac2e52221954839e54028d72 |
+| fix(widget-kits): address Copilot review findings            | vscabbage | 2026-11-07 | b93b3a3ece8aaeba05499764c3a03a43e970a1d7 |
+| style(kits): make vintage base tick marks visible in light t | vscabbage | 2026-11-07 | 5f3517d1365788d867840b4aba0ae4b3bcfd3bef |
+| fix(kits): light the final vintage knob tick at maximum      | vscabbage | 2026-11-07 | 4c01924d3ba9f766c61c7fef18a6935952b33218 |
+| style(kits): fill vintage knob ticks instead of drawing a tr | vscabbage | 2026-11-07 | 094f378b6bd5fb26c820bd03fc0fccafb36b00d3 |
+| style(kits): restore fewer tick marks on the vintage knob    | vscabbage | 2026-11-07 | 9c2f6551d512729e17332edb3b6d56b2a9ea158f |
+| style(kits): simplify the vintage knob and fix combo text cl | vscabbage | 2026-11-07 | 2e5a2e6f2f8931b1d9c9b56662835fc7b961508e |
+| feat(kits): bundle Vintage Light and Vintage Dark kits       | vscabbage | 2026-11-07 | 305373fd3309dd1aa1ff62c54cea6f6536ddd6ed |
+| fix(kits): don't restart the backend when selecting a kit    | vscabbage | 2026-11-07 | b57de4aa5e5621750339e281c48368030af2e2d4 |
+| feat(kits): support skew and combo populate.directory        | vscabbage | 2026-11-07 | d26d0dd95ada888d77f573861982bf01d2eb91a8 |
+| fix(kits): theme the combo box focus ring                    | vscabbage | 2026-11-07 | 92c94ecdfce823601790fa671189e416a115d41f |
+| feat(widgets): bundle Punch Light and Punch Dark kits        | vscabbage | 2026-11-07 | d959e9728270af70b10d21e19a890d0e9ab0f786 |
+| feat(widgets): add a Select Widget Kit quick pick command    | vscabbage | 2026-11-07 | d87fe9a80fca0a8fb384ddac3aca8027f33766da |
+| fix(widgets): push kit registry before backend sends widgets | vscabbage | 2026-11-07 | 44bd1ee7aa6a81a53f53de8fd817d057b0aa8504 |
+| fix(widgets): allow widgets that build props via helpers     | vscabbage | 2026-11-07 | 2b1ae3314bdc3fa235875985d56d688aeef0e253 |
+| feat(export): ship the active widget kit with exported plugi | vscabbage | 2026-11-07 | dcecf90f12c0885491bd78ba3a5c7d2e20059caf |
+| feat(widgets): add widget kits with stable import aliases    | vscabbage | 2026-11-07 | de3bd0dbf02521c1488a22dce6ee3b3aed7c42f8 |
+| chore(widgets): drop unused htmlElements web components      | vscabbage | 2026-11-07 | 5c57665d86c8edac3ac623ba1d29a6ced763f376 |
+| fix(widgets): only register files that declare widget props  | vscabbage | 2026-11-07 | ddad6dab7d8e1e8a29394e0275d90d20a66d9ef4 |
+| feat(widgets): discover custom widgets in category subfolder | vscabbage | 2026-11-07 | ca988c7598adc8f6115e81f2d98441ecba0ed81f |
+| fix(export): validate active .csd editor before exporting    | vscabbage | 2026-11-07 | 7ef04bec977d32948838e9c1b025734750936200 |
+| ci(dependabot): ignore TypeScript 7.x and @types/vscode >=1. | vscabbage | 2026-11-05 | 92a14ef362e53327c831bf62a1a13bcbf0a59d6f |
+| build(deps): bump lattice pin to df8d97f for webview host si | cabbage   | 2026-11-05 | 605e3329a6c78431398a3411b6d0c7012a2ee59c |
+| Update documentation link for Cabbage 3                      | cabbage   | 2026-11-05 | 3d876812d27cfcbb9b237a13a14a8c809b0eb78f |
+| fix(form): use style.backgroundColor for the form selection  | vscabbage | 2026-11-05 | b1e7a13f664372483edaf810be4e70d935c3afcb |
+| feat(listbox): add single-click send option                  | vscabbage | 2026-11-05 | 00f19b16b07cebc61dc6ab8755bfb2085a2fa029 |
+| chore: add full-corpus regeneration script                   | vscabbage | 2026-11-04 | 558e6ff86bca5b6c002f011d00478ae50fbc5f9a |
+| fix(converter): map gentable tableNumbers (plural) to tableN | vscabbage | 2026-11-04 | e0b0f878ad601935bb0a17408f0a8c569eca9c96 |
+| feat(converter): auto-wire soundfiler->genTable tableNumber/ | vscabbage | 2026-11-04 | 05ff1ce05b36001233eb55b4edb910ed73b25fa9 |
+| fix(converter): use 0-based comboBox with orchestra index sh | vscabbage | 2026-11-04 | d81b7d6b298322c8a2be41772788af7d071b383f |
+| fix(converter): use changed() pulse as cabbageSet visible tr | vscabbage | 2026-11-03 | ede8258b5611a0e0c25d333b02762869f303f5cb |
+| fix(converter): set indexOffset on comboBox/optionButton     | vscabbage | 2026-11-03 | 6fa847f22ce7afe0909c12503f2ea0dd2c1aa252 |
+| fix(rotarySlider): hide label when widget is not visible     | vscabbage | 2026-11-03 | 9c705914a9f5198c5f7f15cd13b3bdf14af60c9e |
+| fix(converter): emit k-rate triggered cabbageSet for visible | vscabbage | 2026-11-03 | 27d1a442e80253005786c7980c0c2e1356d52a2d |
+| feat(converter): map soundfiler widget to genTable           | vscabbage | 2026-11-03 | 56e847b3bcaa1c93e0a797795cd98b24c1496f93 |
+| fix(converter): keep manual-review mouse variables defined   | vscabbage | 2026-11-03 | d8de94d88f386f8b6c297c9bf1545156a755abda |
+| feat(converter): auto-convert Cabbage 2 MOUSE_* channels     | vscabbage | 2026-11-03 | b9883834f71bbaa039b1b07f5b9c80ad07b8c503 |
+| fix(widgets): fire mouseReleaseLeft on image pointerup       | vscabbage | 2026-11-03 | 7113e638915b563d6198fad3a8ba413368d728be |
+| docs(examples): Updating examples so they fall inine with th | vscabbage | 2026-11-02 | 073446aa55440da3e8bfbf1a6805d3ae1b863b09 |
+| fix(verticalslider): Fixing null issue with vertical sliders | vscabbage | 2026-11-02 | 7e8b3b12ec7ee4a91a9443fc2bc85777fcbf4e40 |
 | fix(validateinstall): Updating validate install command to v | vscabbage | 2026-11-02 | d78df8f4b76e4effbe25a1dfe397c6991123de0e |
 | fix(webviewwhitescreen): Changing default colour of backgrou | vscabbage | 2026-10-29 | 0c45869ab00813bcb5b3ea4cdc6eb058f45aa186 |
 | fix(examples): close missing CsInstruments tag and remove tr | vscabbage | 2026-10-28 | b545cbbcb24e99bcbe27cf9ae5b8f6c767c1e0a6 |
