@@ -8,13 +8,16 @@
 # rest becomes the commit body. The changelog only ever uses the subject.
 #
 # Usage:
-#     bash commit.sh [-t type] [-s scope] [-m "message"] [-b "body"] [--push] [--no-push] [--dry-run]
+#     bash commit.sh [-t type] [-s scope] [-m "message"] [-b "body"] [--push] [--no-push] [--skip-ci] [--dry-run]
 #     bash commit.sh --trigger-build [--no-release] [--push] [--dry-run]
 #
 # --trigger-build (vscabbage repo only) makes an empty commit on main that
 # starts the packaging workflow, which rebuilds cabbage develop fresh. The
 # backend SHA is embedded in the subject; --no-release adds a no_build body
 # so CI builds the .vsix artifacts without cutting a release.
+#
+# --skip-ci adds the [skip ci] marker so pushing does not trigger CI (the
+# interactive push prompt offers this as a choice too).
 #
 # Anything not passed as a flag is prompted for. Works in any repo.
 # Examples:
@@ -39,7 +42,7 @@ describe() {
 }
 
 usage() {
-    sed -n '2,18p' "$0"
+    sed -n '2,21p' "$0"
     echo ""
     echo "Types:"
     local i=1
@@ -50,7 +53,7 @@ usage() {
 }
 
 TYPE=""; SCOPE=""; MESSAGE=""; BODY=""; BODY_GIVEN=0; PUSH="ask"; DRY_RUN=0
-TRIGGER_BUILD=0; NO_RELEASE=0; ALLOW_EMPTY=""
+TRIGGER_BUILD=0; NO_RELEASE=0; ALLOW_EMPTY=""; SKIP_CI=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -63,6 +66,7 @@ while [ $# -gt 0 ]; do
         -n|--dry-run) DRY_RUN=1; shift ;;
         --trigger-build) TRIGGER_BUILD=1; shift ;;
         --no-release) NO_RELEASE=1; shift ;;
+        --skip-ci)    SKIP_CI=1; shift ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -85,6 +89,7 @@ if [ "$TRIGGER_BUILD" = "1" ]; then
     [ -n "$SCOPE" ] && { echo "--scope cannot be combined with --trigger-build. Aborting."; exit 1; }
     [ -n "$MESSAGE" ] && { echo "--message cannot be combined with --trigger-build. Aborting."; exit 1; }
     [ "$BODY_GIVEN" = "1" ] && { echo "--body cannot be combined with --trigger-build. Aborting."; exit 1; }
+    [ "$SKIP_CI" = "1" ] && { echo "--skip-ci cannot be combined with --trigger-build. Aborting."; exit 1; }
 
     # The packaging workflow lives in vscabbage; triggering from anywhere
     # else would push a meaningless commit.
@@ -287,9 +292,36 @@ else
 fi
 
 if [ "$PUSH" = "ask" ]; then
-    printf "Push now? [y/N] "
-    read -r answer
-    answer=${answer%$'\r'}
-    [ "$answer" = "y" ] || [ "$answer" = "Y" ] && PUSH="yes" || PUSH="no"
+    if [ "$TRIGGER_BUILD" = "1" ]; then
+        # Trigger commits exist purely to start a build — no skip-ci option.
+        printf "Push now? [y/N] "
+        read -r answer
+        answer=${answer%$'\r'}
+        [ "$answer" = "y" ] || [ "$answer" = "Y" ] && PUSH="yes" || PUSH="no"
+    else
+        echo "Push now?"
+        echo "  a) push (triggers a CI build)"
+        echo "  b) push with [skip ci] (no CI build)"
+        echo "  n) don't push"
+        printf "Choice [a/b/N]: "
+        read -r answer
+        answer=${answer%$'\r'}
+        case "$answer" in
+            a|A|y|Y) PUSH="yes" ;;
+            b|B)     PUSH="yes"; SKIP_CI="1" ;;
+            *)       PUSH="no" ;;
+        esac
+    fi
 fi
+
+# Fold in the [skip ci] marker if requested (via --skip-ci or the push prompt
+# above), unless the message already contains it. The commit has not been
+# pushed yet, so amending it is safe.
+if [ "$SKIP_CI" = "1" ] && ! git log -1 --format=%B | grep -qi '\[skip ci\]'; then
+    echo "Adding [skip ci] to the commit message."
+    git commit --amend -m "$(git log -1 --format=%B)
+
+[skip ci]" >/dev/null
+fi
+
 [ "$PUSH" = "yes" ] && git push
