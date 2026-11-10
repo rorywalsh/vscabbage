@@ -307,6 +307,7 @@ export class HorizontalSlider {
     this.widgetDiv = widgetDiv;
     this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
     widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
+    widgetDiv.addEventListener("dblclick", this.doubleClick.bind(this));
     widgetDiv.addEventListener("mouseenter", this.mouseEnter.bind(this));
     widgetDiv.addEventListener("mouseleave", this.mouseLeave.bind(this));
     widgetDiv.HorizontalSliderInstance = this;
@@ -381,6 +382,38 @@ export class HorizontalSlider {
     Cabbage.sendControlData({
       channel: CabbageUtils.getChannelId(this.props),
       value: valueToSend,
+      gesture: "complete",
+      automatable: this.props.automatable,
+      paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
+    }, this.vscode);
+  }
+
+  doubleClick(evt) {
+    // Don't reset in edit mode (draggable mode)
+    if (getCabbageMode() === 'draggable') {
+      return;
+    }
+
+    if (!this.props.visible || !this.props.active) {
+      return;
+    }
+
+    // Ignore double clicks on the editable value text input
+    if (evt.target && evt.target.tagName === 'INPUT') {
+      return;
+    }
+
+    const range = CabbageUtils.getChannelRange(this.props, 0);
+    const defaultValue = range.defaultValue;
+
+    // Reset channel value and refresh the display
+    this.props.channels[0].range.value = defaultValue;
+    CabbageUtils.updateInnerHTML(this.props, this);
+
+    // Notify backend of the discrete change
+    Cabbage.sendControlData({
+      channel: CabbageUtils.getChannelId(this.props),
+      value: defaultValue,
       gesture: "complete",
       automatable: this.props.automatable,
       paramIdx: CabbageUtils.getChannelParameterIndex(this.props, 0)
