@@ -3,14 +3,28 @@ name: Build and Package Extensions
 #Current Csound7 release...
 env:
   CSOUND_TAG: "7.0.0"
+  # The cabbage3 C++ build uses `cmake --build`, which honours this variable and
+  # passes it down to the per-target execute_process() builds in its
+  # CMakeLists.txt. Without it every target compiles single-threaded.
+  CMAKE_BUILD_PARALLEL_LEVEL: "4"
 
 on:
   push:
     branches:
       - 'main' # Trigger on pushes to all branches
+    # Docs-only changes don't need four platform builds + a release.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches:
       - develop # Trigger on pull requests to develop branch
+
+# Cancel superseded pull-request runs, but never a run on main: that one
+# publishes a release, so let it finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   generate_tag:
@@ -19,7 +33,7 @@ jobs:
       version: ${{ steps.generate_version.outputs.version }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for accurate tagging
 
@@ -57,7 +71,7 @@ jobs:
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
     steps:
       - name: Checkout source code for cabbage3
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: rorywalsh/cabbage
           path: cabbage3
@@ -216,7 +230,7 @@ jobs:
 
       # Checkout source code for vscabbage
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
@@ -354,7 +368,7 @@ jobs:
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
     steps:
       - name: Checkout source code for cabbage3
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: rorywalsh/cabbage
           path: cabbage3
@@ -522,7 +536,7 @@ jobs:
 
 
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
@@ -624,7 +638,7 @@ jobs:
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
     steps:
       - name: Checkout source code for cabbage3
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: rorywalsh/cabbage
           path: cabbage3
@@ -781,7 +795,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
@@ -882,7 +896,7 @@ jobs:
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
     steps:
       - name: Checkout source code for cabbage3
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: rorywalsh/cabbage
           path: cabbage3
@@ -923,7 +937,7 @@ jobs:
       - name: Configure and build
         run: |
           cd cabbage3
-          cmake -G "Unix Makefiles" -B build \
+          cmake -G Ninja -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_ALL_TARGETS=ON \
             -DCMAKE_C_COMPILER=$(which gcc) \
@@ -959,7 +973,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: true
@@ -1040,7 +1054,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
