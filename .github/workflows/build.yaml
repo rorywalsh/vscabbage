@@ -12,10 +12,6 @@ on:
   push:
     branches:
       - 'main' # Trigger on pushes to all branches
-    # Docs-only changes don't need four platform builds + a release.
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   pull_request:
     branches:
       - develop # Trigger on pull requests to develop branch
