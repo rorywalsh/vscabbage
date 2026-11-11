@@ -11,8 +11,10 @@
  * on the reference line with the compact form:
  *
  *     cabbageGetValue("cutoff")  ; @widget type("rotarySlider") range(20, 20000, 800, 0.5)
+ *     cabbageGetValue("gain")    ; @widget type("horizontalSlider"), range(0, 1, 0.5)
  *
- * `range(min, max, value[, increment[, skew]])` is optional and positional.
+ * `range(min, max, value[, increment[, skew]])` is optional and positional. A
+ * comma between the clauses is allowed (and expected by Cabbage 2 habits).
  */
 
 /** Coarse value type taken from the LHS annotation (`CabbageNumTrig`, ...). */
@@ -54,7 +56,7 @@ export interface ChannelScanResult {
 }
 
 const OPCODE_SOURCE = '\\bcabbage(?:GetValue|SetValue|Get|Set)\\b';
-const HINT_RE = /@widget\s+type\s*\(\s*"([^"]+)"\s*\)(?:\s+range\s*\(([^)]*)\))?/i;
+const HINT_RE = /@widget\s+type\s*\(\s*"([^"]+)"\s*\)\s*,?\s*(?:range\s*\(([^)]*)\))?/i;
 const VALUE_TYPE_RE = /Cabbage(Str|Num)(Trig)?/i;
 const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 

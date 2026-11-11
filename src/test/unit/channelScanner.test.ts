@@ -55,7 +55,7 @@ describe('scanCabbageChannels', () => {
 
     it('parses an inline @widget hint and range', () => {
         const result = scanCabbageChannels(csd(
-            '    freq:k = cabbageGetValue("cutoff") ; @widget type("rotarySlider") range(20, 20000, 800, 0.5)'
+            '    freq:k = cabbageGetValue("cutoff") ; @widget type("rotarySlider"), range(20, 20000, 800, 0.5)'
         ));
         assert.strictEqual(result.channels.length, 1);
         const hint = result.channels[0].hint;
@@ -98,6 +98,18 @@ describe('parseWidgetHint', () => {
 
     it('rejects the old bare type form', () => {
         assert.strictEqual(parseWidgetHint('; @widget rotarySlider range(20, 20000, 800)'), undefined);
+    });
+
+    it('tolerates an optional comma between type() and range()', () => {
+        const spaced = parseWidgetHint('; @widget type("rotarySlider"), range(20, 20000, 800, 0.5)');
+        assert.deepStrictEqual(spaced?.range, {
+            min: 20, max: 20000, value: 800, increment: 0.5, skew: undefined,
+        });
+
+        const tight = parseWidgetHint('; @widget type("button"),range(0, 1, 0)');
+        assert.deepStrictEqual(tight?.range, {
+            min: 0, max: 1, value: 0, increment: undefined, skew: undefined,
+        });
     });
 
     it('supports min/max/value plus optional increment and skew', () => {
