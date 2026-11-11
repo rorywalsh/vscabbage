@@ -17,6 +17,14 @@ import {
     reorderJsoncArrayValues,
     widgetMatchesId,
 } from './utils/jsonc';
+import { DetectedChannel, scanCabbageChannels } from './utils/channelScanner';
+import {
+    bottomOfWidgets,
+    channelToWidget,
+    fitFormHeight,
+    inferWidgetType,
+    layoutWidgets,
+} from './utils/channelToWidget';
 import {
     applyKitWidgetImportOverrides,
     buildKitImportOverrides,
@@ -141,6 +149,170 @@ export class Commands {
             console.error('Error reordering widgets:', error);
             vscode.window.showErrorMessage('Failed to reorder widgets. Please ensure the Cabbage JSON is valid.');
         }
+    }
+
+    /**
+     * Generates widgets for the Cabbage channels referenced in the orchestra.
+     *
+     * Scans the active .csd for cabbageGetValue / cabbageSetValue / cabbageGet
+     * / cabbageSet calls, infers a widget type for each channel (honouring an
+     * optional inline `@widget` hint) and lets the user pick which channels to
+     * add before writing them into the <Cabbage> section.
+     */
+    static async generateUi() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('Cabbage: No active editor found.');
+            return;
+        }
+
+        const document = editor.document;
+        const text = document.getText();
+        const scan = scanCabbageChannels(text);
+        const skippedSuffix = scan.skipped.length > 0
+            ? ` (${scan.skipped.length} dynamic channel reference(s) skipped)`
+            : '';
+
+        if (scan.channels.length === 0) {
+            vscode.window.showInformationMessage(`Cabbage: No widget channels found in this file${skippedSuffix}.`);
+            return;
+        }
+
+        // Parse the existing <Cabbage> section, if there is one.
+        const cabbageMatch = text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/);
+        let existingRoot: any;
+        let existingWidgets: any[] = [];
+        let cabbageContent = '';
+
+        if (cabbageMatch) {
+            cabbageContent = cabbageMatch[1].trim();
+            // An empty <Cabbage></Cabbage> is valid but not parseable as JSON;
+            // treat it as an empty widget array so we can populate it.
+            if (cabbageContent === '') {
+                cabbageContent = '[]';
+            }
+            try {
+                const parsed = parseCabbageJSON(cabbageContent);
+                existingRoot = parsed.root;
+                existingWidgets = parsed.widgets;
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`Cabbage: Could not parse the existing <Cabbage> section: ${message}`);
+                return;
+            }
+        }
+
+        // Only offer channels that do not already have a widget.
+        const candidates = scan.channels.filter(channel =>
+            !existingWidgets.some(widget => widgetMatchesId(widget, channel.channel))
+        );
+
+        if (candidates.length === 0) {
+            vscode.window.showInformationMessage('Cabbage: Every referenced channel already has a widget.');
+            return;
+        }
+
+        interface ChannelPickItem extends vscode.QuickPickItem {
+            detected: DetectedChannel;
+            widgetType: string;
+            picked: boolean;
+        }
+
+        const items: ChannelPickItem[] = candidates.map(detected => {
+            const widgetType = detected.hint?.type || inferWidgetType(detected.channel, detected.valueType);
+            const references = `${detected.refCount} reference${detected.refCount === 1 ? '' : 's'}`;
+            return {
+                label: detected.channel,
+                description: `→ ${widgetType}`,
+                detail: detected.hint ? `${references} • @widget hint` : references,
+                picked: true,
+                detected,
+                widgetType,
+            };
+        });
+
+        const picked = await vscode.window.showQuickPick(items, {
+            canPickMany: true,
+            title: 'Generate UI from channels',
+            placeHolder: 'Select the channels to turn into widgets',
+        });
+
+        if (!picked || picked.length === 0) {
+            return;
+        }
+
+        // Build the new widgets and lay them out below any existing content.
+        const newWidgets = picked.map(item => channelToWidget(item.detected));
+        const existingForm = existingWidgets.find(widget => widget?.type === 'form');
+        const formWidth = existingForm?.size?.width ?? 600;
+        const startY = bottomOfWidgets(existingWidgets) + 10;
+        layoutWidgets(newWidgets, formWidth, startY);
+
+        let widgets = existingWidgets.slice();
+        let form = existingForm;
+        if (!form) {
+            form = {
+                type: 'form',
+                caption: path.basename(document.fileName, path.extname(document.fileName)) || 'Generated UI',
+                size: { width: formWidth, height: 300 },
+            };
+            widgets.unshift(form);
+        }
+        widgets = widgets.concat(newWidgets);
+        fitFormHeight(form, newWidgets);
+
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const options = {
+            maxLength: config.get('jsonMaxLength', 120),
+            indent: config.get('jsonIndentSpaces', 4),
+        };
+
+        const edit = new vscode.WorkspaceEdit();
+
+        if (cabbageMatch) {
+            const updatedRoot = Array.isArray(existingRoot)
+                ? widgets
+                : { ...existingRoot, widgets };
+            const reconciled = reconcileJsonDocument(cabbageContent, updatedRoot, options);
+            const formatted = formatJsonText(reconciled, options);
+            edit.replace(
+                document.uri,
+                new vscode.Range(
+                    document.positionAt(cabbageMatch.index!),
+                    document.positionAt(cabbageMatch.index! + cabbageMatch[0].length)
+                ),
+                `<Cabbage>\n${formatted}\n</Cabbage>`
+            );
+        } else {
+            const root = { pluginId: 'def1', widgets };
+            const formatted = formatJsonText(JSON.stringify(root, null, options.indent), options);
+            const content = `<Cabbage>\n${formatted}\n</Cabbage>`;
+            const placement = config.get<string>('cabbageSectionPlacement', 'top');
+            if (placement === 'bottom') {
+                const closingTag = '</CsoundSynthesizer>';
+                const index = text.indexOf(closingTag);
+                const position = index !== -1
+                    ? document.positionAt(index + closingTag.length)
+                    : document.positionAt(text.length);
+                edit.insert(document.uri, position, `\n${content}\n`);
+            } else {
+                edit.insert(document.uri, new vscode.Position(0, 0), `${content}\n\n`);
+            }
+        }
+
+        if (!(await vscode.workspace.applyEdit(edit))) {
+            vscode.window.showErrorMessage('Cabbage: Failed to write the generated UI into the document.');
+            return;
+        }
+
+        const generated = picked.map(item => `${item.detected.channel} → ${item.widgetType}`).join(', ');
+        Commands.getOutputChannel().appendLine(`Generated UI (${picked.length}): ${generated}`);
+        for (const entry of scan.skipped) {
+            Commands.getOutputChannel().appendLine(`  Skipped dynamic channel: ${entry}`);
+        }
+        vscode.window.showInformationMessage(
+            `Cabbage: Generated ${picked.length} widget${picked.length === 1 ? '' : 's'}${skippedSuffix}.`
+        );
     }
 
     /**

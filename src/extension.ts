@@ -859,6 +859,12 @@ export async function activate(context: vscode.ExtensionContext):
             Commands.reorderWidgets();
         }));
 
+    // Register command for generating widgets from orchestra channel references
+    context.subscriptions.push(vscode.commands.registerCommand(
+        'cabbage.generateUi', () => {
+            Commands.generateUi();
+        }));
+
     // Register document formatting provider for VSCode's built-in Format Document command
     // Support both 'csound' (kunstmusik extension) and 'csound-csd' (legacy/other extensions)
     const formattingProvider = {
