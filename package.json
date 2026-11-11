@@ -588,6 +588,11 @@
         "command": "cabbage.reorderWidgets",
         "title": "Reorder Widgets",
         "category": "Cabbage"
+      },
+      {
+        "command": "cabbage.generateUi",
+        "title": "Generate UI from Channels",
+        "category": "Cabbage"
       }
     ]
   },
