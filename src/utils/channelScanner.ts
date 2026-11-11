@@ -10,7 +10,7 @@
  * The channel is always the first (string) argument. Inline hints may be added
  * on the reference line with the compact form:
  *
- *     cabbageGetValue("cutoff")  ; @widget rotarySlider range(20, 20000, 800, 0.5)
+ *     cabbageGetValue("cutoff")  ; @widget type("rotarySlider") range(20, 20000, 800, 0.5)
  *
  * `range(min, max, value[, increment[, skew]])` is optional and positional.
  */
@@ -54,7 +54,7 @@ export interface ChannelScanResult {
 }
 
 const OPCODE_SOURCE = '\\bcabbage(?:GetValue|SetValue|Get|Set)\\b';
-const HINT_RE = /@widget\s+([A-Za-z][\w]*)(?:\s+range\s*\(([^)]*)\))?/i;
+const HINT_RE = /@widget\s+type\s*\(\s*"([^"]+)"\s*\)(?:\s+range\s*\(([^)]*)\))?/i;
 const VALUE_TYPE_RE = /Cabbage(Str|Num)(Trig)?/i;
 const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
@@ -219,7 +219,7 @@ function parseNumberList(raw: string): number[] | undefined {
     return numbers;
 }
 
-/** Parse an inline `@widget type range(...)` hint from a line, if present. */
+/** Parse an inline `@widget type("...") range(...)` hint from a line, if present. */
 export function parseWidgetHint(line: string): WidgetHint | undefined {
     const match = HINT_RE.exec(line);
     if (!match) {

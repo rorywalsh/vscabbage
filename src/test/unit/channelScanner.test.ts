@@ -55,7 +55,7 @@ describe('scanCabbageChannels', () => {
 
     it('parses an inline @widget hint and range', () => {
         const result = scanCabbageChannels(csd(
-            '    freq:k = cabbageGetValue("cutoff") ; @widget rotarySlider range(20, 20000, 800, 0.5)'
+            '    freq:k = cabbageGetValue("cutoff") ; @widget type("rotarySlider") range(20, 20000, 800, 0.5)'
         ));
         assert.strictEqual(result.channels.length, 1);
         const hint = result.channels[0].hint;
@@ -71,7 +71,7 @@ describe('scanCabbageChannels', () => {
     it('merges repeated references and keeps the first hint', () => {
         const result = scanCabbageChannels(csd(`
     a:k = cabbageGetValue("cutoff")
-    cabbageSetValue("cutoff", a) ; @widget rotarySlider range(20, 20000, 800)
+    cabbageSetValue("cutoff", a) ; @widget type("rotarySlider") range(20, 20000, 800)
 `));
         assert.strictEqual(result.channels.length, 1);
         assert.strictEqual(result.channels[0].refCount, 2);
@@ -93,18 +93,22 @@ describe('scanCabbageChannels', () => {
 
 describe('parseWidgetHint', () => {
     it('supports a type-only hint', () => {
-        assert.deepStrictEqual(parseWidgetHint('; @widget checkBox'), { type: 'checkBox', range: undefined });
+        assert.deepStrictEqual(parseWidgetHint('; @widget type("checkBox")'), { type: 'checkBox', range: undefined });
+    });
+
+    it('rejects the old bare type form', () => {
+        assert.strictEqual(parseWidgetHint('; @widget rotarySlider range(20, 20000, 800)'), undefined);
     });
 
     it('supports min/max/value plus optional increment and skew', () => {
-        const hint = parseWidgetHint('; @widget horizontalSlider range(0, 1, 0.5, 0.01, 2)');
+        const hint = parseWidgetHint('; @widget type("horizontalSlider") range(0, 1, 0.5, 0.01, 2)');
         assert.deepStrictEqual(hint?.range, {
             min: 0, max: 1, value: 0.5, increment: 0.01, skew: 2,
         });
     });
 
     it('ignores malformed ranges', () => {
-        const hint = parseWidgetHint('; @widget rotarySlider range(20, nope, 1)');
+        const hint = parseWidgetHint('; @widget type("rotarySlider") range(20, nope, 1)');
         assert.strictEqual(hint?.type, 'rotarySlider');
         assert.strictEqual(hint?.range, undefined);
     });
