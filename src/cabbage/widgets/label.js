@@ -65,8 +65,8 @@ export class Label {
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
         this.widgetDiv = widgetDiv;
-        // Disable pointer events when active is false
-        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
+        // Disable pointer events when the label is hidden or inactive
+        this.widgetDiv.style.pointerEvents = (this.props.visible && this.props.active) ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 
@@ -139,8 +139,10 @@ export class Label {
                 <!-- Background SVG with preserveAspectRatio="none" -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
+                    <!-- Keep this in sync with the wrapper. An explicit "all" would override the
+                         wrapper's pointer-events: none and stop active:false passing clicks through. -->
                     <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
-                        pointer-events="all"></rect>
+                        pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}"></rect>
                 </svg>
     
                 <!-- Text SVG with proper alignment -->
