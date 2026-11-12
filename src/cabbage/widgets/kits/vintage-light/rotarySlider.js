@@ -35,7 +35,7 @@ const STYLES = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 4px;
     color: var(--vintage-ink);
     font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
     user-select: none;
@@ -44,7 +44,8 @@ const STYLES = `
 .vintage-knob-well {
     position: relative;
     display: flex;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    padding: 14px 0;
     align-items: center;
     justify-content: center;
     width: 100%;
@@ -200,7 +201,7 @@ export class VintageRotarySlider {
                     event: "valueChanged",
                     range: { defaultValue: 45, increment: 1, max: 100, min: 0, skew: 1 },
                 }],
-                label: { text: "" },
+                label: { text: "", offsetY: 0 },
                 valueText: { visible: true, width: "auto", prefix: "", postfix: "" },
                 style: {
                     opacity: 1,
@@ -215,7 +216,7 @@ export class VintageRotarySlider {
         this.hiddenProps = [
             'parameterIndex', 'children', 'currentCsdFile', 'value',
             'popup', 'velocity', 'filmStrip',
-            'label.align', 'label.offsetX', 'label.offsetY',
+            'label.align', 'label.offsetX',
             'valueText.width', 'valueText.offsetY',
             'style.thumb', 'style.track', 'style.label', 'style.valueText', 'style.shadow',
             'style.borderRadius', 'style.borderWidth', 'style.borderColor',
@@ -237,8 +238,9 @@ export class VintageRotarySlider {
         const color = this.props.style?.color || {};
         const size = Math.max(28, Math.min(this.props.bounds.width * 0.66, this.props.bounds.height * 0.42));
         const labelText = typeof this.props.label?.text === "string" ? this.props.label.text : "";
+        const labelOffsetY = Number(this.props.label?.offsetY) || 0;
         const label = labelText
-            ? `<span class="vintage-label">${escapeHtml(labelText)}</span>`
+            ? `<span class="vintage-label" style="transform: translateY(${labelOffsetY}px);">${escapeHtml(labelText)}</span>`
             : "";
         const valueText = this.props.valueText?.visible !== false
             ? `<output class="vintage-value">${escapeHtml(formatValue(value, this.props, range))}</output>`
