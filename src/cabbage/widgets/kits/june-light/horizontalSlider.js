@@ -21,7 +21,7 @@ import {
 
 const STYLES = `
 .june-hslider-widget {
-    --june-accent: #e0802c;
+    --june-accent: #94D200;
     --june-text: #d8d8d1;
     --june-muted: #8b8b84;
     --june-track: #1c1c1a;
