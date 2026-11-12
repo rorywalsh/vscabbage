@@ -923,11 +923,21 @@ export class CabbageUtils {
    */
   static handleMouseUp(evt, props, parameterIndex, vscode, onDragEnd = null) {
     const button = typeof evt.button === 'number' ? evt.button : 0;
-    const relCh = CabbageUtils.getChannelByEvent(
+    let relCh = CabbageUtils.getChannelByEvent(
       props,
       CabbageUtils.getMouseReleaseEvent(button),
       'click'
     );
+    // A dedicated release channel is optional. When the instrument only
+    // declares the press event, fall back to it so the channel returns to 0
+    // on release instead of staying stuck at 1.
+    if (!relCh) {
+      relCh = CabbageUtils.getChannelByEvent(
+        props,
+        CabbageUtils.getMousePressEvent(button),
+        'click'
+      );
+    }
     if (relCh) {
       Cabbage.sendControlData({ channel: relCh.id, value: 0, gesture: "end" }, vscode);
     }
