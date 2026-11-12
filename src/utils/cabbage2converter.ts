@@ -286,7 +286,7 @@ function makeRange(a: string[]): Record<string, number> | null {
     if (n.length > 2 && !isNaN(n[2])) range.defaultValue = n[2];
     if (n.length > 3 && !isNaN(n[3])) range.skew = n[3];
     if (n.length > 4 && !isNaN(n[4])) range.increment = n[4];
-    else range.increment = (n[1] - n[0]) / 1000;
+    else range.increment = 0.01;
     return range;
 }
 

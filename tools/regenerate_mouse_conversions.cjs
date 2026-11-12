@@ -37,9 +37,16 @@ const OUT_DIR = process.env.OUT_DIR || '/Users/rorywalsh/sourcecode/IainsCabbage
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'c2conv-'));
 const tsc = path.join(REPO, 'node_modules', '.bin', 'tsc');
 const convSrc = path.join(REPO, 'src', 'utils', 'cabbage2converter.ts');
+const csdFormatSrc = path.join(REPO, 'src', 'utils', 'csdFormat.ts');
+
+process.env.NODE_PATH = [path.join(REPO, 'node_modules'), process.env.NODE_PATH]
+    .filter(Boolean)
+    .join(path.delimiter);
+require('module').Module._initPaths();
+
 try {
     execSync(
-        `${JSON.stringify(tsc)} ${JSON.stringify(convSrc)} --outDir ${JSON.stringify(tmp)} ` +
+        `${JSON.stringify(tsc)} ${JSON.stringify(convSrc)} ${JSON.stringify(csdFormatSrc)} --outDir ${JSON.stringify(tmp)} ` +
         '--module node16 --target es2022 --moduleResolution node16 --skipLibCheck --esModuleInterop --ignoreConfig',
         { stdio: 'pipe' },
     );
@@ -48,6 +55,7 @@ try {
     process.exit(1);
 }
 const { convertCabbage2ToCabbage3 } = require(path.join(tmp, 'cabbage2converter.js'));
+const { formatCsdText } = require(path.join(tmp, 'csdFormat.js'));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,7 +110,11 @@ for (const f of files) {
 
     if (!DRY_RUN) {
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        fs.writeFileSync(outPath, result.text, 'utf-8');
+        fs.writeFileSync(outPath, formatCsdText(result.text, {
+            indentSpaces: 4,
+            jsonIndentSpaces: 4,
+            maxLength: 120,
+        }), 'utf-8');
     }
     results.push({ rel, ok: true, summary: result.summary, warnings: result.warnings });
 }
