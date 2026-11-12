@@ -244,26 +244,21 @@ Host/transport channels remain plain Csound control channels in Cabbage 3 (still
 | `TIME_SIG_NUM` | `HOST_TIME_SIG_NUM` |
 | `TIME_SIG_DENOM` | `HOST_TIME_SIG_DENOM` |
 
-Mouse channels are **removed** — `MOUSE_X`, `MOUSE_Y`, `MOUSE_DOWN_*`, `MOUSEWHEEL_*` (and `LAST_FILE_DROPPED`/`LAST_TEXT_DROPPED`) have no Cabbage 3 equivalent. Mouse position is now delivered as widget channel events (`mouseMoveX`/`mouseMoveY`/`mouseDragX`/`mouseDragY`). A Cabbage 2 instrument reading `chnget "MOUSE_X"` needs a widget (typically a full-size `image`) with a `mouseMoveX` channel to recreate the same values.
+Mouse channels are **removed** — `MOUSE_X`, `MOUSE_Y`, `MOUSE_DOWN_*`, `MOUSEWHEEL_*` (and `LAST_FILE_DROPPED`/`LAST_TEXT_DROPPED`) have no direct Cabbage 3 channel equivalent. Mouse position is now delivered as widget channel events (`mouseMoveX`/`mouseMoveY`/`mouseDragX`/`mouseDragY`), and button state via `mousePress*`/`mouseRelease*`. A Cabbage 2 instrument reading `chnget "MOUSE_X"` needs those events on the form widget (which reports pointer activity across the whole window).
 
 Concrete recipe (see rules doc §19 for the full write-up):
 
 | Cabbage 2 | Cabbage 3 channel id | event(s) | status |
 |---|---|---|---|
-| `MOUSE_X` | `mouseX` | `mouseMoveX` (range 0..formWidth) | ✅ auto-converted (mouse-only forms) |
-| `MOUSE_Y` | `mouseY` | `mouseMoveY` (range 0..formHeight) | ✅ auto-converted (mouse-only forms) |
-| `MOUSE_DOWN_LEFT` | `mouseDownLeft` | `mousePressLeft` + `mouseReleaseLeft` | ✅ auto-converted (mouse-only forms) |
-| `MOUSE_DOWN_RIGHT` | `mouseDownRight` | `mousePressRight` + `mouseReleaseLeft` | ❌ manual review (right-click unsupported) |
-| `MOUSE_DOWN_MIDDLE` | `mouseDownMiddle` | `mousePressMiddle` + … | ❌ manual review (middle-click unsupported) |
+| `MOUSE_X` | `mouseX` | `mouseMoveX` (range 0..formWidth) | ✅ auto-converted (added to form) |
+| `MOUSE_Y` | `mouseY` | `mouseMoveY` (range 0..formHeight) | ✅ auto-converted (added to form) |
+| `MOUSE_DOWN_LEFT` | `mouseDownLeft` | `mousePressLeft` + `mouseReleaseLeft` | ✅ auto-converted (added to form) |
+| `MOUSE_DOWN_RIGHT` | `mouseDownRight` | `mousePressRight` + `mouseReleaseRight` | ✅ auto-converted (added to form) |
+| `MOUSE_DOWN_MIDDLE` | `mouseDownMiddle` | `mousePressMiddle` + `mouseReleaseMiddle` | ✅ auto-converted (added to form) |
 | `MOUSEWHEEL_*` | — | — | ❌ dropped |
 | `LAST_FILE_DROPPED` / `LAST_TEXT_DROPPED` | — | — | ❌ dropped |
 
-The converter adds a transparent full-size `image` overlay (`automatable: true`, high
-`zIndex`) with the required channels and rewrites `chnget "MOUSE_X"` →
-`cabbageGetValue "mouseX"` (etc.) — but only when the form has **no interactive
-widgets** (sliders/buttons/genTable/keyboard/…). When interactive widgets are present it
-leaves the `chnget` in place with a `; Cabbage2→3 MANUAL REVIEW:` marker and a
-`varName = 0` definition (so the variable is still defined and downstream reads don't
-error), and warns you to scope the overlay manually. It is clearly noted: a `"//"`
-comment on the overlay, a `; Cabbage2→3: was chnget "…"` comment on each rewritten line,
-and a summary/warning on import.
+The converter adds the required channels to the form widget and rewrites
+`chnget "MOUSE_X"` → `cabbageGetValue "mouseX"` (etc.). Press/release events share one
+channel id to reproduce the held-button state. It is clearly noted: a `; Cabbage2→3: was
+chnget "…"` comment on each rewritten line and a summary/warning on import.
