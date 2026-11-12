@@ -86,3 +86,17 @@ describe('convertCabbage2Section: range increment defaults', () => {
         assert.strictEqual(slider.channels[0].range.increment, 0.001);
     });
 });
+
+describe('convertCabbage2Section: comboBox channels', () => {
+    it('emits an event and a 0-based defaultValue', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'combobox channel("mode"), items("A", "B", "C"), value(1)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const combo = json.widgets.find((w: any) => w.type === 'comboBox');
+        assert.ok(combo);
+        assert.strictEqual(combo.channels[0].event, 'valueChanged');
+        assert.strictEqual(combo.channels[0].range.defaultValue, 0);
+    });
+});
