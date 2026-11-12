@@ -82,12 +82,12 @@ export class ComboBox {
     }
 
     pointerDown(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-
         if (!this.props.active) {
             return '';
         }
+
+        evt.stopPropagation();
+        evt.preventDefault();
 
         // Check if the click is on a dropdown item
         if (evt.target.closest('.combobox-item')) {
@@ -150,7 +150,7 @@ export class ComboBox {
     addVsCodeEventListeners(widgetDiv, vs) {
         this.vscode = vs;
         this.widgetDiv = widgetDiv;
-        this.widgetDiv.style.pointerEvents = this.props.active ? 'auto' : 'none';
+        this.widgetDiv.style.pointerEvents = (this.props.visible && this.props.active) ? 'auto' : 'none';
         this.addEventListeners(widgetDiv);
     }
 
@@ -415,9 +415,11 @@ export class ComboBox {
 
         return `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.style.opacity}" style="display: ${this.props.visible ? 'block' : 'none'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
+                <!-- Keep this in sync with the svg/wrapper. An explicit "all" would override
+                     pointer-events: none and stop active:false passing clicks through. -->
                 <rect x="0" y="0" width="100%" height="100%" fill="${this.props.style.backgroundColor}" stroke="${this.props.style.borderColor}"
                     stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
-                       style="cursor: pointer;" pointer-events="all" 
+                       style="cursor: pointer;" pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}" 
                        onclick="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.style.borderColor}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>

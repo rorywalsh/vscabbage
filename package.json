@@ -248,7 +248,7 @@
         },
         "cabbage.showWarningComment": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Show a warning above format and code overwrites in the <Cabbage> section when the extension writes JSON into the document."
         },
         "cabbage.customCommentDecorationColor": {
