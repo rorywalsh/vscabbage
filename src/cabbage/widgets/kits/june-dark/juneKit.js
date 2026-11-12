@@ -12,7 +12,7 @@ const injectedStyles = new Set();
  * every value can still be overridden per widget from the property panel.
  */
 export const PALETTE = {
-    accent: "#e0802c",
+    accent: "#94D200",
     text: "#d8d8d1",
     muted: "#8b8b84",
     track: "#1c1c1a",
