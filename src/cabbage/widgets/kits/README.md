@@ -77,17 +77,21 @@ Each widget owns its own styling; there is no shared kit stylesheet mechanism.
 
 ## Bundled kits
 
-This folder ships with four kits:
+This folder ships with eight kits:
 
 - **Punch Light** (`punch-light`)
 - **Punch Dark** (`punch-dark`)
 - **Vintage Light** (`vintage-light`)
 - **Vintage Dark** (`vintage-dark`)
+- **Illum Light** (`illum-light`)
+- **Illum Dark** (`illum-dark`)
+- **June Light** (`june-light`)
+- **June Dark** (`june-dark`)
 
 Each light/dark pair shares identical widget code and differs only in the
-default `style.color` palette in its kit helper (`punchKit.js` or
-`vintageKit.js`). Any color can still be overridden per widget from the
-property panel.
+default `style.color` palette in its kit helper (`punchKit.js`,
+`vintageKit.js`, `illumKit.js` or `juneKit.js`). Any color can still be
+overridden per widget from the property panel.
 
 ## Selecting a kit
 
