@@ -1347,8 +1347,11 @@ export class PropertyPanel {
             const events = [
                 'valueChanged',
                 'mousePressLeft',
+                'mouseReleaseLeft',
                 'mousePressRight',
+                'mouseReleaseRight',
                 'mousePressMiddle',
+                'mouseReleaseMiddle',
                 'mouseMoveX',
                 'mouseMoveY',
                 'mouseDragX',

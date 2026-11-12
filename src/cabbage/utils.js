@@ -826,20 +826,10 @@ export class CabbageUtils {
       const dragY = CabbageUtils.getChannelByEvent(props, 'mouseDragY', 'drag');
       if (dragX) {
         const scaledValue = nx * (dragX.range.max - dragX.range.min) + dragX.range.min;
-        // Channel must have parameterIndex set by backend
-        if (dragX.parameterIndex === undefined) {
-          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragX);
-          return;
-        }
         Cabbage.sendControlData({ channel: dragX.id, value: scaledValue, gesture: "value" }, vscode);
       }
       if (dragY) {
         const scaledValue = ny * (dragY.range.max - dragY.range.min) + dragY.range.min;
-        // Channel must have parameterIndex set by backend
-        if (dragY.parameterIndex === undefined) {
-          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', dragY);
-          return;
-        }
         Cabbage.sendControlData({ channel: dragY.id, value: scaledValue, gesture: "value" }, vscode);
       }
     } else {
@@ -848,23 +838,35 @@ export class CabbageUtils {
       const moveY = CabbageUtils.getChannelByEvent(props, 'mouseMoveY', 'mouse');
       if (moveX) {
         const scaledValue = nx * (moveX.range.max - moveX.range.min) + moveX.range.min;
-        // Channel must have parameterIndex set by backend
-        if (moveX.parameterIndex === undefined) {
-          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveX);
-          return;
-        }
         Cabbage.sendControlData({ channel: moveX.id, value: scaledValue, gesture: "complete" }, vscode);
       }
       if (moveY) {
         const scaledValue = ny * (moveY.range.max - moveY.range.min) + moveY.range.min;
-        // Channel must have parameterIndex set by backend
-        if (moveY.parameterIndex === undefined) {
-          console.error('CabbageUtils.handleMouseMove: channel missing parameterIndex!', moveY);
-          return;
-        }
         Cabbage.sendControlData({ channel: moveY.id, value: scaledValue, gesture: "complete" }, vscode);
       }
     }
+  }
+
+  /**
+   * Returns the press event name for a pointerdown button.
+   * @param {number} button - The PointerEvent.button value (0 left, 1 middle, 2 right)
+   * @returns {string}
+   */
+  static getMousePressEvent(button) {
+    if (button === 2) return 'mousePressRight';
+    if (button === 1) return 'mousePressMiddle';
+    return 'mousePressLeft';
+  }
+
+  /**
+   * Returns the release event name for a pointerup button.
+   * @param {number} button - The PointerEvent.button value (0 left, 1 middle, 2 right)
+   * @returns {string}
+   */
+  static getMouseReleaseEvent(button) {
+    if (button === 2) return 'mouseReleaseRight';
+    if (button === 1) return 'mouseReleaseMiddle';
+    return 'mouseReleaseLeft';
   }
 
   /**
@@ -876,37 +878,33 @@ export class CabbageUtils {
    * @param {Function} onDragStart - Optional callback for when drag starts
    */
   static handleMouseDown(evt, props, parameterIndex, vscode, onDragStart = null) {
-    // Left press
-    const pressCh = CabbageUtils.getChannelByEvent(props, 'mousePressLeft', 'click');
+    const button = typeof evt.button === 'number' ? evt.button : 0;
+
+    // Press channel for the button that triggered this event
+    const pressCh = CabbageUtils.getChannelByEvent(
+      props,
+      CabbageUtils.getMousePressEvent(button),
+      'click'
+    );
     if (pressCh) {
-      // Channel must have parameterIndex set by backend
-      if (pressCh.parameterIndex === undefined) {
-        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', pressCh);
-        return;
-      }
       Cabbage.sendControlData({ channel: pressCh.id, value: 1, gesture: "begin" }, vscode);
     }
-    // Click shorthand
-    const clickCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'click');
-    if (clickCh) {
-      // Channel must have parameterIndex set by backend
-      if (clickCh.parameterIndex === undefined) {
-        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', clickCh);
-        return;
+
+    // valueChanged is a left-click interaction. Right and middle presses only
+    // report their dedicated press channels.
+    if (button === 0) {
+      // Click shorthand
+      const clickCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'click');
+      if (clickCh) {
+        Cabbage.sendControlData({ channel: clickCh.id, value: 1, gesture: "complete" }, vscode);
+        Cabbage.sendControlData({ channel: clickCh.id, value: 0, gesture: "complete" }, vscode);
       }
-      Cabbage.sendControlData({ channel: clickCh.id, value: 1, gesture: "complete" }, vscode);
-      Cabbage.sendControlData({ channel: clickCh.id, value: 0, gesture: "complete" }, vscode);
-    }
-    // Value changed toggle
-    const valueCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'valueChanged');
-    if (valueCh) {
-      props.value = props.value === 0 ? 1 : 0;
-      // Channel must have parameterIndex set by backend
-      if (valueCh.parameterIndex === undefined) {
-        console.error('CabbageUtils.handleMouseDown: channel missing parameterIndex!', valueCh);
-        return;
+      // Value changed toggle
+      const valueCh = CabbageUtils.getChannelByEvent(props, 'valueChanged', 'valueChanged');
+      if (valueCh) {
+        props.value = props.value === 0 ? 1 : 0;
+        Cabbage.sendControlData({ channel: valueCh.id, value: props.value, gesture: "complete" }, vscode);
       }
-      Cabbage.sendControlData({ channel: valueCh.id, value: props.value, gesture: "complete" }, vscode);
     }
 
     // Call optional drag start callback
@@ -924,7 +922,22 @@ export class CabbageUtils {
    * @param {Function} onDragEnd - Optional callback for when drag ends
    */
   static handleMouseUp(evt, props, parameterIndex, vscode, onDragEnd = null) {
-    const relCh = CabbageUtils.getChannelByEvent(props, 'mouseReleaseLeft', 'click');
+    const button = typeof evt.button === 'number' ? evt.button : 0;
+    let relCh = CabbageUtils.getChannelByEvent(
+      props,
+      CabbageUtils.getMouseReleaseEvent(button),
+      'click'
+    );
+    // A dedicated release channel is optional. When the instrument only
+    // declares the press event, fall back to it so the channel returns to 0
+    // on release instead of staying stuck at 1.
+    if (!relCh) {
+      relCh = CabbageUtils.getChannelByEvent(
+        props,
+        CabbageUtils.getMousePressEvent(button),
+        'click'
+      );
+    }
     if (relCh) {
       Cabbage.sendControlData({ channel: relCh.id, value: 0, gesture: "end" }, vscode);
     }
@@ -933,6 +946,21 @@ export class CabbageUtils {
     if (onDragEnd) {
       onDragEnd(evt);
     }
+  }
+
+  /**
+   * Sends the min/max value of a channel configured with the mouseInside event.
+   * @param {Object} props - Widget properties
+   * @param {boolean} inside - True when the pointer enters the widget bounds
+   * @param {Object} vscode - VSCode API instance (null in plugin mode)
+   */
+  static handleMouseInside(props, inside, vscode) {
+    const insideCh = CabbageUtils.getChannelByEvent(props, 'mouseInside', 'click');
+    if (!insideCh) {
+      return;
+    }
+    const value = inside ? insideCh.range.max : insideCh.range.min;
+    Cabbage.sendControlData({ channel: insideCh.id, value: value, gesture: "complete" }, vscode);
   }
 }
 

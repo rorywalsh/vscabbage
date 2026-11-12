@@ -529,6 +529,15 @@ export class WidgetManager {
             console.error("MainForm not found");
         }
 
+        // Give the form instance its real DOM element so its mouse listeners
+        // resolve against MainForm rather than the detached widget div.
+        if (formDiv) {
+            widget.vscode = vscode;
+            if (typeof widget.addEventListeners === 'function') {
+                widget.addEventListeners(formDiv);
+            }
+        }
+
         // Initialize form event handlers if in vscode mode
         if (typeof acquireVsCodeApi === 'function') {
             setupFormHandlers();
