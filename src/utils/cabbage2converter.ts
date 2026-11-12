@@ -1128,7 +1128,12 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
         }
         case 'bounds': {
             if (args.length >= 4) {
-                return `cabbageSet "${channel}", "bounds", [${num(args[0])}, ${num(args[1])}, ${num(args[2])}, ${num(args[3])}]`;
+                return [
+                    `cabbageSet "${channel}", "bounds.left",   ${num(args[0])}`,
+                    `cabbageSet "${channel}", "bounds.top",    ${num(args[1])}`,
+                    `cabbageSet "${channel}", "bounds.width",  ${num(args[2])}`,
+                    `cabbageSet "${channel}", "bounds.height", ${num(args[3])}`,
+                ].join('\n');
             }
             return null;
         }
@@ -1329,6 +1334,97 @@ export function buildMouseChannels(
 }
 
 /**
+ * True when a token is a quoted Csound string literal (double or single quotes).
+ */
+function isQuotedString(s: string): boolean {
+    const t = s.trim();
+    return (t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"));
+}
+
+/**
+ * Rewrite a single Cabbage 2 multi-argument `cabbageSet` call body into its
+ * Cabbage 3 property form.
+ *
+ * Cabbage 2 accepted `cabbageSet kTrig, "chan", "bounds", x, y, w, h` and
+ * `cabbageSet kTrig, "chan", "colour", r, g, b`; Cabbage 3 requires an object
+ * (`bounds.left`, `style.backgroundColor`, …). `body` is everything after the
+ * `cabbageSet` keyword, up to the end of the statement (already stripped of any
+ * trailing `;` comment). Returns the replacement text (one or more statements),
+ * or null to leave the call unchanged.
+ */
+function rewriteCabbageSetCall(body: string): string | null {
+    const tokens = tokenize(body).map(t => t.trim());
+    if (tokens.length < 2) return null;
+
+    let trigger: string | null = null;
+    let channelIdx: number;
+    let identIdx: number;
+
+    if (isQuotedString(tokens[0])) {
+        // i-rate: cabbageSet "chan", "ident", args…
+        channelIdx = 0;
+        identIdx = 1;
+    } else {
+        // k-rate: cabbageSet trig, "chan", "ident", args…
+        trigger = tokens[0];
+        channelIdx = 1;
+        identIdx = 2;
+    }
+
+    if (identIdx >= tokens.length) return null;
+    if (!isQuotedString(tokens[channelIdx]) || !isQuotedString(tokens[identIdx])) return null;
+
+    const channel = tokens[channelIdx];
+    const ident = unquote(tokens[identIdx]).toLowerCase();
+    const args = tokens.slice(identIdx + 1);
+
+    if (ident === 'bounds' && args.length === 4) {
+        const keys = ['left', 'top', 'width', 'height'];
+        return keys
+            .map((key, i) =>
+                trigger === null
+                    ? `cabbageSet ${channel}, "bounds.${key}", ${args[i]}`
+                    : `cabbageSet ${trigger}, ${channel}, "bounds.${key}", ${args[i]}`)
+            .join('\n');
+    }
+
+    if (ident === 'colour' || ident === 'color') {
+        if (args.length === 3 || args.length === 4) {
+            const fmt = trigger === null ? 'sprintf' : 'sprintfk';
+            const clamp = (s: string) => `limit(${s}, 0, 255)`;
+            let colour: string;
+            if (args.length === 3) {
+                colour = `${fmt}("#%02x%02x%02x", ${clamp(args[0])}, ${clamp(args[1])}, ${clamp(args[2])})`;
+            } else {
+                colour = `${fmt}("rgba(%d,%d,%d,%.3f)", ${clamp(args[0])}, ${clamp(args[1])}, ${clamp(args[2])}, ${clamp(args[3])}/255)`;
+            }
+            return trigger === null
+                ? `cabbageSet ${channel}, "style.backgroundColor", ${colour}`
+                : `cabbageSet ${trigger}, ${channel}, "style.backgroundColor", ${colour}`;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Rewrite Cabbage 2 multi-argument `cabbageSet` calls in an orchestra into their
+ * Cabbage 3 equivalents. Only statements that start the line (after whitespace)
+ * are considered, which leaves commented-out or mid-line references untouched.
+ */
+function rewriteCabbage2CabbageSet(text: string): { text: string; changes: number } {
+    let changes = 0;
+    const re = /(^[ \t]*)\bcabbageSet\b\s+([^\n;]+)/gm;
+    text = text.replace(re, (full, indent: string, body: string) => {
+        const rewritten = rewriteCabbageSetCall(body);
+        if (rewritten === null) return full;
+        changes++;
+        return rewritten.split('\n').map(line => `${indent}${line}`).join('\n');
+    });
+    return { text, changes };
+}
+
+/**
  * Rewrite `chnget`/`chnset` calls in the orchestra into Cabbage 3 opcodes.
  * Csound syntax has no parentheses: `chnget "chan"` and `chnset value, "chan"`.
  * `mouseToConvert` lists the MOUSE_* channels the caller decided to convert
@@ -1347,6 +1443,12 @@ export function rewriteOrchestra(
     let changes = 0;
     const warnings: string[] = [];
     const comboVars = new Set<string>(); // orchestra vars that read a comboBox/optionButton channel
+
+    // Cabbage 2 allowed multi-argument cabbageSet (e.g. "bounds", x, y, w, h and
+    // "colour", r, g, b); Cabbage 3 needs an object / dot notation. Rewrite first.
+    const setRewrite = rewriteCabbage2CabbageSet(text);
+    text = setRewrite.text;
+    changes += setRewrite.changes;
 
     // chnget "chan" → cabbageGetValue "chan" (widget) / rename (reserved) / warn (removed)
     // Only rewrite k-rate / i-rate outputs; cabbageGetValue has no a-rate (or
@@ -1579,7 +1681,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
 
     const summary =
         `Converted ${converted.channels.size} channel(s)` +
-        (orchestraChanges ? `, rewrote ${orchestraChanges} chnget/chnset call(s)` : '') +
+        (orchestraChanges ? `, rewrote ${orchestraChanges} chnget/chnset/cabbageSet call(s)` : '') +
         (mouseConvertedCount ? `, converted ${mouseConvertedCount} mouse channel(s)` : '') +
         (mouseReviewCount ? `, ${mouseReviewCount} mouse channel(s) need manual review` : '') +
         (converted.warnings.length ? `, ${converted.warnings.length} warning(s)` : '');
