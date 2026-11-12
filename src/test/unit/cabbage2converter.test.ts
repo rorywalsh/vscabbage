@@ -2,7 +2,7 @@
 // Cabbage 2 multi-argument `cabbageSet` forms that Cabbage 3 rejects.
 // Run with: npm run test:unit
 import assert from 'assert';
-import { rewriteOrchestra } from '../../utils/cabbage2converter';
+import { convertCabbage2Section, rewriteOrchestra } from '../../utils/cabbage2converter';
 
 function rewrite(orchestra: string) {
     return rewriteOrchestra(orchestra, new Map<string, string>(), new Set<string>());
@@ -60,5 +60,29 @@ describe('rewriteOrchestra: Cabbage 2 multi-arg cabbageSet', () => {
         const { text, changes } = rewrite(line);
         assert.strictEqual(text, line);
         assert.strictEqual(changes, 0);
+    });
+});
+
+describe('convertCabbage2Section: range increment defaults', () => {
+    it('defaults to 0.01 when no explicit increment is given', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider channel("x"), range(0.01, 4, 0.4, 0.5)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.strictEqual(slider.channels[0].range.increment, 0.01);
+    });
+
+    it('keeps an explicit increment', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider channel("x"), range(0, 1, 0.5, 1, 0.001)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.strictEqual(slider.channels[0].range.increment, 0.001);
     });
 });

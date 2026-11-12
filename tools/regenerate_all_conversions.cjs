@@ -33,9 +33,19 @@ const OUT_DIR = process.env.OUT_DIR || '/Users/rorywalsh/sourcecode/IainsCabbage
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'c2conv-'));
 const tsc = path.join(REPO, 'node_modules', '.bin', 'tsc');
 const convSrc = path.join(REPO, 'src', 'utils', 'cabbage2converter.ts');
+const csdFormatSrc = path.join(REPO, 'src', 'utils', 'csdFormat.ts');
+
+// The compiled temporary modules live outside the repo, so make the repo's
+// node_modules visible for imports such as `fracturedjsonjs` used by the
+// formatter.
+process.env.NODE_PATH = [path.join(REPO, 'node_modules'), process.env.NODE_PATH]
+    .filter(Boolean)
+    .join(path.delimiter);
+require('module').Module._initPaths();
+
 try {
     execSync(
-        `${JSON.stringify(tsc)} ${JSON.stringify(convSrc)} --outDir ${JSON.stringify(tmp)} ` +
+        `${JSON.stringify(tsc)} ${JSON.stringify(convSrc)} ${JSON.stringify(csdFormatSrc)} --outDir ${JSON.stringify(tmp)} ` +
         '--module node16 --target es2022 --moduleResolution node16 --skipLibCheck --esModuleInterop --ignoreConfig',
         { stdio: 'pipe' },
     );
@@ -44,6 +54,7 @@ try {
     process.exit(1);
 }
 const { convertCabbage2ToCabbage3 } = require(path.join(tmp, 'cabbage2converter.js'));
+const { formatCsdText } = require(path.join(tmp, 'csdFormat.js'));
 
 function walk(dir, out = []) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -67,9 +78,20 @@ for (const f of files) {
         continue;
     }
     const outPath = path.join(OUT_DIR, rel);
+    let formattedText;
+    try {
+        formattedText = formatCsdText(result.text, {
+            indentSpaces: 4,
+            jsonIndentSpaces: 4,
+            maxLength: 120,
+        });
+    } catch (e) {
+        results.push({ rel, ok: false, reason: `format error: ${e.message}` });
+        continue;
+    }
     if (!DRY_RUN) {
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        fs.writeFileSync(outPath, result.text, 'utf-8');
+        fs.writeFileSync(outPath, formattedText, 'utf-8');
     }
     results.push({ rel, ok: true, summary: result.summary, warnings: result.warnings });
 }

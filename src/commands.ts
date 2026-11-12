@@ -1935,8 +1935,13 @@ export class Commands {
             n++;
         }
 
+        const formatCsound = vscode.workspace.getConfiguration('cabbage').get<boolean>('formatCsoundOnImport', true);
+        const outputText = formatCsound
+            ? ExtensionUtils.formatText(result.text)
+            : ExtensionUtils.formatCabbageSection(result.text);
+
         try {
-            fs.writeFileSync(targetPath, result.text, 'utf-8');
+            fs.writeFileSync(targetPath, outputText, 'utf-8');
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to write ${targetPath}: ${err}`);
             return;

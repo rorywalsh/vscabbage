@@ -246,6 +246,11 @@
           "maximum": 200,
           "description": "Maximum line length for JSON formatting in Cabbage sections. Longer lines will be wrapped. 0 is equivalent to JSON.stringify(obj, null, indent)"
         },
+        "cabbage.formatCsoundOnImport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Format Csound code when importing a Cabbage 2 instrument. Disable to preserve the original Csound indentation; the Cabbage JSON section is still formatted."
+        },
         "cabbage.showWarningComment": {
           "type": "boolean",
           "default": false,
