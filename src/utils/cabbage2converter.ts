@@ -1197,18 +1197,17 @@ const REMOVED_CHANNELS = new Set([
 ]);
 
 /**
- * Cabbage 2 mouse channels → Cabbage 3 image-widget mouse events.
+ * Cabbage 2 mouse channels → Cabbage 3 form mouse-event channels.
  *
  * Cabbage 2 exposed the raw pointer as reserved channels (`MOUSE_X`,
  * `MOUSE_Y`, `MOUSE_DOWN_LEFT`, …). Cabbage 3 removes those and instead
  * delivers the pointer through widget channel `event`s (`mouseMoveX`,
- * `mouseMoveY`, `mousePressLeft`, `mouseReleaseLeft`, …). To recreate the old
- * values we add a transparent full-size `image` overlay that captures the
- * pointer and exposes one channel per axis/button.
+ * `mouseMoveY`, `mousePressLeft`, `mouseReleaseLeft`, …). Because the form
+ * itself accepts mouse-event channels (and reports pointer activity across the
+ * whole window, including over child widgets), the converted instrument's form
+ * widget is given one channel per axis/button rather than a separate overlay.
  *
- * Only the left button is implemented in the Cabbage 3 UI today; right/middle
- * press events are listed in the editor but have no runtime handler, so they
- * are flagged for manual review rather than auto-converted.
+ * Left, right and middle buttons are all implemented in the Cabbage 3 UI.
  */
 export interface MouseChannelSpec {
     /** Cabbage 3 channel id exposed to Csound. */
@@ -1225,8 +1224,8 @@ export const MOUSE_CHANNELS: Record<string, MouseChannelSpec> = {
     MOUSE_X: { id: 'mouseX', events: ['mouseMoveX'], supported: true },
     MOUSE_Y: { id: 'mouseY', events: ['mouseMoveY'], supported: true },
     MOUSE_DOWN_LEFT: { id: 'mouseDownLeft', events: ['mousePressLeft', 'mouseReleaseLeft'], supported: true },
-    MOUSE_DOWN_RIGHT: { id: 'mouseDownRight', events: ['mousePressRight', 'mouseReleaseRight'], supported: false, note: 'right-click press is not implemented in the Cabbage 3 UI' },
-    MOUSE_DOWN_MIDDLE: { id: 'mouseDownMiddle', events: ['mousePressMiddle', 'mouseReleaseMiddle'], supported: false, note: 'middle-click press is not implemented in the Cabbage 3 UI' },
+    MOUSE_DOWN_RIGHT: { id: 'mouseDownRight', events: ['mousePressRight', 'mouseReleaseRight'], supported: true },
+    MOUSE_DOWN_MIDDLE: { id: 'mouseDownMiddle', events: ['mousePressMiddle', 'mouseReleaseMiddle'], supported: true },
 };
 
 /** Display order for mouse channels in the generated overlay. */
@@ -1294,15 +1293,16 @@ export function detectSoundfilerLoading(
 }
 
 /**
- * Build the transparent full-size image overlay that exposes the requested
- * mouse channels. `mouseMoveX`/`mouseMoveY` are ranged over the form's pixel
- * dimensions so the Csound values match the old Cabbage 2 `MOUSE_X`/`MOUSE_Y`
- * pixel coordinates.
+ * Build the form channel objects that expose the requested mouse channels.
+ * `mouseMoveX`/`mouseMoveY` are ranged over the form's pixel dimensions so the
+ * Csound values match the old Cabbage 2 `MOUSE_X`/`MOUSE_Y` pixel coordinates.
+ * Press/release pairs share a single channel id to reproduce the old
+ * held-button state.
  */
-export function buildMouseOverlayWidget(
+export function buildMouseChannels(
     formSize: { width: number; height: number },
     used: string[],
-): Record<string, any> {
+): Record<string, any>[] {
     const channels: Record<string, any>[] = [];
     for (const name of used) {
         const spec = MOUSE_CHANNELS[name];
@@ -1325,35 +1325,15 @@ export function buildMouseOverlayWidget(
             }
         }
     }
-    return {
-        type: 'image',
-        bounds: { left: 0, top: 0, width: formSize.width, height: formSize.height },
-        automatable: true,
-        zIndex: 1000,
-        '//': 'Cabbage 2 → 3: transparent mouse overlay (converted from MOUSE_* reserved channels). If this instrument has other interactive widgets, adjust bounds/zIndex so the overlay does not block them.',
-        style: { backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent' },
-        channels,
-    };
+    return channels;
 }
-
-/**
- * Widget types that capture the pointer for their own interaction. A full-form
- * mouse overlay placed on top of these would swallow their events, so the
- * converter only auto-adds the overlay when the form contains none of them.
- */
-const INTERACTIVE_WIDGET_TYPES = new Set([
-    'rotarySlider', 'horizontalSlider', 'verticalSlider', 'numberSlider',
-    'horizontalRangeSlider', 'verticalRangeSlider', 'xyPad',
-    'comboBox', 'listBox', 'optionButton', 'checkBox', 'button', 'infoButton',
-    'fileButton', 'textEditor', 'keyboard', 'genTable', 'soundfiler',
-]);
 
 /**
  * Rewrite `chnget`/`chnset` calls in the orchestra into Cabbage 3 opcodes.
  * Csound syntax has no parentheses: `chnget "chan"` and `chnset value, "chan"`.
  * `mouseToConvert` lists the MOUSE_* channels the caller decided to convert
- * (i.e. a mouse overlay was generated); other MOUSE_* channels are left in
- * place with a manual-review marker.
+ * (i.e. form mouse channels were generated); other MOUSE_* channels are left
+ * in place with a manual-review marker.
  */
 export function rewriteOrchestra(
     orchestraText: string,
@@ -1383,9 +1363,7 @@ export function rewriteOrchestra(
                 changes++;
                 return `${varName} cabbageGetValue "${spec.id}"  ; Cabbage2→3: was chnget "${chan}"`;
             }
-            const reason = spec.supported
-                ? 'the form has interactive widgets, so the mouse overlay must be scoped manually (see rules §19)'
-                : spec.note;
+            const reason = spec.note || 'not auto-converted (see rules §19)';
             warnings.push(`"${chan}" not converted — ${reason}; manual review required`);
             // Keep the variable defined (as 0) so downstream reads don't fail
             // with "used before defined" — the original chnget was its only
@@ -1540,36 +1518,33 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     if (mouseUsed.length > 0) {
         const root = JSON.parse(converted.json) as Record<string, any>;
         const widgets = Array.isArray(root.widgets) ? (root.widgets as Record<string, any>[]) : [];
-        const hasInteractive = widgets.some(
-            (w: Record<string, any>) => w && INTERACTIVE_WIDGET_TYPES.has(w.type),
-        );
+        const form = widgets.find((w: Record<string, any>) => w && w.type === 'form');
 
-        const supported = mouseUsed.filter(c => MOUSE_CHANNELS[c].supported);
-        const unsupported = mouseUsed.filter(c => !MOUSE_CHANNELS[c].supported);
-
-        if (supported.length > 0 && !hasInteractive) {
-            // Safe to add a full-form overlay: nothing interactive to block.
-            const form = widgets.find((w: Record<string, any>) => w && w.type === 'form');
-            const size = (form && form.size && typeof form.size.width === 'number' && typeof form.size.height === 'number')
+        if (form) {
+            const size = (form.size && typeof form.size.width === 'number' && typeof form.size.height === 'number')
                 ? form.size
                 : { width: 600, height: 400 };
-            widgets.push(buildMouseOverlayWidget(size, supported));
-            for (const c of supported) mouseToConvert.add(c);
-            mouseConvertedCount = supported.length;
+            if (!form.channels || !Array.isArray(form.channels)) form.channels = [];
+
+            const existingIds = new Set<string>(
+                form.channels.map((c: Record<string, any>) => c && typeof c.id === 'string' ? c.id : '').filter(Boolean),
+            );
+            for (const ch of buildMouseChannels(size, mouseUsed)) {
+                if (existingIds.has(ch.id)) continue;
+                form.channels.push(ch);
+            }
+
+            for (const c of mouseUsed) mouseToConvert.add(c);
+            mouseConvertedCount = mouseUsed.length;
             converted.json = JSON.stringify(root, null, 4);
             converted.warnings.push(
-                `Converted mouse channel(s) ${supported.join(', ')} → added a transparent mouse-overlay image widget (mouseX/mouseY/mouseDownLeft) and rewrote chnget to cabbageGetValue`,
+                `Converted mouse channel(s) ${mouseUsed.join(', ')} → added channels to the form widget and rewrote chnget to cabbageGetValue`,
             );
-        } else if (supported.length > 0) {
-            mouseReviewCount += supported.length;
-            converted.warnings.push(
-                `Mouse channel(s) ${supported.join(', ')} detected but the form has interactive widgets — not auto-adding the full-screen overlay (it would block them); add a scoped overlay manually (see rules §19)`,
-            );
-        }
-
-        for (const name of unsupported) {
-            mouseReviewCount++;
-            converted.warnings.push(`"${name}" not converted — ${MOUSE_CHANNELS[name].note}; manual review required`);
+        } else {
+            for (const name of mouseUsed) {
+                mouseReviewCount++;
+                converted.warnings.push(`"${name}" not converted — no form widget found; manual review required`);
+            }
         }
     }
 
