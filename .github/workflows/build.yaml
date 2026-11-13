@@ -11,10 +11,11 @@ env:
 on:
   push:
     branches:
-      - 'main' # Trigger on pushes to all branches
+      - 'main' # Trigger on pushes to main
   pull_request:
     branches:
-      - develop # Trigger on pull requests to develop branch
+      - develop # Trigger on pull requests to develop
+      - main # Required checks gate merges into the release line
 
 # Cancel superseded pull-request runs, but never a run on main: that one
 # publishes a release, so let it finish.
@@ -59,6 +60,62 @@ jobs:
 
           # Set the new version as an output
           echo "version=$new_version" >> "$GITHUB_OUTPUT"
+
+  # ========================================================================================
+  #  Test jobs (run on every push to main and every PR to develop)
+  # ========================================================================================
+
+  test_unit:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+  test_integration:
+    name: Integration tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install xvfb and Electron dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm1 libgtk-3-0 libnss3 libxss1
+          # ALSA was renamed for the 64-bit time_t transition on Ubuntu 24.04.
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
+
+      # Downloads a VS Code test instance, activates the extension against a
+      # real host, and drives the command surface. Run headless via xvfb.
+      - name: Run integration tests
+        run: xvfb-run -a npm run test:integration
 
   build_macos:
     needs: generate_tag
@@ -1044,7 +1101,7 @@ jobs:
   # =============================================================================
   # steps to tag and release artifacts
   release:
-    needs: [build_macos, build_windows, build_windows_arm, build_linux, generate_tag]
+    needs: [build_macos, build_windows, build_windows_arm, build_linux, generate_tag, test_unit, test_integration]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build') && !contains(github.event.head_commit.message, '[auto-changelog]')
 

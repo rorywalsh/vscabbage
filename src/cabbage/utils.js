@@ -83,50 +83,6 @@ export class CabbageUtils {
   }
 
   /**
-   * Finds a valid widget ID from an event object.
-   * Traverses up the DOM tree from the event target to find the closest widget div.
-   * @param {Event} event - The DOM event object
-   * @returns {string} The widget div's ID, or empty string if not found
-   */
-  static findValidId(event) {
-    if (!event || !event.target) {
-      console.warn('CabbageUtils.findValidId: No event or event.target provided');
-      return '';
-    }
-
-    // Start from the event target and traverse up to find a widget div
-    let element = event.target;
-    while (element && element !== document.body) {
-      // Widget divs typically have an ID that starts with certain patterns
-      // Check if this element has an ID and looks like a widget
-      if (element.id) {
-        // If it has a cabbage-specific class, it's definitely a widget
-        if (element.classList.contains('cabbage-widget') ||
-          element.classList.contains('widget') ||
-          element.hasAttribute('data-widget') ||
-          element.hasAttribute('data-channel')) {
-          return element.id;
-        }
-        // If it has an ID and we're inside a form/container, it might be the widget
-        // Return it as a fallback if we don't find anything better
-        if (!element.parentElement || element.parentElement.id === 'MainForm') {
-          return element.id;
-        }
-      }
-      element = element.parentElement;
-    }
-
-    // Last resort: if the target itself has an ID, use it
-    if (event.target.id) {
-      console.log('CabbageUtils.findValidId: Using event.target.id as fallback:', event.target.id);
-      return event.target.id;
-    }
-
-    console.warn('CabbageUtils.findValidId: Could not find valid widget ID from event', event);
-    return '';
-  }
-
-  /**
    * Returns the range of the nth channel, with defaults applied.
    */
   static getChannelRange(props, index = 0, interaction = 'drag') {
@@ -547,14 +503,25 @@ export class CabbageUtils {
     return newId;
   }
 
+  /**
+   * Finds the closest ancestor widget id from a DOM event.
+   * Traverses up from the event target and returns the first DIV with an id,
+   * or null when there is no target / no matching ancestor.
+   * @param {Event} event - The DOM event object
+   * @returns {string|null}
+   */
   static findValidId(event) {
-    var target = event.target;
+    const target = event?.target;
+    if (!target) {
+      return null;
+    }
 
-    while (target !== null) {
-      if (target.tagName === "DIV" && target.id) {
-        return target.id;
+    let element = target;
+    while (element !== null) {
+      if (element.tagName === "DIV" && element.id) {
+        return element.id;
       }
-      target = target.parentNode;
+      element = element.parentNode;
     }
 
     return null;

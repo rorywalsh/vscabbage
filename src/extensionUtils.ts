@@ -30,6 +30,13 @@ import {
     scanForWidgetKits,
     WidgetKit,
 } from './utils/widgetScan';
+import {
+    expandUserPath as expandUserPathUtil,
+    normalizeCustomWidgetRoot as normalizeCustomWidgetRootUtil,
+    normalizeDirForCompare as normalizeDirForCompareUtil,
+    resolveWidgetDirectoriesForRoot as resolveWidgetDirectoriesForRootUtil,
+} from './utils/widgetDirectories';
+import { deepMerge as mergeWidgetJson, getWidgetChannelId } from './utils/widgetJson';
 
 
 /** 
@@ -570,45 +577,11 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                     // performing deep merge/strip-defaults here we replace or shallow-merge
                     // the incoming props into the existing array. This is intentionally
                     // simpler than the old `updateJsonArray` behaviour.
-                    const getChannelId = (obj: any): string => {
-                        if (obj?.id) return obj.id;
-                        if (obj?.channels) {
-                            if (Array.isArray(obj.channels) && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
-                            if (typeof obj.channels === 'object' && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
-                        }
-                        return obj?.channel || '';
-                    };
-
                     // Find where to put/replace the incoming props. Use deep merge so
                     // that updates to nested properties are merged rather than
                     // replacing entire nested objects/arrays.
-                    const deepMerge = (target: any, source: any): any => {
-                        if (source === undefined) return target;
-                        if (Array.isArray(source)) {
-                            // prefer source arrays (property panel should send full arrays when needed)
-                            return source;
-                        }
-                        if (typeof target !== 'object' || target === null) return source;
-                        const out: any = Array.isArray(target) ? [...target] : { ...target };
-                        Object.keys(source).forEach(key => {
-                            const sv = source[key];
-                            if (sv === undefined) return;
-
-                            // Handle null as deletion signal - when frontend sends null,
-                            // it means "remove this property from the CSD file"
-                            if (sv === null) {
-                                delete out[key];
-                                return;
-                            }
-
-                            if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
-                                out[key] = deepMerge(out[key], sv);
-                            } else {
-                                out[key] = sv;
-                            }
-                        });
-                        return out;
-                    };
+                    const mergeProps = (target: any, source: any) =>
+                        mergeWidgetJson(target, source, { deleteOnNull: true });
 
                     // Removes widgets grouped into a container from the top-level
                     // array (children should only exist within their parent).
@@ -676,7 +649,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                                 delete props[prop];
                             });
 
-                            const merged = deepMerge(cabbageJsonArray[formIndex], props);
+                            const merged = mergeProps(cabbageJsonArray[formIndex], props);
                             cabbageJsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(merged);
                         } else {
                             // Filter excluded properties before adding
@@ -686,7 +659,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                             cabbageJsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
                         }
                     } else {
-                        const searchId = oldId || getChannelId(props);
+                        const searchId = oldId || getWidgetChannelId(props);
 
                         // Find an existing object by matching the searchId against
                         // all reasonable identifier fields (id, channel string,
@@ -724,7 +697,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                             }
 
                             // deep-merge: preserve nested values that aren't overwritten by the minimized props
-                            const merged = deepMerge(cabbageJsonArray[existingIndex], props);
+                            const merged = mergeProps(cabbageJsonArray[existingIndex], props);
 
                             // If the merged widget has channels[0].id that matches the top-level id,
                             // remove the redundant top-level id to avoid duplication.
@@ -772,7 +745,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                     // its comments are retained.
                     const aliases: Record<string, string> = {};
                     if (oldId) {
-                        const newId = getChannelId(props);
+                        const newId = getWidgetChannelId(props);
                         if (newId && newId !== oldId) {
                             aliases[oldId] = newId;
                         }
@@ -1301,42 +1274,16 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
 
         // The property panel now sends minimized props; perform a deep-merge
         // into the external JSON array so nested updates don't clobber defaults.
-        const getChannelId = (obj: any): string => {
-            if (obj?.id) return obj.id;
-            if (obj?.channels) {
-                if (Array.isArray(obj.channels) && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
-                if (typeof obj.channels === 'object' && obj.channels[0] && obj.channels[0].id) return obj.channels[0].id;
-            }
-            return obj?.channel || '';
-        };
-        const deepMerge = (target: any, source: any): any => {
-            if (source === undefined) return target;
-            if (Array.isArray(source)) {
-                return source;
-            }
-            if (typeof target !== 'object' || target === null) return source;
-            const out: any = Array.isArray(target) ? [...target] : { ...target };
-            Object.keys(source).forEach(key => {
-                const sv = source[key];
-                if (sv === undefined) return;
-                if (typeof sv === 'object' && sv !== null && !Array.isArray(sv) && typeof out[key] === 'object' && out[key] !== null && !Array.isArray(out[key])) {
-                    out[key] = deepMerge(out[key], sv);
-                } else {
-                    out[key] = sv;
-                }
-            });
-            return out;
-        };
 
         if (props.type === 'form') {
             const formIndex = jsonArray.findIndex(obj => obj.type === 'form');
             if (formIndex !== -1) {
-                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[formIndex], props));
+                jsonArray[formIndex] = ExtensionUtils.sortOrderOfProperties(mergeWidgetJson(jsonArray[formIndex], props));
             } else {
                 jsonArray.unshift(ExtensionUtils.sortOrderOfProperties(props));
             }
         } else {
-            const searchId = oldId || getChannelId(props);
+            const searchId = oldId || getWidgetChannelId(props);
             const existingIndex = jsonArray.findIndex(obj => {
                 if (!searchId) return false;
                 if (obj == null) return false;
@@ -1350,7 +1297,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                 return false;
             });
             if (existingIndex !== -1) {
-                jsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(deepMerge(jsonArray[existingIndex], props));
+                jsonArray[existingIndex] = ExtensionUtils.sortOrderOfProperties(mergeWidgetJson(jsonArray[existingIndex], props));
             } else {
                 jsonArray.push(ExtensionUtils.sortOrderOfProperties(props));
             }
@@ -1363,7 +1310,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
 
         const aliases: Record<string, string> = {};
         if (oldId) {
-            const newId = getChannelId(props);
+            const newId = getWidgetChannelId(props);
             if (newId && newId !== oldId) {
                 aliases[oldId] = newId;
             }
@@ -1886,20 +1833,7 @@ ${csoundSection}`;
      * separators/trailing slashes.
      */
     static expandUserPath(p: string): string {
-        if (!p || typeof p !== 'string') { return ''; }
-        let out = p.trim();
-        if (out.startsWith('~')) {
-            out = path.join(os.homedir(), out.slice(1));
-        }
-        // Expand ${VAR} / $VAR and %VAR% (Windows)
-        out = out.replace(/\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g, (_m, braced, plain) => {
-            const name = braced || plain;
-            return process.env[name] ?? '';
-        });
-        if (process.platform === 'win32') {
-            out = out.replace(/%([^%]+)%/g, (_m, name) => process.env[name] ?? '');
-        }
-        return path.normalize(out);
+        return expandUserPathUtil(p);
     }
 
     /**
@@ -1907,14 +1841,7 @@ ${csoundSection}`;
      * no trailing separator, case-normalized on Windows/macOS).
      */
     static normalizeDirForCompare(p: string): string {
-        let n = ExtensionUtils.expandUserPath(p);
-        if (n.length > 1 && (n.endsWith(path.sep) || n.endsWith('/'))) {
-            n = n.replace(/[/\\]+$/, '');
-        }
-        if (process.platform === 'win32' || process.platform === 'darwin') {
-            n = n.toLowerCase();
-        }
-        return n;
+        return normalizeDirForCompareUtil(p);
     }
 
     /**
@@ -1927,50 +1854,7 @@ ${csoundSection}`;
      * Returns only directories that exist on disk (deduplicated).
      */
     static resolveWidgetDirectoriesForRoot(raw: string): string[] {
-        const expanded = ExtensionUtils.expandUserPath(raw);
-        if (!expanded) { return []; }
-        const isDir = (p: string) => {
-            try { return fs.statSync(p).isDirectory(); } catch { return false; }
-        };
-        const seen = new Set<string>();
-        const out: string[] = [];
-        const pushIfDir = (p: string) => {
-            const n = path.normalize(p);
-            if (!seen.has(n) && isDir(n)) {
-                seen.add(n);
-                out.push(n);
-            }
-        };
-
-        // Direct hits: user pointed straight at a widgets dir.
-        const base = path.basename(expanded);
-        if (base === 'widgets' && isDir(expanded)) {
-            pushIfDir(expanded);
-            return out;
-        }
-        if (/(cabbage[\\/]widgets|widgets)$/.test(expanded) && isDir(expanded)) {
-            pushIfDir(expanded);
-            return out;
-        }
-
-        // Otherwise treat as a root / cabbage dir and probe known layouts.
-        // Order matters: canonical layout first, then plugin-style fallbacks.
-        const canonicalWidgets = path.join(expanded, 'cabbage', 'widgets');
-        const pluginWidgets = path.join(expanded, 'widgets');
-        const hasCanonicalWidgets = isDir(canonicalWidgets);
-        const hasPluginWidgets = isDir(pluginWidgets);
-        pushIfDir(canonicalWidgets);
-        pushIfDir(pluginWidgets);
-        // Bare-dir fallback: the configured folder itself holds .js widgets
-        // (covers users pointing directly at a widgets dir without the name).
-        // Only use it when the folder is not a root wrapping a widgets dir,
-        // otherwise a recursive scan would walk the whole custom folder
-        // (including framework code and unrelated projects).
-        if (!hasCanonicalWidgets && !hasPluginWidgets) {
-            pushIfDir(expanded);
-        }
-
-        return out;
+        return resolveWidgetDirectoriesForRootUtil(raw);
     }
 
     /**
@@ -1981,37 +1865,7 @@ ${csoundSection}`;
      * nesting `cabbage/cabbage`.
      */
     static normalizeCustomWidgetRoot(selected: string): string {
-        const expanded = ExtensionUtils.expandUserPath(selected);
-        if (!expanded) { return ''; }
-        const existsDir = (p: string) => {
-            try { return fs.statSync(p).isDirectory(); } catch { return false; }
-        };
-        // Picked .../cabbage/widgets -> root is two levels up
-        if (/cabbage[\\/]widgets$/.test(expanded)) {
-            return path.normalize(path.dirname(path.dirname(expanded)));
-        }
-        const base = path.basename(expanded);
-        if (base === 'widgets') {
-            const parent = path.dirname(expanded);
-            // .../cabbage/widgets -> root is parent of `cabbage`
-            if (path.basename(parent) === 'cabbage') {
-                return path.normalize(path.dirname(parent));
-            }
-            return path.normalize(parent);
-        }
-        if (base === 'cabbage') {
-            // Already a root containing cabbage/ (e.g. re-selecting the same
-            // folder): keep it. A lone `cabbage` dir holding widgets/
-            // directly is the framework dir itself: root is its parent.
-            const hasNestedCabbage = existsDir(path.join(expanded, 'cabbage'));
-            const hasWidgets = existsDir(path.join(expanded, 'widgets'));
-            if (hasNestedCabbage || !hasWidgets) {
-                return path.normalize(expanded);
-            }
-            return path.normalize(path.dirname(expanded));
-        }
-        // Generic root (may already contain cabbage/): keep as-is.
-        return path.normalize(expanded);
+        return normalizeCustomWidgetRootUtil(selected);
     }
 
     /**

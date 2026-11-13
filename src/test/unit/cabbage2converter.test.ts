@@ -2,7 +2,14 @@
 // Cabbage 2 multi-argument `cabbageSet` forms that Cabbage 3 rejects.
 // Run with: npm run test:unit
 import assert from 'assert';
-import { convertCabbage2Section, convertCabbage2ToCabbage3, rewriteOrchestra } from '../../utils/cabbage2converter';
+import {
+    buildMouseChannels,
+    convertCabbage2Section,
+    convertCabbage2ToCabbage3,
+    detectMouseChannels,
+    detectSoundfilerLoading,
+    rewriteOrchestra,
+} from '../../utils/cabbage2converter';
 
 function rewrite(orchestra: string) {
     return rewriteOrchestra(orchestra, new Map<string, string>(), new Set<string>());
@@ -159,5 +166,124 @@ describe('rotary slider bounds scaling', () => {
         assert.ok(result.text.includes('85%'));
         assert.ok(result.text.includes('80%'));
         assert.ok(result.text.includes('knob scaled to 70%'));
+    });
+});
+
+describe('detectMouseChannels', () => {
+    it('finds referenced MOUSE_* channels in stable display order', () => {
+        const text = [
+            'kDown = chnget "MOUSE_DOWN_LEFT"',
+            'kX = chnget "MOUSE_X"',
+            'kOther = chnget "gain"',
+        ].join('\n');
+
+        assert.deepStrictEqual(detectMouseChannels(text), ['MOUSE_X', 'MOUSE_DOWN_LEFT']);
+    });
+
+    it('ignores non-MOUSE and unknown MOUSE_* channel names', () => {
+        const text = 'kGain = chnget "gain"\nkZ = chnget "MOUSE_Z"';
+
+        assert.deepStrictEqual(detectMouseChannels(text), []);
+    });
+});
+
+describe('buildMouseChannels', () => {
+    it('ranges X/Y over the form size and shares ids for press/release pairs', () => {
+        const channels = buildMouseChannels(
+            { width: 600, height: 400 },
+            ['MOUSE_X', 'MOUSE_Y', 'MOUSE_DOWN_LEFT'],
+        );
+
+        assert.strictEqual(channels.length, 4);
+        const byEvent = new Map(channels.map((channel) => [channel.event, channel]));
+        assert.strictEqual(byEvent.get('mouseMoveX')?.range?.max, 600);
+        assert.strictEqual(byEvent.get('mouseMoveY')?.range?.max, 400);
+        assert.strictEqual(byEvent.get('mousePressLeft')?.id, 'mouseDownLeft');
+        assert.strictEqual(byEvent.get('mouseReleaseLeft')?.id, 'mouseDownLeft');
+    });
+
+    it('skips unknown channel names', () => {
+        assert.deepStrictEqual(buildMouseChannels({ width: 0, height: 0 }, ['NOPE']), []);
+    });
+});
+
+describe('detectSoundfilerLoading', () => {
+    it('wires an ftgen table to the soundfiler ident', () => {
+        const orchestra = [
+            'gSfilepath = "loop.wav"',
+            'Smessage sprintfk "file(%s)", gSfilepath',
+            'chnset Smessage, "filer1"',
+            'ftgen 100, 0, 0, 1, gSfilepath, 0, 0, 0',
+        ].join('\n');
+
+        const result = detectSoundfilerLoading(orchestra, new Set(['filer1']));
+
+        assert.deepStrictEqual(result.get('filer1'), { tableNumber: 100 });
+    });
+
+    it('wires a diskin2 stream to the soundfiler ident', () => {
+        const orchestra = [
+            'gSfilepath = "loop.wav"',
+            'Smessage sprintfk "file(%s)", gSfilepath',
+            'chnset Smessage, "filer2"',
+            'diskin2 gSfilepath, 1',
+        ].join('\n');
+
+        const result = detectSoundfilerLoading(orchestra, new Set(['filer2']));
+
+        assert.deepStrictEqual(result.get('filer2'), { file: 'gSfilepath' });
+    });
+
+    it('returns an empty map when no loading pattern is found', () => {
+        const orchestra = [
+            'Smessage sprintfk "file(%s)", gSfilepath',
+            'chnset Smessage, "filer3"',
+        ].join('\n');
+
+        assert.strictEqual(detectSoundfilerLoading(orchestra, new Set(['filer3'])).size, 0);
+    });
+});
+
+describe('convertCabbage2ToCabbage3: mouse channels', () => {
+    function csdWithOrchestra(orchestra: string): string {
+        return [
+            '<CsoundSynthesizer>',
+            '<Cabbage>',
+            'form caption("Test")',
+            '</Cabbage>',
+            '<CsInstruments>',
+            orchestra,
+            '</CsInstruments>',
+            '<CsScore>',
+            '</CsScore>',
+            '</CsoundSynthesizer>',
+        ].join('\n');
+    }
+
+    it('adds form mouse channels and rewrites chnget to cabbageGetValue', () => {
+        const result = convertCabbage2ToCabbage3(csdWithOrchestra([
+            'instr 1',
+            'kX chnget "MOUSE_X"',
+            'endin',
+        ].join('\n')));
+
+        assert.ok(result.text.includes('"mouseX"'));
+        assert.ok(result.text.includes('cabbageGetValue "mouseX"'));
+        assert.ok(result.warnings.some((warning) => warning.includes('MOUSE_X')));
+        assert.ok(result.summary.includes('1 mouse channel(s)'));
+    });
+
+    it('refuses a section that is already JSON', () => {
+        assert.throws(
+            () => convertCabbage2ToCabbage3('<Cabbage>{ "widgets": [] }</Cabbage>'),
+            /already JSON/,
+        );
+    });
+
+    it('refuses a document with no Cabbage section', () => {
+        assert.throws(
+            () => convertCabbage2ToCabbage3('<CsoundSynthesizer></CsoundSynthesizer>'),
+            /No <Cabbage> section/,
+        );
     });
 });
