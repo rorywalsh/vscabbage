@@ -113,7 +113,7 @@ export class RotarySlider {
     this.decimalPlaces = 0;
     this.parameterIndex = 0;
     this.widgetDiv = null;
-    this.hiddenProps = ['linearValue']; // Hide internal linearValue
+    this.hiddenProps = ['linearValue', 'knobScale']; // Hide internals / conversion-only tuning
 
     // Use centralized reactive props helper to manage visible/active toggling and cleanup
     this.props = CabbageUtils.createReactiveProps(this, this.props, {

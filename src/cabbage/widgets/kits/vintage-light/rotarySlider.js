@@ -222,6 +222,7 @@ export class VintageRotarySlider {
             'style.thumb', 'style.track', 'style.label', 'style.valueText', 'style.shadow',
             'style.borderRadius', 'style.borderWidth', 'style.borderColor',
             'style.fontFamily', 'style.fontSize', 'style.fontColor', 'style.textAlign', 'style.backgroundColor',
+            'knobScale',
         ];
         this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
