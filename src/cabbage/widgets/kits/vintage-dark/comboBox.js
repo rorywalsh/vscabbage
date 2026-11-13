@@ -185,10 +185,20 @@ export class VintageComboBox {
                 return `<option value="${escapeHtml(text)}"${isSelected ? " selected" : ""}>${escapeHtml(display)}</option>`;
             })).join("");
 
+        // Fit the text to the available height. Shrink the decorative wrapper
+        // padding on very short widgets so the select still has room for text.
+        const widgetHeight = Number(this.props.bounds?.height) || 36;
+        const wrapperPadding = Math.max(0, Math.min(3, (widgetHeight - 12) / 2));
+        const selectHeight = Math.max(4, widgetHeight - wrapperPadding * 2);
+        const baseFontSize = 11.5;
+        const fontSize = Math.min(baseFontSize, Math.max(6, selectHeight * 0.5));
+        const verticalPadding = Math.max(0, (selectHeight - fontSize - 4) / 2);
+        const textStyle = `font-size:${fontSize.toFixed(2)}px; padding-top:${verticalPadding.toFixed(2)}px; padding-bottom:${verticalPadding.toFixed(2)}px; line-height:1;`;
+
         return `
             <div class="vintage-combo-widget"
-                 style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <select class="vintage-select" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
+                 style="--vintage-accent:${escapeHtml(color.accent || "#c47a2c")}; --vintage-ink:${escapeHtml(color.text || "#2f2a24")}; --vintage-surface:${escapeHtml(color.surface || "#d9d2c6")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"}; padding:${wrapperPadding.toFixed(2)}px;">
+                <select class="vintage-select" style="${textStyle}" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
                     ${options}
                 </select>
             </div>`;

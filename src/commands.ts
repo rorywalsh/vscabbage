@@ -884,6 +884,9 @@ export class Commands {
                         await documentToSave.save();
 
                         if (this.panel) {
+                            // Keep the registry ahead of the rebuild messages
+                            // (see the save handlers below).
+                            await Commands.pushCustomWidgetInfo();
                             this.panel.webview.postMessage({
                                 command: "onFileChanged",
                                 text: "fileSaved",
@@ -1360,6 +1363,12 @@ export class Commands {
             // Clear previous Csound diagnostics before compilation
             this.diagnosticCollectionCsound.clear();
 
+            // Refresh the widget/kit registry BEFORE the rebuild starts. The
+            // registry push is async (it scans the custom-widget folders), so
+            // without this the backend's widget data can reach the webview
+            // first and widgets are created with the previous active kit.
+            await Commands.pushCustomWidgetInfo();
+
             this.panel.webview.postMessage({
                 command: "onFileChanged",
                 text: fileContent,
@@ -1446,6 +1455,11 @@ export class Commands {
 
                 // Clear previous Csound diagnostics before compilation
                 this.diagnosticCollectionCsound.clear();
+
+                // See the note in the other save handler: the registry must be
+                // posted before any widget data, otherwise a kit selected just
+                // before saving is not applied to the rebuilt widgets.
+                await Commands.pushCustomWidgetInfo();
 
                 panel.webview.postMessage({
                     command: "onFileChanged",

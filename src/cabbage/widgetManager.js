@@ -82,6 +82,39 @@ export class WidgetManager {
     }
 
     /**
+     * Returns a copy of `props` with the style properties listed in the widget's
+     * hiddenProps removed. Preset kit widgets lock their captured style so that
+     * the backend's default `style` (sent with every widget update) can't
+     * overwrite it. Only `style.*` paths are stripped; layout and identity keys
+     * (bounds, channels, label, valueText, …) still come from the .csd.
+     */
+    static stripLockedStyleProps(props, hiddenProps) {
+        if (!Array.isArray(hiddenProps) || hiddenProps.length === 0) {
+            return props;
+        }
+        const lockedStyle = hiddenProps.filter(h => typeof h === 'string' && h.startsWith('style.'));
+        if (lockedStyle.length === 0) {
+            return props;
+        }
+        const clone = JSON.parse(JSON.stringify(props || {}));
+        for (const path of lockedStyle) {
+            const parts = path.split('.');
+            let node = clone;
+            for (let i = 0; i < parts.length - 1; i++) {
+                if (!node || typeof node !== 'object') { node = null; break; }
+                node = node[parts[i]];
+            }
+            if (node && typeof node === 'object') {
+                delete node[parts[parts.length - 1]];
+            }
+        }
+        if (clone.style && typeof clone.style === 'object' && Object.keys(clone.style).length === 0) {
+            delete clone.style;
+        }
+        return clone;
+    }
+
+    /**
      * Dynamically creates a widget based on the provided type.
      * @param {string} type - The type of the widget to create.
      * @returns {Promise<object|null>} - The created widget object or null if the type is invalid.
@@ -144,8 +177,10 @@ export class WidgetManager {
         if (explicitTop !== undefined) delete props.top;
         if (explicitLeft !== undefined) delete props.left;
 
-        // Deep merge props instead of shallow assign to preserve nested object properties
-        this.deepMerge(widget.props, props);
+        // Deep merge props instead of shallow assign to preserve nested object properties.
+        // Strip locked style keys first so a preset kit's captured appearance isn't
+        // overwritten by the backend's default style object.
+        this.deepMerge(widget.props, WidgetManager.stripLockedStyleProps(props, widget.hiddenProps));
 
         // NOW apply explicit position AFTER merge to ensure it overrides defaults
         if (explicitTop !== undefined && explicitLeft !== undefined) {
@@ -1055,7 +1090,7 @@ export class WidgetManager {
             // but the JS widget accumulates runtime messages in label.text — we must not wipe them.
             const preservedCsoundText = (widget.props.type === 'csoundOutput' && widget.props.label?.text)
                 ? widget.props.label.text : null;
-            WidgetManager.deepMerge(widget.props, data);
+            WidgetManager.deepMerge(widget.props, WidgetManager.stripLockedStyleProps(data, widget.hiddenProps));
             if (preservedCsoundText !== null && widget.props.label) {
                 widget.props.label.text = preservedCsoundText;
             }

@@ -10,7 +10,7 @@ import { CabbageUtils } from "../cabbage/utils.js";
 import { Cabbage } from "../cabbage/cabbage.js";
 import { WidgetManager } from "../cabbage/widgetManager.js";
 import { selectedElements } from "../cabbage/eventHandlers.js";
-import { discoverAndRegisterCustomWidgets } from "./widgetDiscovery.js";
+import { discoverAndRegisterCustomWidgets, waitForWidgetRegistry } from "./widgetDiscovery.js";
 import { initializeZoom } from "./zoom.js";
 import { keyboardMidiInput } from "./keyboardMidiInput.js";
 
@@ -24,6 +24,13 @@ if (typeof acquireVsCodeApi === 'function') {
 setCabbageMode('nonDraggable');
 
 let widgetWrappers = null;
+
+// Widgets must not be created before the active widget kit is known. Each
+// rebuild arms a fresh gate; widgetUpdate/batchWidgetUpdate await it.
+let widgetRegistryGate = waitForWidgetRegistry();
+function withTimeout(promise, ms) {
+    return Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
+}
 
 // Readiness gate: while true, the fullscreen overlay covers the panel and all
 // widget interaction is blocked because no live backend backs the UI (cold
@@ -695,6 +702,10 @@ window.addEventListener('message', async (event) => {
         // This happens on startup and each time a widget is updated
         case 'widgetUpdate':
             console.log("Cabbage - case 'widgetUpdate':", JSON.stringify(message).substring(0, 200));
+            // Never build widgets until the active widget kit is known.
+            if (vscode) {
+                await withTimeout(widgetRegistryGate, 3000);
+            }
             // The readiness gate lifts only on backendReady: live echoes must
             // not ungate early while audio is still spinning up.
             if (!uiGated) {
@@ -754,6 +765,10 @@ window.addEventListener('message', async (event) => {
         case 'batchWidgetUpdate':
             console.log(`main.js batchWidgetUpdate: processing ${message.widgets.length} widgets`);
             console.log(`main.js batchWidgetUpdate: first widget:`, message.widgets[0]);
+            // Never build widgets until the active widget kit is known.
+            if (vscode) {
+                await withTimeout(widgetRegistryGate, 3000);
+            }
             // Gated like single updates above: only backendReady lifts it.
             if (!uiGated) {
                 hideOverlayNow();
@@ -819,6 +834,15 @@ window.addEventListener('message', async (event) => {
             uiGated = true;
             requestOverlay('Compiling...');
 
+            // Re-arm the kit gate and ask for a fresh registry before any
+            // widget data for the new compile is processed. This guarantees
+            // widgets are built with the currently selected kit even if the
+            // backend's widget messages arrive quickly.
+            if (vscode) {
+                widgetRegistryGate = waitForWidgetRegistry();
+                vscode.postMessage({ command: 'getCustomWidgetInfo' });
+            }
+
             // Verbose recompile timing: mark the clear so dump-driven renders
             // below can report save-to-render latency in the webview console.
             window.__cabbageRecompileT0 = performance.now();
@@ -852,6 +876,12 @@ window.addEventListener('message', async (event) => {
             uiGated = true;
             requestOverlay('Restarting backend...');
             setCabbageMode('nonDraggable'); // Set the mode to non-draggable
+
+            // Re-arm the kit gate (same as onFileChanged).
+            if (vscode) {
+                widgetRegistryGate = waitForWidgetRegistry();
+                vscode.postMessage({ command: 'getCustomWidgetInfo' });
+            }
 
             // Clear pending widgets map to prevent race conditions during rebuild
             if (WidgetManager.pendingWidgets) {
