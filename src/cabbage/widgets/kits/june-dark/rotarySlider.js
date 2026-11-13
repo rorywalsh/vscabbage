@@ -159,6 +159,7 @@ export class JuneRotarySlider {
                 }],
                 label: { text: "", offsetY: 0 },
                 valueText: { visible: true, width: "auto", prefix: "", postfix: "" },
+                knobScale: 1,
                 style: {
                     opacity: 1,
                     color: sliderColors(),
@@ -177,6 +178,7 @@ export class JuneRotarySlider {
             'style.thumb', 'style.track', 'style.label', 'style.valueText', 'style.shadow',
             'style.borderRadius', 'style.borderWidth', 'style.borderColor',
             'style.fontFamily', 'style.fontSize', 'style.fontColor', 'style.textAlign', 'style.backgroundColor',
+            'knobScale',
         ];
         this.props = CabbageUtils.createReactiveProps(this, this.props);
     }
@@ -190,7 +192,9 @@ export class JuneRotarySlider {
         const sweep = ratio * SWEEP;
         const angle = START_ANGLE + sweep;
         const color = this.props.style?.color || PALETTE;
-        const size = Math.max(28, Math.min(this.props.bounds.width * 0.6, this.props.bounds.height * 0.4));
+        const baseSize = Math.max(28, Math.min(this.props.bounds.width * 0.6, this.props.bounds.height * 0.4));
+        const knobScale = Math.max(0.1, Number(this.props.knobScale) || 1);
+        const size = Math.max(1, Math.round(baseSize * knobScale));
         const labelText = typeof this.props.label?.text === "string" ? this.props.label.text : "";
         const labelOffsetY = Number(this.props.label?.offsetY) || 0;
         const label = labelText.trim()

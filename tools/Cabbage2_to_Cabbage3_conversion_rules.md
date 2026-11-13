@@ -26,6 +26,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `size(w,h)` (non-form) → `bounds.width` / `bounds.height`
 - `form size(w,h)` → `"size": {"width":w, "height":h}` (the form is the only widget without `left`/`top`)
 - All non-form widgets must end up with a complete `bounds` object (`left`, `top`, `width`, `height`); `pos()`/`size()` merge into it rather than producing a separate `size` field.
+- **Rotary sliders**: Cabbage 3 uses the full bounds for the knob, while Cabbage 2 auto-sized it to leave room for the label and value text box. The converter replicates this: unlabelled sliders keep their full bounds, labelled sliders are scaled to 85% and centred, and labelled sliders with a value text box are scaled to 80% with an additional 70% scale applied to the knob only (the label/value text keeps its size). The knob scale is written as `knobScale` and hidden from the property panel; it is a conversion hint, not a general-purpose control. When any scaling happens, the converted `.csd` gets a `; Cabbage2→3: rotarySlider bounds scaled ...` comment recording the rule.
 
 ## 3) Channels and ranges
 - `channel("name")` →

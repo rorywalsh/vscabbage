@@ -57,6 +57,8 @@ export interface ConvertResult {
     comboChannels: Set<string>;
     /** set of soundfiler identChannel names (→ genTable; need tableNumber/file wiring) */
     soundfilerIdents: Set<string>;
+    /** number of rotary sliders whose bounds were scaled for Cabbage 3 */
+    scaledRotarySliders: number;
 }
 
 export interface CsoundRewriteResult {
@@ -64,6 +66,18 @@ export interface CsoundRewriteResult {
     changes: number;
     warnings: string[];
 }
+
+/**
+ * Cabbage 2 auto-sized the rotary slider knob based on whether it showed a
+ * text label and a value text box: the knob used 85% of the bounds height when
+ * a label was present, and 80% when a label and value text box were both shown.
+ * Cabbage 3 uses the full bounds for the knob, so apply the same proportions
+ * when converting. The label + value text box case also gets a separate 70%
+ * knob-only scale (the label and value text keep their size).
+ */
+const ROTARY_SLIDER_SCALE_LABEL = 0.85;
+const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.8;
+const ROTARY_KNOB_SCALE_LABEL_TEXTBOX = 0.7;
 
 // ---------------------------------------------------------------------------
 // Widget type renames (rules doc §1)
@@ -875,7 +889,7 @@ function setColor(w: WidgetBuilder, path: string, value: any): void {
  * Convert one parsed widget (and, for plants, its flattened children) into
  * Cabbage 3 JSON objects. Returns an array because widgetArray expands to N.
  */
-function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, soundfilerIdents: Set<string>, counter: { n: number }): Record<string, any>[] {
+function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, soundfilerIdents: Set<string>, counter: { n: number; scaledRotary: number }): Record<string, any>[] {
     // Detect widgetArray("name", N) — expand to N widgets.
     const wa = parsed.tokens.find(t => t.name.toLowerCase() === 'widgetarray');
     const widgets: Record<string, any>[] = [];
@@ -934,6 +948,35 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             const b = w.json.bounds || (w.json.bounds = {});
             if (b.left === undefined) b.left = 0;
             if (b.top === undefined) b.top = 0;
+
+            // Cabbage 2 auto-sized the rotary knob to leave room for the label
+            // and value text box. Replicate that for the overall bounds: no
+            // label → full size, label → 85%, label + value text box → 80%.
+            // The label + value text box case also gets a knob-only scale (70%)
+            // so the knob shrinks without shrinking the label/value text.
+            if (type === 'rotarySlider' && Number.isFinite(b.width) && Number.isFinite(b.height)) {
+                const labelText = w.json.label?.text;
+                const hasLabel = typeof labelText === 'string' && labelText.trim().length > 0;
+                const hasTextBox = w.json.valueText?.visible === true;
+                const scale = hasLabel ? (hasTextBox ? ROTARY_SLIDER_SCALE_LABEL_TEXTBOX : ROTARY_SLIDER_SCALE_LABEL) : 1;
+                let scaled = false;
+                if (scale < 1) {
+                    const scaledWidth = Math.max(1, Math.round(b.width * scale));
+                    const scaledHeight = Math.max(1, Math.round(b.height * scale));
+                    if (scaledWidth !== b.width || scaledHeight !== b.height) {
+                        b.left = Math.round(b.left + (b.width - scaledWidth) / 2);
+                        b.top = Math.round(b.top + (b.height - scaledHeight) / 2);
+                        b.width = scaledWidth;
+                        b.height = scaledHeight;
+                        scaled = true;
+                    }
+                }
+                if (hasLabel && hasTextBox) {
+                    w.json.knobScale = ROTARY_KNOB_SCALE_LABEL_TEXTBOX;
+                    scaled = true;
+                }
+                if (scaled) counter.scaledRotary++;
+            }
         }
 
         // soundfiler → genTable: the Cabbage 2 soundfiler maps to a genTable that
@@ -1051,7 +1094,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const widgets: Record<string, any>[] = [];
     let form: Record<string, any> | null = null;
     let pluginId: string | undefined;
-    const counter = { n: 0 };
+    const counter = { n: 0, scaledRotary: 0 };
 
     for (const p of parsed) {
         const converted = convertWidget(p, warnings, identToChannel, channels, comboChannels, soundfilerIdents, counter);
@@ -1097,6 +1140,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         channels,
         comboChannels,
         soundfilerIdents,
+        scaledRotarySliders: counter.scaledRotary,
     };
 }
 
@@ -1675,8 +1719,17 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
     }
 
-    // Replace the Cabbage section.
-    const newCabbage = `<Cabbage>\n${converted.json}\n</Cabbage>`;
+    // Replace the Cabbage section. If any rotary sliders were scaled, record
+    // the scale factor in a Csound comment immediately before the section so
+    // the change is visible in the .csd. Remove an earlier note first so
+    // repeated conversions don't accumulate comments.
+    csdText = csdText.replace(/^; Cabbage2→3: rotarySlider bounds scaled[^\n]*\n/gm, '');
+    const scaleNote = converted.scaledRotarySliders > 0
+        ? `; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing ` +
+          `(85% with a label, 80% with a label and value text box; knob scaled to 70% when both are present; ` +
+          `${converted.scaledRotarySliders} widget(s))\n`
+        : '';
+    const newCabbage = `${scaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
     csdText = csdText.replace(cabbageMatch[0], newCabbage);
 
     const summary =
@@ -1684,6 +1737,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         (orchestraChanges ? `, rewrote ${orchestraChanges} chnget/chnset/cabbageSet call(s)` : '') +
         (mouseConvertedCount ? `, converted ${mouseConvertedCount} mouse channel(s)` : '') +
         (mouseReviewCount ? `, ${mouseReviewCount} mouse channel(s) need manual review` : '') +
+        (converted.scaledRotarySliders ? `, scaled ${converted.scaledRotarySliders} rotary slider(s)` : '') +
         (converted.warnings.length ? `, ${converted.warnings.length} warning(s)` : '');
 
     return { text: csdText, warnings: converted.warnings, summary };
