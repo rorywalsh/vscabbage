@@ -26,6 +26,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `size(w,h)` (non-form) → `bounds.width` / `bounds.height`
 - `form size(w,h)` → `"size": {"width":w, "height":h}` (the form is the only widget without `left`/`top`)
 - All non-form widgets must end up with a complete `bounds` object (`left`, `top`, `width`, `height`); `pos()`/`size()` merge into it rather than producing a separate `size` field.
+- **Rotary sliders**: Cabbage 3 uses the full bounds for the knob, so converted `rslider` bounds are scaled to 80% (rounded) and centred in their original slot. When this happens, the converted `.csd` gets a `; Cabbage2→3: rotarySlider bounds scaled ...` comment recording the scale factor.
 
 ## 3) Channels and ranges
 - `channel("name")` →

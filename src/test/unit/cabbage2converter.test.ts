@@ -2,7 +2,7 @@
 // Cabbage 2 multi-argument `cabbageSet` forms that Cabbage 3 rejects.
 // Run with: npm run test:unit
 import assert from 'assert';
-import { convertCabbage2Section, rewriteOrchestra } from '../../utils/cabbage2converter';
+import { convertCabbage2Section, convertCabbage2ToCabbage3, rewriteOrchestra } from '../../utils/cabbage2converter';
 
 function rewrite(orchestra: string) {
     return rewriteOrchestra(orchestra, new Map<string, string>(), new Set<string>());
@@ -98,5 +98,39 @@ describe('convertCabbage2Section: comboBox channels', () => {
         assert.ok(combo);
         assert.strictEqual(combo.channels[0].event, 'valueChanged');
         assert.strictEqual(combo.channels[0].range.defaultValue, 0);
+    });
+});
+
+describe('rotary slider bounds scaling', () => {
+    it('scales rotary slider bounds by 0.8 and centres them', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider bounds(0, 10, 90, 80), channel("x")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.deepStrictEqual(slider.bounds, { left: 9, top: 18, width: 72, height: 64 });
+        assert.strictEqual(result.scaledRotarySliders, 1);
+    });
+
+    it('records the scale factor in the converted .csd', () => {
+        const csd = [
+            '<CsoundSynthesizer>',
+            '<Cabbage>',
+            'form caption("Test")',
+            'rslider bounds(0, 10, 90, 80), channel("x")',
+            '</Cabbage>',
+            '<CsInstruments>',
+            'instr 1',
+            'endin',
+            '</CsInstruments>',
+            '<CsScore>',
+            '</CsScore>',
+            '</CsoundSynthesizer>',
+        ].join('\n');
+        const result = convertCabbage2ToCabbage3(csd);
+        assert.ok(result.text.includes('; Cabbage2→3: rotarySlider bounds scaled by 0.8 (80%)'));
+        assert.strictEqual((result.text.match(/; Cabbage2→3: rotarySlider bounds scaled/g) || []).length, 1);
     });
 });
