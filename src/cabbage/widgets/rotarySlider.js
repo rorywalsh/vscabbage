@@ -32,6 +32,7 @@ export class RotarySlider {
       "visible": true,
       "active": true,
       "automatable": true,
+      "knobScale": 1,
 
       "persistence": {
         "preset": true,
