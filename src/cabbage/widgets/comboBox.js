@@ -62,6 +62,9 @@ export class ComboBox {
         this.isMouseInside = false;
         this.isOpen = false;
         this.defaultLabelCleared = false; // Track if defaultLabel has been cleared
+        this.widgetDiv = null;
+        this.pointerDownHandler = null;
+        this.clickOutsideHandler = null;
         const itemsArray = this.getItemsArray();
 
         // Check if we should use defaultLabel initially
@@ -155,10 +158,39 @@ export class ComboBox {
     }
 
     addEventListeners(widgetDiv) {
-        widgetDiv.addEventListener("pointerdown", this.pointerDown.bind(this));
-        document.addEventListener("pointerdown", this.handleClickOutside.bind(this));
+        this.widgetDiv = widgetDiv;
+
+        // Register at most once per instance. addEventListeners can be called
+        // from both connectedCallback and addVsCodeEventListeners, and the
+        // document-level pointerdown listener would otherwise leak and keep
+        // firing after this widget has been rebuilt (e.g. after reloading with
+        // a widget kit active).
+        if (!this.pointerDownHandler) {
+            this.pointerDownHandler = this.pointerDown.bind(this);
+            widgetDiv.addEventListener("pointerdown", this.pointerDownHandler);
+        }
+        if (!this.clickOutsideHandler) {
+            this.clickOutsideHandler = this.handleClickOutside.bind(this);
+            document.addEventListener("pointerdown", this.clickOutsideHandler);
+        }
 
         widgetDiv.ComboBoxInstance = this;
+    }
+
+    /**
+     * Removes the listeners this instance owns. Called when the DOM element no
+     * longer belongs to this widget instance so a stale ComboBox can never
+     * re-render (and thereby de-theme) a newer widget that reuses the id.
+     */
+    detachEventListeners() {
+        if (this.pointerDownHandler && this.widgetDiv) {
+            this.widgetDiv.removeEventListener("pointerdown", this.pointerDownHandler);
+        }
+        if (this.clickOutsideHandler) {
+            document.removeEventListener("pointerdown", this.clickOutsideHandler);
+        }
+        this.pointerDownHandler = null;
+        this.clickOutsideHandler = null;
     }
 
     createDropdown() {
@@ -284,7 +316,19 @@ export class ComboBox {
 
         if (!widgetDiv) {
             console.warn("Cabbage: widgetDiv is null. Channel:", CabbageUtils.getWidgetDivId(this.props));
+            this.detachEventListeners();
             return; // Exit early if widgetDiv is null
+        }
+
+        // The element that currently owns this channel id is no longer the one
+        // this instance was attached to (or it belongs to another instance).
+        // This happens after a UI rebuild, in particular when a widget kit
+        // provides the comboBox: silently stop listening rather than
+        // re-rendering the new widget with this instance's built-in markup.
+        const owner = widgetDiv.cabbageInstance || widgetDiv.ComboBoxInstance;
+        if ((this.widgetDiv && widgetDiv !== this.widgetDiv) || (owner && owner !== this)) {
+            this.detachEventListeners();
+            return;
         }
 
         // Check if click is inside the widget or dropdown
@@ -420,7 +464,7 @@ export class ComboBox {
                 <rect x="0" y="0" width="100%" height="100%" fill="${this.props.style.backgroundColor}" stroke="${this.props.style.borderColor}"
                     stroke-width="${this.props.style.borderWidth}" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" 
                        style="cursor: pointer;" pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}" 
-                       onclick="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}').ComboBoxInstance.pointerDown(event)"></rect>
+                       onclick="document.getElementById('${CabbageUtils.getWidgetDivId(this.props)}')?.ComboBoxInstance?.pointerDown?.(event)"></rect>
                 <polygon points="${arrowX},${arrowY} ${arrowX + arrowWidth},${arrowY} ${arrowX + arrowWidth / 2},${arrowY + arrowHeight}"
                     fill="${this.props.style.borderColor}" style="${this.isOpen ? 'display: none;' : ''} pointer-events: none;"/>
                 <text x="${selectedItemTextX}" y="50%" font-family="${this.props.style.fontFamily}" font-size="${fontSize}"
