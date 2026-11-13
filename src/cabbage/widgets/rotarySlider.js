@@ -575,7 +575,7 @@ export class RotarySlider {
           ? (this.props.bounds.width > this.props.bounds.height ? this.props.bounds.height : this.props.bounds.width) * 0.18
           : this.props.style.label.fontSize;
 
-        const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
+        const labelY = this.props.bounds.height + this.props.label.offsetY;
 
         return `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="100%" height="100%" preserveAspectRatio="none" opacity="${this.props.visible ? this.props.style.opacity : '0'}" style="pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
@@ -639,7 +639,7 @@ export class RotarySlider {
     // Calculate thumb radius
     const thumbRadius = this.props.style.thumb.radius === "auto" ? w * 0.367 : this.props.style.thumb.radius;
 
-    const labelY = this.props.bounds.height + (this.props.style.label.fontSize !== "auto" && this.props.style.label.fontSize > 0 ? this.props.label.offsetY : 0);
+    const labelY = this.props.bounds.height + this.props.label.offsetY;
     let scale = 100;
 
     // Render with value text visible
