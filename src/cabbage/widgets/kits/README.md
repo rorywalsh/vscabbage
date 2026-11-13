@@ -51,6 +51,39 @@ import { CabbageUtils } from "cabbage/utils.js";
 The webview provides an import map for `cabbage` and `cabbage/*`, so these work
 at any folder depth.
 
+## Adding a built-in widget to a kit
+
+In edit mode, right-click a built-in widget and choose **Add to Custom Kit…**.
+Cabbage captures the widget's customised properties and writes a small preset
+module into the chosen kit (creating the kit if needed):
+
+```
+widgets/kits/StudioBlue/button.js
+```
+
+The preset extends the built-in class and only overrides its default `props`,
+so it keeps the native renderer and interaction code:
+
+```js
+import { Button } from "cabbage/widgets/button.js";
+
+export class ThemedButton extends Button {
+    static widgetType = "button";
+
+    constructor() {
+        super();
+        this.props = CabbageUtils.createReactiveProps(this, deepMerge(base, PRESET));
+        this.hiddenProps = [/* properties locked in the property panel */];
+    }
+}
+```
+
+A picker chooses which properties stay editable in the property panel. Layout
+and identity props (`bounds`, channels, `label`, `visible`, `active`,
+`automatable`) are editable by default; style properties are locked so the
+captured skin stays intact. A kit supports one override per type — adding the
+same type again replaces the previous override.
+
 ## Styling
 
 Each widget owns its own styling; there is no shared kit stylesheet mechanism.

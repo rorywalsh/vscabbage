@@ -16,6 +16,39 @@
 				"${workspaceFolder:vscabbage}/dist/**/*.js"
 			],
 			"preLaunchTask": "vscabbage: watch"
+		},
+		{
+			// Diagnostic: launches the Extension Development Host without
+			// attaching the inspector (no --inspect-brk). If the window stays
+			// open here, the crash is in the debugger attach path, not the
+			// extension itself.
+			"name": "Run vscabbage Extension (no debugger attach)",
+			"type": "extensionHost",
+			"request": "launch",
+			"noDebug": true,
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder:vscabbage}"
+			],
+			"outFiles": [
+				"${workspaceFolder:vscabbage}/dist/**/*.js"
+			],
+			"preLaunchTask": "vscabbage: watch"
+		},
+		{
+			// Diagnostic: disables all installed extensions (the one under
+			// development still loads). If this survives, a co-installed
+			// extension is aborting the extension host.
+			"name": "Run vscabbage Extension (no installed extensions)",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder:vscabbage}",
+				"--disable-extensions"
+			],
+			"outFiles": [
+				"${workspaceFolder:vscabbage}/dist/**/*.js"
+			],
+			"preLaunchTask": "vscabbage: watch"
 		}
 	]
 }
