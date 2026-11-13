@@ -29,8 +29,16 @@ import {
     applyKitWidgetImportOverrides,
     buildKitImportOverrides,
     buildKitWidgetShims,
+    BUILT_IN_WIDGET_CLASS_NAMES,
 } from './utils/widgetKitExport';
-import { WidgetKit } from './utils/widgetScan';
+import { scanForWidgetKits, WidgetKit } from './utils/widgetScan';
+import {
+    buildHiddenProps,
+    buildKitWidgetSource,
+    EditablePropEntry,
+    flattenPropsForPicker,
+    toKitPresetProps,
+} from './utils/kitPreset';
 
 function getPackageConfig(root: any, formWidget?: any): any {
     if (root && !Array.isArray(root) && typeof root === 'object' && root.package && typeof root.package === 'object') {
@@ -693,6 +701,12 @@ export class Commands {
                         Commands.debounceWidgetPropsUpdate({ kind: 'batch', texts: texts.slice() });
                     }
                 }
+                break;
+
+            case 'addToCustomKit':
+                // Context-menu action on a built-in widget: package its
+                // customised props into a widget-kit preset file.
+                await Commands.addWidgetToCustomKit(message);
                 break;
 
             case 'groupOperationError':
@@ -2516,6 +2530,317 @@ export class Commands {
                 target.webview.postMessage({ command: 'customWidgetInfo', widgets: [], kits: [], activeKit: '' });
             }
         }
+    }
+
+    /**
+     * Packages a customised built-in widget into a widget kit as a preset
+     * subclass. Invoked by the webview "Add to Custom Kit" context-menu action.
+     *
+     * The generated file extends the built-in widget class (so it keeps
+     * receiving upstream fixes) and only overrides the default props captured
+     * from the widget. Properties the user leaves unchecked are added to
+     * `hiddenProps`, locking them in the property panel.
+     *
+     * @param message Webview message whose `text` is JSON `{ type, props }`
+     */
+    static async addWidgetToCustomKit(message: any): Promise<void> {
+        let payload: { type?: unknown; props?: unknown };
+        try {
+            payload = JSON.parse(typeof message?.text === 'string' ? message.text : '{}');
+        } catch {
+            vscode.window.showErrorMessage('Cabbage: Could not read the widget data for the custom kit.');
+            return;
+        }
+
+        const type = typeof payload.type === 'string' ? payload.type : '';
+        const rawProps = payload.props;
+        if (!type || !rawProps || typeof rawProps !== 'object' || Array.isArray(rawProps)) {
+            vscode.window.showErrorMessage('Cabbage: "Add to Custom Kit" received invalid widget data.');
+            return;
+        }
+        const props = rawProps as Record<string, any>;
+
+        if (!BUILT_IN_WIDGET_CLASS_NAMES[type]) {
+            vscode.window.showErrorMessage(
+                `Cabbage: "Add to Custom Kit" is only available for built-in widgets ("${type}" is not built in).`,
+            );
+            return;
+        }
+
+        // 1. Ensure a custom widget folder exists, reusing the setup flow.
+        let widgetsDirs = await ExtensionUtils.getCustomWidgetDirectories();
+        if (widgetsDirs.length === 0) {
+            const choice = await vscode.window.showInformationMessage(
+                'Cabbage: No custom widget folder is configured. Create one now?',
+                { modal: true },
+                'Create Folder',
+            );
+            if (choice !== 'Create Folder') {
+                return;
+            }
+            await Settings.selectCustomWidgetDirectory();
+            widgetsDirs = await ExtensionUtils.getCustomWidgetDirectories();
+            if (widgetsDirs.length === 0) {
+                vscode.window.showErrorMessage(
+                    'Cabbage: No custom widget folder configured — cannot add to a kit.',
+                );
+                return;
+            }
+        }
+
+        // 2. Pick the custom widgets folder to add the kit to.
+        let widgetsDir = widgetsDirs[0];
+        if (widgetsDirs.length > 1) {
+            const picked = await vscode.window.showQuickPick(
+                widgetsDirs.map((dir) => ({ label: dir, description: path.join(dir, 'kits') })),
+                { placeHolder: 'Select the custom widget folder that holds the kit' },
+            );
+            if (!picked) {
+                return;
+            }
+            widgetsDir = picked.label;
+        }
+
+        // 3. Pick an existing kit or create a new one.
+        const kit = await Commands.pickOrCreateKit(widgetsDir);
+        if (!kit) {
+            return;
+        }
+
+        // 4. Choose which properties stay editable. Checked = editable in the
+        // property panel; unchecked = locked (added to hiddenProps). Style
+        // properties start unchecked so the captured skin is stable.
+        const rows = flattenPropsForPicker(props);
+        if (rows.length === 0) {
+            vscode.window.showErrorMessage('Cabbage: This widget has no configurable properties to export.');
+            return;
+        }
+        const checkedRows = await vscode.window.showQuickPick(
+            Commands.buildPropertyPickerItems(rows),
+            {
+                canPickMany: true,
+                placeHolder: 'Checked properties stay editable in the property panel; unchecked are locked (style starts locked).',
+                matchOnDescription: true,
+            },
+        );
+        if (!checkedRows) {
+            return;
+        }
+        const checkedPaths = new Set(checkedRows.filter((item) => item.row).map((item) => item.row!.path));
+        const uncheckedPaths = rows
+            .filter((row) => !checkedPaths.has(row.path))
+            .map((row) => row.path);
+
+        // 5. Generate and write the preset file.
+        const preset = toKitPresetProps(props);
+        const hiddenProps = buildHiddenProps(uncheckedPaths);
+        const className = `Themed${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+
+        // Kit widgets must live in a subfolder of <widgets>/kits, never directly
+        // in kits/ itself. Validate the resolved paths defensively in case a
+        // scanned filename ever contains traversal segments.
+        const kitsRoot = path.resolve(widgetsDir, 'kits');
+        const kitDir = path.resolve(kit.directory);
+        if (kitDir === kitsRoot || !kitDir.startsWith(kitsRoot + path.sep)) {
+            vscode.window.showErrorMessage(
+                `Cabbage: Refusing to write a kit widget outside a kit folder in ${kitsRoot}.`,
+            );
+            return;
+        }
+
+        // A kit supports one override per type. If this kit already overrides
+        // the type under a different filename, overwrite that file so we don't
+        // create a second conflicting declaration.
+        const existingOverride = kit.widgets.find((widget) => widget.widgetType === type);
+        const fileName = existingOverride ? existingOverride.filename : `${type}.js`;
+        const filePath = path.resolve(kitDir, fileName);
+        if (filePath === kitDir || !filePath.startsWith(kitDir + path.sep)) {
+            vscode.window.showErrorMessage(
+                `Cabbage: Refusing to write a kit widget outside ${kitDir}.`,
+            );
+            return;
+        }
+
+        if (fs.existsSync(filePath)) {
+            const replace = await vscode.window.showWarningMessage(
+                `Kit "${kit.name}" already has a ${type} widget (${fileName}). Replace it?`,
+                { modal: true },
+                'Replace',
+            );
+            if (replace !== 'Replace') {
+                return;
+            }
+        }
+
+        let source: string;
+        try {
+            source = buildKitWidgetSource({ type, className, preset, hiddenProps, kitName: kit.name });
+        } catch (err) {
+            vscode.window.showErrorMessage(`Cabbage: Failed to generate kit widget: ${String(err)}`);
+            return;
+        }
+
+        try {
+            await vscode.workspace.fs.writeFile(
+                vscode.Uri.file(filePath),
+                new TextEncoder().encode(source),
+            );
+        } catch (err) {
+            console.error('Cabbage: Failed to write kit widget', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to write ${filePath}: ${String(err)}`);
+            return;
+        }
+
+        // 6. Refresh the registry so the new override is known immediately.
+        await Commands.pushCustomWidgetInfo();
+
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+        await vscode.window.showTextDocument(doc);
+
+        const config = vscode.workspace.getConfiguration('cabbage');
+        const activeKit = config.get<string>('widgetKit', '') || '';
+        if (activeKit === kit.id) {
+            vscode.window.showInformationMessage(
+                `Cabbage: Updated the "${type}" widget in kit "${kit.name}". Reload the instrument to see the change.`,
+            );
+            return;
+        }
+
+        const action = await vscode.window.showInformationMessage(
+            `Cabbage: Added the "${type}" widget to kit "${kit.name}".`,
+            'Activate Kit',
+        );
+        if (action === 'Activate Kit') {
+            const inspected = config.inspect<string>('widgetKit');
+            const target = inspected?.workspaceValue !== undefined
+                ? vscode.ConfigurationTarget.Workspace
+                : vscode.ConfigurationTarget.Global;
+            await config.update('widgetKit', kit.id, target);
+        }
+    }
+
+    /**
+     * Picks an existing kit in `widgetsDir` or creates a new kit folder with a
+     * `kit.json` manifest. Returns null when the user cancels.
+     */
+    private static async pickOrCreateKit(widgetsDir: string): Promise<WidgetKit | null> {
+        const kits = await scanForWidgetKits(widgetsDir);
+
+        interface KitPick extends vscode.QuickPickItem {
+            kit?: WidgetKit;
+            create?: boolean;
+        }
+
+        const items: KitPick[] = kits.map((kit) => ({
+            label: kit.name || kit.id,
+            description: kit.id,
+            detail: kit.description || kit.directory,
+            kit,
+        }));
+        items.push({ label: '$(add) New kit…', create: true });
+
+        const picked = await vscode.window.showQuickPick(items, {
+            placeHolder: kits.length
+                ? 'Select a kit to add the widget to, or create a new one'
+                : 'No kits yet — create a new one',
+            matchOnDescription: true,
+        });
+        if (!picked) {
+            return null;
+        }
+        if (picked.kit) {
+            return picked.kit;
+        }
+
+        const name = await vscode.window.showInputBox({
+            prompt: 'Name for the new widget kit',
+            placeHolder: 'e.g. Studio Blue',
+            validateInput: (value) => {
+                const trimmed = (value || '').trim();
+                if (!trimmed) {
+                    return 'Enter a name for the kit.';
+                }
+                if (!/[A-Za-z0-9]/.test(trimmed)) {
+                    return 'Use at least one letter or number.';
+                }
+                return undefined;
+            },
+        });
+        if (!name) {
+            return null;
+        }
+
+        const folderName = Commands.slugifyKitName(name);
+        if (!folderName) {
+            vscode.window.showErrorMessage('Cabbage: Could not derive a folder name from that kit name.');
+            return null;
+        }
+
+        // Reject ids that collide with a bundled or already-discovered kit;
+        // bundled kits win at load time, so a duplicate would be shadowed.
+        const knownKitIds = new Set((await ExtensionUtils.getWidgetKits()).map((kit) => kit.id));
+        if (knownKitIds.has(folderName)) {
+            vscode.window.showErrorMessage(
+                `Cabbage: A kit with id "${folderName}" already exists. Choose a different name.`,
+            );
+            return null;
+        }
+
+        const kitDir = path.join(widgetsDir, 'kits', folderName);
+        if (fs.existsSync(kitDir)) {
+            vscode.window.showErrorMessage(`Cabbage: A kit folder named "${folderName}" already exists.`);
+            return null;
+        }
+
+        try {
+            await vscode.workspace.fs.createDirectory(vscode.Uri.file(kitDir));
+            const manifest = JSON.stringify({ id: folderName, name: name.trim() }, null, 2) + '\n';
+            await vscode.workspace.fs.writeFile(
+                vscode.Uri.file(path.join(kitDir, 'kit.json')),
+                new TextEncoder().encode(manifest),
+            );
+        } catch (err) {
+            console.error('Cabbage: Failed to create kit folder', err);
+            vscode.window.showErrorMessage(`Cabbage: Failed to create kit folder: ${String(err)}`);
+            return null;
+        }
+
+        return { id: folderName, name: name.trim(), directory: kitDir, widgets: [] };
+    }
+
+    /** Converts a human kit name into a filesystem/id-safe slug. */
+    private static slugifyKitName(name: string): string {
+        return name
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 64);
+    }
+
+    /**
+     * Builds the grouped, multi-select QuickPick items for the editable-property
+     * picker. Rows are grouped under a separator for each top-level key.
+     */
+    private static buildPropertyPickerItems(
+        rows: EditablePropEntry[],
+    ): Array<vscode.QuickPickItem & { row?: EditablePropEntry }> {
+        const items: Array<vscode.QuickPickItem & { row?: EditablePropEntry }> = [];
+        let currentGroup = '';
+        for (const row of rows) {
+            const group = row.path.split('.')[0] || row.path;
+            if (group !== currentGroup) {
+                currentGroup = group;
+                items.push({ label: group, kind: vscode.QuickPickItemKind.Separator });
+            }
+            items.push({
+                label: row.path,
+                description: row.description,
+                picked: row.editableByDefault,
+                row,
+            });
+        }
+        return items;
     }
 
     /**

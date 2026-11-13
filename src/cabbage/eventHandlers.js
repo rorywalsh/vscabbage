@@ -873,6 +873,9 @@ async function alignSelectedWidgets(type) {
 export function setupFormHandlers() {
     let lastClickTime = 0; // Variable to store the last click time
     const doubleClickThreshold = 300; // Time in milliseconds to consider as a double click
+    // DOM id of the widget targeted by the most recent right-click, so
+    // "Add to Custom Kit" can operate on that widget specifically.
+    let contextWidgetId = '';
 
     // Create a dynamic context menu for grouping and ungrouping widgets
     const groupContextMenu = document.createElement("div");
@@ -916,6 +919,38 @@ export function setupFormHandlers() {
         return sep;
     };
 
+    /**
+     * Sends the right-clicked (or singly selected) widget's customised props to
+     * the extension, which packages them into a widget-kit preset.
+     * @param {string} widgetId DOM id of the right-clicked widget, if known
+     */
+    const addWidgetToCustomKit = async (widgetId) => {
+        let targetId = widgetId;
+        if (!targetId && selectedElements.size === 1) {
+            targetId = Array.from(selectedElements)[0].id;
+        }
+        const widget = findWidgetByElementId(targetId);
+        if (!widget || !widget.props) {
+            console.warn('Cabbage: Add to Custom Kit - no widget selected');
+            return;
+        }
+
+        // Strip runtime/internal fields before handing the props to the
+        // extension; per-instance values are removed again when the preset is
+        // generated.
+        const props = CabbageUtils.sanitizeForEditor(widget);
+        const type = widget.props.type || (props && props.type) || '';
+        if (!type) {
+            console.warn('Cabbage: Add to Custom Kit - widget has no type');
+            return;
+        }
+
+        postMessageToVSCode({
+            command: 'addToCustomKit',
+            text: JSON.stringify({ type, props })
+        });
+    };
+
     // Group/Ungroup Options
     const groupOption = createMenuOption("Group", async () => {
         await groupSelectedWidgets();
@@ -938,11 +973,15 @@ export function setupFormHandlers() {
     // Duplicate Option
     const duplicateOption = createMenuOption("Duplicate", async () => await duplicateSelectedWidgets());
 
+    // Add to Custom Kit Option (single built-in widget)
+    const addToKitOption = createMenuOption("Add to Custom Kit…", async () => await addWidgetToCustomKit(contextWidgetId));
+
     // Delete Option
     const deleteOption = createMenuOption("Delete", async () => await deleteSelectedWidgets());
 
     // Append menu options to the content container
     contentContainer.appendChild(duplicateOption);
+    contentContainer.appendChild(addToKitOption);
     contentContainer.appendChild(createSeparator());
     contentContainer.appendChild(deleteOption);
     contentContainer.appendChild(groupOption);
@@ -1113,6 +1152,10 @@ export function setupFormHandlers() {
                     console.error("Cabbage: Error in DOM traversal:", error);
                 }
 
+                // Remember which widget was right-clicked so "Add to Custom Kit"
+                // targets it even if the selection contains other widgets.
+                contextWidgetId = (isWidgetClick && element && element.id) ? element.id : '';
+
 
                 if (cabbageMode === 'draggable') {
                     if (selectedElements.size > 0) {
@@ -1154,6 +1197,13 @@ export function setupFormHandlers() {
                         // Enable/Disable Duplicate
                         const canDuplicate = selectedElements.size > 0;
                         setOptionState(duplicateOption, canDuplicate);
+
+                        // Enable "Add to Custom Kit" for a single widget (the
+                        // right-clicked one, or the only selected widget).
+                        const kitTargetId = contextWidgetId
+                            || (selectedElements.size === 1 ? Array.from(selectedElements)[0].id : '');
+                        const canAddToKit = !!kitTargetId && !!findWidgetByElementId(kitTargetId)?.props;
+                        setOptionState(addToKitOption, canAddToKit);
 
                         // Enable/Disable Delete
                         const canDelete = selectedElements.size > 0;

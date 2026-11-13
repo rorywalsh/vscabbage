@@ -82,6 +82,32 @@ describe('extractWidgetInfoFromFile', () => {
         assert.deepStrictEqual(info, { className: 'FancyDial', widgetType: 'fancyDial' });
     });
 
+    it('reads an explicit type marker from a preset widget that extends a built-in class', () => {
+        const info = extractWidgetInfoFromFile(`
+            // cabbage-widget-type: button
+            export class ThemedButton extends Button {
+                constructor() {
+                    super();
+                    this.props = CabbageUtils.createReactiveProps(this, deepMerge({}, PRESET));
+                }
+            }
+        `);
+        assert.deepStrictEqual(info, { className: 'ThemedButton', widgetType: 'button' });
+    });
+
+    it('reads an explicit static widgetType from a preset widget', () => {
+        const info = extractWidgetInfoFromFile(`
+            export class ThemedKnob extends RotarySlider {
+                static widgetType = "rotarySlider";
+                constructor() {
+                    super();
+                    this.props = CabbageUtils.createReactiveProps(this, {});
+                }
+            }
+        `);
+        assert.deepStrictEqual(info, { className: 'ThemedKnob', widgetType: 'rotarySlider' });
+    });
+
     it('reads the depth-1 widget type, not a nested channel type', () => {
         const info = extractWidgetInfoFromFile(`
             export class ComboBox {

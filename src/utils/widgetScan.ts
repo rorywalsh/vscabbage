@@ -213,6 +213,32 @@ function isIgnoredDirectory(name: string): boolean {
 }
 
 /**
+ * Reads a widget's target type from an explicit marker. A "preset" kit widget
+ * extends a built-in class instead of declaring a literal `this.props` object,
+ * so its type cannot be inferred from the props literal. It declares the type
+ * with either a static class field or a header comment:
+ *
+ *     static widgetType = "button";
+ *     // cabbage-widget-type: button
+ *
+ * @param content The JavaScript file content
+ * @returns The declared widget type, or null when no marker is present
+ */
+function findDeclaredWidgetType(content: string): string | null {
+    const patterns = [
+        /static\s+widgetType\s*=\s*["']([A-Za-z_$][\w$]*)["']/,
+        /cabbage-widget-type\s*:\s*["']?([A-Za-z_$][\w$]*)["']?/,
+    ];
+    for (const pattern of patterns) {
+        const match = pattern.exec(content);
+        if (match) {
+            return match[1];
+        }
+    }
+    return null;
+}
+
+/**
  * Extracts widget class name and type from file content.
  * @param content The JavaScript file content
  * @returns Object with className and widgetType, or null
@@ -225,13 +251,21 @@ export function extractWidgetInfoFromFile(content: string): WidgetInfo | null {
             return null;
         }
 
+        const className = classMatch[1];
+
+        // Preset kit widgets (which extend a built-in class) declare their type
+        // explicitly. The marker is authoritative and bypasses the props-literal
+        // checks below, which only apply to standalone widget classes.
+        const declaredType = findDeclaredWidgetType(content);
+        if (declaredType) {
+            return { className, widgetType: declaredType };
+        }
+
         // Reject ordinary exported classes. A widget initialises `this.props`
         // with a layout-ish object.
         if (!WIDGET_PROPS_ASSIGNMENT.test(content) || !WIDGET_LAYOUT_KEY.test(content)) {
             return null;
         }
-
-        const className = classMatch[1];
 
         // Read the widget's own `type` key (depth 1 of the props object).
         // Falling back to the class name keeps older widgets working.
