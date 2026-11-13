@@ -102,24 +102,48 @@ describe('convertCabbage2Section: comboBox channels', () => {
 });
 
 describe('rotary slider bounds scaling', () => {
-    it('scales rotary slider bounds by 0.8 and centres them', () => {
+    it('leaves unlabelled rotary sliders at full size', () => {
         const result = convertCabbage2Section([
             'form caption("Test")',
-            'rslider bounds(0, 10, 90, 80), channel("x")',
+            'rslider bounds(0, 0, 80, 80), channel("x")',
         ].join('\n'));
         const json = JSON.parse(result.json);
         const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
         assert.ok(slider);
-        assert.deepStrictEqual(slider.bounds, { left: 9, top: 18, width: 72, height: 64 });
+        assert.deepStrictEqual(slider.bounds, { left: 0, top: 0, width: 80, height: 80 });
+        assert.strictEqual(result.scaledRotarySliders, 0);
+    });
+
+    it('scales labelled rotary sliders to 85% and centres them', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider bounds(0, 0, 80, 80), text("Gain"), channel("x")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.deepStrictEqual(slider.bounds, { left: 6, top: 6, width: 68, height: 68 });
         assert.strictEqual(result.scaledRotarySliders, 1);
     });
 
-    it('records the scale factor in the converted .csd', () => {
+    it('scales labelled rotary sliders with a value text box to 80%', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider bounds(0, 0, 80, 80), text("Gain"), valuetextBox(1), channel("x")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.deepStrictEqual(slider.bounds, { left: 8, top: 8, width: 64, height: 64 });
+        assert.strictEqual(result.scaledRotarySliders, 1);
+    });
+
+    it('records the scale factors in the converted .csd', () => {
         const csd = [
             '<CsoundSynthesizer>',
             '<Cabbage>',
             'form caption("Test")',
-            'rslider bounds(0, 10, 90, 80), channel("x")',
+            'rslider bounds(0, 0, 80, 80), text("Gain"), channel("x")',
             '</Cabbage>',
             '<CsInstruments>',
             'instr 1',
@@ -130,7 +154,8 @@ describe('rotary slider bounds scaling', () => {
             '</CsoundSynthesizer>',
         ].join('\n');
         const result = convertCabbage2ToCabbage3(csd);
-        assert.ok(result.text.includes('; Cabbage2→3: rotarySlider bounds scaled by 0.8 (80%)'));
-        assert.strictEqual((result.text.match(/; Cabbage2→3: rotarySlider bounds scaled/g) || []).length, 1);
+        assert.ok(result.text.includes('; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing'));
+        assert.ok(result.text.includes('85%'));
+        assert.ok(result.text.includes('80%'));
     });
 });

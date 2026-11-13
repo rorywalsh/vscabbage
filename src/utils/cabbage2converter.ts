@@ -68,11 +68,14 @@ export interface CsoundRewriteResult {
 }
 
 /**
- * Cabbage 3 rotary sliders use the full bounds for the knob, while Cabbage 2
- * reserved part of the bounds for the label and value text. Scale them down
- * slightly and centre them in their original slots.
+ * Cabbage 2 auto-sized the rotary slider knob based on whether it showed a
+ * text label and a value text box: the knob used 85% of the bounds height when
+ * a label was present, and 80% when a label and value text box were both shown.
+ * Cabbage 3 uses the full bounds for the knob, so apply the same proportions
+ * when converting (width and height are scaled together to keep the knob round).
  */
-const ROTARY_SLIDER_SCALE = 0.8;
+const ROTARY_SLIDER_SCALE_LABEL = 0.85;
+const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.8;
 
 // ---------------------------------------------------------------------------
 // Widget type renames (rules doc §1)
@@ -944,18 +947,25 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             if (b.left === undefined) b.left = 0;
             if (b.top === undefined) b.top = 0;
 
-            // Cabbage 3 rotary sliders use the full bounds for the knob, while
-            // Cabbage 2 reserved part of the bounds for the label and value.
-            // Scale them down and centre them in their original slot.
+            // Cabbage 2 auto-sized the rotary knob to leave room for the label
+            // and value text box. Replicate that: no label → full size, label →
+            // 85%, label + value text box → 80%. Scale width and height together
+            // and centre the knob in its original slot.
             if (type === 'rotarySlider' && Number.isFinite(b.width) && Number.isFinite(b.height)) {
-                const scaledWidth = Math.max(1, Math.round(b.width * ROTARY_SLIDER_SCALE));
-                const scaledHeight = Math.max(1, Math.round(b.height * ROTARY_SLIDER_SCALE));
-                if (scaledWidth !== b.width || scaledHeight !== b.height) {
-                    b.left = Math.round(b.left + (b.width - scaledWidth) / 2);
-                    b.top = Math.round(b.top + (b.height - scaledHeight) / 2);
-                    b.width = scaledWidth;
-                    b.height = scaledHeight;
-                    counter.scaledRotary++;
+                const labelText = w.json.label?.text;
+                const hasLabel = typeof labelText === 'string' && labelText.trim().length > 0;
+                const hasTextBox = w.json.valueText?.visible === true;
+                const scale = hasLabel ? (hasTextBox ? ROTARY_SLIDER_SCALE_LABEL_TEXTBOX : ROTARY_SLIDER_SCALE_LABEL) : 1;
+                if (scale < 1) {
+                    const scaledWidth = Math.max(1, Math.round(b.width * scale));
+                    const scaledHeight = Math.max(1, Math.round(b.height * scale));
+                    if (scaledWidth !== b.width || scaledHeight !== b.height) {
+                        b.left = Math.round(b.left + (b.width - scaledWidth) / 2);
+                        b.top = Math.round(b.top + (b.height - scaledHeight) / 2);
+                        b.width = scaledWidth;
+                        b.height = scaledHeight;
+                        counter.scaledRotary++;
+                    }
                 }
             }
         }
@@ -1706,9 +1716,8 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     // repeated conversions don't accumulate comments.
     csdText = csdText.replace(/^; Cabbage2→3: rotarySlider bounds scaled[^\n]*\n/gm, '');
     const scaleNote = converted.scaledRotarySliders > 0
-        ? `; Cabbage2→3: rotarySlider bounds scaled by ${ROTARY_SLIDER_SCALE} ` +
-          `(${Math.round(ROTARY_SLIDER_SCALE * 100)}%) and centred in their original slots ` +
-          `(${converted.scaledRotarySliders} widget(s))\n`
+        ? `; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing ` +
+          `(85% with a label, 80% with a label and value text box; ${converted.scaledRotarySliders} widget(s))\n`
         : '';
     const newCabbage = `${scaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
     csdText = csdText.replace(cabbageMatch[0], newCabbage);
