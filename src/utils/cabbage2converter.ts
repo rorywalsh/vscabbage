@@ -70,12 +70,12 @@ export interface CsoundRewriteResult {
 /**
  * Cabbage 2 auto-sized the rotary slider knob based on whether it showed a
  * text label and a value text box: the knob used 85% of the bounds height when
- * a label was present, and 80% when a label and value text box were both shown.
+ * a label was present, and 70% when a label and value text box were both shown.
  * Cabbage 3 uses the full bounds for the knob, so apply the same proportions
  * when converting (width and height are scaled together to keep the knob round).
  */
 const ROTARY_SLIDER_SCALE_LABEL = 0.85;
-const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.8;
+const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.7;
 
 // ---------------------------------------------------------------------------
 // Widget type renames (rules doc §1)
@@ -1717,7 +1717,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     csdText = csdText.replace(/^; Cabbage2→3: rotarySlider bounds scaled[^\n]*\n/gm, '');
     const scaleNote = converted.scaledRotarySliders > 0
         ? `; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing ` +
-          `(85% with a label, 80% with a label and value text box; ${converted.scaledRotarySliders} widget(s))\n`
+          `(85% with a label, 70% with a label and value text box; ${converted.scaledRotarySliders} widget(s))\n`
         : '';
     const newCabbage = `${scaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
     csdText = csdText.replace(cabbageMatch[0], newCabbage);

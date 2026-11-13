@@ -126,7 +126,7 @@ describe('rotary slider bounds scaling', () => {
         assert.strictEqual(result.scaledRotarySliders, 1);
     });
 
-    it('scales labelled rotary sliders with a value text box to 80%', () => {
+    it('scales labelled rotary sliders with a value text box to 70%', () => {
         const result = convertCabbage2Section([
             'form caption("Test")',
             'rslider bounds(0, 0, 80, 80), text("Gain"), valuetextBox(1), channel("x")',
@@ -134,7 +134,7 @@ describe('rotary slider bounds scaling', () => {
         const json = JSON.parse(result.json);
         const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
         assert.ok(slider);
-        assert.deepStrictEqual(slider.bounds, { left: 8, top: 8, width: 64, height: 64 });
+        assert.deepStrictEqual(slider.bounds, { left: 12, top: 12, width: 56, height: 56 });
         assert.strictEqual(result.scaledRotarySliders, 1);
     });
 
@@ -156,6 +156,6 @@ describe('rotary slider bounds scaling', () => {
         const result = convertCabbage2ToCabbage3(csd);
         assert.ok(result.text.includes('; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing'));
         assert.ok(result.text.includes('85%'));
-        assert.ok(result.text.includes('80%'));
+        assert.ok(result.text.includes('70%'));
     });
 });
