@@ -203,6 +203,7 @@ export class VintageRotarySlider {
                 }],
                 label: { text: "", offsetY: 0 },
                 valueText: { visible: true, width: "auto", prefix: "", postfix: "" },
+                knobScale: 1,
                 style: {
                     opacity: 1,
                     color: sliderColors(),
@@ -236,7 +237,9 @@ export class VintageRotarySlider {
         const tickSweep = ratio > 0 ? sweep + 1.5 : 0;
         const angle = 240 + sweep;
         const color = this.props.style?.color || {};
-        const size = Math.max(28, Math.min(this.props.bounds.width * 0.66, this.props.bounds.height * 0.42));
+        const baseSize = Math.max(28, Math.min(this.props.bounds.width * 0.66, this.props.bounds.height * 0.42));
+        const knobScale = Math.max(0.1, Number(this.props.knobScale) || 1);
+        const size = Math.max(1, Math.round(baseSize * knobScale));
         const labelText = typeof this.props.label?.text === "string" ? this.props.label.text : "";
         const labelOffsetY = Number(this.props.label?.offsetY) || 0;
         const label = labelText

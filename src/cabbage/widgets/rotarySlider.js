@@ -588,7 +588,9 @@ export class RotarySlider {
 
     // Calculate sizes and positions
     const minDimension = Math.min(this.props.bounds.width, this.props.bounds.height);
-    let w = minDimension * 0.75;
+    const baseW = minDimension * 0.75;
+    const knobScale = Math.max(0.1, Number(this.props.knobScale) || 1);
+    let w = baseW * knobScale;
 
     // Calculate track thickness/width (use width only; 'auto' means derive from size)
     const configuredTrackWidth = this.props.style.track.width;
@@ -629,11 +631,11 @@ export class RotarySlider {
 
     // Calculate font sizes
     const labelFontSize = this.props.style.label.fontSize === "auto" || this.props.style.label.fontSize === 0
-      ? w * 0.24
+      ? baseW * 0.24
       : this.props.style.label.fontSize;
 
     const valueTextSize = this.props.style.valueText.fontSize === "auto" || this.props.style.valueText.fontSize === 0
-      ? w * 0.24
+      ? baseW * 0.24
       : this.props.style.valueText.fontSize;
 
     // Calculate thumb radius

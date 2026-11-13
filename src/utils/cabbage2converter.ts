@@ -70,12 +70,14 @@ export interface CsoundRewriteResult {
 /**
  * Cabbage 2 auto-sized the rotary slider knob based on whether it showed a
  * text label and a value text box: the knob used 85% of the bounds height when
- * a label was present, and 70% when a label and value text box were both shown.
+ * a label was present, and 80% when a label and value text box were both shown.
  * Cabbage 3 uses the full bounds for the knob, so apply the same proportions
- * when converting (width and height are scaled together to keep the knob round).
+ * when converting. The label + value text box case also gets a separate 70%
+ * knob-only scale (the label and value text keep their size).
  */
 const ROTARY_SLIDER_SCALE_LABEL = 0.85;
-const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.7;
+const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.8;
+const ROTARY_KNOB_SCALE_LABEL_TEXTBOX = 0.7;
 
 // ---------------------------------------------------------------------------
 // Widget type renames (rules doc §1)
@@ -948,14 +950,16 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             if (b.top === undefined) b.top = 0;
 
             // Cabbage 2 auto-sized the rotary knob to leave room for the label
-            // and value text box. Replicate that: no label → full size, label →
-            // 85%, label + value text box → 80%. Scale width and height together
-            // and centre the knob in its original slot.
+            // and value text box. Replicate that for the overall bounds: no
+            // label → full size, label → 85%, label + value text box → 80%.
+            // The label + value text box case also gets a knob-only scale (70%)
+            // so the knob shrinks without shrinking the label/value text.
             if (type === 'rotarySlider' && Number.isFinite(b.width) && Number.isFinite(b.height)) {
                 const labelText = w.json.label?.text;
                 const hasLabel = typeof labelText === 'string' && labelText.trim().length > 0;
                 const hasTextBox = w.json.valueText?.visible === true;
                 const scale = hasLabel ? (hasTextBox ? ROTARY_SLIDER_SCALE_LABEL_TEXTBOX : ROTARY_SLIDER_SCALE_LABEL) : 1;
+                let scaled = false;
                 if (scale < 1) {
                     const scaledWidth = Math.max(1, Math.round(b.width * scale));
                     const scaledHeight = Math.max(1, Math.round(b.height * scale));
@@ -964,9 +968,14 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
                         b.top = Math.round(b.top + (b.height - scaledHeight) / 2);
                         b.width = scaledWidth;
                         b.height = scaledHeight;
-                        counter.scaledRotary++;
+                        scaled = true;
                     }
                 }
+                if (hasLabel && hasTextBox) {
+                    w.json.knobScale = ROTARY_KNOB_SCALE_LABEL_TEXTBOX;
+                    scaled = true;
+                }
+                if (scaled) counter.scaledRotary++;
             }
         }
 
@@ -1717,7 +1726,8 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     csdText = csdText.replace(/^; Cabbage2→3: rotarySlider bounds scaled[^\n]*\n/gm, '');
     const scaleNote = converted.scaledRotarySliders > 0
         ? `; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing ` +
-          `(85% with a label, 70% with a label and value text box; ${converted.scaledRotarySliders} widget(s))\n`
+          `(85% with a label, 80% with a label and value text box; knob scaled to 70% when both are present; ` +
+          `${converted.scaledRotarySliders} widget(s))\n`
         : '';
     const newCabbage = `${scaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
     csdText = csdText.replace(cabbageMatch[0], newCabbage);
