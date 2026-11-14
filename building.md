@@ -9,3 +9,12 @@ Then press F5 to launch the extension in a new window. Open a simple .csd file. 
 The source is split into two areas. The top-level directory containing the .ts files relates directly to the extension itself. The `cabbage` directory contains JS files needed by the extension, and all Cabbage plugins that use the native widgets. If you are creating custom widgets, then the only file you need is `cabbage.js`, which defines a custom Cabbage class that takes care of communication between the web-based frontend and the plugin. 
 
 More information about the files in the `cabbage` directory can be found in the `cabbage/readme.md`.
+
+## Testing
+
+Run `npm test` for the full suite (lint, then unit and hosted-VS-Code integration tests).
+`npm run test:unit` and `npm run test:integration` run each suite on its own.
+
+The full test inventory — every test file and what it covers — lives in
+[`src/test/README.md`](src/test/README.md). Add new test files to that inventory in the same
+PR.

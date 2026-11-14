@@ -608,12 +608,14 @@
     "package": "webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run lint",
     "lint": "eslint src --ext ts",
     "test:unit": "npm run compile-tests && mocha \"out/test/unit/**/*.test.js\" --timeout 10000",
-    "test": "vscode-test"
+    "test:integration": "npm run compile-tests && npm run compile && vscode-test",
+    "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "26.x",
     "@types/vscode": "^1.88.0",
@@ -624,16 +626,18 @@
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.1.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
+    "jsdom": "^31.0.1",
     "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
     "webpack": "^5.112.2",
     "webpack-cli": "^7.3.1"
   },
   "dependencies": {
+    "fracturedjsonjs": "^5.1.0",
     "get-port": "^7.2.0",
     "interactjs": "^1.10.28",
-    "fracturedjsonjs": "^5.1.0",
     "jsonc-parser": "^3.3.1",
     "ws": "^8.22.1",
     "xml2js": "^0.6.2"

@@ -370,6 +370,14 @@ export class WidgetManager {
                 widget.addVsCodeEventListeners(widgetDiv, vscode);
             }
         } else if (widget.props.type !== "form") {
+            // Exported plugins never call acquireVsCodeApi(), so they only take
+            // this branch. Mirror the wrapper gating that the widgets apply in
+            // addVsCodeEventListeners(); otherwise an inactive/hidden widget
+            // (e.g. a label sitting over a slider) still hit-tests and swallows
+            // clicks intended for the widget underneath.
+            widget.widgetDiv = widgetDiv;
+            CabbageUtils.applyWidgetPointerEvents(widget, widgetDiv);
+
             if (typeof widget.addEventListeners === 'function') {
                 widget.addEventListeners(widgetDiv);
             }
@@ -817,7 +825,10 @@ export class WidgetManager {
                 if (cabbageMode === 'draggable') {
                     childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
                 } else {
-                    childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance mode
+                    // Respect the child's own visible/active state; forcing
+                    // 'auto' here would undo the gating above and let an
+                    // inactive child swallow clicks.
+                    CabbageUtils.applyWidgetPointerEvents(childDiv.cabbageInstance, childDiv);
                 }
 
                 // Log final position after style application
