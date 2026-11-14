@@ -139,6 +139,12 @@ Webview `CabbageUtils` / `CabbageColours` (loaded from the plain-ESM source via 
 - `findValidId` (jsdom): closest ancestor div id, direct div id, missing target → `null`.
 - `CabbageColours`: RGB(A)/hex conversion, inversion, alpha, named colours, lighten/darken.
 
+### `widgetEventContract.test.ts` — 5 tests
+Webview widget → backend message contract (real widget classes loaded via the esbuild harness).
+- `button`/`checkBox`/`optionButton` pointer events emit `controlData` with the right `channel`, `value`, and `gesture`.
+- An inactive button emits no `controlData`.
+- A label's background rect sets `pointer-events="none"` when inactive and `"all"` when active.
+
 ### `webviewPropertyPanel.test.ts` — 11 tests
 Webview `PropertyPanel` serialization/minimization.
 - `applyExcludes`: simple keys recursively, dot-notation keys, non-object passthrough, default exclude keys.
@@ -170,13 +176,22 @@ Extension lifecycle through a real VS Code host.
 Document-transforming commands against real `.csd` files.
 - `cabbage.reorderWidgets` (visual ordering), `cabbage.addCabbageSection` (top placement), `cabbage.expandCabbageJSON`, `cabbage.collapseCabbageJSON`, `cabbage.moveCabbageSection`.
 
+### `backend.test.ts` — 1 test
+Extension host → backend messaging via a **fake `CabbageApp`** (no Csound required).
+- A fixture `.csd` (`fixtures/widgetEvents.csd`) is compiled while `cabbage.pathToCabbageBinary` points at a stand-in executable (`fixtures/fakeCabbageApp.js`) that records its stdin to a log. The test asserts the running extension spawns the fake backend and forwards the `onFileChanged` message for the fixture.
+- Skipped on Windows (the fake relies on a Unix shebang); CI runs integration tests on Linux.
+
+Fixtures:
+- `fixtures/widgetEvents.csd` — a form plus a spread of widgets (button, checkBox, optionButton, comboBox, listBox, rotary/horizontal/vertical sliders, and an `active:false` label over a slider) used as the compile target.
+- `fixtures/fakeCabbageApp.js` — the fake backend executable, recording stdin JSON lines to `$CABBAGE_TEST_FAKE_LOG`.
+
 ---
 
 ## Currently not covered
 
 These are known gaps (see the plan notes; adding them should also add an entry here):
 
-- Compile-on-save / backend round-trips (need a stubbed `CabbageApp` or the packaged binary).
+- Real Csound backend round-trips (actual audio, `prints`/`printks` output). The fake-backend test covers the extension→backend pipe, but not the Csound engine itself (needs the packaged binary).
+- Full widget-interaction simulation for geometry-heavy widgets (sliders, combo boxes, genTable, …) under jsdom. Only the discrete-click widgets (button, checkBox, optionButton) and label pointer-events are covered so far.
 - Widget insert/edit/duplicate flows driven from the webview (need webview command simulation).
 - Cabbage 2 instrument import and `goToDefinition`/`jumpToWidgetObject` (need dialog mocking/editor fixtures).
-- Individual widget classes (sliders, combo boxes, genTable, …) under jsdom for default props and serialization.
