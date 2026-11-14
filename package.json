@@ -621,7 +621,7 @@
     "@types/vscode": "^1.88.0",
     "@types/ws": "^8.18.2",
     "@types/xml2js": "^0.4.14",
-    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/eslint-plugin": "^8.72.2",
     "@typescript-eslint/parser": "^8.71.1",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
@@ -639,11 +639,11 @@
     "get-port": "^7.2.0",
     "interactjs": "^1.10.28",
     "jsonc-parser": "^3.3.1",
-    "ws": "^8.22.1",
+    "ws": "^8.22.2",
     "xml2js": "^0.6.2"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.9",
+    "bufferutil": "^4.2.0",
     "utf-8-validate": "^6.0.5"
   },
   "overrides": {
