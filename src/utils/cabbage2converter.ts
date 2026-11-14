@@ -64,6 +64,10 @@ export interface ConvertResult {
 export interface CsoundRewriteResult {
     text: string;
     changes: number;
+    /** ternary `a?b:c` colons spaced out so Csound 7 doesn't lex them as type annotations */
+    ternaryChanges: number;
+    /** Csound `#define` macros expanded in the orchestra */
+    macroChanges: number;
     warnings: string[];
 }
 
@@ -928,6 +932,11 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             ensureChannels(w);
             w.json.channels[0].id = suffixIdent;
             channels.add(suffixIdent);
+            // widgetArray ident channels (e.g. "slider_ident1") receive property
+            // strings in Cabbage 2, so register them as ident channels too. This
+            // lets rewriteOrchestra treat a `chnset "…", "slider_ident1"` as a
+            // property update (convert/flag) rather than a numeric value write.
+            identToChannel.set(suffixIdent, suffixIdent);
         } else if (w.json.channels && Array.isArray(w.json.channels) && w.json.channels.some(c => c && c.id)) {
             // Channels created by range/value/rangeX/rangeY — register any non-empty ids.
             for (const c of w.json.channels) if (c && c.id) channels.add(c.id);
@@ -1181,6 +1190,24 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
             }
             return null;
         }
+        case 'pos': {
+            if (args.length >= 2) {
+                return [
+                    `cabbageSet "${channel}", "bounds.left", ${num(args[0])}`,
+                    `cabbageSet "${channel}", "bounds.top",  ${num(args[1])}`,
+                ].join('\n');
+            }
+            return null;
+        }
+        case 'size': {
+            if (args.length >= 2) {
+                return [
+                    `cabbageSet "${channel}", "bounds.width",  ${num(args[0])}`,
+                    `cabbageSet "${channel}", "bounds.height", ${num(args[1])}`,
+                ].join('\n');
+            }
+            return null;
+        }
         case 'colour':
         case 'color': {
             const css = parseColour(args);
@@ -1200,6 +1227,8 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
             return `cabbageSet "${channel}", "style.borderWidth", ${num(args[0])}`;
         case 'alpha':
             return `cabbageSet "${channel}", "style.opacity", ${num(args[0])}`;
+        case 'active':
+            return `cabbageSet "${channel}", "active", ${num(args[0]) !== 0 ? 1 : 0}`;
         case 'tablenumber':
         case 'tablenumbers':
             return `cabbageSet "${channel}", "tableNumber", ${num(args[0])}`;
@@ -1217,6 +1246,28 @@ function propertyToCabbageSet(channel: string, propString: string): string | nul
         default:
             return null;
     }
+}
+
+/**
+ * Convert a Cabbage 2 property string that may contain several comma-separated
+ * properties (e.g. `alpha(1), active(1)`) into one or more `cabbageSet` calls.
+ * Returns null if any individual property has no Cabbage 3 equivalent, so the
+ * caller can fall back to a manual-review marker instead of emitting garbage.
+ */
+function propertyStringToCabbageSets(channel: string, propString: string): string | null {
+    const parts = tokenize(propString).map(p => p.trim()).filter(Boolean);
+    if (parts.length === 0) {
+        return null;
+    }
+    const calls: string[] = [];
+    for (const part of parts) {
+        const call = propertyToCabbageSet(channel, part);
+        if (call === null) {
+            return null;
+        }
+        calls.push(call);
+    }
+    return calls.join('\n');
 }
 
 /**
@@ -1468,6 +1519,513 @@ function rewriteCabbage2CabbageSet(text: string): { text: string; changes: numbe
     return { text, changes };
 }
 
+// ---------------------------------------------------------------------------
+// cabbageCreate conversion (Cabbage 2 → Cabbage 3)
+// ---------------------------------------------------------------------------
+
+/** A `sprintf` placeholder (`%d`, `%s`, …) carried through JSON serialization. */
+interface Placeholder {
+    __placeholder: true;
+    /** true → string placeholder (`%s`); false → numeric (`%d`, `%f`, …). */
+    string: boolean;
+    text: string;
+}
+
+function isPlaceholder(v: unknown): v is Placeholder {
+    return typeof v === 'object' && v !== null && (v as Placeholder).__placeholder === true;
+}
+
+/** Escape a string for embedding inside a Csound double-quoted string literal. */
+function escapeCsoundString(s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+/**
+ * Serialize a value as a JSON fragment for a `sprintf` format string. The
+ * result is embedded inside a Csound double-quoted string, so every structural
+ * `"` is emitted as `\"`. Numbers and numeric placeholders are bare (so `%d`
+ * substitutes an unquoted JSON number); strings (and `%s`) are quoted.
+ */
+function jsonForSprintf(value: unknown): string {
+    const Q = '\\"'; // an escaped double-quote for the enclosing Csound string
+    if (value === null || value === undefined) {
+        return 'null';
+    }
+    if (isPlaceholder(value)) {
+        return value.string ? `${Q}${value.text}${Q}` : value.text;
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? String(value) : 'null';
+    }
+    if (typeof value === 'boolean') {
+        return value ? 'true' : 'false';
+    }
+    if (typeof value === 'string') {
+        return `${Q}${escapeCsoundString(value)}${Q}`;
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map(jsonForSprintf).join(',')}]`;
+    }
+    if (typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>)
+            .map(([k, v]) => `${Q}${k}${Q}:${jsonForSprintf(v)}`);
+        return `{${entries.join(',')}}`;
+    }
+    return 'null';
+}
+
+/** Interpret a Cabbage 2 argument as a JSON value, preserving `%` placeholders. */
+function argToJsonValue(arg: string): unknown {
+    const t = arg.trim();
+    if (t.length > 1 && t[0] === '%' && /[a-zA-Z]$/.test(t)) {
+        const string = t.endsWith('s');
+        return { __placeholder: true, string, text: t } as Placeholder;
+    }
+    if (isQuotedString(t)) {
+        return unquote(t);
+    }
+    const n = Number(t);
+    if (t !== '' && !isNaN(n)) {
+        return n;
+    }
+    return t;
+}
+
+/**
+ * Convert a Cabbage 2 property string (as passed to `cabbageCreate "type", S`)
+ * into a JSON `sprintf` format string. Reuses the same identifier → property
+ * mapping as the Cabbage section, but emits the JSON as a string so `%d`/`%s`
+ * placeholders survive for the runtime `sprintf`.
+ */
+function cabbage2PropToJsonFormat(type: string, propString: string, warnings: string[]): string | null {
+    // The property string is the content of a Csound double-quoted string, so
+    // `\"` is a literal quote. Unescape it before tokenizing.
+    const unescaped = propString.replace(/\\"/g, '"');
+    const tokens = tokenize(unescaped).map(t => t.trim()).filter(Boolean);
+    const widget: Record<string, unknown> = { type };
+    const style: Record<string, unknown> = {};
+    const channels: unknown[] = [];
+
+    const setStyle = (path: string, value: unknown): void => {
+        const parts = path.split('.');
+        let node: Record<string, unknown> = style;
+        for (let i = 0; i < parts.length - 1; i++) {
+            node[parts[i]] = (node[parts[i]] as Record<string, unknown>) || {};
+            node = node[parts[i]] as Record<string, unknown>;
+        }
+        node[parts[parts.length - 1]] = value;
+    };
+
+    for (const tok of tokens) {
+        const pt = parseToken(tok);
+        if (!pt) {
+            continue;
+        }
+        const name = (pt.name || '').toLowerCase();
+        const a = pt.args.map(x => x.trim());
+        switch (name) {
+            case 'bounds':
+                if (a.length >= 4) {
+                    widget.bounds = {
+                        left: argToJsonValue(a[0]), top: argToJsonValue(a[1]),
+                        width: argToJsonValue(a[2]), height: argToJsonValue(a[3]),
+                    };
+                }
+                break;
+            case 'channel':
+                channels.push({ id: argToJsonValue(a[0] ?? ''), event: 'valueChanged' });
+                break;
+            case 'colour':
+            case 'color': {
+                const css = parseColour(a);
+                if (css) {
+                    setStyle('backgroundColor', css);
+                }
+                break;
+            }
+            case 'shape': {
+                const s = unquote(a[0] ?? '').toLowerCase();
+                if (s === 'sharp') {
+                    setStyle('borderRadius', 0);
+                } else if (s === 'rounded') {
+                    setStyle('borderRadius', 4);
+                }
+                break;
+            }
+            case 'caption':
+                widget.caption = argToJsonValue(a[0] ?? '');
+                break;
+            case 'text':
+                widget.label = { ...(widget.label as Record<string, unknown> || {}), text: argToJsonValue(a[0] ?? '') };
+                break;
+            case 'items':
+                widget.items = a.map(x => argToJsonValue(x));
+                break;
+            case 'visible':
+                widget.visible = argToJsonValue(a[0] ?? '');
+                break;
+            case 'active':
+                widget.active = argToJsonValue(a[0] ?? '');
+                break;
+            case 'alpha':
+                setStyle('opacity', argToJsonValue(a[0] ?? ''));
+                break;
+            case 'textcolour':
+            case 'textcolor':
+            case 'fontcolour':
+            case 'fontcolor': {
+                const css = parseColour(a);
+                if (css) {
+                    setStyle('fontColor', css);
+                }
+                break;
+            }
+            case 'outlinecolour':
+            case 'outlinecolor': {
+                const css = parseColour(a);
+                if (css) {
+                    setStyle('borderColor', css);
+                }
+                break;
+            }
+            case 'outlinethickness':
+                setStyle('borderWidth', argToJsonValue(a[0] ?? ''));
+                break;
+            case 'corners':
+                setStyle('borderRadius', argToJsonValue(a[0] ?? ''));
+                break;
+            default:
+                warnings.push(`cabbageCreate identifier "${pt.name}" not converted — manual review required`);
+                break;
+        }
+    }
+    if (Object.keys(style).length > 0) {
+        widget.style = style;
+    }
+    if (channels.length > 0) {
+        widget.channels = channels;
+    }
+    return jsonForSprintf(widget);
+}
+
+/**
+ * Rewrite Cabbage 2 `cabbageCreate "type", Svar` (fed by a `sprintf` property
+ * string) into Cabbage 3 `cabbageCreate:i(Svar)`, converting the property
+ * string into a JSON object. Only handles a `sprintf`/`sprintfk` on the line(s)
+ * immediately preceding the call; anything else is left with a warning.
+ */
+function rewriteCabbageCreate(text: string, warnings: string[]): { text: string; changes: number } {
+    let changes = 0;
+    const lines = text.split('\n');
+    const result = [...lines];
+
+    for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/^([ \t]*)\bcabbageCreate\s+"([^"]+)"\s*,\s*([A-Za-z_]\w*)\b/);
+        if (!m) {
+            continue;
+        }
+        const full = m[0];
+        const indent = m[1];
+        const type = m[2];
+        const svar = m[3];
+
+        // Find the `Svar sprintf[k] "…"` that builds the property string, within
+        // a short window above the call.
+        let propString: string | null = null;
+        let sLine = -1;
+        for (let j = i - 1; j >= 0 && j >= i - 12; j--) {
+            const sm = lines[j].match(new RegExp(`\\b${svar}\\s+sprintfk?\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+            if (sm) {
+                propString = sm[1];
+                sLine = j;
+                break;
+            }
+        }
+        if (propString === null) {
+            warnings.push(`cabbageCreate for "${svar}" has no preceding sprintf property string — manual review required`);
+            continue;
+        }
+
+        const jsonFormat = cabbage2PropToJsonFormat(type, propString, warnings);
+        if (jsonFormat === null) {
+            warnings.push(`cabbageCreate for "${svar}" could not be converted — manual review required`);
+            continue;
+        }
+
+        // Rewrite the sprintf format string and the cabbageCreate call.
+        result[sLine] = lines[sLine].replace(propString, jsonFormat);
+        result[i] = lines[i].replace(full, `${indent}cabbageCreate:i(${svar})`);
+        changes++;
+    }
+
+    return { text: result.join('\n'), changes };
+}
+
+/**
+ * Expand Csound `#define` macros in the orchestra so downstream rewrites can
+ * resolve channel names that are built with macro arguments (e.g.
+ * `chnset Smsg, "IndicatorBall$COLOUR"`, `chnset Smessage$N, "slider_ident$N"`,
+ * `chnget "$name.Button"`). Without this the channel literal contains a `$…`
+ * reference that never matches a widget channel, so the ident-channel property
+ * update is left as a raw `chnset` and fails at init (string written to a
+ * numeric widget channel).
+ *
+ * Handles both macro forms the corpus uses:
+ *   - function-like  `#define NAME(a'b) # body with $a $b #`
+ *   - object-like    `#define NAME #body#`  (also redefined sequentially)
+ * Invocations are `$NAME(arg'arg)` / `$NAME`. Processing is sequential, so a
+ * later `#define` of the same name replaces the earlier one at the point of use
+ * (Csound's "redefine N each branch" idiom).
+ */
+function expandCsoundMacros(orchestra: string): { text: string; changes: number } {
+    const lines = orchestra.replace(/\r\n/g, '\n').split('\n');
+    const macros = new Map<string, { args: string[]; body: string }>();
+    const out: string[] = [];
+    let changes = 0;
+
+    // A `#` on its own line delimits a `#define` body; tolerate a trailing
+    // `; comment` on the same line.
+    const isHashDelim = (s: string): boolean => s.replace(/;.*$/, '').trim() === '#';
+
+    // Index of a `;` line comment, or -1 (outside string literals).
+    const findLineComment = (s: string): number => {
+        let inString = false;
+        let quote = '';
+        for (let i = 0; i < s.length; i++) {
+            const c = s[i];
+            if (inString) {
+                if (c === quote) {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c === '"' || c === "'") {
+                inString = true;
+                quote = c;
+                continue;
+            }
+            if (c === ';') {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    const substituteMacroArgs = (body: string, args: string[], vals: string[]): string => {
+        const argMap = new Map<string, string>();
+        args.forEach((arg, i) => argMap.set(arg, vals[i] ?? ''));
+        // Longest arg names first so a short name can't shadow a longer one
+        // (e.g. "name" vs "N"). A single alternation pass handles adjacent
+        // macros (`$N$CHAN`) that sequential replaces would corrupt.
+        const names = [...args].sort((a, b) => b.length - a.length);
+        const re = new RegExp(`\\$(${names.join('|')})(?:\\.|(?![A-Za-z0-9_]))`, 'g');
+        // A `.` immediately after the name is Csound's macro-name terminator
+        // (`$COLOUR.Ball` → `RedBall`), so it is consumed, not kept. Line
+        // comments are left untouched (a `$arg` in a comment is documentation).
+        return body.split('\n').map((line) => {
+            const ci = findLineComment(line);
+            const code = ci === -1 ? line : line.slice(0, ci);
+            const comment = ci === -1 ? '' : line.slice(ci);
+            return code.replace(re, (_m, name: string) => argMap.get(name) ?? _m) + comment;
+        }).join('\n');
+    };
+
+    // Expand `$NAME(...)` / `$NAME` invocations recursively, so a macro whose
+    // body itself invokes another macro (e.g. Windmills' CIRCLE_OF_FIVE →
+    // INDIVIDUAL_CIRCLE) is fully resolved. `$MACRO` inside a `;` comment is
+    // documentation (e.g. RingModSynth's `; $PRESET(Dec'Rel'…)`), not code.
+    const expandText = (text: string, depth: number): string => {
+        if (depth > 30) {
+            return text; // guard against runaway recursion
+        }
+        return text.split('\n').map((line) => {
+            const ci = findLineComment(line);
+            const code = ci === -1 ? line : line.slice(0, ci);
+            const comment = ci === -1 ? '' : line.slice(ci);
+            const expandedCode = code.replace(/\$([A-Za-z_]\w*)(\(([^)]*)\))?/g, (full, name: string, _p?: string, rawArgs?: string) => {
+                const macro = macros.get(name);
+                if (!macro) {
+                    return full;
+                }
+                let expanded: string;
+                if (macro.args.length === 0) {
+                    expanded = macro.body;
+                } else {
+                    const vals = (rawArgs ?? '').split("'").map(a => a.trim());
+                    expanded = substituteMacroArgs(macro.body, macro.args, vals);
+                }
+                return expandText(expanded, depth + 1);
+            });
+            return expandedCode + comment;
+        }).join('\n');
+    };
+
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Function-like: `#define NAME(arg'arg) ...` (tolerate a trailing comment)
+        const fn = line.match(/^[ \t]*#define[ \t]+([A-Za-z_]\w*)[ \t]*\(([^)]*)\)[ \t]*(?:;.*)?$/);
+        if (fn) {
+            const name = fn[1];
+            const args = fn[2].split("'").map(a => a.trim()).filter(Boolean);
+            i++;
+            while (i < lines.length && lines[i].trim() === '') i++;        // blank lines
+            if (i < lines.length && isHashDelim(lines[i])) i++;             // opening #
+            const body: string[] = [];
+            while (i < lines.length && !isHashDelim(lines[i])) {
+                body.push(lines[i]);
+                i++;
+            }
+            if (i < lines.length) {
+                i++;                                                       // closing #
+            }
+            macros.set(name, { args, body: body.join('\n') });
+            continue;
+        }
+
+        // Object-like single-line: `#define NAME #body#`
+        const obj = line.match(/^[ \t]*#define[ \t]+([A-Za-z_]\w*)[ \t]+#([\s\S]*)#[ \t]*(?:;.*)?$/);
+        if (obj) {
+            macros.set(obj[1], { args: [], body: obj[2] });
+            i++;
+            continue;
+        }
+
+        // Object-like multi-line: `#define NAME` + `#` … `#`
+        const objMl = line.match(/^[ \t]*#define[ \t]+([A-Za-z_]\w*)[ \t]*(?:;.*)?$/);
+        if (objMl) {
+            const name = objMl[1];
+            i++;
+            while (i < lines.length && lines[i].trim() === '') i++;
+            if (i < lines.length && isHashDelim(lines[i])) i++;
+            const body: string[] = [];
+            while (i < lines.length && !isHashDelim(lines[i])) {
+                body.push(lines[i]);
+                i++;
+            }
+            if (i < lines.length) {
+                i++;
+            }
+            macros.set(name, { args: [], body: body.join('\n') });
+            continue;
+        }
+
+        const expanded = expandText(line, 0);
+        if (expanded !== line) {
+            changes++;
+        }
+        out.push(expanded);
+        i++;
+    }
+
+    return { text: out.join('\n'), changes };
+}
+
+/**
+ * Csound 7 lexes `ident:ident` (no surrounding whitespace) as an explicit type
+ * annotation (`T_TYPED_IDENT`, e.g. `chnget:k`, `random:i`). The Cabbage 2
+ * corpus writes the ternary operator without spaces — `a?b:c` — so the `:`
+ * between the two branches is mis-lexed as part of a typed identifier and the
+ * orchestra fails to parse (`syntax error, unexpected T_TYPED_IDENT`).
+ *
+ * Insert a space either side of a ternary colon so it lexes as the ternary
+ * operator again. Only colons that pair with a preceding `?` at the same
+ * paren depth are touched; genuine type annotations (`random:i(`, `chnget:k(`)
+ * and declaration-site annotations have no `?` and are left untouched.
+ */
+function spaceTernaryOperators(text: string): { text: string; changes: number } {
+    let out = '';
+    let changes = 0;
+    let inString = false;
+    let quote = '';
+    let inLineComment = false;
+    let inBlockComment = false;
+    let depth = 0;
+    const pending: number[] = []; // paren depth of each unmatched '?'
+
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+
+        if (inLineComment) {
+            out += c;
+            if (c === '\n') {
+                inLineComment = false;
+            }
+            continue;
+        }
+        if (inBlockComment) {
+            out += c;
+            if (c === '*' && next === '/') {
+                out += '/';
+                i++;
+                inBlockComment = false;
+            }
+            continue;
+        }
+        if (inString) {
+            out += c;
+            if (c === quote) {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (c === ';') {
+            inLineComment = true;
+            out += c;
+            continue;
+        }
+        if (c === '/' && next === '*') {
+            inBlockComment = true;
+            out += c;
+            continue;
+        }
+        if (c === '"' || c === "'") {
+            inString = true;
+            quote = c;
+            out += c;
+            continue;
+        }
+
+        if (c === '(' || c === '[') {
+            depth++;
+            out += c;
+            continue;
+        }
+        if (c === ')' || c === ']') {
+            depth--;
+            out += c;
+            continue;
+        }
+        if (c === '?') {
+            pending.push(depth);
+            out += c;
+            continue;
+        }
+        if (c === ':') {
+            if (pending.length > 0 && pending[pending.length - 1] === depth) {
+                pending.pop();
+                if (out.length > 0 && /\w/.test(out[out.length - 1])) {
+                    out += ' ';
+                }
+                out += ':';
+                if (next !== undefined && /\w/.test(next)) {
+                    out += ' ';
+                }
+                changes++;
+                continue;
+            }
+            out += c;
+            continue;
+        }
+
+        out += c;
+    }
+    return { text: out, changes };
+}
+
 /**
  * Rewrite `chnget`/`chnset` calls in the orchestra into Cabbage 3 opcodes.
  * Csound syntax has no parentheses: `chnget "chan"` and `chnset value, "chan"`.
@@ -1487,6 +2045,23 @@ export function rewriteOrchestra(
     let changes = 0;
     const warnings: string[] = [];
     const comboVars = new Set<string>(); // orchestra vars that read a comboBox/optionButton channel
+
+    // Expand Csound `#define` macros first so channel names built with `$arg`
+    // resolve to literals that can be matched against widget channels.
+    const macroExpand = expandCsoundMacros(text);
+    text = macroExpand.text;
+    const macroChanges = macroExpand.changes;
+
+    // Csound 7 mis-lexes the unspaced ternary colon (`a?b:c` → `b:c` reads as a
+    // type annotation). Space it out first so downstream rewrites see valid text.
+    const ternary = spaceTernaryOperators(text);
+    text = ternary.text;
+
+    // Cabbage 2 `cabbageCreate "type", S` → Cabbage 3 `cabbageCreate:i(S)` with
+    // the property string converted to JSON.
+    const createRewrite = rewriteCabbageCreate(text, warnings);
+    text = createRewrite.text;
+    changes += createRewrite.changes;
 
     // Cabbage 2 allowed multi-argument cabbageSet (e.g. "bounds", x, y, w, h and
     // "colour", r, g, b); Cabbage 3 needs an object / dot notation. Rewrite first.
@@ -1569,7 +2144,7 @@ export function rewriteOrchestra(
             // mismatch), and a 2-arg cabbageSet with a non-JSON property string
             // crashes the backend (parseAndFormatJson reads an out-of-range arg).
             if (trimmedExpr.startsWith('"') && trimmedExpr.endsWith('"')) {
-                const call = propertyToCabbageSet(targetChannel, trimmedExpr.slice(1, -1));
+                const call = propertyStringToCabbageSets(targetChannel, trimmedExpr.slice(1, -1));
                 if (call) {
                     changes++;
                     return call;
@@ -1615,7 +2190,7 @@ export function rewriteOrchestra(
         );
     }
 
-    return { text, changes, warnings };
+    return { text, changes, ternaryChanges: ternary.changes, macroChanges, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -1712,9 +2287,13 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
 
     // Rewrite the orchestra (everything inside <CsInstruments>).
     let orchestraChanges = 0;
+    let ternaryChanges = 0;
+    let macroChanges = 0;
     if (orchestraMatch) {
         const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, soundfilerLoading, mouseToConvert);
         orchestraChanges = rewritten.changes;
+        ternaryChanges = rewritten.ternaryChanges;
+        macroChanges = rewritten.macroChanges;
         converted.warnings.push(...rewritten.warnings);
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
     }
@@ -1735,6 +2314,8 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     const summary =
         `Converted ${converted.channels.size} channel(s)` +
         (orchestraChanges ? `, rewrote ${orchestraChanges} chnget/chnset/cabbageSet call(s)` : '') +
+        (macroChanges ? `, expanded ${macroChanges} macro(s)` : '') +
+        (ternaryChanges ? `, spaced ${ternaryChanges} ternary operator(s)` : '') +
         (mouseConvertedCount ? `, converted ${mouseConvertedCount} mouse channel(s)` : '') +
         (mouseReviewCount ? `, ${mouseReviewCount} mouse channel(s) need manual review` : '') +
         (converted.scaledRotarySliders ? `, scaled ${converted.scaledRotarySliders} rotary slider(s)` : '') +

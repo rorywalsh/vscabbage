@@ -244,6 +244,261 @@ describe('detectSoundfilerLoading', () => {
     });
 });
 
+describe('rewriteOrchestra: ternary operator spacing', () => {
+    function rewrite(orchestra: string) {
+        return rewriteOrchestra(orchestra, new Map<string, string>(), new Set<string>());
+    }
+
+    it('spaces the colon of a bare a?b:c ternary', () => {
+        const { text, ternaryChanges } = rewrite(
+            'kSmearR = i(kMonoStereo)==1?kSmear1:kSmear2\n',
+        );
+        assert.ok(text.includes('1?kSmear1 : kSmear2'));
+        assert.strictEqual(ternaryChanges, 1);
+    });
+
+    it('spaces the colon of a parenthesised ternary', () => {
+        const { text, ternaryChanges } = rewrite(
+            'kporttime = (kin<kold?idnport:kupport)\n',
+        );
+        assert.ok(text.includes('idnport : kupport'));
+        assert.strictEqual(ternaryChanges, 1);
+    });
+
+    it('leaves type annotations (chnget:k / random:i) untouched', () => {
+        const { text, ternaryChanges } = rewrite(
+            'aInLFilt buthp aInL, chnget:k("LowCut")\niTime += random:i(-1, 1) * 0.5\n',
+        );
+        assert.ok(text.includes('chnget:k("LowCut")'));
+        assert.ok(text.includes('random:i(-1, 1)'));
+        assert.strictEqual(ternaryChanges, 0);
+    });
+
+    it('ignores colons and question marks inside strings and comments', () => {
+        const { text, ternaryChanges } = rewrite(
+            'Smessage = "a?b:c"\n; note: a?b:c\nkX = 1\n',
+        );
+        assert.ok(text.includes('"a?b:c"'));
+        assert.ok(text.includes('; note: a?b:c'));
+        assert.strictEqual(ternaryChanges, 0);
+    });
+});
+
+describe('rewriteOrchestra: Csound macro expansion', () => {
+    it('expands a function-like macro and converts a literal ident-channel property update', () => {
+        const orchestra = [
+            '#define TURN_BALL_ON_OFF(COLOUR)',
+            '#',
+            'chnset "visible(1)", "IndicatorBall$COLOUR"',
+            '#',
+            '$TURN_BALL_ON_OFF(Red)',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>([['IndicatorBallRed', 'IndicatorBallRed']]),
+            new Set<string>(['IndicatorBallRed']),
+        );
+
+        assert.ok(result.text.includes('cabbageSet'));
+        assert.ok(result.text.includes('IndicatorBallRed'));
+        assert.ok(!result.text.includes('$COLOUR'));
+    });
+
+    it('expands an object-like macro sequentially (redefinition idiom)', () => {
+        const orchestra = [
+            '#define N #1#',
+            'if i(gknodes)==$N then',
+            '#define N #2#',
+            'elseif i(gknodes)==$N then',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('i(gknodes)==1'));
+        assert.ok(result.text.includes('i(gknodes)==2'));
+        assert.ok(!result.text.includes('#define'));
+    });
+
+    it('converts a numeric chnset whose channel is built with a macro argument', () => {
+        const orchestra = [
+            '#define SET_STEP(N)',
+            '#',
+            'chnset kval, "On$N"',
+            '#',
+            '$SET_STEP(1)',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(['On1']),
+        );
+
+        assert.ok(result.text.includes('cabbageSetValue "On1", kval'));
+        assert.ok(!result.text.includes('$N'));
+    });
+
+    it('consumes the dot macro-name terminator ($COLOUR.Ball → RedBall)', () => {
+        const orchestra = [
+            '#define TURN_BALL_ON_OFF(COLOUR)',
+            '#',
+            'k$COLOUR.Ball chnget "$COLOUR.Ball"',
+            'chnset "visible(1)", "IndicatorBall$COLOUR"',
+            '#',
+            '$TURN_BALL_ON_OFF(Red)',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>([['IndicatorBallRed', 'IndicatorBallRed']]),
+            new Set<string>(['RedBall', 'IndicatorBallRed']),
+        );
+
+        assert.ok(result.text.includes('cabbageGetValue "RedBall"'));
+        assert.ok(result.text.includes('cabbageSet'));
+        assert.ok(!result.text.includes('Red.Ball'));
+        assert.ok(!result.text.includes('$COLOUR'));
+    });
+
+    it('expands adjacent macro arguments ($N$CHAN) and a trailing define comment', () => {
+        const orchestra = [
+            '#define SPRING(N\'CHAN) ; a trailing comment',
+            '#',
+            'fFB$N$CHAN pvsinit iFFT, iFFT/4, iFFT, 1',
+            '#',
+            '$SPRING(1\'L)',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('fFB1L'));
+        assert.ok(!result.text.includes('$N'));
+        assert.ok(!result.text.includes('$CHAN'));
+    });
+
+    it('expands nested macro invocations (a macro body calling another macro)', () => {
+        const orchestra = [
+            '#define INNER(N)',
+            '#',
+            'f$N = 1',
+            '#',
+            '#define OUTER(M)',
+            '#',
+            '$INNER($M)',
+            '#',
+            '$OUTER(9)',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('f9 = 1'));
+        assert.ok(!result.text.includes('$INNER'));
+        assert.ok(!result.text.includes('$OUTER'));
+    });
+
+    it('does not expand a macro invocation inside a line comment', () => {
+        const orchestra = [
+            '#define INNER(N)',
+            '#',
+            'f$N = 1',
+            '#',
+            '; $INNER(9) is just documentation',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('; $INNER(9) is just documentation'));
+        assert.ok(!result.text.includes('f9'));
+    });
+
+    it('leaves undefined macro references untouched', () => {
+        const result = rewriteOrchestra(
+            'kX = $UNDEFINED_MACRO\n',
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('$UNDEFINED_MACRO'));
+    });
+});
+
+describe('rewriteOrchestra: cabbageCreate conversion', () => {
+    it('converts cabbageCreate "type", S (fed by a sprintf property string) to cabbageCreate:i(S)', () => {
+        const orchestra = [
+            'SWidget sprintf "bounds(%d,%d,30,30), colour(90,90,90), shape(\\"rounded\\"), channel(%s)", 40, 50, SChan',
+            'cabbageCreate "image", SWidget',
+        ].join('\n');
+
+        const result = rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('cabbageCreate:i(SWidget)'));
+        assert.ok(result.text.includes('\\"type\\":\\"image\\"'));
+        assert.ok(result.text.includes('\\"left\\":%d'));
+        assert.ok(result.text.includes('\\"backgroundColor\\":\\"#5a5a5a\\"'));
+        assert.ok(result.text.includes('\\"borderRadius\\":4'));
+        assert.ok(result.text.includes('\\"id\\":\\"%s\\"'));
+        assert.ok(!result.text.includes('cabbageCreate "image"'));
+    });
+
+    it('leaves a cabbageCreate without a preceding sprintf untouched with a warning', () => {
+        const result = rewriteOrchestra(
+            'cabbageCreate "image", SUnknown\n',
+            new Map<string, string>(),
+            new Set<string>(),
+        );
+
+        assert.ok(result.text.includes('cabbageCreate "image", SUnknown'));
+        assert.ok(result.warnings.some((w) => w.includes('cabbageCreate')));
+    });
+});
+
+describe('rewriteOrchestra: multi-property ident-channel strings', () => {
+    it('splits "alpha(1), active(1)" into two cabbageSet calls', () => {
+        const result = rewriteOrchestra(
+            'chnset "alpha(1), active(1)", "ReverbID2"\n',
+            new Map<string, string>([['ReverbID2', 'ReverbID2']]),
+            new Set<string>(['ReverbID2']),
+        );
+
+        assert.ok(result.text.includes('cabbageSet "ReverbID2", "style.opacity", 1'));
+        assert.ok(result.text.includes('cabbageSet "ReverbID2", "active", 1'));
+        assert.ok(!result.text.includes('NaN'));
+        assert.ok(!result.text.includes('chnset "alpha'));
+    });
+
+    it('falls back to a manual-review marker when a property is unknown', () => {
+        const result = rewriteOrchestra(
+            'chnset "alpha(1), nosuchprop(2)", "ReverbID2"\n',
+            new Map<string, string>([['ReverbID2', 'ReverbID2']]),
+            new Set<string>(['ReverbID2']),
+        );
+
+        assert.ok(result.text.includes('manual conversion needed'));
+        assert.ok(result.warnings.some((w) => w.includes('ReverbID2')));
+    });
+});
+
 describe('convertCabbage2ToCabbage3: mouse channels', () => {
     function csdWithOrchestra(orchestra: string): string {
         return [
