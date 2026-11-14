@@ -1039,7 +1039,9 @@ function updateChildWidgetPointerEvents(mode) {
         if (mode === 'draggable') {
             childDiv.style.pointerEvents = 'none'; // Disable pointer events in draggable mode
         } else {
-            childDiv.style.pointerEvents = 'auto'; // Enable pointer events in performance and nonDraggable modes
+            // Performance modes must still respect an inactive/hidden child;
+            // otherwise it shadows whatever widget sits underneath it.
+            CabbageUtils.applyWidgetPointerEvents(childDiv.cabbageInstance, childDiv);
         }
     });
 }

@@ -130,11 +130,12 @@ Recursive custom-widget discovery.
 Visual-hierarchy widget ordering.
 - Non-array passthrough; forms first then groupboxes with children in layout order; nested groupboxes resolve to the smallest container; row tolerance; missing bounds handled defensively.
 
-### `webviewUtils.test.ts` — 27 tests
+### `webviewUtils.test.ts` — 31 tests
 Webview `CabbageUtils` / `CabbageColours` (loaded from the plain-ESM source via the esbuild harness).
 - Ranges/channels: default range, `getChannels`, missing/partial range filling, legacy channel synthesis, click vs drag increments, `getChannelId` throw, range/parameter lookups, event lookup, DOM id.
 - Math/identity: `clamp`, `map`, `getDecimalPlaces`, `getPath`, unique channel/id generation, plugin-parameter count, file-name extraction.
 - `sanitizeForEditor`: removes runtime/internal keys and `range.value`, accepts `{props}`, does not mutate.
+- `applyWidgetPointerEvents` (jsdom): visible+active → `auto`; inactive/hidden → `none`; falls back to `widget.widgetDiv` and tolerates a missing wrapper.
 - `findValidId` (jsdom): closest ancestor div id, direct div id, missing target → `null`.
 - `CabbageColours`: RGB(A)/hex conversion, inversion, alpha, named colours, lighten/darken.
 

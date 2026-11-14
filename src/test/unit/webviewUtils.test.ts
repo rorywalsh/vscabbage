@@ -246,6 +246,54 @@ describe('CabbageUtils sanitizeForEditor', () => {
     });
 });
 
+describe('CabbageUtils.applyWidgetPointerEvents (jsdom)', () => {
+    it('enables wrapper hit-testing only when visible and active', () => {
+        const div = document.createElement('div');
+
+        const value = CabbageUtils.applyWidgetPointerEvents(
+            { props: { visible: true, active: true } },
+            div,
+        );
+
+        assert.strictEqual(value, 'auto');
+        assert.strictEqual(div.style.pointerEvents, 'auto');
+    });
+
+    it('disables wrapper hit-testing when the widget is inactive', () => {
+        const div = document.createElement('div');
+
+        const value = CabbageUtils.applyWidgetPointerEvents(
+            { props: { visible: true, active: false } },
+            div,
+        );
+
+        assert.strictEqual(value, 'none');
+        assert.strictEqual(div.style.pointerEvents, 'none');
+    });
+
+    it('disables wrapper hit-testing when the widget is hidden', () => {
+        const div = document.createElement('div');
+
+        const value = CabbageUtils.applyWidgetPointerEvents(
+            { props: { visible: false, active: true } },
+            div,
+        );
+
+        assert.strictEqual(value, 'none');
+        assert.strictEqual(div.style.pointerEvents, 'none');
+    });
+
+    it('falls back to widget.widgetDiv and tolerates a missing wrapper', () => {
+        const div = document.createElement('div');
+
+        assert.strictEqual(
+            CabbageUtils.applyWidgetPointerEvents({ props: {}, widgetDiv: div }),
+            'auto',
+        );
+        assert.strictEqual(CabbageUtils.applyWidgetPointerEvents({ props: {} }), 'none');
+    });
+});
+
 describe('CabbageUtils findValidId (jsdom)', () => {
     it('returns the closest ancestor widget div id', () => {
         installDom('<div id="MainForm"><div id="widget1" class="cabbage-widget"><span id="inner"></span></div></div>');

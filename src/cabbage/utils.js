@@ -217,6 +217,32 @@ export class CabbageUtils {
   }
 
   /**
+   * Applies wrapper-level pointer-event gating for a widget.
+   *
+   * A widget's wrapper div spans its whole bounds, so it must not hit-test
+   * while the widget is hidden or inactive - otherwise it swallows clicks
+   * meant for whatever sits underneath. The VS Code editor sets this inside
+   * each widget's addVsCodeEventListeners(); exported plugins only call
+   * addEventListeners(), so the framework applies it here instead.
+   *
+   * @param {Object} widget - The widget instance (uses widget.props/widgetDiv).
+   * @param {HTMLElement} [widgetDiv] - Wrapper to update; defaults to widget.widgetDiv.
+   * @returns {string} The applied pointer-events value.
+   */
+  static applyWidgetPointerEvents(widget, widgetDiv = widget?.widgetDiv) {
+    if (!widgetDiv) {
+      return 'none';
+    }
+
+    const props = widget?.props || {};
+    const visible = (typeof props.visible !== 'undefined') ? props.visible : true;
+    const active = (typeof props.active !== 'undefined') ? props.active : true;
+    const value = (visible && active) ? 'auto' : 'none';
+    widgetDiv.style.pointerEvents = value;
+    return value;
+  }
+
+  /**
    * Wrap a props object in a Proxy that reacts to common widget property changes.
    * The proxy will toggle pointer-events for 'visible' and 'active', and perform
    * safe cleanup when a widget is disabled (active = false).
@@ -273,11 +299,7 @@ export class CabbageUtils {
         // Toggle pointer-events when visible/active change. Use combined state
         // so pointer-events is only enabled when both visible and active are true.
         if (key === 'visible' || key === 'active') {
-          if (widget.widgetDiv) {
-            const visible = (typeof target.visible !== 'undefined') ? target.visible : true;
-            const active = (typeof target.active !== 'undefined') ? target.active : true;
-            widget.widgetDiv.style.pointerEvents = (visible && active) ? 'auto' : 'none';
-          }
+          CabbageUtils.applyWidgetPointerEvents(widget);
         }
 
         // If active is turned off, perform defensive cleanup so ongoing interactions stop.
