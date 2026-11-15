@@ -28,6 +28,21 @@ import {
 } from './widgetTypes.js';
 
 /**
+ * Waits until the next `customWidgetInfo` message has been applied. Used by
+ * main.js to hold widget creation until the active kit is known, so a kit
+ * selected just before a rebuild can never be beaten by the widget data.
+ */
+let widgetRegistryWaiters = [];
+export function waitForWidgetRegistry() {
+    return new Promise((resolve) => widgetRegistryWaiters.push(resolve));
+}
+function flushWidgetRegistryWaiters() {
+    const waiters = widgetRegistryWaiters;
+    widgetRegistryWaiters = [];
+    waiters.forEach((resolve) => resolve());
+}
+
+/**
  * Discovers and registers custom widgets from configured directories.
  * This function is called during initialization to make custom widgets
  * available in the Cabbage UI.
@@ -102,6 +117,10 @@ export async function discoverAndRegisterCustomWidgets(vscode, onRefresh = null)
                     if (typeof onRefresh === 'function') {
                         onRefresh();
                     }
+
+                    // Release any widget creation that was waiting for the
+                    // active kit to be known before it built widgets.
+                    flushWidgetRegistryWaiters();
                 }
             } catch (err) {
                 console.error('Cabbage: Error handling customWidgetInfo message:', err);

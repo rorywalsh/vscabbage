@@ -178,10 +178,18 @@ export class IllumComboBox {
                 return `<option value="${escapeHtml(text)}"${isSelected ? " selected" : ""}>${escapeHtml(display)}</option>`;
             })).join("");
 
+        // Fit the text to the widget height. Fixed padding previously left no
+        // room for text when the combo box was shorter than ~20px.
+        const widgetHeight = Number(this.props.bounds?.height) || 36;
+        const baseFontSize = 12;
+        const fontSize = Math.min(baseFontSize, Math.max(6, widgetHeight * 0.5));
+        const verticalPadding = Math.max(0, (widgetHeight - fontSize - 2) / 2);
+        const textStyle = `font-size:${fontSize.toFixed(2)}px; padding-top:${verticalPadding.toFixed(2)}px; padding-bottom:${verticalPadding.toFixed(2)}px; line-height:1;`;
+
         return `
             <div class="illum-combo-widget"
                  style="--illum-accent:${escapeHtml(color.accent || PALETTE.accent)}; --illum-text:${escapeHtml(color.text || PALETTE.text)}; --illum-muted:${escapeHtml(color.muted || PALETTE.muted)}; --illum-track:${escapeHtml(color.track || PALETTE.track)}; --illum-surface:${escapeHtml(color.surface || PALETTE.surface)}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <select class="illum-select" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
+                <select class="illum-select" style="${textStyle}" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
                     ${options}
                 </select>
             </div>`;
