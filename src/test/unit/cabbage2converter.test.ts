@@ -169,6 +169,113 @@ describe('rotary slider bounds scaling', () => {
     });
 });
 
+describe('horizontal slider height scaling', () => {
+    it('reduces tall hSlider and hRange rows to 20px and centres them vertically', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'hslider bounds(10, 50, 400, 25), channel("x")',
+            'hrange bounds(10, 110, 940, 30), channel("a","b")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const hslider = json.widgets.find((w: any) => w.type === 'horizontalSlider');
+        const hrange = json.widgets.find((w: any) => w.type === 'horizontalRangeSlider');
+        assert.ok(hslider);
+        assert.ok(hrange);
+        assert.deepStrictEqual(hslider.bounds, { left: 10, top: 53, width: 400, height: 20 });
+        assert.deepStrictEqual(hrange.bounds, { left: 10, top: 115, width: 940, height: 20 });
+        // The range-slider thumb is inset so the visible slider is a little
+        // shorter than its 20px row.
+        assert.strictEqual(hrange.style.thumb.height, 16);
+        assert.strictEqual(result.scaledHorizontalSliders, 2);
+    });
+
+    it('leaves vertical sliders and other widgets untouched', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'vslider bounds(10, 10, 40, 180), channel("x")',
+            'rslider bounds(0, 0, 80, 80), channel("y")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const vslider = json.widgets.find((w: any) => w.type === 'verticalSlider');
+        assert.deepStrictEqual(vslider.bounds, { left: 10, top: 10, width: 40, height: 180 });
+        assert.strictEqual(result.scaledHorizontalSliders, 0);
+    });
+
+    it('records the scale factor in the converted .csd', () => {
+        const csd = [
+            '<CsoundSynthesizer>',
+            '<Cabbage>',
+            'form caption("Test")',
+            'hslider bounds(10, 50, 400, 25), channel("x")',
+            '</Cabbage>',
+            '<CsInstruments>',
+            'instr 1',
+            'endin',
+            '</CsInstruments>',
+            '<CsScore>',
+            '</CsScore>',
+            '</CsoundSynthesizer>',
+        ].join('\n');
+        const result = convertCabbage2ToCabbage3(csd);
+        assert.ok(result.text.includes('; Cabbage2→3: horizontalSlider height set to 20px'));
+        assert.ok(result.text.includes('centred vertically'));
+        assert.ok(result.summary.includes('scaled 1 horizontal slider(s)'));
+    });
+});
+
+describe('range slider defaults', () => {
+    it('maps a min:max default onto both channels', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'hrange bounds(10, 110, 940, 30), channel("lo","hi"), text("Tone"), range(4, 14, 11:14, 1)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const hrange = json.widgets.find((w: any) => w.type === 'horizontalRangeSlider');
+        assert.ok(hrange);
+        assert.strictEqual(hrange.channels[0].range.defaultValue, 11);
+        assert.strictEqual(hrange.channels[1].range.defaultValue, 14);
+    });
+
+    it('maps a single default onto the first channel only', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'hslider bounds(10, 50, 400, 25), channel("x"), range(0, 1, 0.5)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const hslider = json.widgets.find((w: any) => w.type === 'horizontalSlider');
+        assert.ok(hslider);
+        assert.strictEqual(hslider.channels[0].range.defaultValue, 0.5);
+        assert.strictEqual(hslider.channels[1], undefined);
+    });
+});
+
+describe('soundfiler → genTable styling', () => {
+    it('uses colour() for the waveform and defaults the background to black', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'soundfiler bounds(10, 10, 400, 100), channel("beg","len"), identChannel("filer1"), colour("red")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const genTable = json.widgets.find((w: any) => w.type === 'genTable');
+        assert.ok(genTable);
+        assert.strictEqual(genTable.style.fillColor, 'red');
+        assert.strictEqual(genTable.style.strokeColor, 'red');
+        assert.strictEqual(genTable.style.backgroundColor, '#000000');
+    });
+
+    it('converts an RGB soundfiler colour to a hex waveform colour', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'soundfiler bounds(10, 10, 400, 100), channel("beg","len"), colour(0, 0, 255)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const genTable = json.widgets.find((w: any) => w.type === 'genTable');
+        assert.ok(genTable);
+        assert.strictEqual(genTable.style.fillColor, '#0000ff');
+        assert.strictEqual(genTable.style.backgroundColor, '#000000');
+    });
+});
+
 describe('detectMouseChannels', () => {
     it('finds referenced MOUSE_* channels in stable display order', () => {
         const text = [

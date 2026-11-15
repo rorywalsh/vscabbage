@@ -656,28 +656,41 @@ export class CabbageUtils {
 
   static getStringWidth(text, props, padding = 10) {
     var canvas = document.createElement('canvas');
-    let fontSize = 0;
-    switch (props.type) {
+    const label = (props.style && props.style.label) || {};
+    const fontFamily = label.fontFamily || 'Verdana';
 
-      case 'horizontalSlider':
-        fontSize = props.height * .8;
-        break;
-      case "rotarySlider":
-        fontSize = props.width * .3;
-        break;
-      case "verticalSlider":
-        fontSize = props.width * .3;
-        break;
-      case "comboBox":
-        fontSize = props.height * .5;
-        break;
-      default:
-        console.error('Cabbage: getStringWidth..');
-        break;
+    // Match the label font size each widget uses when it renders its label, so
+    // the reserved width equals the space the rendered text actually occupies.
+    // (Previously this read `props.height`/`props.width`/`props.fontFamily`,
+    // which don't exist on widget props, so the label was measured at the
+    // browser's default font and pushed the slider track over by the wrong
+    // amount — most visibly for horizontalRangeSlider, which never matched any
+    // case and always fell through to the default.)
+    let fontSize = 12;
+    if (typeof label.fontSize === 'number' && label.fontSize > 0) {
+      fontSize = label.fontSize;
+    } else {
+      switch (props.type) {
+        case 'horizontalSlider':
+          fontSize = (props.bounds && props.bounds.height) ? props.bounds.height * 0.4 : fontSize;
+          break;
+        case 'horizontalRangeSlider':
+          fontSize = (props.bounds && props.bounds.height) ? props.bounds.height * 0.6 : fontSize;
+          break;
+        case 'rotarySlider':
+        case 'verticalSlider':
+          fontSize = (props.bounds && props.bounds.width) ? props.bounds.width * 0.3 : fontSize;
+          break;
+        case 'comboBox':
+          fontSize = (props.bounds && props.bounds.height) ? props.bounds.height * 0.5 : fontSize;
+          break;
+        default:
+          break;
+      }
     }
 
     var ctx = canvas.getContext("2d");
-    ctx.font = `${fontSize}px ${props.fontFamily}`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
     var width = ctx.measureText(text).width;
     return width + padding;
   }
