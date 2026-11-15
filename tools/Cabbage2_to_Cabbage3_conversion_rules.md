@@ -16,7 +16,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `listbox` → `listBox`
 - `infobutton` → `infoButton`
 - `vmeter` → `verticalSlider` (fallback approximation; Cabbage 3 has no stock meter)
-- `soundfiler` → `genTable` (waveform viewer). The `identChannel` becomes the genTable's top-level `id`, `selectableRegions` is enabled so `channel("beg","len")` keeps working. The converter wires the display source from the orchestra: a `ftgen N, …, 1, gSfilepath` (gen 1 = load-from-file) sets `tableNumber: N`, and a `diskin2 gSfilepath` sets `file: gSfilepath`; the matching `chnset "file(%s)…", "ident"` is rewritten to `cabbageSet "id", "tableNumber", N` / `cabbageSet "id", "file", gSfilepath`. `scrubberPosition(...)` has no genTable equivalent.
+- `soundfiler` → `genTable` (waveform viewer). The `identChannel` becomes the genTable's top-level `id`, `selectableRegions` is enabled so `channel("beg","len")` keeps working. The soundfiler's `colour(...)` becomes the waveform colour (`style.fillColor` / `style.strokeColor`), and the genTable gets a default black `style.backgroundColor` (Cabbage 2 drew the waveform on black). The converter wires the display source from the orchestra: a `ftgen N, …, 1, gSfilepath` (gen 1 = load-from-file) sets `tableNumber: N`, and a `diskin2 gSfilepath` sets `file: gSfilepath`; the matching `chnset "file(%s)…", "ident"` is rewritten to `cabbageSet "id", "tableNumber", N` / `cabbageSet "id", "file", gSfilepath`. `scrubberPosition(...)` has no genTable equivalent.
 - `signaldisplay` → no stock equivalent; manual review (custom widget)
 - `image`, `button`, `label`, `keyboard`, `form` kept as-is
 
@@ -27,6 +27,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `form size(w,h)` → `"size": {"width":w, "height":h}` (the form is the only widget without `left`/`top`)
 - All non-form widgets must end up with a complete `bounds` object (`left`, `top`, `width`, `height`); `pos()`/`size()` merge into it rather than producing a separate `size` field.
 - **Rotary sliders**: Cabbage 3 uses the full bounds for the knob, while Cabbage 2 auto-sized it to leave room for the label and value text box. The converter replicates this: unlabelled sliders keep their full bounds, labelled sliders are scaled to 85% and centred, and labelled sliders with a value text box are scaled to 80% with an additional 70% scale applied to the knob only (the label/value text keeps its size). The knob scale is written as `knobScale` and hidden from the property panel; it is a conversion hint, not a general-purpose control. When any scaling happens, the converted `.csd` gets a `; Cabbage2→3: rotarySlider bounds scaled ...` comment recording the rule.
+- **Horizontal sliders**: Cabbage 2 rows sat shorter than Cabbage 3's height-proportional defaults, and the label font (which scales with the row height) looked too large. Tall `hslider`/`hrange` rows are reduced to a standard 20px height and re-centred vertically (width unchanged). For `hrange`, the full-height thumb is inset to 16px (`style.thumb.height`) so the visible slider is a little shorter than its row. A `; Cabbage2→3: horizontalSlider height set to 20px ...` comment records the rule.
 
 ## 3) Channels and ranges
 - `channel("name")` →

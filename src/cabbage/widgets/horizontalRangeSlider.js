@@ -389,11 +389,33 @@ export class HorizontalRangeSlider {
     const trackHeight = this.props.style.track.height;
     const trackY = (this.props.bounds.height - trackHeight) / 2;
 
+    // The thumb can be inset from the row via `style.thumb.height` so it sits a
+    // little shorter than the full bounds (matching the single slider); it
+    // falls back to the full row height when unset.
+    const thumbWidth = this.props.style.thumb.width;
+    const thumbHeight = (typeof this.props.style.thumb.height === 'number' && this.props.style.thumb.height > 0)
+      ? this.props.style.thumb.height
+      : this.props.bounds.height;
+    const thumbY = (this.props.bounds.height - thumbHeight) / 2;
+
+    // Clamp the thumb and fill to the track. An out-of-range value (for example
+    // a missing default that sits below the range minimum) would otherwise map
+    // to a negative x and the thumb would render off the widget and appear to
+    // vanish.
+    const thumbPosition = Math.max(1, Math.min(
+      CabbageUtils.map(currentValue, range.min, range.max, 0, sliderWidth - thumbWidth - 1) + 1,
+      sliderWidth - thumbWidth
+    ));
+    const fillWidth = Math.max(0, Math.min(
+      CabbageUtils.map(currentValue, range.min, range.max, 0, sliderWidth),
+      sliderWidth - 2
+    ));
+
     const sliderElement = `
       <svg x="${textWidth}" width="${sliderWidth}" height="${this.props.bounds.height}" fill="none" xmlns="http://www.w3.org/2000/svg" opacity="${this.props.style.opacity}">
         <rect x="1" y="${trackY}" width="${sliderWidth - 2}" height="${trackHeight}" rx="4" fill="${this.props.style.track.backgroundColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
-        <rect x="1" y="${trackY}" width="${Math.max(0, CabbageUtils.map(currentValue, range.min, range.max, 0, sliderWidth))}" height="${trackHeight}" rx="4" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
-        <rect x="${CabbageUtils.map(currentValue, range.min, range.max, 0, sliderWidth - this.props.style.thumb.width - 1) + 1}" y="0" width="${this.props.style.thumb.width}" height="${this.props.bounds.height}" rx="${this.props.style.thumb.corners}" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
+        <rect x="1" y="${trackY}" width="${fillWidth}" height="${trackHeight}" rx="4" fill="${this.props.style.track.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/> 
+        <rect x="${thumbPosition}" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${this.props.style.thumb.corners}" fill="${this.props.style.thumb.fillColor}" stroke-width="${this.props.style.thumb.borderWidth}" stroke="${this.props.style.thumb.borderColor}"/>
       </svg>
     `;
 
