@@ -2179,6 +2179,47 @@ export class Commands {
     }
 
     /**
+     * Reads the `<Cabbage>` section from the active editor without surfacing
+     * user-facing errors (used by background kit resolution, where there may be
+     * no active editor or the active file may not be a CSD).
+     */
+    private static getActiveCabbageContent(): string {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document.fileName.toLowerCase().endsWith('.csd')) {
+            return '';
+        }
+        const text = editor.document.getText();
+        const start = text.indexOf('<Cabbage>');
+        const end = text.indexOf('</Cabbage>');
+        if (start === -1 || end === -1 || start > end) {
+            return '';
+        }
+        return text.substring(start + '<Cabbage>'.length, end).trim();
+    }
+
+    /**
+     * Resolves the effective widget kit for an instrument. A top-level `kit`
+     * property in the Cabbage JSON overrides the global `cabbage.widgetKit`
+     * setting, letting each instrument pin its own kit.
+     *
+     * @param cabbageContent The raw `<Cabbage>` JSON (empty when unavailable).
+     */
+    static resolveActiveKit(cabbageContent: string = ''): string {
+        const global = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+        if (!cabbageContent) {
+            return global;
+        }
+        try {
+            const parsed = parseCabbageJSON(cabbageContent);
+            const root = parsed.root;
+            const kit = root && !Array.isArray(root) && typeof root === 'object' ? root.kit : undefined;
+            return (typeof kit === 'string' && kit.trim()) ? kit.trim() : global;
+        } catch {
+            return global;
+        }
+    }
+
+    /**
      * Collapse the Cabbage JSON content in the active editor.
      */
     static collapseCabbageJSON() {
@@ -2495,8 +2536,9 @@ export class Commands {
             }
 
             // Widget kits (bundled + user). Kit widgets may override built-in
-            // types; the active kit is chosen via `cabbage.widgetKit`.
-            const activeKit = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            // types; the active kit is chosen via `cabbage.widgetKit`, but a
+            // top-level `kit` property in the CSD overrides it per instrument.
+            const activeKit = Commands.resolveActiveKit(Commands.getActiveCabbageContent());
             const kits = await ExtensionUtils.getWidgetKits();
             const kitPayloads: Array<{
                 id: string;
@@ -3877,12 +3919,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * @param builtInWidgetsDir Directory containing the built-in widget .js files
      * @param customWidgetDirs Directories containing custom widget .js files
      * @param destDir Destination cabbage directory
+     * @param csdContent Raw `<Cabbage>` JSON, used to resolve a per-instrument kit
      */
     private static async copyUsedWidgets(
         usedWidgets: Set<string>,
         builtInWidgetsDir: string,
         customWidgetDirs: string[],
-        destDir: string
+        destDir: string,
+        csdContent: string
     ): Promise<void> {
         const widgetsDestDir = path.join(destDir, 'widgets');
         await fs.promises.mkdir(widgetsDestDir, { recursive: true });
@@ -3891,7 +3935,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // the normal widget copies so the kit always wins.
         let activeKit: WidgetKit | undefined;
         try {
-            const activeKitId = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            const activeKitId = Commands.resolveActiveKit(csdContent);
             if (activeKitId) {
                 const kits = await ExtensionUtils.getWidgetKits();
                 activeKit = kits.find((kit) => kit.id === activeKitId);
@@ -4217,7 +4261,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         // Copy ALL built-in widgets (required by widgetTypes.js static imports)
         // Also copy any custom widgets that are used
-        await Commands.copyUsedWidgets(usedWidgets, builtInWidgetsDir, customWidgetDirs, cabbageDestDir);
+        await Commands.copyUsedWidgets(usedWidgets, builtInWidgetsDir, customWidgetDirs, cabbageDestDir, csdContent);
 
         // Copy CSS file
         const cssPath = Commands.getCabbageCssPath();
