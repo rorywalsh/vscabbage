@@ -10,6 +10,7 @@ import { handlePointerDown, setupFormHandlers } from "../cabbage/eventHandlers.j
 import { Cabbage } from "../cabbage/cabbage.js";
 import { handleRadioGroup } from "./radioGroup.js";
 import { PropertyPanel } from "../propertyPanel.js";
+import { stripLockedStyleProps } from "./kitStyle.js";
 
 /**
  * WidgetManager class handles the creation, insertion, and management of widgets.
@@ -144,8 +145,10 @@ export class WidgetManager {
         if (explicitTop !== undefined) delete props.top;
         if (explicitLeft !== undefined) delete props.left;
 
-        // Deep merge props instead of shallow assign to preserve nested object properties
-        this.deepMerge(widget.props, props);
+        // Deep merge props instead of shallow assign to preserve nested object properties.
+        // Strip locked style keys first so a preset kit's captured appearance isn't
+        // overwritten by the backend's default style object.
+        this.deepMerge(widget.props, stripLockedStyleProps(props, widget.hiddenProps));
 
         // NOW apply explicit position AFTER merge to ensure it overrides defaults
         if (explicitTop !== undefined && explicitLeft !== undefined) {
@@ -1066,7 +1069,7 @@ export class WidgetManager {
             // but the JS widget accumulates runtime messages in label.text — we must not wipe them.
             const preservedCsoundText = (widget.props.type === 'csoundOutput' && widget.props.label?.text)
                 ? widget.props.label.text : null;
-            WidgetManager.deepMerge(widget.props, data);
+            WidgetManager.deepMerge(widget.props, stripLockedStyleProps(data, widget.hiddenProps));
             if (preservedCsoundText !== null && widget.props.label) {
                 widget.props.label.text = preservedCsoundText;
             }

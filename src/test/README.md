@@ -120,6 +120,10 @@ Kit widget export wiring.
 - `buildKitImportOverrides`: built-in mapping, tricky class names, full built-in coverage, last-wins, encoding.
 - `applyKitWidgetImportOverrides`: rewrites built-ins while leaving FileButton/InfoButton, no-op without overrides, same-name aliasing.
 
+### `widgetKitStyling.test.ts` — 6 tests
+Preset kit style locking (`stripLockedStyleProps` in `src/cabbage/kitStyle.js`, loaded via the esbuild harness).
+- Returns the input unchanged when nothing is locked; strips locked `style.*` keys while keeping siblings and layout/label keys; drops an emptied `style` object; never mutates input; ignores non-`style.*` paths; tolerates missing intermediate nodes.
+
 ### `widgetScan.test.ts` — 25 tests
 Recursive custom-widget discovery.
 - `extractWidgetInfoFromFile`: class/type detection, fallbacks, preset markers, static `widgetType`, depth-1 type, commented-out keys, helper-built props, non-class/helper/non-widget rejection.

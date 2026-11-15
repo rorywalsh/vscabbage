@@ -167,10 +167,18 @@ export class PunchComboBox {
                 return `<option value="${escapeHtml(text)}"${isSelected ? " selected" : ""}>${escapeHtml(display)}</option>`;
             })).join("");
 
+        // Fit the text to the widget height. Fixed padding previously left no
+        // room for text when the combo box was shorter than ~20px.
+        const widgetHeight = Number(this.props.bounds?.height) || 36;
+        const baseFontSize = 12.5;
+        const fontSize = Math.min(baseFontSize, Math.max(6, widgetHeight * 0.5));
+        const verticalPadding = Math.max(0, (widgetHeight - fontSize - 2) / 2);
+        const textStyle = `font-size:${fontSize.toFixed(2)}px; padding-top:${verticalPadding.toFixed(2)}px; padding-bottom:${verticalPadding.toFixed(2)}px; line-height:1;`;
+
         return `
             <div class="punch-combo-widget"
                  style="--punch-accent:${escapeHtml(color.accent || "#8cc700")}; --punch-ink:${escapeHtml(color.text || "#1f1f1f")}; --punch-surface:${escapeHtml(color.surface || "#f0f1ed")}; opacity:${this.props.style?.opacity ?? 1}; display:${this.props.visible ? "flex" : "none"}; pointer-events:${this.props.visible && this.props.active ? "auto" : "none"};">
-                <select class="punch-select" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
+                <select class="punch-select" style="${textStyle}" aria-label="${escapeHtml(labelText || "Combo box")}"${this.props.active ? "" : " disabled"}>
                     ${options}
                 </select>
             </div>`;
