@@ -404,7 +404,10 @@ jobs:
           ls -l ./src/CabbageBinaries/CabbageApp
 
       - name: Build and package extension on macOS
-        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
+        # Declare the platform target so VS Code refuses to install this
+        # ARM64 macOS build on an Intel Mac (and vice versa) instead of
+        # shipping a backend that can never launch.
+        run: vsce package --target darwin-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 
       - name: Upload VSIX artifact from macOS
         uses: actions/upload-artifact@v4
@@ -1092,7 +1095,9 @@ jobs:
           ls -l ./src/CabbageBinaries/CabbageApp
 
       - name: Build and package extension on Linux
-        run: vsce package --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
+        # Declare the platform target so VS Code refuses to install the x64
+        # Linux build on other architectures.
+        run: vsce package --target linux-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
 
       - name: Upload VSIX artifact from Linux
         uses: actions/upload-artifact@v4
