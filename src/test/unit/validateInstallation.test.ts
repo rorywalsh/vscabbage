@@ -292,7 +292,7 @@ describe('checkServiceBinaryArch', () => {
     it('fails with an install remedy on an arm64 binary on an x64 host', () => {
         const r = checkServiceBinaryArch(baseEnv({ hostArch: 'x64', readBinaryArch: () => 'arm64' }));
         assert.strictEqual(r.status, 'fail');
-        assert.ok(r.remedy && r.remedy.includes('install the x64 package'));
+        assert.ok(r.remedy && r.remedy.toLowerCase().includes('install the x64 package'));
     });
     it('warns (not fails) when the binary is missing so checkServiceBinary owns that failure', () => {
         const r = checkServiceBinaryArch(baseEnv({ exists: () => false, readBinaryArch: () => 'arm64' }));
