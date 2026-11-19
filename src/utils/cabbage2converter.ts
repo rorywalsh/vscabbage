@@ -192,7 +192,7 @@ function stripComments(line: string): string {
         const c = line[i];
         if (inString) {
             out += c;
-            if (c === quote) inString = false;
+            if (c === quote) {inString = false;}
             i++;
             continue;
         }
@@ -203,7 +203,7 @@ function stripComments(line: string): string {
             i++;
             continue;
         }
-        if (c === ';') break; // line comment
+        if (c === ';') {break;} // line comment
         if (c === '/' && line[i + 1] === '*') {
             const end = line.indexOf('*/', i + 2);
             i = end === -1 ? line.length : end + 2;
@@ -224,7 +224,7 @@ function insertMissingCommas(line: string): string {
         const c = line[i];
         if (inString) {
             out += c;
-            if (c === quote) inString = false;
+            if (c === quote) {inString = false;}
             continue;
         }
         if (c === '"' || c === "'") {
@@ -236,9 +236,9 @@ function insertMissingCommas(line: string): string {
         if (c === ')') {
             out += c;
             let j = i + 1;
-            while (j < line.length && /\s/.test(line[j])) j++;
+            while (j < line.length && /\s/.test(line[j])) {j++;}
             const rest = line.slice(j);
-            if (/^[A-Za-z_]\w*\s*\(/.test(rest)) out += ',';
+            if (/^[A-Za-z_]\w*\s*\(/.test(rest)) {out += ',';}
             continue;
         }
         out += c;
@@ -257,7 +257,7 @@ function tokenize(line: string): string[] {
         const c = line[i];
         if (inString) {
             current += c;
-            if (c === quote) inString = false;
+            if (c === quote) {inString = false;}
             continue;
         }
         if (c === '"' || c === "'") {
@@ -283,7 +283,7 @@ function tokenize(line: string): string[] {
         }
         current += c;
     }
-    if (current.trim()) tokens.push(current.trim());
+    if (current.trim()) {tokens.push(current.trim());}
     return tokens;
 }
 
@@ -317,14 +317,14 @@ function toNumbers(args: string[]): number[] {
  */
 function parseRangeDefaults(arg: string | undefined): { min?: number; max?: number } {
     const text = arg !== undefined ? unquote(arg).trim() : '';
-    if (!text) return {};
+    if (!text) {return {};}
     const parts = text.split(':');
     const min = Number(parts[0]);
     const out: { min?: number; max?: number } = {};
-    if (!isNaN(min)) out.min = min;
+    if (!isNaN(min)) {out.min = min;}
     if (parts.length > 1) {
         const max = Number(parts[1]);
-        if (!isNaN(max)) out.max = max;
+        if (!isNaN(max)) {out.max = max;}
     }
     return out;
 }
@@ -332,19 +332,19 @@ function parseRangeDefaults(arg: string | undefined): { min?: number; max?: numb
 /** Build a Cabbage 3 range object from Cabbage 2 range args. */
 function makeRange(a: string[]): Record<string, number> | null {
     const n = a.map(toNumber);
-    if (n.length < 2 || isNaN(n[0]) || isNaN(n[1])) return null;
+    if (n.length < 2 || isNaN(n[0]) || isNaN(n[1])) {return null;}
     const range: Record<string, number> = { min: n[0], max: n[1] };
     const defaults = parseRangeDefaults(a[2]);
-    if (defaults.min !== undefined) range.defaultValue = defaults.min;
-    if (n.length > 3 && !isNaN(n[3])) range.skew = n[3];
-    if (n.length > 4 && !isNaN(n[4])) range.increment = n[4];
-    else range.increment = 0.01;
+    if (defaults.min !== undefined) {range.defaultValue = defaults.min;}
+    if (n.length > 3 && !isNaN(n[3])) {range.skew = n[3];}
+    if (n.length > 4 && !isNaN(n[4])) {range.increment = n[4];}
+    else {range.increment = 0.01;}
     return range;
 }
 
 function parseToken(token: string): IdentifierToken | null {
     const m = token.match(/^([A-Za-z_][\w:]*)\s*\(([\s\S]*)\)$/);
-    if (!m) return null;
+    if (!m) {return null;}
     return { name: m[1], args: splitArgs(m[2]), rawArgs: m[2] };
 }
 
@@ -354,7 +354,7 @@ function parseToken(token: string): IdentifierToken | null {
  */
 function parseWidget(lines: string[], startIndex: number): { widget: ParsedWidget; nextIndex: number } {
     const first = stripComments(lines[startIndex]).trim();
-    if (!first) return { widget: { type: '', tokens: [], raw: first }, nextIndex: startIndex + 1 };
+    if (!first) {return { widget: { type: '', tokens: [], raw: first }, nextIndex: startIndex + 1 };}
 
     // Split leading widget type from the first identifier(s).
     const typeMatch = first.match(/^(\w+)\s+(.*)$/);
@@ -388,7 +388,7 @@ function parseWidget(lines: string[], startIndex: number): { widget: ParsedWidge
         let i = startIndex + (braceOnLine !== -1 ? 1 : 2);
         while (i < lines.length) {
             const line = stripComments(lines[i]).trim();
-            if (line === '}' || line.endsWith('}')) break;
+            if (line === '}' || line.endsWith('}')) {break;}
             if (line) {
                 const child = parseWidget(lines, i);
                 children.push(child.widget);
@@ -418,7 +418,7 @@ function hex(v: number): string {
 
 /** Convert Cabbage 2 colour args (r,g,b[,a] or a name/string) to a CSS colour. */
 function parseColour(args: string[]): string | null {
-    if (args.length === 0) return null;
+    if (args.length === 0) {return null;}
     const nums = args.map(a => toNumber(a));
     if (nums.every(n => !isNaN(n)) && nums.length >= 3) {
         const [r, g, b, a] = nums;
@@ -429,9 +429,9 @@ function parseColour(args: string[]): string | null {
     }
     // Single token: CSS colour name or pre-formatted string.
     const single = unquote(args[0]);
-    if (CSS_COLOUR_NAMES.has(single.toLowerCase())) return single.toLowerCase();
-    if (/^#[0-9a-fA-F]{3,8}$/.test(single)) return single;
-    if (single.startsWith('rgb')) return single;
+    if (CSS_COLOUR_NAMES.has(single.toLowerCase())) {return single.toLowerCase();}
+    if (/^#[0-9a-fA-F]{3,8}$/.test(single)) {return single;}
+    if (single.startsWith('rgb')) {return single;}
     return single || null;
 }
 
@@ -456,7 +456,7 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
     const name = IDENTIFIER_TYPO_FIXES[rawName] || rawName;
     const a = token.args;
 
-    if (DROPPED_IDENTIFIERS.has(name)) return;
+    if (DROPPED_IDENTIFIERS.has(name)) {return;}
 
     switch (name) {
         case 'bounds': {
@@ -517,7 +517,7 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
                 // falls back to 0 and can sit outside a range such as 4..14.
                 const defaults = parseRangeDefaults(a[2]);
                 if (defaults.max !== undefined) {
-                    while (w.json.channels.length < 2) w.json.channels.push({ event: 'valueChanged' });
+                    while (w.json.channels.length < 2) {w.json.channels.push({ event: 'valueChanged' });}
                     w.json.channels[1].range = { ...(w.json.channels[1].range || {}), defaultValue: defaults.max };
                 }
             }
@@ -535,44 +535,44 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             const r = makeRange(a);
             if (r) {
                 ensureChannels(w);
-                while (w.json.channels.length < 2) w.json.channels.push({ event: 'valueChanged' });
+                while (w.json.channels.length < 2) {w.json.channels.push({ event: 'valueChanged' });}
                 w.json.channels[1].range = r;
             }
             return;
         }
         case 'value': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.defaultValue = toNumber(a[0]);
             return;
         }
         case 'min': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.min = toNumber(a[0]);
             return;
         }
         case 'max': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.max = toNumber(a[0]);
             return;
         }
         case 'defaultvalue': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.defaultValue = toNumber(a[0]);
             return;
         }
         case 'increment': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.increment = toNumber(a[0]);
             return;
         }
         case 'skew': {
             ensureChannels(w);
-            if (!w.json.channels[0].range) w.json.channels[0].range = {};
+            if (!w.json.channels[0].range) {w.json.channels[0].range = {};}
             w.json.channels[0].range.skew = toNumber(a[0]);
             return;
         }
@@ -612,7 +612,7 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         case 'colour':
         case 'color': {
             const css = parseColour(a);
-            if (!css) return;
+            if (!css) {return;}
             if (SLIDER_TYPES.has(w.type)) {
                 setStyle(w, 'thumb.backgroundColor', css);
             } else if (w.type === 'genTable') {
@@ -628,43 +628,43 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         case 'colour:0':
         case 'color:0': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'off.backgroundColor', css);
+            if (css) {setStyle(w, 'off.backgroundColor', css);}
             return;
         }
         case 'colour:1':
         case 'color:1': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'on.backgroundColor', css);
+            if (css) {setStyle(w, 'on.backgroundColor', css);}
             return;
         }
         case 'textcolour':
         case 'textcolor': {
             // Colour of the text passed to text() — the caption/label.
             const css = parseColour(a);
-            if (!css) return;
-            if (SLIDER_TYPES.has(w.type)) setStyle(w, 'label.fontColor', css);
-            else setStyle(w, 'fontColor', css);
+            if (!css) {return;}
+            if (SLIDER_TYPES.has(w.type)) {setStyle(w, 'label.fontColor', css);}
+            else {setStyle(w, 'fontColor', css);}
             return;
         }
         case 'fontcolour':
         case 'fontcolor': {
             // Colour of the value text box (sliders) / general font (others).
             const css = parseColour(a);
-            if (!css) return;
-            if (SLIDER_TYPES.has(w.type)) setStyle(w, 'valueText.fontColor', css);
-            else setStyle(w, 'fontColor', css);
+            if (!css) {return;}
+            if (SLIDER_TYPES.has(w.type)) {setStyle(w, 'valueText.fontColor', css);}
+            else {setStyle(w, 'fontColor', css);}
             return;
         }
         case 'fontcolour:0':
         case 'fontcolor:0': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'off.textColor', css);
+            if (css) {setStyle(w, 'off.textColor', css);}
             return;
         }
         case 'fontcolour:1':
         case 'fontcolor:1': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'on.textColor', css);
+            if (css) {setStyle(w, 'on.textColor', css);}
             return;
         }
         case 'alpha': {
@@ -674,14 +674,14 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         }
         case 'outlinecolour': {
             const css = parseColour(a);
-            if (!css) return;
-            if (SLIDER_TYPES.has(w.type)) setStyle(w, 'thumb.borderColor', css);
-            else setStyle(w, 'borderColor', css);
+            if (!css) {return;}
+            if (SLIDER_TYPES.has(w.type)) {setStyle(w, 'thumb.borderColor', css);}
+            else {setStyle(w, 'borderColor', css);}
             return;
         }
         case 'outlinethickness': {
-            if (SLIDER_TYPES.has(w.type)) setStyle(w, 'thumb.borderWidth', toNumber(a[0]));
-            else setStyle(w, 'borderWidth', toNumber(a[0]));
+            if (SLIDER_TYPES.has(w.type)) {setStyle(w, 'thumb.borderWidth', toNumber(a[0]));}
+            else {setStyle(w, 'borderWidth', toNumber(a[0]));}
             return;
         }
         case 'corners': {
@@ -690,20 +690,20 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         }
         case 'shape': {
             const s = unquote(a[0]).toLowerCase();
-            if (s === 'sharp') setStyle(w, 'borderRadius', 0);
-            else if (s === 'rounded') setStyle(w, 'borderRadius', 4);
+            if (s === 'sharp') {setStyle(w, 'borderRadius', 0);}
+            else if (s === 'rounded') {setStyle(w, 'borderRadius', 4);}
             return;
         }
         case 'trackercolour':
         case 'trackercolor': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'track.fillColor', css);
+            if (css) {setStyle(w, 'track.fillColor', css);}
             return;
         }
         case 'trackerbackgroundcolour':
         case 'trackerbgcolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'track.backgroundColor', css);
+            if (css) {setStyle(w, 'track.backgroundColor', css);}
             return;
         }
         case 'trackerthickness': {
@@ -712,34 +712,34 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         }
         case 'markercolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'thumb.backgroundColor', css);
+            if (css) {setStyle(w, 'thumb.backgroundColor', css);}
             return;
         }
         case 'ballcolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'ball.backgroundColor', css);
+            if (css) {setStyle(w, 'ball.backgroundColor', css);}
             return;
         }
         case 'tablecolour':
         case 'tablecolor': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'strokeColor', css);
+            if (css) {setStyle(w, 'strokeColor', css);}
             return;
         }
         case 'tablebackgroundcolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'backgroundColor', css);
+            if (css) {setStyle(w, 'backgroundColor', css);}
             return;
         }
         case 'tablegridcolour':
         case 'tablegridcolor': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'borderColor', css);
+            if (css) {setStyle(w, 'borderColor', css);}
             return;
         }
         case 'backgroundcolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'backgroundColor', css);
+            if (css) {setStyle(w, 'backgroundColor', css);}
             return;
         }
         case 'tablenumber':
@@ -753,27 +753,27 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
                 w.json.range = w.json.range || {};
                 w.json.range.y = { min: n[0], max: n[1] };
             }
-            if (n.length >= 3 && n[2] !== -1) w.json.tableNumber = n[2];
+            if (n.length >= 3 && n[2] !== -1) {w.json.tableNumber = n[2];}
             return;
         }
         case 'blacknotecolour': {
             const css = parseColour(a);
-            if (css) setColor(w, 'blackNote', css);
+            if (css) {setColor(w, 'blackNote', css);}
             return;
         }
         case 'whitenotecolour': {
             const css = parseColour(a);
-            if (css) setColor(w, 'whiteNote', css);
+            if (css) {setColor(w, 'whiteNote', css);}
             return;
         }
         case 'keydowncolour': {
             const css = parseColour(a);
-            if (css) setColor(w, 'keydown', css);
+            if (css) {setColor(w, 'keydown', css);}
             return;
         }
         case 'arrowbackgroundcolour': {
             const css = parseColour(a);
-            if (css) setColor(w, 'arrowBackground', css);
+            if (css) {setColor(w, 'arrowBackground', css);}
             return;
         }
         case 'middlec':
@@ -822,7 +822,7 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         }
         case 'highlightcolour': {
             const css = parseColour(a);
-            if (css) setStyle(w, 'highlightColor', css);
+            if (css) {setStyle(w, 'highlightColor', css);}
             return;
         }
         case 'linethickness': {
@@ -848,8 +848,8 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
         }
         case 'populate': {
             w.json.populate = w.json.populate || {};
-            if (a[0]) w.json.populate.fileType = unquote(a[0]);
-            if (a[1]) w.json.populate.directories = [unquote(a[1])];
+            if (a[0]) {w.json.populate.fileType = unquote(a[0]);}
+            if (a[1]) {w.json.populate.directories = [unquote(a[1])];}
             return;
         }
         case 'file': {
@@ -861,8 +861,8 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             return;
         }
         case 'filmstrip': {
-            if (a[0]) w.json.filmStrip = w.json.filmStrip || {};
-            if (a[0]) w.json.filmStrip.file = unquote(a[0]);
+            if (a[0]) {w.json.filmStrip = w.json.filmStrip || {};}
+            if (a[0]) {w.json.filmStrip.file = unquote(a[0]);}
             if (a[1]) {
                 w.json.filmStrip.frames = w.json.filmStrip.frames || {};
                 w.json.filmStrip.frames.count = toNumber(a[1]);
@@ -951,7 +951,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         const w = emptyWidget(type);
 
         for (const token of parsed.tokens) {
-            if (token.name.toLowerCase() === 'widgetarray') continue;
+            if (token.name.toLowerCase() === 'widgetarray') {continue;}
             applyIdentifier(w, token, warnings);
         }
 
@@ -986,7 +986,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             identToChannel.set(suffixIdent, suffixIdent);
         } else if (w.json.channels && Array.isArray(w.json.channels) && w.json.channels.some(c => c && c.id)) {
             // Channels created by range/value/rangeX/rangeY — register any non-empty ids.
-            for (const c of w.json.channels) if (c && c.id) channels.add(c.id);
+            for (const c of w.json.channels) {if (c && c.id) {channels.add(c.id);}}
         } else if (type !== 'form') {
             // No channel at all (decorative widget) — emit a synthetic id to avoid
             // the backend auto-assign log noise. The form is the container and
@@ -1002,8 +1002,8 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         // non-form widget carries a complete left/top.
         if (type !== 'form') {
             const b = w.json.bounds || (w.json.bounds = {});
-            if (b.left === undefined) b.left = 0;
-            if (b.top === undefined) b.top = 0;
+            if (b.left === undefined) {b.left = 0;}
+            if (b.top === undefined) {b.top = 0;}
 
             // Cabbage 2 auto-sized the rotary knob to leave room for the label
             // and value text box. Replicate that for the overall bounds: no
@@ -1031,7 +1031,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
                     w.json.knobScale = ROTARY_KNOB_SCALE_LABEL_TEXTBOX;
                     scaled = true;
                 }
-                if (scaled) counter.scaledRotary++;
+                if (scaled) {counter.scaledRotary++;}
             }
 
             // Cabbage 2 horizontal sliders sat shorter than Cabbage 3's
@@ -1060,9 +1060,9 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         // tableNumber (or file, for diskin2) is wired by detectSoundfilerLoading
         // from the orchestra's ftgen/diskin2 in convertCabbage2ToCabbage3.
         if (parsed.type === 'soundfiler') {
-            if (w.identChannel && !w.json.id) w.json.id = w.identChannel;
-            if (w.identChannel) soundfilerIdents.add(w.identChannel);
-            if (!w.json.selectableRegions) w.json.selectableRegions = true;
+            if (w.identChannel && !w.json.id) {w.json.id = w.identChannel;}
+            if (w.identChannel) {soundfilerIdents.add(w.identChannel);}
+            if (!w.json.selectableRegions) {w.json.selectableRegions = true;}
             // Cabbage 2 soundfilers drew the waveform on a black background.
             // `colour()` now paints the waveform (fill/stroke), so give the
             // genTable a solid black backdrop unless one was specified.
@@ -1078,7 +1078,7 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         // via comboChannels). This keeps the original Csound logic intact.
         if (type === 'comboBox' || type === 'optionButton') {
             for (const c of w.json.channels) {
-                if (c && c.id) comboChannels.add(c.id);
+                if (c && c.id) {comboChannels.add(c.id);}
                 // Cabbage 2 `value(n)` is 1-based → Cabbage 3 `defaultValue` is 0-based.
                 if (c && c.range && typeof c.range.defaultValue === 'number' && c.range.defaultValue > 0) {
                     c.range.defaultValue -= 1;
@@ -1169,7 +1169,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
             continue;
         }
         const { widget, nextIndex } = parseWidget(lines, i);
-        if (widget.type) parsed.push(widget);
+        if (widget.type) {parsed.push(widget);}
         i = nextIndex;
     }
 
@@ -1183,7 +1183,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         for (const w of converted) {
             if (w.type === 'form') {
                 form = w;
-                if (w.pluginId) pluginId = w.pluginId;
+                if (w.pluginId) {pluginId = w.pluginId;}
             } else {
                 widgets.push(w);
             }
@@ -1198,7 +1198,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
 
     const ordered = [form, ...widgets];
     const root: Record<string, any> = { widgets: ordered };
-    if (pluginId) root.pluginId = pluginId;
+    if (pluginId) {root.pluginId = pluginId;}
 
     // Flag duplicate channel ids (a Cabbage 2 source bug that Cabbage 3 rejects).
     const channelCount = new Map<string, number>();
@@ -1212,7 +1212,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         }
     }
     for (const [id, n] of channelCount) {
-        if (n > 1) warnings.push(`duplicate channel id "${id}" used ${n} times — Cabbage 3 requires unique channels`);
+        if (n > 1) {warnings.push(`duplicate channel id "${id}" used ${n} times — Cabbage 3 requires unique channels`);}
     }
 
     return {
@@ -1234,7 +1234,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
 /** Convert a Cabbage 2 property string (e.g. `"text(%d)"` already expanded) into a cabbageSet call. */
 function propertyToCabbageSet(channel: string, propString: string): string | null {
     const m = propString.trim().match(/^([A-Za-z_][\w:]*)\s*\((.*)\)$/);
-    if (!m) return null;
+    if (!m) {return null;}
     const name = m[1].toLowerCase();
     const args = splitArgs(m[2]);
 
@@ -1414,7 +1414,7 @@ export function detectMouseChannels(orchestraText: string): string[] {
     const re = /\bchnget\s+"([^"]+)"/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(orchestraText)) !== null) {
-        if (m[1] in MOUSE_CHANNELS) found.add(m[1]);
+        if (m[1] in MOUSE_CHANNELS) {found.add(m[1]);}
     }
     return MOUSE_ORDER.filter(c => found.has(c));
 }
@@ -1450,7 +1450,7 @@ export function detectSoundfilerLoading(
 
     for (const ident of soundfilerIdents) {
         const path = identToPath.get(ident);
-        if (!path) continue;
+        if (!path) {continue;}
 
         // ftgen N, …, 1, <path> (gen 1 = "load from file") — the file is in ftable N.
         const ftgenRe = new RegExp(`\\bftgen\\s+(\\d+)[^\\n]*?,\\s*1\\s*,\\s*${path}\\b`);
@@ -1480,7 +1480,7 @@ export function buildMouseChannels(
     const channels: Record<string, any>[] = [];
     for (const name of used) {
         const spec = MOUSE_CHANNELS[name];
-        if (!spec) continue;
+        if (!spec) {continue;}
         if (spec.events.length === 1 && (name === 'MOUSE_X' || name === 'MOUSE_Y')) {
             channels.push({
                 id: spec.id,
@@ -1523,7 +1523,7 @@ function isQuotedString(s: string): boolean {
  */
 function rewriteCabbageSetCall(body: string): string | null {
     const tokens = tokenize(body).map(t => t.trim());
-    if (tokens.length < 2) return null;
+    if (tokens.length < 2) {return null;}
 
     let trigger: string | null = null;
     let channelIdx: number;
@@ -1540,8 +1540,8 @@ function rewriteCabbageSetCall(body: string): string | null {
         identIdx = 2;
     }
 
-    if (identIdx >= tokens.length) return null;
-    if (!isQuotedString(tokens[channelIdx]) || !isQuotedString(tokens[identIdx])) return null;
+    if (identIdx >= tokens.length) {return null;}
+    if (!isQuotedString(tokens[channelIdx]) || !isQuotedString(tokens[identIdx])) {return null;}
 
     const channel = tokens[channelIdx];
     const ident = unquote(tokens[identIdx]).toLowerCase();
@@ -1586,7 +1586,7 @@ function rewriteCabbage2CabbageSet(text: string): { text: string; changes: numbe
     const re = /(^[ \t]*)\bcabbageSet\b\s+([^\n;]+)/gm;
     text = text.replace(re, (full, indent: string, body: string) => {
         const rewritten = rewriteCabbageSetCall(body);
-        if (rewritten === null) return full;
+        if (rewritten === null) {return full;}
         changes++;
         return rewritten.split('\n').map(line => `${indent}${line}`).join('\n');
     });
@@ -1944,8 +1944,8 @@ function expandCsoundMacros(orchestra: string): { text: string; changes: number 
             const name = fn[1];
             const args = fn[2].split("'").map(a => a.trim()).filter(Boolean);
             i++;
-            while (i < lines.length && lines[i].trim() === '') i++;        // blank lines
-            if (i < lines.length && isHashDelim(lines[i])) i++;             // opening #
+            while (i < lines.length && lines[i].trim() === '') {i++;}        // blank lines
+            if (i < lines.length && isHashDelim(lines[i])) {i++;}             // opening #
             const body: string[] = [];
             while (i < lines.length && !isHashDelim(lines[i])) {
                 body.push(lines[i]);
@@ -1971,8 +1971,8 @@ function expandCsoundMacros(orchestra: string): { text: string; changes: number 
         if (objMl) {
             const name = objMl[1];
             i++;
-            while (i < lines.length && lines[i].trim() === '') i++;
-            if (i < lines.length && isHashDelim(lines[i])) i++;
+            while (i < lines.length && lines[i].trim() === '') {i++;}
+            if (i < lines.length && isHashDelim(lines[i])) {i++;}
             const body: string[] = [];
             while (i < lines.length && !isHashDelim(lines[i])) {
                 body.push(lines[i]);
@@ -2150,7 +2150,7 @@ export function rewriteOrchestra(
         const first = varName[0].toLowerCase();
         const isControlRate = first === 'k' || first === 'i' ||
             (first === 'g' && (varName[1] === 'k' || varName[1] === 'i'));
-        if (!isControlRate) return _m; // a-rate / S-rate → leave chnget
+        if (!isControlRate) {return _m;} // a-rate / S-rate → leave chnget
 
         if (chan in MOUSE_CHANNELS) {
             const spec = MOUSE_CHANNELS[chan];
@@ -2171,12 +2171,12 @@ export function rewriteOrchestra(
         }
         if (chan in RESERVED_CHANNELS) {
             const target = RESERVED_CHANNELS[chan];
-            if (target !== chan) changes++;
+            if (target !== chan) {changes++;}
             return `${varName} chnget "${target}"`;
         }
         // Only widget channels become cabbageGetValue; internal Csound channels
         // (e.g. audio sends) stay as plain chnget.
-        if (!channels.has(chan)) return _m;
+        if (!channels.has(chan)) {return _m;}
         changes++;
         if (comboChannels.has(chan)) {
             comboVars.add(varName);
@@ -2193,7 +2193,7 @@ export function rewriteOrchestra(
         }
         if (chan in RESERVED_CHANNELS) {
             const target = RESERVED_CHANNELS[chan];
-            if (target !== chan) changes++;
+            if (target !== chan) {changes++;}
             return `chnset ${expr.trim()}, "${target}"`;
         }
         const trimmedExpr = expr.trim();
@@ -2229,7 +2229,7 @@ export function rewriteOrchestra(
             return `; Cabbage2→3 manual conversion needed: ${_m}`;
         }
         // Widget value channel → cabbageSetValue; internal channel → leave chnset.
-        if (!channels.has(chan)) return _m;
+        if (!channels.has(chan)) {return _m;}
         changes++;
         return `cabbageSetValue "${chan}", ${trimmedExpr}`;
     });
@@ -2319,17 +2319,17 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
             const size = (form.size && typeof form.size.width === 'number' && typeof form.size.height === 'number')
                 ? form.size
                 : { width: 600, height: 400 };
-            if (!form.channels || !Array.isArray(form.channels)) form.channels = [];
+            if (!form.channels || !Array.isArray(form.channels)) {form.channels = [];}
 
             const existingIds = new Set<string>(
                 form.channels.map((c: Record<string, any>) => c && typeof c.id === 'string' ? c.id : '').filter(Boolean),
             );
             for (const ch of buildMouseChannels(size, mouseUsed)) {
-                if (existingIds.has(ch.id)) continue;
+                if (existingIds.has(ch.id)) {continue;}
                 form.channels.push(ch);
             }
 
-            for (const c of mouseUsed) mouseToConvert.add(c);
+            for (const c of mouseUsed) {mouseToConvert.add(c);}
             mouseConvertedCount = mouseUsed.length;
             converted.json = JSON.stringify(root, null, 4);
             converted.warnings.push(
@@ -2350,11 +2350,11 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         const root = JSON.parse(converted.json) as Record<string, any>;
         const widgets = Array.isArray(root.widgets) ? (root.widgets as Record<string, any>[]) : [];
         for (const w of widgets) {
-            if (w.type !== 'genTable' || typeof w.id !== 'string') continue;
+            if (w.type !== 'genTable' || typeof w.id !== 'string') {continue;}
             const loading = soundfilerLoading.get(w.id);
-            if (!loading) continue;
-            if (loading.tableNumber !== undefined) w.tableNumber = loading.tableNumber;
-            if (loading.file !== undefined) w.file = loading.file;
+            if (!loading) {continue;}
+            if (loading.tableNumber !== undefined) {w.tableNumber = loading.tableNumber;}
+            if (loading.file !== undefined) {w.file = loading.file;}
         }
         converted.json = JSON.stringify(root, null, 4);
     }

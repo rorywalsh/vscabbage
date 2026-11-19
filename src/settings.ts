@@ -539,7 +539,7 @@ export class Settings {
                     return;
             }
 
-            if (!newPath) return;
+            if (!newPath) {return;}
 
             // Normalise existing jsSourceDir into an array
             const current = settings['currentConfig']['jsSourceDir'];
@@ -596,9 +596,9 @@ export class Settings {
 
                 // Rebuild: primary first, then all custom dirs (no duplicates)
                 const newDirs: string[] = [];
-                if (primary && !newDirs.includes(primary)) newDirs.push(primary);
+                if (primary && !newDirs.includes(primary)) {newDirs.push(primary);}
                 for (const d of customDirs) {
-                    if (d && !newDirs.includes(d)) newDirs.push(d);
+                    if (d && !newDirs.includes(d)) {newDirs.push(d);}
                 }
 
                 // If the VS Code setting was reset to empty, this will result in
@@ -896,7 +896,7 @@ export class Settings {
         let defaultDir = customDirs[0];
         if (customDirs.length > 1) {
             const picked = await vscode.window.showQuickPick(customDirs, { placeHolder: 'Select the default directory for the new widget' });
-            if (!picked) return;
+            if (!picked) {return;}
             defaultDir = picked;
         }
 
@@ -966,7 +966,7 @@ export class Settings {
             try {
                 await vscode.workspace.fs.stat(saveUri);
                 const overwrite = await vscode.window.showQuickPick(['Overwrite', 'Cancel'], { placeHolder: `${path.basename(saveUri.fsPath)} already exists. Overwrite?` });
-                if (overwrite !== 'Overwrite') return;
+                if (overwrite !== 'Overwrite') {return;}
             } catch { /* file does not exist, continue */ }
 
             // Write file

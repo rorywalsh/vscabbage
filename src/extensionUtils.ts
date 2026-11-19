@@ -666,10 +666,10 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                         // and EVERY channels[] entry — multi-channel widgets can
                         // be renamed on any axis, not just channels[0]).
                         const matchesSearchId = (o: any): boolean => {
-                            if (!searchId) return false;
-                            if (o == null) return false;
-                            if (typeof o.id === 'string' && o.id === searchId) return true;
-                            if (typeof o.channel === 'string' && o.channel === searchId) return true;
+                            if (!searchId) {return false;}
+                            if (o === null || o === undefined) {return false;}
+                            if (typeof o.id === 'string' && o.id === searchId) {return true;}
+                            if (typeof o.channel === 'string' && o.channel === searchId) {return true;}
                             if (o.channels && Array.isArray(o.channels)) {
                                 return o.channels.some((c: any) => c && typeof c.id === 'string' && c.id === searchId);
                             }
@@ -1206,7 +1206,7 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
 
         // Ensure we don't duplicate comment keys when spreading the rest
         const restClone: any = { ...rest };
-        commentKeys.forEach(k => { if (restClone.hasOwnProperty(k)) delete restClone[k]; });
+        commentKeys.forEach(k => { if (restClone.hasOwnProperty(k)) {delete restClone[k];} });
 
         // Create an ordered bounds object only if bounds is present in the original object
         const orderedBounds = bounds ? {
@@ -1285,10 +1285,10 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
         } else {
             const searchId = oldId || getWidgetChannelId(props);
             const existingIndex = jsonArray.findIndex(obj => {
-                if (!searchId) return false;
-                if (obj == null) return false;
-                if (typeof obj.id === 'string' && obj.id === searchId) return true;
-                if (typeof obj.channel === 'string' && obj.channel === searchId) return true;
+                if (!searchId) {return false;}
+                if (obj === null || obj === undefined) {return false;}
+                if (typeof obj.id === 'string' && obj.id === searchId) {return true;}
+                if (typeof obj.channel === 'string' && obj.channel === searchId) {return true;}
                 // Match EVERY channels[] entry (see updateText: multi-channel
                 // widgets can be renamed on any axis, not just channels[0]).
                 if (obj.channels && Array.isArray(obj.channels)) {

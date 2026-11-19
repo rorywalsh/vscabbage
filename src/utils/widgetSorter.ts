@@ -122,7 +122,7 @@ export function reorderWidgets(widgets: any[]): any[] {
         let bestArea = Infinity;
 
         groupBoxes.forEach(potentialParent => {
-            if (gb === potentialParent) return;
+            if (gb === potentialParent) {return;}
 
             if (isInside(gb, potentialParent)) {
                 const bounds = getWidgetBounds(potentialParent);

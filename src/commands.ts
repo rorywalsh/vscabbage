@@ -1658,7 +1658,7 @@ export class Commands {
                 // Track recent non-warning lines for richer context when parsing errors
                 if (!/^\s*(deprecated|warning)\b[:]?/i.test(line)) {
                     recentLines.push(line);
-                    if (recentLines.length > MAX_RECENT) recentLines.shift();
+                    if (recentLines.length > MAX_RECENT) {recentLines.shift();}
                 }
 
                 if (!line) {
@@ -1814,7 +1814,7 @@ export class Commands {
                                     let tempBuf = stdoutBuffer;
                                     for (let i = 0; i < 5; i++) {
                                         const nl = tempBuf.indexOf('\n');
-                                        if (nl === -1) break;
+                                        if (nl === -1) {break;}
                                         const nextLine = tempBuf.substring(0, nl).trim();
                                         tempBuf = tempBuf.substring(nl + 1);
 
@@ -3657,8 +3657,8 @@ include $(SYSTEM_FILES_DIR)/Makefile
                                     dict.string[keyIndex] = newValue;
                                 }
                             } else {
-                                if (!dict.key) dict.key = [];
-                                if (!dict.string) dict.string = [];
+                                if (!dict.key) {dict.key = [];}
+                                if (!dict.string) {dict.string = [];}
                                 dict.key.push(keyName);
                                 dict.string.push(newValue);
                             }
@@ -4210,8 +4210,8 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const entries = await fs.promises.readdir(dir, { withFileTypes: true });
         const sorted = entries.sort((a, b) => {
             // Directories first, then files
-            if (a.isDirectory() && !b.isDirectory()) return -1;
-            if (!a.isDirectory() && b.isDirectory()) return 1;
+            if (a.isDirectory() && !b.isDirectory()) {return -1;}
+            if (!a.isDirectory() && b.isDirectory()) {return 1;}
             return a.name.localeCompare(b.name);
         });
         for (let i = 0; i < sorted.length; i++) {
@@ -4593,8 +4593,8 @@ i2 5 z
                             }
                         } else {
                             // Add new key-value pair
-                            if (!dict.key) dict.key = [];
-                            if (!dict.string) dict.string = [];
+                            if (!dict.key) {dict.key = [];}
+                            if (!dict.string) {dict.string = [];}
                             dict.key.push(keyName);
                             dict.string.push(newValue);
                         }
@@ -4926,8 +4926,8 @@ i2 5 z
                                 }
                             } else {
                                 // Add new key-value pair
-                                if (!dict.key) dict.key = [];
-                                if (!dict.string) dict.string = [];
+                                if (!dict.key) {dict.key = [];}
+                                if (!dict.string) {dict.string = [];}
                                 dict.key.push(keyName);
                                 dict.string.push(newValue);
                             }

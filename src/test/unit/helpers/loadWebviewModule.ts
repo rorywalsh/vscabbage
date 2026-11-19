@@ -93,7 +93,6 @@ export async function loadWebviewModule(entry: string, options: LoadWebviewModul
     }
 
     const module = { exports: {} as any };
-    // eslint-disable-next-line no-new-func
     const evaluate = new Function('module', 'exports', 'require', '__filename', '__dirname', output);
     evaluate(module, module.exports, require, entryPoint, path.dirname(entryPoint));
     return module.exports;

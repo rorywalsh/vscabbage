@@ -316,7 +316,7 @@ export async function activate(context: vscode.ExtensionContext):
         const regex = /<!--[\s\S]*?⚠️\s*Warning:[\s\S]*?-->/g;
         for (const ed of editors) {
             try {
-                if (!ed || !ed.document) continue;
+                if (!ed || !ed.document) {continue;}
                 const text = ed.document.getText();
                 const decorations: vscode.DecorationOptions[] = [];
                 let match: RegExpExecArray | null;
@@ -339,7 +339,7 @@ export async function activate(context: vscode.ExtensionContext):
         const editors = editor ? [editor] : vscode.window.visibleTextEditors;
         for (const ed of editors) {
             try {
-                if (!ed || !ed.document || !ed.document.fileName.endsWith('.csd')) continue;
+                if (!ed || !ed.document || !ed.document.fileName.endsWith('.csd')) {continue;}
                 const text = ed.document.getText();
                 const decorations: vscode.DecorationOptions[] = [];
 
