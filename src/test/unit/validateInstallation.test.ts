@@ -6,6 +6,7 @@ import {
     checkCsoundPresent,
     checkServiceBinary,
     checkServiceBinaryExecutable,
+    checkServiceBinaryArch,
     checkSettingsFile,
     checkJsSourceDirs,
     checkPrimarySource,
@@ -31,6 +32,8 @@ function baseEnv(overrides: Partial<ValidationEnv> = {}): ValidationEnv {
         listFiles: () => ['form.js', 'rotarySlider.js', 'button.js'],
         isOnPath: () => false,
         isExecutable: () => true,
+        hostArch: 'x64',
+        readBinaryArch: () => 'x64',
         ...overrides,
     };
 }
@@ -281,8 +284,37 @@ describe('checkServiceBinaryExecutable', () => {
     });
 });
 
+describe('checkServiceBinaryArch', () => {
+    it('passes when the binary arch matches the host', () => {
+        const r = checkServiceBinaryArch(baseEnv({ hostArch: 'x64', readBinaryArch: () => 'x64' }));
+        assert.strictEqual(r.status, 'pass');
+    });
+    it('fails with an install remedy on an arm64 binary on an x64 host', () => {
+        const r = checkServiceBinaryArch(baseEnv({ hostArch: 'x64', readBinaryArch: () => 'arm64' }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.remedy && r.remedy.toLowerCase().includes('install the x64 package'));
+    });
+    it('warns (not fails) when the binary is missing so checkServiceBinary owns that failure', () => {
+        const r = checkServiceBinaryArch(baseEnv({ exists: () => false, readBinaryArch: () => 'arm64' }));
+        assert.strictEqual(r.status, 'warn');
+    });
+    it('warns (not fails) when the architecture cannot be determined', () => {
+        const r = checkServiceBinaryArch(baseEnv({ readBinaryArch: () => 'unknown' }));
+        assert.strictEqual(r.status, 'warn');
+    });
+    it('checks the Pro binary when the Pro app is configured and enabled', () => {
+        const seen: string[] = [];
+        const env = baseEnv({
+            proServiceBinaryPath: '/pro/CabbageApp',
+            readBinaryArch: (p) => { seen.push(p); return 'x64'; },
+        });
+        checkServiceBinaryArch(env);
+        assert.deepStrictEqual(seen, ['/pro/CabbageApp']);
+    });
+});
+
 describe('runAllChecks', () => {
-    it('returns 8 results and never throws on hostile inputs', () => {
+    it('returns 9 results and never throws on hostile inputs', () => {
         const env = baseEnv({
             settingsFileText: '{broken',
             exists: () => { throw new Error('fs boom'); },
@@ -290,7 +322,7 @@ describe('runAllChecks', () => {
             isExecutable: () => { throw new Error('stat boom'); },
         });
         const results = runAllChecks(env);
-        assert.strictEqual(results.length, 8);
+        assert.strictEqual(results.length, 9);
         assert.ok(results.every((r) => r.id && r.label && r.detail));
     });
     it('a healthy env produces zero fails and warns', () => {

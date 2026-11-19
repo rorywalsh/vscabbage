@@ -56,6 +56,7 @@ import * as xml2js from 'xml2js';
 import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
+import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
 import { runAllChecks, formatReport, summarize, ValidationEnv } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -1177,7 +1178,17 @@ export class Commands {
     static async startCabbageServer(shouldStart: boolean) {
 
         if (shouldStart) {
-            this.startCabbageProcess();
+            const started = await this.startCabbageProcess();
+            if (!started) {
+                // startCabbageProcess already surfaced the failure (wrong
+                // architecture, missing/corrupt binary, spawn error). Keep the
+                // status bar honest so a failed start doesn't masquerade as a
+                // running server.
+                cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+                cabbageStatusBarItem.show();
+                this.cabbageServerStarted = false;
+                return;
+            }
             cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
             cabbageStatusBarItem.show();
             this.cabbageServerStarted = true;
@@ -1522,7 +1533,7 @@ export class Commands {
      * Uses stdin/stdout pipes for communication instead of WebSocket
      * @returns 
      */
-    static async startCabbageProcess() {
+    static async startCabbageProcess(): Promise<boolean> {
         const config = vscode.workspace.getConfiguration("cabbage");
         const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
         const proAppEnabled = config.get<boolean>("proAppEnabled", true);
@@ -1533,6 +1544,22 @@ export class Commands {
             command = Settings.getCabbageProBinaryPath('CabbageApp');
         } else {
             command = Settings.getCabbageBinaryPath('CabbageApp');
+        }
+
+        // Guard against installing the wrong package: the backend binary's
+        // architecture must be able to run on this machine. An ARM64 backend on
+        // an x64 host cannot ever launch (and vice versa); catch it here with a
+        // clear message instead of a confusing "Cannot send message" later.
+        const binaryArch = readBinaryArch(command);
+        if (!isCompatibleArch(binaryArch, process.arch)) {
+            const message =
+                `Cannot start the Cabbage backend: the bundled binary is ${binaryArch}, but this machine is ${process.arch}. ` +
+                `You have the wrong build for your platform — install the ${process.arch} package for your OS.`;
+            this.vscodeOutputChannel.appendLine(`ERROR: ${message}`);
+            this.vscodeOutputChannel.appendLine(`Binary: ${command}`);
+            this.vscodeOutputChannel.show(true);
+            vscode.window.showErrorMessage(message);
+            return false;
         }
 
         // Verbose-only spawn stamp so Debug vs Release / stale-copy mixups are obvious.
@@ -1547,10 +1574,22 @@ export class Commands {
             // Stat failure is already handled below via the existence check on spawn error
         }
 
-        // Spawn CabbageApp without port number - it will use stdin/stdout pipes
-        const process = cp.spawn(command, [], {
-            stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
-        });
+        // Spawn CabbageApp without port number - it will use stdin/stdout pipes.
+        // cp.spawn can throw synchronously (e.g. an unexecutable/foreign-format
+        // binary), so wrap it and report rather than leaving a half-started state.
+        let backend: cp.ChildProcessWithoutNullStreams;
+        try {
+            backend = cp.spawn(command, [], {
+                stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+            });
+        } catch (err) {
+            const message = `Failed to launch the Cabbage backend: ${err instanceof Error ? err.message : String(err)}`;
+            this.vscodeOutputChannel.appendLine(`ERROR: ${message}`);
+            this.vscodeOutputChannel.appendLine(`Binary: ${command}`);
+            this.vscodeOutputChannel.show(true);
+            vscode.window.showErrorMessage(message);
+            return false;
+        }
 
         // Store stdout buffer for JSON line parsing
         let stdoutBuffer = '';
@@ -1561,7 +1600,7 @@ export class Commands {
         const MAX_RECENT = 12;
 
         // this.vscodeOutputChannel.clear();
-        process.on('error', (err) => {
+        backend.on('error', (err) => {
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS ERROR ===');
             this.vscodeOutputChannel.appendLine(`Error name: ${err.name}`);
             this.vscodeOutputChannel.appendLine(`Error message: ${err.message}`);
@@ -1576,14 +1615,20 @@ export class Commands {
             }
             this.vscodeOutputChannel.appendLine('=== END ERROR ===');
             this.vscodeOutputChannel.show(true);
-            const index = this.processes.indexOf(process);
+            const index = this.processes.indexOf(backend);
             if (index > -1) {
                 this.processes.splice(index, 1);
             }
+            // The backend is gone whether it crashed or was stopped: keep the
+            // public "is the server running" state honest so a dead process
+            // doesn't masquerade as a running one.
+            this.cabbageServerStarted = false;
+            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+            cabbageStatusBarItem.show();
         });
 
-        process.on('exit', (code, signal) => {
-            const index = this.processes.indexOf(process);
+        backend.on('exit', (code, signal) => {
+            const index = this.processes.indexOf(backend);
             if (index > -1) {
                 this.processes.splice(index, 1);
             }
@@ -1595,10 +1640,15 @@ export class Commands {
                 this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
             }
 
+            // Same honesty reset as the error handler above.
+            this.cabbageServerStarted = false;
+            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+            cabbageStatusBarItem.show();
+
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
             this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
             this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
-            this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
+            this.vscodeOutputChannel.appendLine(`Process ID: ${backend.pid}`);
             this.vscodeOutputChannel.appendLine(`Command: ${command}`);
 
             if (signal) {
@@ -1639,10 +1689,10 @@ export class Commands {
             this.vscodeOutputChannel.show(true);
         });
 
-        this.processes.push(process);
+        this.processes.push(backend);
 
         // Handle stdout - parse JSON messages from CabbageApp
-        process.stdout.on("data", async (data: Buffer) => {
+        backend.stdout.on("data", async (data: Buffer) => {
             const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
             const dataString = data.toString();
 
@@ -1870,7 +1920,7 @@ export class Commands {
             }
         });
 
-        process.stderr.on("data", (data: { toString: () => string; }) => {
+        backend.stderr.on("data", (data: { toString: () => string; }) => {
             const dataString = data.toString();
 
             // Filter out large JSON messages to prevent output window spam
@@ -1910,6 +1960,7 @@ export class Commands {
             }
         });
         this.cabbageServerStarted = true;
+        return true;
 
         // No longer need setupWebSocketServer - we're using pipes now
         // Webview will send cabbageIsReadyToLoad when it's ready
@@ -3017,6 +3068,8 @@ export class Commands {
             listFiles,
             isOnPath,
             isExecutable,
+            hostArch: process.arch,
+            readBinaryArch,
             realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);
