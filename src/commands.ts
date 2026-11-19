@@ -3068,6 +3068,8 @@ export class Commands {
             listFiles,
             isOnPath,
             isExecutable,
+            hostArch: process.arch,
+            readBinaryArch,
             realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);
