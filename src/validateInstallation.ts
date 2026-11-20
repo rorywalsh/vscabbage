@@ -13,6 +13,8 @@
  * Nothing here writes files, changes settings, or (re)starts processes.
  */
 
+import { BinaryArch, isCompatibleArch } from './utils/binaryArch';
+
 export type CheckStatus = 'pass' | 'warn' | 'fail';
 
 export interface CheckResult {
@@ -64,6 +66,10 @@ export interface ValidationEnv {
      * Meaningless on Windows, where the executable-bit checks skip it.
      */
     isExecutable: (p: string) => boolean;
+    /** Node `process.arch` value, e.g. 'x64' | 'arm64' | 'ia32'. */
+    hostArch: string;
+    /** Reads a native binary's architecture from its header. */
+    readBinaryArch: (p: string) => BinaryArch;
 }
 
 /** Normalises a `currentConfig.jsSourceDir` value into a directory list. */
@@ -179,6 +185,34 @@ export function checkServiceBinaryExecutable(env: ValidationEnv): CheckResult {
             detail: `Could not stat ${binaryPath}: ${err instanceof Error ? err.message : String(err)}`,
         };
     }
+}
+
+export function checkServiceBinaryArch(env: ValidationEnv): CheckResult {
+    const base = { id: 'serviceBinaryArch', label: 'Cabbage Server architecture matches this machine' };
+    // Same Pro/public precedence as the other binary probes so every check
+    // talks about the same file.
+    const usingPro = env.proServiceBinaryPath !== '' && env.proAppEnabled;
+    const binaryPath = usingPro ? env.proServiceBinaryPath : env.cabbageAppBinaryPath;
+    if (!binaryPath || !env.exists(binaryPath)) {
+        // checkServiceBinary() already reports the missing/unresolvable binary;
+        // don't duplicate that failure here.
+        return { ...base, status: 'warn', detail: 'Skipped: binary could not be resolved or is missing' };
+    }
+    const binaryArch = env.readBinaryArch(binaryPath);
+    if (binaryArch === 'unknown') {
+        return { ...base, status: 'warn', detail: `Could not determine the architecture of ${binaryPath}` };
+    }
+    if (!isCompatibleArch(binaryArch, env.hostArch)) {
+        return {
+            ...base, status: 'fail',
+            detail: `The bundled backend (${binaryPath}) is ${binaryArch}, but this machine is ${env.hostArch}`,
+            remedy: `You have the wrong build for this platform. Install the ${env.hostArch} package for your OS.`,
+        };
+    }
+    return {
+        ...base, status: 'pass',
+        detail: `Backend architecture (${binaryArch}) is compatible with this machine (${env.hostArch})`,
+    };
 }
 
 export function checkSettingsFile(env: ValidationEnv): CheckResult {
@@ -336,6 +370,7 @@ export function runAllChecks(env: ValidationEnv): CheckResult[] {
     safe(() => checkCsoundPresent(env), 'csound', 'Csound installed');
     safe(() => checkServiceBinary(env), 'serviceBinary', 'Cabbage Server');
     safe(() => checkServiceBinaryExecutable(env), 'serviceBinaryExecutable', 'Cabbage Server is executable');
+    safe(() => checkServiceBinaryArch(env), 'serviceBinaryArch', 'Cabbage Server architecture matches this machine');
     safe(() => checkSettingsFile(env), 'settingsFile', 'Settings file');
     const parsed = parseSettings(env.settingsFileText);
     const dirs = parsed ? normalizeSourceDirs(parsed.jsSourceDir) : [];

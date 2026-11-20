@@ -56,6 +56,7 @@ import * as xml2js from 'xml2js';
 import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
+import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
 import { runAllChecks, formatReport, summarize, ValidationEnv } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -884,6 +885,9 @@ export class Commands {
                         await documentToSave.save();
 
                         if (this.panel) {
+                            // Keep the registry ahead of the rebuild messages
+                            // (see the save handlers below).
+                            await Commands.pushCustomWidgetInfo();
                             this.panel.webview.postMessage({
                                 command: "onFileChanged",
                                 text: "fileSaved",
@@ -1174,7 +1178,17 @@ export class Commands {
     static async startCabbageServer(shouldStart: boolean) {
 
         if (shouldStart) {
-            this.startCabbageProcess();
+            const started = await this.startCabbageProcess();
+            if (!started) {
+                // startCabbageProcess already surfaced the failure (wrong
+                // architecture, missing/corrupt binary, spawn error). Keep the
+                // status bar honest so a failed start doesn't masquerade as a
+                // running server.
+                cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+                cabbageStatusBarItem.show();
+                this.cabbageServerStarted = false;
+                return;
+            }
             cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
             cabbageStatusBarItem.show();
             this.cabbageServerStarted = true;
@@ -1360,6 +1374,12 @@ export class Commands {
             // Clear previous Csound diagnostics before compilation
             this.diagnosticCollectionCsound.clear();
 
+            // Refresh the widget/kit registry BEFORE the rebuild starts. The
+            // registry push is async (it scans the custom-widget folders), so
+            // without this the backend's widget data can reach the webview
+            // first and widgets are created with the previous active kit.
+            await Commands.pushCustomWidgetInfo();
+
             this.panel.webview.postMessage({
                 command: "onFileChanged",
                 text: fileContent,
@@ -1447,6 +1467,11 @@ export class Commands {
                 // Clear previous Csound diagnostics before compilation
                 this.diagnosticCollectionCsound.clear();
 
+                // See the note in the other save handler: the registry must be
+                // posted before any widget data, otherwise a kit selected just
+                // before saving is not applied to the rebuilt widgets.
+                await Commands.pushCustomWidgetInfo();
+
                 panel.webview.postMessage({
                     command: "onFileChanged",
                     text: fileContent,
@@ -1508,7 +1533,7 @@ export class Commands {
      * Uses stdin/stdout pipes for communication instead of WebSocket
      * @returns 
      */
-    static async startCabbageProcess() {
+    static async startCabbageProcess(): Promise<boolean> {
         const config = vscode.workspace.getConfiguration("cabbage");
         const proBinaryPath = config.get<string>("pathToCabbageProBinary") || '';
         const proAppEnabled = config.get<boolean>("proAppEnabled", true);
@@ -1519,6 +1544,22 @@ export class Commands {
             command = Settings.getCabbageProBinaryPath('CabbageApp');
         } else {
             command = Settings.getCabbageBinaryPath('CabbageApp');
+        }
+
+        // Guard against installing the wrong package: the backend binary's
+        // architecture must be able to run on this machine. An ARM64 backend on
+        // an x64 host cannot ever launch (and vice versa); catch it here with a
+        // clear message instead of a confusing "Cannot send message" later.
+        const binaryArch = readBinaryArch(command);
+        if (!isCompatibleArch(binaryArch, process.arch)) {
+            const message =
+                `Cannot start the Cabbage backend: the bundled binary is ${binaryArch}, but this machine is ${process.arch}. ` +
+                `You have the wrong build for your platform — install the ${process.arch} package for your OS.`;
+            this.vscodeOutputChannel.appendLine(`ERROR: ${message}`);
+            this.vscodeOutputChannel.appendLine(`Binary: ${command}`);
+            this.vscodeOutputChannel.show(true);
+            vscode.window.showErrorMessage(message);
+            return false;
         }
 
         // Verbose-only spawn stamp so Debug vs Release / stale-copy mixups are obvious.
@@ -1533,10 +1574,22 @@ export class Commands {
             // Stat failure is already handled below via the existence check on spawn error
         }
 
-        // Spawn CabbageApp without port number - it will use stdin/stdout pipes
-        const process = cp.spawn(command, [], {
-            stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
-        });
+        // Spawn CabbageApp without port number - it will use stdin/stdout pipes.
+        // cp.spawn can throw synchronously (e.g. an unexecutable/foreign-format
+        // binary), so wrap it and report rather than leaving a half-started state.
+        let backend: cp.ChildProcessWithoutNullStreams;
+        try {
+            backend = cp.spawn(command, [], {
+                stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+            });
+        } catch (err) {
+            const message = `Failed to launch the Cabbage backend: ${err instanceof Error ? err.message : String(err)}`;
+            this.vscodeOutputChannel.appendLine(`ERROR: ${message}`);
+            this.vscodeOutputChannel.appendLine(`Binary: ${command}`);
+            this.vscodeOutputChannel.show(true);
+            vscode.window.showErrorMessage(message);
+            return false;
+        }
 
         // Store stdout buffer for JSON line parsing
         let stdoutBuffer = '';
@@ -1547,7 +1600,7 @@ export class Commands {
         const MAX_RECENT = 12;
 
         // this.vscodeOutputChannel.clear();
-        process.on('error', (err) => {
+        backend.on('error', (err) => {
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS ERROR ===');
             this.vscodeOutputChannel.appendLine(`Error name: ${err.name}`);
             this.vscodeOutputChannel.appendLine(`Error message: ${err.message}`);
@@ -1562,14 +1615,20 @@ export class Commands {
             }
             this.vscodeOutputChannel.appendLine('=== END ERROR ===');
             this.vscodeOutputChannel.show(true);
-            const index = this.processes.indexOf(process);
+            const index = this.processes.indexOf(backend);
             if (index > -1) {
                 this.processes.splice(index, 1);
             }
+            // The backend is gone whether it crashed or was stopped: keep the
+            // public "is the server running" state honest so a dead process
+            // doesn't masquerade as a running one.
+            this.cabbageServerStarted = false;
+            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+            cabbageStatusBarItem.show();
         });
 
-        process.on('exit', (code, signal) => {
-            const index = this.processes.indexOf(process);
+        backend.on('exit', (code, signal) => {
+            const index = this.processes.indexOf(backend);
             if (index > -1) {
                 this.processes.splice(index, 1);
             }
@@ -1581,10 +1640,15 @@ export class Commands {
                 this.getPanel()!.webview.postMessage({ command: 'backendRestarted' });
             }
 
+            // Same honesty reset as the error handler above.
+            this.cabbageServerStarted = false;
+            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
+            cabbageStatusBarItem.show();
+
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
             this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
             this.vscodeOutputChannel.appendLine(`Signal: ${signal || 'none'}`);
-            this.vscodeOutputChannel.appendLine(`Process ID: ${process.pid}`);
+            this.vscodeOutputChannel.appendLine(`Process ID: ${backend.pid}`);
             this.vscodeOutputChannel.appendLine(`Command: ${command}`);
 
             if (signal) {
@@ -1625,10 +1689,10 @@ export class Commands {
             this.vscodeOutputChannel.show(true);
         });
 
-        this.processes.push(process);
+        this.processes.push(backend);
 
         // Handle stdout - parse JSON messages from CabbageApp
-        process.stdout.on("data", async (data: Buffer) => {
+        backend.stdout.on("data", async (data: Buffer) => {
             const ignoredTokens = ['RtApi', 'MidiIn', 'iplug::', 'RtAudio', 'RtApiCore', 'RtAudio '];
             const dataString = data.toString();
 
@@ -1856,7 +1920,7 @@ export class Commands {
             }
         });
 
-        process.stderr.on("data", (data: { toString: () => string; }) => {
+        backend.stderr.on("data", (data: { toString: () => string; }) => {
             const dataString = data.toString();
 
             // Filter out large JSON messages to prevent output window spam
@@ -1896,6 +1960,7 @@ export class Commands {
             }
         });
         this.cabbageServerStarted = true;
+        return true;
 
         // No longer need setupWebSocketServer - we're using pipes now
         // Webview will send cabbageIsReadyToLoad when it's ready
@@ -2162,6 +2227,47 @@ export class Commands {
         const cabbageContent = document.getText(range).trim();
 
         return { content: cabbageContent, range };
+    }
+
+    /**
+     * Reads the `<Cabbage>` section from the active editor without surfacing
+     * user-facing errors (used by background kit resolution, where there may be
+     * no active editor or the active file may not be a CSD).
+     */
+    private static getActiveCabbageContent(): string {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !editor.document.fileName.toLowerCase().endsWith('.csd')) {
+            return '';
+        }
+        const text = editor.document.getText();
+        const start = text.indexOf('<Cabbage>');
+        const end = text.indexOf('</Cabbage>');
+        if (start === -1 || end === -1 || start > end) {
+            return '';
+        }
+        return text.substring(start + '<Cabbage>'.length, end).trim();
+    }
+
+    /**
+     * Resolves the effective widget kit for an instrument. A top-level `kit`
+     * property in the Cabbage JSON overrides the global `cabbage.widgetKit`
+     * setting, letting each instrument pin its own kit.
+     *
+     * @param cabbageContent The raw `<Cabbage>` JSON (empty when unavailable).
+     */
+    static resolveActiveKit(cabbageContent: string = ''): string {
+        const global = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+        if (!cabbageContent) {
+            return global;
+        }
+        try {
+            const parsed = parseCabbageJSON(cabbageContent);
+            const root = parsed.root;
+            const kit = root && !Array.isArray(root) && typeof root === 'object' ? root.kit : undefined;
+            return (typeof kit === 'string' && kit.trim()) ? kit.trim() : global;
+        } catch {
+            return global;
+        }
     }
 
     /**
@@ -2481,8 +2587,9 @@ export class Commands {
             }
 
             // Widget kits (bundled + user). Kit widgets may override built-in
-            // types; the active kit is chosen via `cabbage.widgetKit`.
-            const activeKit = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            // types; the active kit is chosen via `cabbage.widgetKit`, but a
+            // top-level `kit` property in the CSD overrides it per instrument.
+            const activeKit = Commands.resolveActiveKit(Commands.getActiveCabbageContent());
             const kits = await ExtensionUtils.getWidgetKits();
             const kitPayloads: Array<{
                 id: string;
@@ -2961,6 +3068,8 @@ export class Commands {
             listFiles,
             isOnPath,
             isExecutable,
+            hostArch: process.arch,
+            readBinaryArch,
             realpath: (p: string): string => fs.realpathSync(p),
         };
         const results = runAllChecks(env);
@@ -3863,12 +3972,14 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * @param builtInWidgetsDir Directory containing the built-in widget .js files
      * @param customWidgetDirs Directories containing custom widget .js files
      * @param destDir Destination cabbage directory
+     * @param csdContent Raw `<Cabbage>` JSON, used to resolve a per-instrument kit
      */
     private static async copyUsedWidgets(
         usedWidgets: Set<string>,
         builtInWidgetsDir: string,
         customWidgetDirs: string[],
-        destDir: string
+        destDir: string,
+        csdContent: string
     ): Promise<void> {
         const widgetsDestDir = path.join(destDir, 'widgets');
         await fs.promises.mkdir(widgetsDestDir, { recursive: true });
@@ -3877,7 +3988,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
         // the normal widget copies so the kit always wins.
         let activeKit: WidgetKit | undefined;
         try {
-            const activeKitId = vscode.workspace.getConfiguration('cabbage').get<string>('widgetKit', '') || '';
+            const activeKitId = Commands.resolveActiveKit(csdContent);
             if (activeKitId) {
                 const kits = await ExtensionUtils.getWidgetKits();
                 activeKit = kits.find((kit) => kit.id === activeKitId);
@@ -4203,7 +4314,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         // Copy ALL built-in widgets (required by widgetTypes.js static imports)
         // Also copy any custom widgets that are used
-        await Commands.copyUsedWidgets(usedWidgets, builtInWidgetsDir, customWidgetDirs, cabbageDestDir);
+        await Commands.copyUsedWidgets(usedWidgets, builtInWidgetsDir, customWidgetDirs, cabbageDestDir, csdContent);
 
         // Copy CSS file
         const cssPath = Commands.getCabbageCssPath();
@@ -4244,7 +4355,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const projectJsonContent = `{
   // Entry point for the custom UI.
   // Use a relative file path to load a built or plain-HTML file directly:
-  "entry": "index.html"
+  "entry": "index.html",
+  // Marker: generated by the Cabbage plugin export for the plugin runtime.
+  // The VS Code editor ignores this file when "generatedBy" is set, so a
+  // bundled plugin's .csd reopens in the native widget editor, not custom-UI mode.
+  "generatedBy": "cabbage-export"
   // Switch to a dev server URL for framework projects (Vite, React, Svelte) during development:
   //   "entry": "http://localhost:5173"
 }

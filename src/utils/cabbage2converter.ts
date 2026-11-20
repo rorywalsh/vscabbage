@@ -59,6 +59,8 @@ export interface ConvertResult {
     soundfilerIdents: Set<string>;
     /** number of rotary sliders whose bounds were scaled for Cabbage 3 */
     scaledRotarySliders: number;
+    /** number of horizontal sliders whose height was scaled for Cabbage 3 */
+    scaledHorizontalSliders: number;
 }
 
 export interface CsoundRewriteResult {
@@ -82,6 +84,18 @@ export interface CsoundRewriteResult {
 const ROTARY_SLIDER_SCALE_LABEL = 0.85;
 const ROTARY_SLIDER_SCALE_LABEL_TEXTBOX = 0.8;
 const ROTARY_KNOB_SCALE_LABEL_TEXTBOX = 0.7;
+
+/**
+ * Cabbage 2 horizontal sliders rendered a shorter row than Cabbage 3's
+ * height-proportional defaults, and their label text — whose font size scales
+ * with the bounds height — looked too large. Convert tall horizontal sliders to
+ * a standard 20px row so the label reads well and sliders are consistent
+ * across instruments. Only tall rows are reduced; the width and horizontal
+ * position are preserved.
+ */
+const HORIZONTAL_SLIDER_HEIGHT = 20;
+/** The visible slider (thumb) sits a little shorter than its 20px row. */
+const HORIZONTAL_SLIDER_THUMB_HEIGHT = HORIZONTAL_SLIDER_HEIGHT - 4;
 
 // ---------------------------------------------------------------------------
 // Widget type renames (rules doc §1)
@@ -296,12 +310,32 @@ function toNumbers(args: string[]): number[] {
     return args.map(toNumber);
 }
 
+/**
+ * Parse a Cabbage 2 range default argument. A single value applies to the first
+ * channel; range sliders use `defaultMin:defaultMax`, which sets the initial
+ * values of both channels.
+ */
+function parseRangeDefaults(arg: string | undefined): { min?: number; max?: number } {
+    const text = arg !== undefined ? unquote(arg).trim() : '';
+    if (!text) return {};
+    const parts = text.split(':');
+    const min = Number(parts[0]);
+    const out: { min?: number; max?: number } = {};
+    if (!isNaN(min)) out.min = min;
+    if (parts.length > 1) {
+        const max = Number(parts[1]);
+        if (!isNaN(max)) out.max = max;
+    }
+    return out;
+}
+
 /** Build a Cabbage 3 range object from Cabbage 2 range args. */
 function makeRange(a: string[]): Record<string, number> | null {
     const n = a.map(toNumber);
     if (n.length < 2 || isNaN(n[0]) || isNaN(n[1])) return null;
     const range: Record<string, number> = { min: n[0], max: n[1] };
-    if (n.length > 2 && !isNaN(n[2])) range.defaultValue = n[2];
+    const defaults = parseRangeDefaults(a[2]);
+    if (defaults.min !== undefined) range.defaultValue = defaults.min;
     if (n.length > 3 && !isNaN(n[3])) range.skew = n[3];
     if (n.length > 4 && !isNaN(n[4])) range.increment = n[4];
     else range.increment = 0.01;
@@ -478,6 +512,14 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             if (r) {
                 ensureChannels(w);
                 w.json.channels[0].range = r;
+                // Range sliders use `defaultMin:defaultMax`; the second value is
+                // the max channel's initial value. Without it the max channel
+                // falls back to 0 and can sit outside a range such as 4..14.
+                const defaults = parseRangeDefaults(a[2]);
+                if (defaults.max !== undefined) {
+                    while (w.json.channels.length < 2) w.json.channels.push({ event: 'valueChanged' });
+                    w.json.channels[1].range = { ...(w.json.channels[1].range || {}), defaultValue: defaults.max };
+                }
             }
             return;
         }
@@ -573,6 +615,11 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             if (!css) return;
             if (SLIDER_TYPES.has(w.type)) {
                 setStyle(w, 'thumb.backgroundColor', css);
+            } else if (w.type === 'genTable') {
+                // Cabbage 2 soundfiler/genTable used colour() for the waveform
+                // itself, not the widget background.
+                setStyle(w, 'fillColor', css);
+                setStyle(w, 'strokeColor', css);
             } else {
                 setStyle(w, 'backgroundColor', css);
             }
@@ -893,7 +940,7 @@ function setColor(w: WidgetBuilder, path: string, value: any): void {
  * Convert one parsed widget (and, for plants, its flattened children) into
  * Cabbage 3 JSON objects. Returns an array because widgetArray expands to N.
  */
-function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, soundfilerIdents: Set<string>, counter: { n: number; scaledRotary: number }): Record<string, any>[] {
+function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel: Map<string, string>, channels: Set<string>, comboChannels: Set<string>, soundfilerIdents: Set<string>, counter: { n: number; scaledRotary: number; scaledHorizontal: number }): Record<string, any>[] {
     // Detect widgetArray("name", N) — expand to N widgets.
     const wa = parsed.tokens.find(t => t.name.toLowerCase() === 'widgetarray');
     const widgets: Record<string, any>[] = [];
@@ -986,6 +1033,25 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
                 }
                 if (scaled) counter.scaledRotary++;
             }
+
+            // Cabbage 2 horizontal sliders sat shorter than Cabbage 3's
+            // height-proportional defaults, and their label text looked too
+            // large. Convert tall rows to a standard 20px height and re-centre
+            // vertically; the label font follows automatically because it
+            // scales with the bounds height. Give the range slider's full-height
+            // thumb a small inset so the visible slider is a little shorter
+            // than its row.
+            if ((type === 'horizontalSlider' || type === 'horizontalRangeSlider')
+                && Number.isFinite(b.height) && b.height > HORIZONTAL_SLIDER_HEIGHT) {
+                b.top = Math.round(b.top + (b.height - HORIZONTAL_SLIDER_HEIGHT) / 2);
+                b.height = HORIZONTAL_SLIDER_HEIGHT;
+                if (type === 'horizontalRangeSlider') {
+                    w.json.style = w.json.style || {};
+                    w.json.style.thumb = w.json.style.thumb || {};
+                    w.json.style.thumb.height = HORIZONTAL_SLIDER_THUMB_HEIGHT;
+                }
+                counter.scaledHorizontal++;
+            }
         }
 
         // soundfiler → genTable: the Cabbage 2 soundfiler maps to a genTable that
@@ -997,6 +1063,13 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             if (w.identChannel && !w.json.id) w.json.id = w.identChannel;
             if (w.identChannel) soundfilerIdents.add(w.identChannel);
             if (!w.json.selectableRegions) w.json.selectableRegions = true;
+            // Cabbage 2 soundfilers drew the waveform on a black background.
+            // `colour()` now paints the waveform (fill/stroke), so give the
+            // genTable a solid black backdrop unless one was specified.
+            w.json.style = w.json.style || {};
+            if (w.json.style.backgroundColor === undefined) {
+                w.json.style.backgroundColor = '#000000';
+            }
         }
 
         // Cabbage 2 combo boxes / option buttons are 1-based; Cabbage 3 is 0-based
@@ -1103,7 +1176,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const widgets: Record<string, any>[] = [];
     let form: Record<string, any> | null = null;
     let pluginId: string | undefined;
-    const counter = { n: 0, scaledRotary: 0 };
+    const counter = { n: 0, scaledRotary: 0, scaledHorizontal: 0 };
 
     for (const p of parsed) {
         const converted = convertWidget(p, warnings, identToChannel, channels, comboChannels, soundfilerIdents, counter);
@@ -1150,6 +1223,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         comboChannels,
         soundfilerIdents,
         scaledRotarySliders: counter.scaledRotary,
+        scaledHorizontalSliders: counter.scaledHorizontal,
     };
 }
 
@@ -2298,17 +2372,22 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         csdText = csdText.replace(orchestraMatch[1], rewritten.text);
     }
 
-    // Replace the Cabbage section. If any rotary sliders were scaled, record
-    // the scale factor in a Csound comment immediately before the section so
-    // the change is visible in the .csd. Remove an earlier note first so
-    // repeated conversions don't accumulate comments.
+    // Replace the Cabbage section. If any slider bounds were scaled, record the
+    // scale factors in Csound comments immediately before the section so the
+    // change is visible in the .csd. Remove earlier notes first so repeated
+    // conversions don't accumulate comments.
     csdText = csdText.replace(/^; Cabbage2→3: rotarySlider bounds scaled[^\n]*\n/gm, '');
-    const scaleNote = converted.scaledRotarySliders > 0
+    csdText = csdText.replace(/^; Cabbage2→3: horizontalSlider height scaled[^\n]*\n/gm, '');
+    const rotaryScaleNote = converted.scaledRotarySliders > 0
         ? `; Cabbage2→3: rotarySlider bounds scaled to match Cabbage 2 auto-sizing ` +
           `(85% with a label, 80% with a label and value text box; knob scaled to 70% when both are present; ` +
           `${converted.scaledRotarySliders} widget(s))\n`
         : '';
-    const newCabbage = `${scaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
+    const horizontalScaleNote = converted.scaledHorizontalSliders > 0
+        ? `; Cabbage2→3: horizontalSlider height set to ${HORIZONTAL_SLIDER_HEIGHT}px ` +
+          `and centred vertically (${converted.scaledHorizontalSliders} widget(s))\n`
+        : '';
+    const newCabbage = `${rotaryScaleNote}${horizontalScaleNote}<Cabbage>\n${converted.json}\n</Cabbage>`;
     csdText = csdText.replace(cabbageMatch[0], newCabbage);
 
     const summary =
@@ -2319,6 +2398,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
         (mouseConvertedCount ? `, converted ${mouseConvertedCount} mouse channel(s)` : '') +
         (mouseReviewCount ? `, ${mouseReviewCount} mouse channel(s) need manual review` : '') +
         (converted.scaledRotarySliders ? `, scaled ${converted.scaledRotarySliders} rotary slider(s)` : '') +
+        (converted.scaledHorizontalSliders ? `, scaled ${converted.scaledHorizontalSliders} horizontal slider(s)` : '') +
         (converted.warnings.length ? `, ${converted.warnings.length} warning(s)` : '');
 
     return { text: csdText, warnings: converted.warnings, summary };
