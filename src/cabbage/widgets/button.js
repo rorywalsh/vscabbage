@@ -55,7 +55,7 @@ export class Button {
           "textColor": "#dddddd"
         },
         "hover": {
-          "backgroundColor": "#4ca10c",
+          "backgroundColor": "rgba(0, 0, 0, 0.15)",
           "textColor": "#dddddd"
         },
         "active": {
