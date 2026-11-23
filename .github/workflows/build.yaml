@@ -1030,6 +1030,20 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginEffect-linux.clap
+          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CabbagePluginEffect.clap
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CabbagePluginSynth-linux.clap
+          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CabbagePluginSynth.clap
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
@@ -1066,6 +1080,20 @@ jobs:
         with:
           name: CabbagePluginSynth-linux.vst3
           path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginEffect CLAP
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginEffect-linux.clap
+          path: "./src/CabbageBinaries"
+        continue-on-error: false
+
+      - name: Downloading CabbagePluginSynth CLAP
+        uses: actions/download-artifact@v4
+        with:
+          name: CabbagePluginSynth-linux.clap
+          path: "./src/CabbageBinaries"
         continue-on-error: false
 
       - name: Set up Node.js (v20) on Linux

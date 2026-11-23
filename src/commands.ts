@@ -3732,23 +3732,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
             } else {
                 // Windows/Linux
                 await Commands.copyDirectory(binaryFile, destinationPath);
-
-                let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
-                if (!fs.existsSync(win64DirPath)) {
-                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
+                if (!await Commands.renamePluginBundleBinary(destinationPath, type, pluginName)) {
+                    return;
                 }
-                if (!fs.existsSync(win64DirPath)) {
-                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
-                }
-
-                if (fs.existsSync(win64DirPath)) {
-                    const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                    const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
-                    if (fs.existsSync(originalFilePath)) {
-                        await fs.promises.rename(originalFilePath, newFilePath);
-                        this.vscodeOutputChannel.appendLine(`Export Pro: Executable renamed to ${pluginName}`);
-                    }
-                }
+                this.vscodeOutputChannel.appendLine(`Export Pro: Executable renamed to ${pluginName}`);
             }
 
             this.vscodeOutputChannel.appendLine('='.repeat(60));
@@ -4678,26 +4665,12 @@ i2 5 z
                 } else {
                     await Commands.copyDirectory(binaryFile, destinationPath);
 
-                    // Rename the executable file inside the folder
-                    let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
-
-                    if (!fs.existsSync(win64DirPath)) {
-                        win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
-                    }
-
-                    if (!fs.existsSync(win64DirPath)) {
-                        win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
-                    }
-
-                    if (!fs.existsSync(win64DirPath)) {
-                        Commands.getOutputChannel().appendLine("Error: Could not find win64 directory");
+                    // Rename the executable file inside the folder. Linux VST3
+                    // bundles keep it in Contents/<arch>-linux, Windows bundles
+                    // in Contents/x86_64-win.
+                    if (!await Commands.renamePluginBundleBinary(destinationPath, type, pluginName)) {
                         return;
                     }
-
-                    const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                    const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
-                    await fs.promises.rename(originalFilePath, newFilePath);
-                    console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
                     Commands.getOutputChannel().appendLine("Vanilla plugin successfully copied to:" + destinationPath);
                 }
             }
@@ -5098,30 +5071,13 @@ i2 5 z
                     return;
                 }
                 await Commands.copyDirectory(binaryFile, destinationPath);
-                // Commands.getOutputChannel().appendLine("destinationPath:" + destinationPath);
 
-                // Rename the executable file inside the folder
-                let win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Release');
-
-                if (!fs.existsSync(win64DirPath)) {
-                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win', 'Debug');
-                }
-
-                if (!fs.existsSync(win64DirPath)) {
-                    win64DirPath = path.join(destinationPath, 'Contents', 'x86_64-win');
-                }
-
-                if (!fs.existsSync(win64DirPath)) {
-                    Commands.getOutputChannel().appendLine("Error: Could not find win64 directory");
+                // Rename the executable file inside the folder. Linux VST3
+                // bundles keep it in Contents/<arch>-linux, Windows bundles in
+                // Contents/x86_64-win.
+                if (!await Commands.renamePluginBundleBinary(destinationPath, type, pluginName)) {
                     return;
                 }
-
-                // Commands.getOutputChannel().appendLine("destinationPath:" + win64DirPath);
-
-                const originalFilePath = path.join(win64DirPath, type === 'VST3Effect' ? 'CabbageVST3Effect.vst3' : 'CabbageVST3Synth.vst3');
-                const newFilePath = path.join(win64DirPath, pluginName + '.vst3');
-                await fs.promises.rename(originalFilePath, newFilePath);
-                console.log(`File renamed to ${pluginName} in ${win64DirPath}`);
 
                 this.vscodeOutputChannel.appendLine('='.repeat(60));
                 this.vscodeOutputChannel.appendLine(`Export: Plugin successfully exported to: ${destinationPath}`);
@@ -5133,6 +5089,111 @@ i2 5 z
             vscode.window.showInformationMessage('Error during plugin copy process:' + err);
             throw err;
         }
+    }
+
+    /**
+     * Returns the base name of the plugin binary inside a plugin bundle for a
+     * given export type. The binaries are built as CabbagePluginEffect or
+     * CabbagePluginSynth, with an ARA suffix for the ARA variants.
+     */
+    private static getPluginBinaryBaseName(type: string): string {
+        switch (type) {
+            case 'VST3Effect':
+            case 'CLAPEffect':
+                return 'CabbagePluginEffect';
+            case 'VST3Synth':
+            case 'CLAPSynth':
+                return 'CabbagePluginSynth';
+            case 'VST3EffectARA':
+                return 'CabbagePluginEffectARA';
+            case 'VST3SynthARA':
+                return 'CabbagePluginSynthARA';
+            case 'AUv2Effect':
+                return 'CabbagePluginEffectAUv2';
+            case 'AUv2Synth':
+                return 'CabbagePluginSynthAUv2';
+            case 'AUv2MidiFx':
+                return 'CabbagePluginMidiFxAUv2';
+            default:
+                return 'CabbagePluginEffect';
+        }
+    }
+
+    /**
+     * Finds the directory holding the loadable plugin binary inside a plugin
+     * bundle. VST3 bundles use an architecture-specific folder:
+     * Contents/<arch>-linux on Linux (e.g. x86_64-linux or aarch64-linux) and
+     * Contents/x86_64-win[/Release|/Debug] on older Windows bundles.
+     */
+    private static findPluginBinaryDirectory(bundlePath: string): string | undefined {
+        const contentsDir = path.join(bundlePath, 'Contents');
+        if (!fs.existsSync(contentsDir)) {
+            return undefined;
+        }
+
+        if (os.platform() === 'linux') {
+            const archDirs = fs.readdirSync(contentsDir, { withFileTypes: true })
+                .filter(entry => entry.isDirectory() && entry.name.endsWith('-linux'))
+                .map(entry => path.join(contentsDir, entry.name));
+
+            // Prefer the directory that actually holds a shared library.
+            const withLibrary = archDirs.find(dir =>
+                fs.readdirSync(dir).some(name => name.endsWith('.so')));
+            return withLibrary ?? archDirs[0];
+        }
+
+        if (os.platform() === 'win32') {
+            const candidates = [
+                path.join(contentsDir, 'x86_64-win', 'Release'),
+                path.join(contentsDir, 'x86_64-win', 'Debug'),
+                path.join(contentsDir, 'x86_64-win'),
+            ];
+            return candidates.find(dir => fs.existsSync(dir));
+        }
+
+        return path.join(contentsDir, 'MacOS');
+    }
+
+    /**
+     * Renames the binary inside a copied plugin bundle so that it matches the
+     * exported plugin name. Hosts locate a bundled plugin by looking for a
+     * binary named after the bundle, so an unrenamed binary can make the
+     * exported plugin invisible to the host. Returns false when the binary
+     * cannot be found or renamed.
+     */
+    private static async renamePluginBundleBinary(bundlePath: string, type: string, pluginName: string): Promise<boolean> {
+        const binaryDir = Commands.findPluginBinaryDirectory(bundlePath);
+        if (!binaryDir) {
+            Commands.getOutputChannel().appendLine(
+                `Error: Could not find the plugin binary directory inside ${bundlePath}. ` +
+                `Expected Contents/<arch>-linux on Linux or Contents/x86_64-win on Windows.`);
+            return false;
+        }
+
+        const extension = os.platform() === 'linux' ? '.so' : '.vst3';
+        const expectedPath = path.join(binaryDir, Commands.getPluginBinaryBaseName(type) + extension);
+        let originalFilePath = expectedPath;
+
+        if (!fs.existsSync(originalFilePath)) {
+            // Fall back to the first binary with the expected extension so
+            // exports keep working if the internal binary name changes.
+            const fallback = fs.readdirSync(binaryDir)
+                .find(name => name.endsWith(extension));
+            if (!fallback) {
+                Commands.getOutputChannel().appendLine(
+                    `Error: Could not find a ${extension} plugin binary in ${binaryDir}`);
+                return false;
+            }
+            originalFilePath = path.join(binaryDir, fallback);
+        }
+
+        const newFilePath = path.join(binaryDir, pluginName + extension);
+        if (originalFilePath !== newFilePath) {
+            await fs.promises.rename(originalFilePath, newFilePath);
+        }
+
+        console.log(`File renamed to ${pluginName} in ${binaryDir}`);
+        return true;
     }
 
     /**
