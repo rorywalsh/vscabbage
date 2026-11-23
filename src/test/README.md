@@ -91,7 +91,7 @@ Widget-kit preset generation.
 - `buildHiddenProps`: base + identity + deduped unchecked paths.
 - `buildKitWidgetSource`: subclass preset source, rejects unsupported built-in types.
 
-### `validateInstallation.test.ts` — 43 tests
+### `validateInstallation.test.ts` — 61 tests
 Report-only installation probes (`src/validateInstallation.ts`).
 - `normalizeSourceDirs`.
 - `checkSettingsFile`: missing, invalid JSON, absent `currentConfig`, healthy.
@@ -100,7 +100,8 @@ Report-only installation probes (`src/validateInstallation.ts`).
 - `checkServiceBinary`: public, Pro-preferred, Pro-disabled fallback, missing Pro.
 - `checkCsoundPresent`: macOS bundle, Windows PATH, `csound7_64.dll`, legacy `csound64.dll`, none.
 - `checkServiceBinaryExecutable`: exec bit, missing bit, Pro selection, skips, Windows, `stat` failure.
-- `runAllChecks`/`summarize`/`formatReport`: eight results, hostile inputs never throw, healthy env, formatted failure report.
+- `checkPluginBinaries`: required/optional presence, single-file plugins, macOS/Windows/Linux bundle layouts, architecture match/mismatch/unknown, hostile directory listing.
+- `runAllChecks`/`summarize`/`formatReport`: ten results, hostile inputs never throw, healthy env, formatted failure report.
 
 ### `widgetDirectories.test.ts` — 18 tests
 Pure custom-widget path helpers (`src/utils/widgetDirectories.ts`).

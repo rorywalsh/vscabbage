@@ -57,7 +57,7 @@ import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
-import { runAllChecks, formatReport, summarize, ValidationEnv } from './validateInstallation';
+import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
 /**
@@ -3038,6 +3038,35 @@ export class Commands {
         };
         const listFiles = (dir: string): string[] =>
             fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
+        const listDirectories = (dir: string): string[] =>
+            fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+        const isDirectory = (p: string): boolean => {
+            try {
+                return fs.statSync(p).isDirectory();
+            } catch {
+                return false;
+            }
+        };
+        const pluginBinaries: PluginBinarySpec[] = [
+            { type: 'VST3 effect', path: Settings.getCabbageBinaryPath('CabbagePluginEffect'), required: true },
+            { type: 'VST3 synth', path: Settings.getCabbageBinaryPath('CabbagePluginSynth'), required: true },
+            { type: 'CLAP effect', path: Settings.getCabbageBinaryPath('CabbagePluginCLAPEffect'), required: true },
+            { type: 'CLAP synth', path: Settings.getCabbageBinaryPath('CabbagePluginCLAPSynth'), required: true },
+        ];
+        if (os.platform() === 'darwin') {
+            pluginBinaries.push(
+                { type: 'VST3 effect (ARA)', path: Settings.getCabbageBinaryPath('CabbagePluginEffectARA'), required: false },
+                { type: 'VST3 synth (ARA)', path: Settings.getCabbageBinaryPath('CabbagePluginSynthARA'), required: false },
+                { type: 'AUv2 effect', path: Settings.getCabbageBinaryPath('CabbageAUv2Effect'), required: false },
+                { type: 'AUv2 synth', path: Settings.getCabbageBinaryPath('CabbageAUv2Synth'), required: false },
+                { type: 'AUv2 MIDI FX', path: Settings.getCabbageBinaryPath('CabbageAUv2MidiFx'), required: false },
+            );
+        } else if (os.platform() === 'win32') {
+            pluginBinaries.push(
+                { type: 'VST3 effect (ARA)', path: Settings.getCabbageBinaryPath('CabbagePluginEffectARA'), required: false },
+                { type: 'VST3 synth (ARA)', path: Settings.getCabbageBinaryPath('CabbagePluginSynthARA'), required: false },
+            );
+        }
         const pathEnv = process.env.PATH || '';
         const isOnPath = (name: string): boolean =>
             pathEnv.split(path.delimiter).some((d) => {
@@ -3071,6 +3100,9 @@ export class Commands {
             hostArch: process.arch,
             readBinaryArch,
             realpath: (p: string): string => fs.realpathSync(p),
+            pluginBinaries,
+            isDirectory,
+            listDirectories,
         };
         const results = runAllChecks(env);
         channel.appendLine(formatReport(results));
