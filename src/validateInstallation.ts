@@ -29,6 +29,16 @@ export interface CheckResult {
     remedy?: string;
 }
 
+/** A plugin binary the extension uses when exporting instruments. */
+export interface PluginBinarySpec {
+    /** Human-readable export format, e.g. 'VST3 effect'. */
+    type: string;
+    /** Resolved path to the plugin file or bundle. May be '' when unresolved. */
+    path: string;
+    /** Missing/unsuitable binaries are failures when true, warnings otherwise. */
+    required: boolean;
+}
+
 /** All filesystem/process access a validation run needs, injected for tests. */
 export interface ValidationEnv {
     /** os.platform() value: 'darwin' | 'win32' | 'linux' | ... */
@@ -70,6 +80,12 @@ export interface ValidationEnv {
     hostArch: string;
     /** Reads a native binary's architecture from its header. */
     readBinaryArch: (p: string) => BinaryArch;
+    /** Plugin binaries used by the export commands. */
+    pluginBinaries: PluginBinarySpec[];
+    /** True when `p` is a directory (e.g. a plugin bundle) rather than a file. */
+    isDirectory: (p: string) => boolean;
+    /** Lists directory names (no files) directly inside `dir`. Throws on error. */
+    listDirectories: (dir: string) => string[];
 }
 
 /** Normalises a `currentConfig.jsSourceDir` value into a directory list. */
@@ -213,6 +229,205 @@ export function checkServiceBinaryArch(env: ValidationEnv): CheckResult {
         ...base, status: 'pass',
         detail: `Backend architecture (${binaryArch}) is compatible with this machine (${env.hostArch})`,
     };
+}
+
+/**
+ * Joins path fragments with forward slashes. The result is accepted by both
+ * POSIX and Windows filesystem APIs, and keeps the pure probes independent of
+ * the host OS's separator.
+ */
+function joinPath(...parts: string[]): string {
+    return parts
+        .filter((part) => part.length > 0)
+        .map((part, index) => index === 0
+            ? part.replace(/[\\/]+$/, '')
+            : part.replace(/^[\\/]+|[\\/]+$/g, ''))
+        .join('/');
+}
+
+/** Base name of a plugin bundle without its format extension. */
+function bundleBaseName(pluginPath: string): string {
+    const name = pluginPath.split(/[\\/]/).pop() || '';
+    return name.replace(/\.(vst3|clap|component)$/i, '');
+}
+
+function safeListFiles(env: ValidationEnv, dir: string): string[] {
+    try {
+        return env.listFiles(dir);
+    } catch {
+        return [];
+    }
+}
+
+function safeListDirectories(env: ValidationEnv, dir: string): string[] {
+    try {
+        return env.listDirectories(dir);
+    } catch {
+        return [];
+    }
+}
+
+/** Orders Linux architecture directories so the host's native one comes first. */
+function linuxArchDirPriority(dirName: string, hostArch: string): number {
+    switch (hostArch) {
+        case 'x64':
+            return dirName === 'x86_64-linux' ? 0 : 1;
+        case 'arm64':
+            return dirName === 'aarch64-linux' || dirName === 'arm64-linux' ? 0 : 1;
+        case 'ia32':
+            return dirName === 'i386-linux' || dirName === 'i686-linux' ? 0 : 1;
+        case 'arm':
+            return dirName.startsWith('arm') ? 0 : 1;
+        default:
+            return 0;
+    }
+}
+
+interface ResolvedPluginBinary {
+    binaryPath?: string;
+    error?: string;
+}
+
+/**
+ * Locates the loadable binary inside a plugin file or bundle. VST3/AU/CLAP
+ * bundles keep it in an architecture-specific folder:
+ * Contents/<arch>-linux on Linux, Contents/<arch>-win[/Release|/Debug] on
+ * Windows bundles, and Contents/MacOS on macOS. Single-file plugins (Windows
+ * VST3, Linux/Windows CLAP) are returned as-is.
+ */
+export function resolvePluginBundleBinary(pluginPath: string, env: ValidationEnv): ResolvedPluginBinary {
+    if (!pluginPath) {
+        return { error: 'path could not be resolved' };
+    }
+    if (!env.exists(pluginPath)) {
+        return { error: 'not found' };
+    }
+    if (!env.isDirectory(pluginPath)) {
+        return { binaryPath: pluginPath };
+    }
+
+    const expectedName = bundleBaseName(pluginPath);
+
+    if (env.platform === 'darwin') {
+        const macosDir = joinPath(pluginPath, 'Contents', 'MacOS');
+        if (!env.exists(macosDir)) {
+            return { error: 'missing Contents/MacOS directory' };
+        }
+        const files = safeListFiles(env, macosDir).filter((name) => !name.startsWith('.'));
+        const binary = files.find((name) => name === expectedName) ?? files[0];
+        return binary
+            ? { binaryPath: joinPath(macosDir, binary) }
+            : { error: 'no binary in Contents/MacOS' };
+    }
+
+    if (env.platform === 'linux') {
+        const contentsDir = joinPath(pluginPath, 'Contents');
+        if (!env.exists(contentsDir)) {
+            return { error: 'missing Contents directory' };
+        }
+        const archDirs = safeListDirectories(env, contentsDir)
+            .filter((name) => name.endsWith('-linux'))
+            .sort((a, b) => linuxArchDirPriority(a, env.hostArch) - linuxArchDirPriority(b, env.hostArch));
+        if (archDirs.length === 0) {
+            return { error: 'no Contents/<arch>-linux directory' };
+        }
+        for (const archDir of archDirs) {
+            const dir = joinPath(contentsDir, archDir);
+            const libraries = safeListFiles(env, dir).filter((name) => name.endsWith('.so'));
+            const library = libraries.find((name) => name === `${expectedName}.so`) ?? libraries[0];
+            if (library) {
+                return { binaryPath: joinPath(dir, library) };
+            }
+        }
+        return { error: 'no .so found in Contents/<arch>-linux' };
+    }
+
+    if (env.platform === 'win32') {
+        const contentsDir = joinPath(pluginPath, 'Contents');
+        if (!env.exists(contentsDir)) {
+            return { error: 'missing Contents directory' };
+        }
+        const winDirs = safeListDirectories(env, contentsDir).filter((name) => name.endsWith('-win'));
+        for (const winDir of winDirs) {
+            for (const config of ['Release', 'Debug', '']) {
+                const dir = config ? joinPath(contentsDir, winDir, config) : joinPath(contentsDir, winDir);
+                if (!env.exists(dir)) {
+                    continue;
+                }
+                const binaries = safeListFiles(env, dir)
+                    .filter((name) => /\.(vst3|clap|dll)$/i.test(name));
+                const binary = binaries.find((name) => name === `${expectedName}.vst3`)
+                    ?? binaries.find((name) => name === `${expectedName}.clap`)
+                    ?? binaries.find((name) => name === `${expectedName}.dll`)
+                    ?? binaries[0];
+                if (binary) {
+                    return { binaryPath: joinPath(dir, binary) };
+                }
+            }
+        }
+        return { error: 'no Contents/<arch>-win plugin binary' };
+    }
+
+    return { error: `unsupported platform ${env.platform}` };
+}
+
+export function checkPluginBinaries(env: ValidationEnv): CheckResult {
+    const base = { id: 'pluginBinaries', label: 'Export plugin binaries' };
+    if (env.pluginBinaries.length === 0) {
+        return {
+            ...base, status: 'warn',
+            detail: 'No export plugin binaries configured; skipping',
+        };
+    }
+
+    const lines: string[] = [];
+    let requiredFailure = false;
+    let warning = false;
+
+    for (const spec of env.pluginBinaries) {
+        const resolved = resolvePluginBundleBinary(spec.path, env);
+        if (!resolved.binaryPath) {
+            if (spec.required) {
+                requiredFailure = true;
+            } else {
+                warning = true;
+            }
+            const icon = spec.required ? '✗' : '⚠';
+            lines.push(`${icon} ${spec.type}: ${spec.path || '(unresolved path)'} — ${resolved.error}`);
+            continue;
+        }
+
+        let arch: BinaryArch = 'unknown';
+        try {
+            arch = env.readBinaryArch(resolved.binaryPath);
+        } catch {
+            arch = 'unknown';
+        }
+        if (arch === 'unknown') {
+            warning = true;
+            lines.push(`⚠ ${spec.type}: could not determine architecture of ${resolved.binaryPath}`);
+            continue;
+        }
+        if (!isCompatibleArch(arch, env.hostArch)) {
+            if (spec.required) {
+                requiredFailure = true;
+            } else {
+                warning = true;
+            }
+            const icon = spec.required ? '✗' : '⚠';
+            lines.push(`${icon} ${spec.type}: ${arch} binary on ${env.hostArch} host — ${resolved.binaryPath}`);
+            continue;
+        }
+        lines.push(`✓ ${spec.type}: ${resolved.binaryPath} (${arch})`);
+    }
+
+    const status: CheckStatus = requiredFailure ? 'fail' : warning ? 'warn' : 'pass';
+    const remedy = status === 'fail'
+        ? 'Reinstall the Cabbage extension for this OS/architecture, or point cabbage.pathToCabbageBinary at a complete CabbageBinaries directory containing the plugin binaries for this platform.'
+        : status === 'warn'
+            ? 'Some plugin formats are missing or could not be verified. Reinstall the extension if you need to export those formats.'
+            : undefined;
+    return { ...base, status, detail: lines.join('\n'), remedy };
 }
 
 export function checkSettingsFile(env: ValidationEnv): CheckResult {
@@ -371,6 +586,7 @@ export function runAllChecks(env: ValidationEnv): CheckResult[] {
     safe(() => checkServiceBinary(env), 'serviceBinary', 'Cabbage Server');
     safe(() => checkServiceBinaryExecutable(env), 'serviceBinaryExecutable', 'Cabbage Server is executable');
     safe(() => checkServiceBinaryArch(env), 'serviceBinaryArch', 'Cabbage Server architecture matches this machine');
+    safe(() => checkPluginBinaries(env), 'pluginBinaries', 'Export plugin binaries');
     safe(() => checkSettingsFile(env), 'settingsFile', 'Settings file');
     const parsed = parseSettings(env.settingsFileText);
     const dirs = parsed ? normalizeSourceDirs(parsed.jsSourceDir) : [];
@@ -395,7 +611,9 @@ export function formatReport(results: CheckResult[]): string {
     const lines = ['Cabbage installation validation', '================================='];
     for (const r of results) {
         lines.push(`${STATUS_ICON[r.status]} [${r.status.toUpperCase()}] ${r.label}`);
-        lines.push(`    ${r.detail}`);
+        for (const detailLine of r.detail.split('\n')) {
+            lines.push(`    ${detailLine}`);
+        }
         if (r.status !== 'pass' && r.remedy) {
             lines.push(`    → ${r.remedy}`);
         }

@@ -7,6 +7,8 @@ import {
     checkServiceBinary,
     checkServiceBinaryExecutable,
     checkServiceBinaryArch,
+    checkPluginBinaries,
+    resolvePluginBundleBinary,
     checkSettingsFile,
     checkJsSourceDirs,
     checkPrimarySource,
@@ -34,6 +36,11 @@ function baseEnv(overrides: Partial<ValidationEnv> = {}): ValidationEnv {
         isExecutable: () => true,
         hostArch: 'x64',
         readBinaryArch: () => 'x64',
+        pluginBinaries: [
+            { type: 'VST3 effect', path: '/ext/bin/CabbagePluginEffect.vst3', required: true },
+        ],
+        isDirectory: () => false,
+        listDirectories: () => [],
         ...overrides,
     };
 }
@@ -313,8 +320,156 @@ describe('checkServiceBinaryArch', () => {
     });
 });
 
+describe('checkPluginBinaries', () => {
+    it('passes for a single-file plugin with a compatible architecture', () => {
+        const r = checkPluginBinaries(baseEnv());
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('CabbagePluginEffect.vst3'));
+    });
+
+    it('fails when a required plugin is missing', () => {
+        const r = checkPluginBinaries(baseEnv({ exists: () => false }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('not found'));
+        assert.ok(r.remedy && r.remedy.toLowerCase().includes('reinstall'));
+    });
+
+    it('warns when only an optional plugin is missing', () => {
+        const env = baseEnv({
+            pluginBinaries: [{ type: 'AUv2 effect', path: '/ext/bin/CabbagePluginEffectAUv2.component', required: false }],
+            exists: () => false,
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.remedy);
+    });
+
+    it('finds the Linux bundle binary under Contents/<arch>-linux', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const archDir = `${contents}/x86_64-linux`;
+        const env = baseEnv({
+            platform: 'linux',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === contents || p === archDir,
+            isDirectory: (p) => p === bundle || p === contents || p === archDir,
+            listDirectories: (dir) => dir === contents ? ['Resources', 'x86_64-linux'] : [],
+            listFiles: (dir) => dir === archDir ? ['CabbagePluginEffect.so'] : [],
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('x86_64-linux/CabbagePluginEffect.so'));
+    });
+
+    it('fails when a Linux bundle has no architecture directory', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const env = baseEnv({
+            platform: 'linux',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === contents,
+            isDirectory: (p) => p === bundle || p === contents,
+            listDirectories: (dir) => dir === contents ? ['Resources'] : [],
+            listFiles: () => [],
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('no Contents/<arch>-linux directory'));
+    });
+
+    it('fails when a Linux bundle has no shared library', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const archDir = `${contents}/x86_64-linux`;
+        const env = baseEnv({
+            platform: 'linux',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === contents || p === archDir,
+            isDirectory: (p) => p === bundle || p === contents || p === archDir,
+            listDirectories: (dir) => dir === contents ? ['x86_64-linux'] : [],
+            listFiles: (dir) => dir === archDir ? ['README.txt'] : [],
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('no .so found'));
+    });
+
+    it('resolves the executable inside a macOS bundle', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const macosDir = `${contents}/MacOS`;
+        const env = baseEnv({
+            platform: 'darwin',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === macosDir,
+            isDirectory: (p) => p === bundle || p === contents || p === macosDir,
+            listDirectories: (dir) => dir === contents ? ['MacOS', 'Resources'] : [],
+            listFiles: (dir) => dir === macosDir ? ['CabbagePluginEffect'] : [],
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('Contents/MacOS/CabbagePluginEffect'));
+    });
+
+    it('resolves a legacy Windows bundle binary', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const winDir = `${contents}/x86_64-win`;
+        const releaseDir = `${winDir}/Release`;
+        const env = baseEnv({
+            platform: 'win32',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === contents || p === releaseDir,
+            isDirectory: (p) => p === bundle || p === contents || p === winDir || p === releaseDir,
+            listDirectories: (dir) => dir === contents ? ['x86_64-win'] : [],
+            listFiles: (dir) => dir === releaseDir ? ['CabbagePluginEffect.vst3'] : [],
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('x86_64-win/Release/CabbagePluginEffect.vst3'));
+    });
+
+    it('fails when the binary architecture is incompatible', () => {
+        const r = checkPluginBinaries(baseEnv({ hostArch: 'x64', readBinaryArch: () => 'arm64' }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('arm64'));
+    });
+
+    it('warns when the binary architecture cannot be determined', () => {
+        const r = checkPluginBinaries(baseEnv({ readBinaryArch: () => 'unknown' }));
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.detail.includes('could not determine architecture'));
+    });
+
+    it('warns when no plugin binaries are configured', () => {
+        const r = checkPluginBinaries(baseEnv({ pluginBinaries: [] }));
+        assert.strictEqual(r.status, 'warn');
+    });
+
+    it('does not throw when bundle listing fails', () => {
+        const bundle = '/ext/bin/CabbagePluginEffect.vst3';
+        const contents = `${bundle}/Contents`;
+        const env = baseEnv({
+            platform: 'linux',
+            pluginBinaries: [{ type: 'VST3 effect', path: bundle, required: true }],
+            exists: (p) => p === bundle || p === contents,
+            isDirectory: () => true,
+            listDirectories: () => { throw new Error('EACCES'); },
+            listFiles: () => { throw new Error('EACCES'); },
+        });
+        const r = checkPluginBinaries(env);
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('no Contents/<arch>-linux directory'));
+    });
+
+    it('returns a single-file plugin path directly', () => {
+        const resolved = resolvePluginBundleBinary('/ext/bin/CabbagePluginEffect.clap', baseEnv());
+        assert.strictEqual(resolved.binaryPath, '/ext/bin/CabbagePluginEffect.clap');
+    });
+});
+
 describe('runAllChecks', () => {
-    it('returns 9 results and never throws on hostile inputs', () => {
+    it('returns 10 results and never throws on hostile inputs', () => {
         const env = baseEnv({
             settingsFileText: '{broken',
             exists: () => { throw new Error('fs boom'); },
@@ -322,7 +477,7 @@ describe('runAllChecks', () => {
             isExecutable: () => { throw new Error('stat boom'); },
         });
         const results = runAllChecks(env);
-        assert.strictEqual(results.length, 9);
+        assert.strictEqual(results.length, 10);
         assert.ok(results.every((r) => r.id && r.label && r.detail));
     });
     it('a healthy env produces zero fails and warns', () => {
