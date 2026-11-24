@@ -32,15 +32,18 @@ Notes:
 
 ## CI and merge gating
 
-`.github/workflows/build.yaml` runs two jobs on pushes to `main` and on pull requests to
+`.github/workflows/build.yaml` runs three jobs on pushes to `main` and on pull requests to
 `develop` and `main`:
 
 - **Lint and unit tests** — `npm run lint` + `npm run test:unit`
 - **Integration tests (Linux)** — headless (`xvfb-run`) hosted VS Code tests
+- **Packaging smoke test** — `npm ci`, a production webpack bundle, and `vsce package`
+  using the version pinned in `package-lock.json`. This catches dependency bumps (including
+  Dependabot) that break packaging while the tests stay green.
 
-`main` is protected: both checks are **required** (with `strict`, i.e. the branch must be
-up to date), and force-pushes/deletions are disabled. The `release` job also depends on
-both test jobs.
+`main` is protected: the two test checks are **required** (with `strict`, i.e. the branch
+must be up to date), and force-pushes/deletions are disabled. Add **Packaging smoke test**
+as a required check too. The `release` job also depends on both test jobs.
 
 ---
 
