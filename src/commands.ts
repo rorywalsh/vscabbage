@@ -58,6 +58,7 @@ import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
 import { readGlibcRequirements } from './utils/elfGlibc';
+import { ensurePluginExtension, pluginNameFromPath } from './utils/pluginExportPath';
 import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -3499,10 +3500,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const shouldEncrypt = encryptChoice === 'Yes';
 
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
-        const pluginName = path.basename(destinationPath,
-            type.includes('CLAP') ? '.clap' :
-                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        // Hosts discover VST3/AU bundles by their extension, and Linux save
+        // dialogs often return a name without one. Normalise before copying.
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
+        const pluginName = pluginNameFromPath(destinationPath, type);
 
         // Get Pro binary path
         let binaryFile = '';
@@ -4421,8 +4422,8 @@ include $(SYSTEM_FILES_DIR)/Makefile
         }
 
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
-        const pluginName = path.basename(destinationPath, '.vst3');
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
+        const pluginName = pluginNameFromPath(destinationPath, type);
 
         let binaryFile = '';
         switch (type) {
@@ -4767,11 +4768,9 @@ i2 5 z
 
         //this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
         const indexDotHtml = ExtensionUtils.getIndexHtml();
-        const pluginName = path.basename(destinationPath,
-            type.includes('CLAP') ? '.clap' :
-                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        const pluginName = pluginNameFromPath(destinationPath, type);
         let jsSource = "";
         if (os.platform() === 'win32') {
             jsSource = config.get<string>('pathToJsSourceWindows') || '';
