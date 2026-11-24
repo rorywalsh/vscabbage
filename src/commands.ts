@@ -57,6 +57,7 @@ import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
+import { readGlibcRequirements } from './utils/elfGlibc';
 import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -3084,6 +3085,19 @@ export class Commands {
                 return false;
             }
         };
+        // Node reports the glibc it is linked against, which is the same
+        // loader CabbageApp will use. Absent on musl/Alpine and non-Linux.
+        let hostGlibcVersion: string | undefined;
+        if (os.platform() === 'linux') {
+            try {
+                const report = process.report?.getReport() as unknown as {
+                    header?: { glibcVersionRuntime?: string };
+                } | undefined;
+                hostGlibcVersion = report?.header?.glibcVersionRuntime;
+            } catch {
+                hostGlibcVersion = undefined;
+            }
+        }
         const env: ValidationEnv = {
             platform: os.platform(),
             settingsPath,
@@ -3099,6 +3113,8 @@ export class Commands {
             isExecutable,
             hostArch: process.arch,
             readBinaryArch,
+            readGlibcRequirements,
+            hostGlibcVersion,
             realpath: (p: string): string => fs.realpathSync(p),
             pluginBinaries,
             isDirectory,
