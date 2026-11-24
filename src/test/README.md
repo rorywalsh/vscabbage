@@ -101,6 +101,12 @@ Widget-kit preset generation.
 - `buildHiddenProps`: base + identity + deduped unchecked paths.
 - `buildKitWidgetSource`: subclass preset source, rejects unsupported built-in types.
 
+### `pluginExportPath.test.ts` — 10 tests
+Plugin export save-path helpers (`src/utils/pluginExportPath.ts`).
+- `pluginExtensionForType`: VST3 (including ARA) → `.vst3`, CLAP → `.clap`, AUv2 → `.component`.
+- `ensurePluginExtension`: appends a missing extension (the `~/.vst3/RotaryNotary` regression), leaves existing/mixed-case extensions alone, handles spaces and Windows paths.
+- `pluginNameFromPath`: strips only the plugin extension from POSIX/Windows paths.
+
 ### `validateInstallation.test.ts` — 72 tests
 Report-only installation probes (`src/validateInstallation.ts`).
 - `normalizeSourceDirs`.
