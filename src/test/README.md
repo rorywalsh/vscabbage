@@ -56,6 +56,10 @@ Cabbage 2 → Cabbage 3 conversion.
 - `detectSoundfilerLoading`: `ftgen` → `tableNumber`; `diskin2` → `file`; no match → empty.
 - Full conversion: adds form mouse channels and rewrites `chnget`; rejects an already-JSON section; rejects a document with no `<Cabbage>` section.
 
+### `cabbageResourcePath.test.ts` — 4 tests
+Platform-specific root for exported-plugin resources (`src/cabbageResourcePath.ts`).
+- macOS `~/Library/CabbageAudio`, Linux `~/.config/CabbageAudio` (regression: the extension used to write to `~/.CabbageAudio`, which the backend never reads), Windows `%PROGRAMDATA%\CabbageAudio`, and the `C:\ProgramData` fallback when `PROGRAMDATA` is missing or blank.
+
 ### `channelScanner.test.ts` — 18 tests
 Channel discovery for “Generate UI from channels”.
 - `scanCabbageChannels`: all four opcodes (including bare calls), no `cabbageGetValue` double-count, dynamic/non-literal references skipped, inline `@widget` hint + range parsing, repeat merging (first hint wins), LHS value types (`CabbageStrTrig`/`CabbageNumTrig`).
@@ -198,5 +202,6 @@ These are known gaps (see the plan notes; adding them should also add an entry h
 
 - Real Csound backend round-trips (actual audio, `prints`/`printks` output). The fake-backend test covers the extension→backend pipe, but not the Csound engine itself (needs the packaged binary).
 - Full widget-interaction simulation for geometry-heavy widgets (sliders, combo boxes, genTable, …) under jsdom. Only the discrete-click widgets (button, checkBox, optionButton) and label pointer-events are covered so far.
+- End-to-end plugin export (bundle copying, binary renaming, resource placement). Unit coverage is limited to the platform resource-root helper (`cabbageResourcePath.test.ts`).
 - Widget insert/edit/duplicate flows driven from the webview (need webview command simulation).
 - Cabbage 2 instrument import and `goToDefinition`/`jumpToWidgetObject` (need dialog mocking/editor fixtures).
