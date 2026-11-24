@@ -73,6 +73,12 @@ CSD formatting.
 - `formatCsdText`: FracturedJson formatting of the Cabbage section, comment preservation, Csound indentation when there is no Cabbage section.
 - `formatCabbageSection`: formats only the Cabbage section, leaving Csound untouched.
 
+### `elfGlibc.test.ts` — 13 tests
+ELF `GLIBC_*` symbol-version reader (`src/utils/elfGlibc.ts`).
+- `compareGlibcVersions` / `highestGlibcVersion`: numeric (not lexical) ordering, missing components, empty list.
+- `parseGlibcRequirements`: ELF32/ELF64 `.gnu.version_r`, dedupe and sort, ignores `GLIBCXX_*`/`GLIBC_PRIVATE`, empty dependency list, non-ELF/truncated input.
+- `readGlibcRequirements`: file and missing-path behaviour, plus the local Node ELF on Linux.
+
 ### `formatting.test.ts` — 9 tests
 Legacy formatter helpers (`src/formatting.ts`).
 - `formatText`: instr/if indent/dedent, custom indent width, JSON array inside `<Cabbage>`, unparseable Cabbage content kept verbatim.
@@ -95,7 +101,7 @@ Widget-kit preset generation.
 - `buildHiddenProps`: base + identity + deduped unchecked paths.
 - `buildKitWidgetSource`: subclass preset source, rejects unsupported built-in types.
 
-### `validateInstallation.test.ts` — 61 tests
+### `validateInstallation.test.ts` — 72 tests
 Report-only installation probes (`src/validateInstallation.ts`).
 - `normalizeSourceDirs`.
 - `checkSettingsFile`: missing, invalid JSON, absent `currentConfig`, healthy.
@@ -104,8 +110,10 @@ Report-only installation probes (`src/validateInstallation.ts`).
 - `checkServiceBinary`: public, Pro-preferred, Pro-disabled fallback, missing Pro.
 - `checkCsoundPresent`: macOS bundle, Windows PATH, `csound7_64.dll`, legacy `csound64.dll`, none.
 - `checkServiceBinaryExecutable`: exec bit, missing bit, Pro selection, skips, Windows, `stat` failure.
-- `checkPluginBinaries`: required/optional presence, single-file plugins, macOS/Windows/Linux bundle layouts, architecture match/mismatch/unknown, hostile directory listing.
-- `runAllChecks`/`summarize`/`formatReport`: ten results, hostile inputs never throw, healthy env, formatted failure report.
+- `checkServiceBinaryArch`: match/mismatch/unknown, missing binary, Pro selection.
+- `checkServiceBinaryGlibc`: non-Linux, compatible/too-new glibc (the `GLIBC_2.43` packaging regression), unknown host, unreadable ELF, static/musl binaries, Pro selection.
+- `checkPluginBinaries`: required/optional presence, single-file plugins, macOS/Windows/Linux bundle layouts, architecture match/mismatch/unknown, glibc match/mismatch, hostile directory listing.
+- `runAllChecks`/`summarize`/`formatReport`: eleven results, hostile inputs never throw, healthy env, formatted failure report.
 
 ### `widgetDirectories.test.ts` — 18 tests
 Pure custom-widget path helpers (`src/utils/widgetDirectories.ts`).

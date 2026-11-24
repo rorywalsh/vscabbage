@@ -950,7 +950,14 @@ jobs:
 
   build_linux:
     needs: generate_tag
-    runs-on: ubuntu-latest
+    # Build against the OLDEST glibc we support, not ubuntu-latest. Since
+    # November 2026 ubuntu-latest is Ubuntu 26.04 (glibc 2.43); a binary built
+    # there refuses to start on Ubuntu 24.04 (glibc 2.39) or 22.04 (glibc 2.35)
+    # with "version `GLIBC_2.43' not found". glibc symbol versioning is only
+    # forward-compatible, so the VSIX must be produced on an older distro.
+    # ubuntu-22.04 is deprecated on 2027-04-17; before then, move this job into
+    # an ubuntu:22.04 container (or equivalent) to keep the 2.35 floor.
+    runs-on: ubuntu-22.04
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
     steps:
       - name: Checkout source code for cabbage3
@@ -1121,6 +1128,38 @@ jobs:
             exit 1
           fi
           ls -l ./src/CabbageBinaries/CabbageApp
+
+      # Packaging on an older runner is only useful if the binaries actually
+      # link against that runner's glibc. Fail the build (rather than shipping
+      # a VSIX that cannot launch on users' machines) if any bundled binary
+      # needs a newer libc than the ubuntu-22.04 floor.
+      - name: Verify bundled Linux binaries target glibc 2.35
+        run: |
+          set -euo pipefail
+          max_glibc="2.35"
+          mapfile -t bins < <(find ./src/CabbageBinaries -type f \
+            \( -name 'CabbageApp' -o -name '*.so' -o -name '*.clap' \) | sort)
+          if [ ${#bins[@]} -eq 0 ]; then
+            echo "::error::No bundled Linux binaries found to verify"
+            exit 1
+          fi
+          failed=0
+          for bin in "${bins[@]}"; do
+            required=$(objdump -T "$bin" 2>/dev/null \
+              | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' \
+              | sed 's/^GLIBC_//' | sort -Vu | tail -n1)
+            if [ -z "$required" ]; then
+              echo "$bin: no glibc symbol versions"
+              continue
+            fi
+            echo "$bin: requires glibc $required"
+            newest=$(printf '%s\n%s\n' "$max_glibc" "$required" | sort -V | tail -n1)
+            if [ "$newest" != "$max_glibc" ]; then
+              echo "::error::$bin requires glibc $required, newer than the $max_glibc floor"
+              failed=1
+            fi
+          done
+          exit "$failed"
 
       - name: Build and package extension on Linux
         # Declare the platform target so VS Code refuses to install the x64
