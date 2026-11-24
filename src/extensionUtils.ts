@@ -11,6 +11,7 @@ import fs from 'fs';
 import { Commands } from './commands';
 import { ChildProcess, exec } from "child_process";
 import { Settings } from './settings';
+import { getCabbageResourcePath } from './cabbageResourcePath';
 import { formatJsonText, minifyJsonText } from './utils/jsonFormat';
 import {
     formatCabbageSection as formatCabbageSectionText,
@@ -935,20 +936,11 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
     }
 
     static getResourcePath() {
-        switch (os.platform()) {
-            case 'darwin': // macOS
-                return path.join(os.homedir(), 'Library', 'CabbageAudio');
-            case 'win32': // Windows
-                if (typeof process.env.PROGRAMDATA === 'string' && process.env.PROGRAMDATA.trim() !== '') {
-                    return path.join(process.env.PROGRAMDATA, 'CabbageAudio');
-                }
-                else {
-                    Commands.getOutputChannel().appendLine('Failed to get PROGRAMDATA environment variable. Using default path.');
-                    return path.join('C:', 'ProgramData', 'CabbageAudio');
-                }
-            default: // todo..
-                return path.join(os.homedir(), '.CabbageAudio');
+        const programData = process.env.PROGRAMDATA;
+        if (os.platform() === 'win32' && (typeof programData !== 'string' || programData.trim() === '')) {
+            Commands.getOutputChannel().appendLine('Failed to get PROGRAMDATA environment variable. Using default path.');
         }
+        return getCabbageResourcePath(os.platform(), os.homedir(), programData);
     }
     /**
      * Compares two objects for deep equality.
