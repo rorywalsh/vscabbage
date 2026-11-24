@@ -946,8 +946,9 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
                     Commands.getOutputChannel().appendLine('Failed to get PROGRAMDATA environment variable. Using default path.');
                     return path.join('C:', 'ProgramData', 'CabbageAudio');
                 }
-            default: // todo..
-                return path.join(os.homedir(), '.CabbageAudio');
+            default: // Linux. Resources live outside the plugin bundle, matching macOS/Windows.
+                // This must match the backend's getCabbageResourceDir().
+                return path.join(os.homedir(), '.config', 'CabbageAudio');
         }
     }
     /**
