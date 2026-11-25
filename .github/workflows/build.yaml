@@ -3,9 +3,9 @@ name: Build and Package Extensions
 #Current Csound7 release...
 env:
   CSOUND_TAG: "7.0.0"
-  # The cabbage3 C++ build uses `cmake --build`, which honours this variable and
-  # passes it down to the per-target execute_process() builds in its
-  # CMakeLists.txt. Without it every target compiles single-threaded.
+  # The Linux packaging job still builds cabbage3 locally. macOS, Windows and
+  # Windows ARM consume the prebuilt CabbageBundle artifacts from the cabbage
+  # repository, so they do not compile C++ in this workflow.
   CMAKE_BUILD_PARALLEL_LEVEL: "4"
 
 on:
@@ -156,175 +156,148 @@ jobs:
       - name: Verify the VSIX was produced
         run: test -s "$RUNNER_TEMP/smoke.vsix"
 
-  build_macos:
-    needs: generate_tag
-    runs-on: macos-latest
-       # Ensure it only runs on main, or when run_build is passed to commit message
-    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
+  # ========================================================================================
+  #  Resolve a successful Cabbage backend build before starting any packaging runners
+  # ========================================================================================
+  resolve_backend:
+    name: Resolve Cabbage backend build
+    runs-on: ubuntu-latest
+    outputs:
+      should_package: ${{ steps.should.outputs.should_package }}
+      run_id: ${{ steps.resolve.outputs.run_id }}
+      backend_sha: ${{ steps.resolve.outputs.backend_sha }}
     steps:
-      - name: Checkout source code for cabbage3
-        uses: actions/checkout@v4
+      - name: Determine whether packaging was requested
+        id: should
+        uses: actions/github-script@v7
         with:
-          repository: rorywalsh/cabbage
-          path: cabbage3
-          ref: develop
-          fetch-depth: 0
-          submodules: true
+          script: |
+            let message = '';
+            if (context.eventName === 'push') {
+              message = context.payload.head_commit?.message ?? '';
+            } else if (context.eventName === 'pull_request') {
+              const pr = context.payload.pull_request;
+              // PR title/body are useful fallbacks and make [package] easy to
+              // apply without rewriting a commit.
+              message = `${pr.title}\n${pr.body ?? ''}`;
+              try {
+                const [owner, repo] = pr.head.repo.full_name.split('/');
+                const { data: commit } = await github.rest.repos.getCommit({
+                  owner, repo, ref: pr.head.sha,
+                });
+                message = `${commit.commit.message}\n${message}`;
+              } catch (error) {
+                core.warning(`Could not read PR head commit message: ${error.message}`);
+              }
+            }
 
-      - name: Verify cabbage3 directory
-        run: |
-          ls -l
-          ls -l cabbage3
+            const shouldPackage =
+              (context.ref === 'refs/heads/main' ||
+                message.includes('[package]') ||
+                message.includes('run_build')) &&
+              !message.includes('[auto-changelog]');
+            core.setOutput('should_package', shouldPackage ? 'true' : 'false');
+            core.info(
+              `Package requested: ${shouldPackage} ` +
+              `(event=${context.eventName}, ref=${context.ref})`
+            );
 
-      - name: Set Up Signing Certificate  
-        uses: apple-actions/import-codesign-certs@v3
-        with: 
-          p12-file-base64: ${{ secrets.CERTIFICATE_P12 }}
-          p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
-
-      - name: Download CsoundLib64 Package
-        run: |
-          # Download the package using curl
-          curl -L -o csound-7.zip "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-macos-${{ env.CSOUND_TAG }}.zip"
-          
-          # Extract the zip file
-          unzip -o csound-7.zip -d csound-7
-
-          # Find the .pkg file (handles future name changes)
-          PKG=$(find csound-7 -name "*.pkg" | head -n 1)
-          echo "Found pkg: $PKG"
-
-          # Make the downloaded file executable
-          chmod +x "$PKG"
-
-          # Install the package
-          sudo installer -pkg "$PKG" -target /
-
-      # - name: Set up Xcode path
-      #   run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
-      - name: Configure and build
-        run: |
-          cd cabbage3
-          export CC=/usr/bin/clang
-          export CXX=/usr/bin/clang++
-          # Get absolute paths to compilers
-          CC_PATH=$(which clang)
-          CXX_PATH=$(which clang++)
-
-          cmake -GXcode -B build \
-          -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0" \
-          -DCMAKE_C_COMPILER=$CC_PATH \
-          -DCMAKE_CXX_COMPILER=$CXX_PATH \
-          -DCMAKE_OBJC_COMPILER=$CC_PATH \
-          -DCMAKE_OBJCXX_COMPILER=$CXX_PATH \
-          -DBUILD_ALL_TARGETS=True \
-          -DCMAKE_BUILD_TYPE=Release
-
-      - name: Make CabbageApp executable
-        run: chmod +x cabbage3/build/CabbageApp/Release/CabbageApp
-      # - name: Sign binaries
-      #   env:
-      #     APPLE_DEVELOPER_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
-      #   run: |
-      #     cd cabbage3/build
-      #     codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageApp/out/CabbageApp.app --deep --strict --options=runtime --timestamp
-      #     codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageVST3Effect/out/CabbageVST3Effect.vst3 --deep --strict --options=runtime --timestamp
-      #     # codesign --force -s "${APPLE_DEVELOPER_TEAM_ID}" -v CabbageStandaloneApp/out/CabbageStandaloneApp.app --deep --strict --options=runtime --timestamp
-
-      - name: Verify builds
-        run: |
-          echo "Checking if the build artifacts exist for CabbageApp"
-          ls cabbage3/build/CabbageApp/Release
-          echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release
-          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/Release
-          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/Release
-          ls cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release
-          ls cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release
-          ls cabbage3/build/CabbagePluginMidiFxAUv2/CabbagePluginMidiFxAUv2_assets/Release
-
-
-      - uses: actions/upload-artifact@v4
+      - name: Find a successful cabbage3-build run
+        id: resolve
+        if: steps.should.outputs.should_package == 'true'
+        uses: actions/github-script@v7
         with:
-          name: CabbageApp
-          path: cabbage3/build/CabbageApp/Release/CabbageApp
-          retention-days: 1
-          if-no-files-found: ignore
+          # Fine-grained PAT with Actions: read on rorywalsh/cabbage.
+          github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
+          script: |
+            const owner = 'rorywalsh';
+            const repo = 'cabbage';
+            const branch = 'develop';
+            const workflowId = 'cabbage3.yaml';
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect.vst3
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.vst3
-          retention-days: 1
-          if-no-files-found: ignore
+            const { data: branchData } = await github.rest.repos.getBranch({
+              owner, repo, branch,
+            });
+            const sha = branchData.commit.sha;
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.vst3
-          retention-days: 1
-          if-no-files-found: ignore
+            const { data: runsData } = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: workflowId, branch, per_page: 100,
+            });
+            const runs = runsData.workflow_runs;
+            const exactRuns = runs.filter((run) => run.head_sha === sha);
+            const active = exactRuns.find((run) =>
+              run.status === 'queued' || run.status === 'in_progress');
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect.clap
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/Release/CabbagePluginEffect.clap
-          retention-days: 1
-          if-no-files-found: ignore
+            let run;
+            if (active) {
+              core.setFailed(
+                `cabbage3-build for ${branch}@${sha} is ${active.status}. ` +
+                'Wait for it to finish successfully, then re-run packaging.'
+              );
+              return;
+            }
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth.clap
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/Release/CabbagePluginSynth.clap
-          retention-days: 1
-          if-no-files-found: ignore
+            const exactSuccess = exactRuns.find((run) =>
+              run.status === 'completed' && run.conclusion === 'success');
+            if (exactSuccess) {
+              run = exactSuccess;
+              core.info(`Using exact cabbage3-build run ${run.id} for ${branch}@${sha}`);
+            } else if (exactRuns.length > 0) {
+              const failed = exactRuns[0];
+              core.setFailed(
+                `cabbage3-build for ${branch}@${sha} is ${failed.status}` +
+                `${failed.conclusion ? ` (${failed.conclusion})` : ''}. ` +
+                'Fix or re-run the backend build, then re-run packaging.'
+              );
+              return;
+            } else {
+              // No run for this SHA normally means the push was docs-only and
+              // was skipped by paths-ignore. Reuse the newest successful build.
+              run = runs.find((candidate) =>
+                candidate.status === 'completed' && candidate.conclusion === 'success');
+              if (!run) {
+                core.setFailed(`No successful cabbage3-build run found on ${branch}.`);
+                return;
+              }
+              core.warning(
+                `No cabbage3-build run exists for ${branch}@${sha}. ` +
+                `Reusing the latest successful backend ${run.head_sha} from run ${run.id}.`
+              );
+            }
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffectARA.vst3
-          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/Release/CabbagePluginEffectARA.vst3
-          retention-days: 1
-          if-no-files-found: ignore
+            const { data: artifactsData } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: run.id, per_page: 100,
+            });
+            const artifactNames = new Set(artifactsData.artifacts.map((artifact) => artifact.name));
+            const required = [
+              'CabbageBundle-macos',
+              'CabbageBundle-windows',
+              'CabbageBundle-windows-arm',
+            ];
+            const missing = required.filter((name) => !artifactNames.has(name));
+            if (missing.length > 0) {
+              core.setFailed(
+                `Backend run ${run.id} (${run.head_sha}) is missing required artifacts: ` +
+                missing.join(', ')
+              );
+              return;
+            }
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynthARA.vst3
-          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/Release/CabbagePluginSynthARA.vst3
-          retention-days: 1
-          if-no-files-found: ignore
+            core.setOutput('run_id', String(run.id));
+            core.setOutput('backend_sha', run.head_sha);
 
-      - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynthAUv2.component
-          path: cabbage3/build/CabbagePluginSynthAUv2/CabbagePluginSynthAUv2_assets/Release/CabbagePluginSynthAUv2.component
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffectAUv2.component
-          path: cabbage3/build/CabbagePluginEffectAUv2/CabbagePluginEffectAUv2_assets/Release/CabbagePluginEffectAUv2.component
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload Cabbage build files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginMidiFxAUv2.component
-          path: cabbage3/build/CabbagePluginMidiFxAUv2/CabbagePluginMidiFxAUv2_assets/Release/CabbagePluginMidiFxAUv2.component
-          retention-days: 1
-          if-no-files-found: ignore
-
-
+  build_macos:
+    needs: [generate_tag, resolve_backend]
+    runs-on: macos-latest
+    # Packaging is gated by resolve_backend (main pushes, or [package] in the
+    # pushed commit message / PR head commit message).
+    if: needs.resolve_backend.outputs.should_package == 'true'
+    steps:
       # Checkout source code for vscabbage
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: true
 
       - name: Update version in package.json
@@ -342,77 +315,32 @@ jobs:
           cd src
           ls
 
-      # Download and copy the required artifacts into the vscabbage src directory
-      - name: Downloading CabbageApp
+      - name: Download Cabbage binaries from cabbage
         uses: actions/download-artifact@v4
         with:
-          name: CabbageApp
-          path: "./src/CabbageBinaries"
-        continue-on-error: false
+          name: CabbageBundle-macos
+          path: ${{ runner.temp }}/cabbage-bundle
+          repository: rorywalsh/cabbage
+          run-id: ${{ needs.resolve_backend.outputs.run_id }}
+          github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
 
-      - name: Downloading CabbagePluginEffect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
-        continue-on-error: false
+      - name: Extract Cabbage binaries
+        run: |
+          ditto -x -k "${{ runner.temp }}/cabbage-bundle/CabbageBundle.zip" "${{ runner.temp }}/cabbage-bundle-extracted"
+          find "${{ runner.temp }}/cabbage-bundle-extracted" -type d \( -name '*.vst3' -o -name '*.clap' -o -name '*.component' \) -prune -exec cp -R {} ./src/CabbageBinaries/ \;
+          cp "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp" ./src/CabbageBinaries/CabbageApp
+          chmod -R +x ./src/CabbageBinaries/CabbageApp
 
-
-      - name: Downloading CabbagePluginSynth  
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
-        continue-on-error: false
-
-      - name: Downloading CabbagePluginEffect CLAP
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect.clap
-          path: "./src/CabbageBinaries/CabbagePluginEffect.clap"
-        continue-on-error: false
-
-      - name: Downloading CabbagePluginSynth CLAP
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth.clap
-          path: "./src/CabbageBinaries/CabbagePluginSynth.clap"
-        continue-on-error: false
-
-      - name: Downloading CabbageAUv2Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynthAUv2.component
-          path: "./src/CabbageBinaries/CabbagePluginSynthAUv2.component"
-        continue-on-error: true
-
-      - name: Downloading CabbageAUv2MidiFx
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginMidiFxAUv2.component
-          path: "./src/CabbageBinaries/CabbagePluginMidiFxAUv2.component"
-        continue-on-error: true
-
-      - name: Downloading CabbageAUv2Effect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffectAUv2.component
-          path: "./src/CabbageBinaries/CabbagePluginEffectAUv2.component"
-        continue-on-error: true
-
-      - name: Downloading CabbagePluginEffectARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffectARA.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffectARA.vst3"
-        continue-on-error: true
-
-      - name: Downloading CabbagePluginSynthARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynthARA.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynthARA.vst3"
-        continue-on-error: true
+      - name: Verify extracted binaries
+        run: |
+          missing=0
+          for binary in CabbagePluginEffect.vst3 CabbagePluginSynth.vst3 CabbagePluginEffect.clap CabbagePluginSynth.clap CabbagePluginEffectARA.vst3 CabbagePluginSynthARA.vst3 CabbagePluginEffectAUv2.component CabbagePluginSynthAUv2.component CabbagePluginMidiFxAUv2.component CabbageApp; do
+            if [ ! -e "./src/CabbageBinaries/$binary" ]; then
+              echo "::error::Missing extracted backend binary: $binary"
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Set up Node.js (v24) on macOS
         uses: actions/setup-node@v4
@@ -422,10 +350,8 @@ jobs:
       - name: Install dependencies on macOS
         run: npm install
 
-      # actions/upload-artifact zips files and drops their modes, so the
-      # `chmod +x` applied to the built CabbageApp earlier in this job does not
-      # survive the upload/download round-trip. Restore the executable bit on
-      # the copy that is about to go into the VSIX, otherwise the extension
+      # The bundle round-trip can lose the executable mode, so restore it on
+      # the copy that is about to go into the VSIX. Otherwise the extension
       # ships a backend macOS cannot spawn.
       - name: Restore executable bit on CabbageApp (macOS)
         run: |
@@ -454,183 +380,16 @@ jobs:
 # ========================================================================================
 
   build_windows:
-    needs: generate_tag
+    needs: [generate_tag, resolve_backend]
     runs-on: windows-latest
-    # Ensure it only runs on main, or when run_build is passed to commit message
-    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]') 
+    # Packaging is gated by resolve_backend (main pushes, or [package] in the
+    # pushed commit message / PR head commit message).
+    if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
-      - name: Checkout source code for cabbage3
-        uses: actions/checkout@v4
-        with:
-          repository: rorywalsh/cabbage
-          path: cabbage3
-          ref: develop
-          fetch-depth: 0
-          submodules: true
-
-      - name: Verify cabbage3 directory
-        shell: cmd
-        run: |
-          ls -l
-          ls -l cabbage3
-
-      - name: Download and Extract Csound
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-${{ env.CSOUND_TAG }}.zip" -OutFile "csound7.zip"
-          Expand-Archive -Path "csound7.zip" -DestinationPath "csound7" -Force
-
-          Write-Host "Contents of csound7 (for debug):"
-          Get-ChildItem -Path "csound7" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-          # Prefer an x86_64 installer if present, otherwise take first .exe
-          $exe = Get-ChildItem -Path "csound7" -Recurse -Filter "*windows*x86*64*.exe" -File | Select-Object -First 1
-          if (-not $exe) {
-            $exe = Get-ChildItem -Path "csound7" -Recurse -Filter "*.exe" -File | Select-Object -First 1
-          }
-
-          if (-not $exe) {
-            Write-Error "No .exe installer found in csound7 folder!"
-            exit 1
-          }
-
-          Write-Host "Found installer: $($exe.FullName)"
-          Copy-Item -Path $exe.FullName -Destination ".\csound-7.exe" -Force
-
-      - name: Install Csound
-        shell: pwsh
-        run: |
-          Start-Process -FilePath ".\csound-7.exe" -ArgumentList "/VERYSILENT" -Wait -Verb RunAs
-
-      - name: Wait for Installation to Complete
-        shell: pwsh
-        run: |
-          Start-Sleep -Seconds 5
-
-      - name: Verify Csound
-        shell: pwsh
-        run: |
-          # Csound 7.0.0's Windows package was rebuilt with USE_LIB64 and
-          # "csound7_64" library names. Older installers used lib\csound64.
-          # Accept both layouts so an upstream repackage doesn't break this job.
-          $root = "C:\Program Files\Csound7"
-          if (-not (Test-Path $root)) {
-            Write-Error "Csound is not installed at $root"
-            exit 1
-          }
-
-          Get-ChildItem $root
-          Get-ChildItem (Join-Path $root "bin")
-          Get-ChildItem (Join-Path $root "include\csound")
-
-          $dll = Get-ChildItem -Path (Join-Path $root "bin") -File |
-            Where-Object { $_.Name -in @("csound7_64.dll", "csound64.dll") } |
-            Select-Object -First 1
-          if (-not $dll) {
-            Write-Error "No Csound DLL found in $root\bin"
-            exit 1
-          }
-
-          $lib = Get-ChildItem -Path $root -Recurse -File |
-            Where-Object { $_.Name -in @("csound7_64.lib", "libcsound7_64.lib", "csound64.lib", "libcsound64.lib") } |
-            Select-Object -First 1
-          if (-not $lib) {
-            Write-Error "No Csound import library found under $root"
-            exit 1
-          }
-
-          Write-Host "Found Csound DLL: $($dll.FullName)"
-          Write-Host "Found Csound import library: $($lib.FullName)"
-
-      - name: Configure and build
-        shell: cmd
-        run: |
-          cd cabbage3
-          cmake -S . -B build -DBUILD_ALL_TARGETS=ON -DCMAKE_BUILD_TYPE=Release
-
-      - name: Verify builds
-        shell: cmd
-        run: |
-          echo "Checking if the build artifacts exist for CabbageApp"
-          tree cabbage3/build/CabbageApp/Release
-          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
-
-      - name: Upload CabbageApp
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbageApp.exe
-          path: cabbage3/build/CabbageApp/Release/CabbageApp.exe
-          retention-days: 1
-          if-no-files-found: ignore
-
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: CabbageStandaloneApp.app
-      #     path: cabbage3/build/CabbageStandaloneApp/out/CabbageStandaloneApp.app
-      #     retention-days: 1
-      #     if-no-files-found: ignore
-      - name: Upload CabbageVST3Effect
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect_x64.vst3
-          # path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release/CabbagePluginEffect.vst3
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3Synth
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth_x64.vst3
-          # path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release/CabbagePluginSynth.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageCLAPEffect
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect_x64.clap
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageCLAPSynth
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth_x64.clap
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3EffectARA
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffectARA_x64.vst3
-          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3SynthARA
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynthARA_x64.vst3
-          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-
-
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: true
 
       - name: Update version in package.json
@@ -655,55 +414,43 @@ jobs:
           cd src
           ls
 
-      # Download and copy the required artifacts into the vscabbage src directory
-      - name: Downloading CabbageApp
+      - name: Download Cabbage binaries from cabbage
         uses: actions/download-artifact@v4
         with:
-          name: CabbageApp.exe
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+          name: CabbageBundle-windows
+          path: ${{ runner.temp }}/cabbage-bundle
+          repository: rorywalsh/cabbage
+          run-id: ${{ needs.resolve_backend.outputs.run_id }}
+          github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
 
-      - name: Downloading CabbageVST3Effect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect_x64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+      - name: Extract Cabbage binaries
+        shell: pwsh
+        run: |
+          Expand-Archive -Path "${{ runner.temp }}/cabbage-bundle/CabbageBundle.zip" -DestinationPath "${{ runner.temp }}/cabbage-bundle-extracted" -Force
+          $items = Get-ChildItem "${{ runner.temp }}/cabbage-bundle-extracted" -Recurse | Where-Object { $_.Name -match '\.(vst3|clap|component)$' }
+          foreach ($item in $items) {
+            Copy-Item -Path $item.FullName -Destination ./src/CabbageBinaries -Recurse -Force
+          }
+          Copy-Item -Path "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp.exe" -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
 
-      - name: Downloading CabbageVST3Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth_x64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageCLAPEffect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect_x64.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageCLAPSynth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth_x64.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageVST3EffectARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffectARA_x64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageVST3SynthARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynthARA_x64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+      - name: Verify extracted binaries
+        shell: pwsh
+        run: |
+          $required = @(
+            'CabbagePluginEffect.vst3',
+            'CabbagePluginSynth.vst3',
+            'CabbagePluginEffect.clap',
+            'CabbagePluginSynth.clap',
+            'CabbagePluginEffectARA.vst3',
+            'CabbagePluginSynthARA.vst3',
+            'CabbageApp.exe'
+          )
+          foreach ($name in $required) {
+            if (-not (Test-Path (Join-Path './src/CabbageBinaries' $name))) {
+              Write-Error "Missing extracted backend binary: $name"
+              exit 1
+            }
+          }
 
       - name: Build and package extension on Windows
         # Declare the platform target so the Marketplace serves the x64
@@ -721,172 +468,16 @@ jobs:
 # ========================================================================================
 
   build_windows_arm:
-    needs: generate_tag
+    needs: [generate_tag, resolve_backend]
     runs-on: windows-11-arm
-    # Ensure it only runs on main, or when run_build is passed to commit message
-    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
+    # Packaging is gated by resolve_backend (main pushes, or [package] in the
+    # pushed commit message / PR head commit message).
+    if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
-      - name: Checkout source code for cabbage3
-        uses: actions/checkout@v4
-        with:
-          repository: rorywalsh/cabbage
-          path: cabbage3
-          ref: develop
-          fetch-depth: 0
-          submodules: true
-
-      - name: Verify cabbage3 directory
-        shell: cmd
-        run: |
-          ls -l
-          ls -l cabbage3
-
-      - name: Download and Extract Csound
-        shell: pwsh
-        run: |
-          # Csound ships a dedicated Windows ARM64 installer
-          Invoke-WebRequest -Uri "https://github.com/csound/csound/releases/download/${{ env.CSOUND_TAG }}/csound-windows-arm64-installer-${{ env.CSOUND_TAG }}.zip" -OutFile "csound7-arm.zip"
-          Expand-Archive -Path "csound7-arm.zip" -DestinationPath "csound7-arm" -Force
-
-          Write-Host "Contents of csound7-arm (for debug):"
-          Get-ChildItem -Path "csound7-arm" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-          # The ARM64 installer zip contains a single .exe installer
-          $exe = Get-ChildItem -Path "csound7-arm" -Recurse -Filter "*.exe" -File | Select-Object -First 1
-
-          if (-not $exe) {
-            Write-Error "No .exe installer found in csound7-arm folder!"
-            exit 1
-          }
-
-          Write-Host "Found installer: $($exe.FullName)"
-          Copy-Item -Path $exe.FullName -Destination ".\csound-7-arm.exe" -Force
-
-      - name: Install Csound
-        shell: pwsh
-        run: |
-          Start-Process -FilePath ".\csound-7-arm.exe" -ArgumentList '/VERYSILENT', '/DIR="C:\Program Files\Csound7"' -Wait -Verb RunAs
-
-      - name: Wait for Installation to Complete
-        shell: pwsh
-        run: |
-          Start-Sleep -Seconds 5
-
-      - name: Verify Csound
-        shell: pwsh
-        run: |
-          # Csound 7.0.0's Windows package was rebuilt with USE_LIB64 and
-          # "csound7_64" library names. Older installers used lib\csound64.
-          # Accept both layouts so an upstream repackage doesn't break this job.
-          $root = "C:\Program Files\Csound7"
-          if (-not (Test-Path $root)) {
-            Write-Error "Csound is not installed at $root"
-            exit 1
-          }
-
-          Get-ChildItem $root
-          Get-ChildItem (Join-Path $root "bin") -ErrorAction SilentlyContinue
-          Get-ChildItem (Join-Path $root "lib") -ErrorAction SilentlyContinue
-          Get-ChildItem (Join-Path $root "include\csound") -ErrorAction SilentlyContinue
-
-          $dll = Get-ChildItem -Path $root -Recurse -File |
-            Where-Object { $_.Name -in @("csound7_64.dll", "csound64.dll") } |
-            Select-Object -First 1
-          if (-not $dll) {
-            Write-Error "No Csound DLL found under $root"
-            exit 1
-          }
-
-          $lib = Get-ChildItem -Path $root -Recurse -File |
-            Where-Object { $_.Name -in @("csound7_64.lib", "libcsound7_64.lib", "csound64.lib", "libcsound64.lib") } |
-            Select-Object -First 1
-          if (-not $lib) {
-            Write-Error "No Csound import library found under $root"
-            exit 1
-          }
-
-          Write-Host "Found Csound DLL: $($dll.FullName)"
-          Write-Host "Found Csound import library: $($lib.FullName)"
-
-      - name: Configure and build
-        shell: cmd
-        run: |
-          cd cabbage3
-          cmake -S . -B build -DBUILD_ALL_TARGETS=ON -DCMAKE_BUILD_TYPE=Release -A ARM64
-
-      - name: Verify builds
-        shell: cmd
-        run: |
-          echo "Checking if the build artifacts exist for CabbageApp"
-          tree cabbage3/build/CabbageApp/Release
-          echo "Checking if the build artifacts exist for CabbageVST3Synth/Effect"
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
-
-      - name: Upload CabbageApp
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbageApp_arm64.exe
-          path: cabbage3/build/CabbageApp/Release/CabbageApp.exe
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3Effect
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect_arm64.vst3
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3Synth
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth_arm64.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageCLAPEffect
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect_arm64.clap
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CLAP/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageCLAPSynth
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth_arm64.clap
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CLAP/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3EffectARA
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffectARA_arm64.vst3
-          path: cabbage3/build/CabbagePluginEffectARA/CabbagePluginEffectARA_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - name: Upload CabbageVST3SynthARA
-        uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynthARA_arm64.vst3
-          path: cabbage3/build/CabbagePluginSynthARA/CabbagePluginSynthARA_assets/VST3/Release
-          retention-days: 1
-          if-no-files-found: ignore
-
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: true
 
       - name: Update version in package.json
@@ -911,55 +502,43 @@ jobs:
           cd src
           ls
 
-      # Download and copy the required artifacts into the vscabbage src directory
-      - name: Downloading CabbageApp
+      - name: Download Cabbage binaries from cabbage
         uses: actions/download-artifact@v4
         with:
-          name: CabbageApp_arm64.exe
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+          name: CabbageBundle-windows-arm
+          path: ${{ runner.temp }}/cabbage-bundle
+          repository: rorywalsh/cabbage
+          run-id: ${{ needs.resolve_backend.outputs.run_id }}
+          github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
 
-      - name: Downloading CabbageVST3Effect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect_arm64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+      - name: Extract Cabbage binaries
+        shell: pwsh
+        run: |
+          Expand-Archive -Path "${{ runner.temp }}/cabbage-bundle/CabbageBundle.zip" -DestinationPath "${{ runner.temp }}/cabbage-bundle-extracted" -Force
+          $items = Get-ChildItem "${{ runner.temp }}/cabbage-bundle-extracted" -Recurse | Where-Object { $_.Name -match '\.(vst3|clap|component)$' }
+          foreach ($item in $items) {
+            Copy-Item -Path $item.FullName -Destination ./src/CabbageBinaries -Recurse -Force
+          }
+          Copy-Item -Path "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp.exe" -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
 
-      - name: Downloading CabbageVST3Synth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth_arm64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageCLAPEffect
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect_arm64.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageCLAPSynth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth_arm64.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageVST3EffectARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffectARA_arm64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
-
-      - name: Downloading CabbageVST3SynthARA
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynthARA_arm64.vst3
-          path: "./src/CabbageBinaries"
-        continue-on-error: true
+      - name: Verify extracted binaries
+        shell: pwsh
+        run: |
+          $required = @(
+            'CabbagePluginEffect.vst3',
+            'CabbagePluginSynth.vst3',
+            'CabbagePluginEffect.clap',
+            'CabbagePluginSynth.clap',
+            'CabbagePluginEffectARA.vst3',
+            'CabbagePluginSynthARA.vst3',
+            'CabbageApp.exe'
+          )
+          foreach ($name in $required) {
+            if (-not (Test-Path (Join-Path './src/CabbageBinaries' $name))) {
+              Write-Error "Missing extracted backend binary: $name"
+              exit 1
+            }
+          }
 
       - name: Build and package extension on Windows ARM64
         # Declare the platform target so the Marketplace serves the ARM64
@@ -977,7 +556,7 @@ jobs:
 # ========================================================================================
 
   build_linux:
-    needs: generate_tag
+    needs: [generate_tag, resolve_backend]
     # Build against the OLDEST glibc we support, not ubuntu-latest. Since
     # November 2026 ubuntu-latest is Ubuntu 26.04 (glibc 2.43); a binary built
     # there refuses to start on Ubuntu 24.04 (glibc 2.39) or 22.04 (glibc 2.35)
@@ -986,7 +565,9 @@ jobs:
     # ubuntu-22.04 is deprecated on 2027-04-17; before then, move this job into
     # an ubuntu:22.04 container (or equivalent) to keep the 2.35 floor.
     runs-on: ubuntu-22.04
-    if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
+    # Packaging is gated by resolve_backend (main pushes, or [package] in the
+    # pushed commit message / PR head commit message).
+    if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
       - name: Checkout source code for cabbage3
         uses: actions/checkout@v4
@@ -994,7 +575,7 @@ jobs:
           repository: rorywalsh/cabbage
           path: cabbage3
           ref: develop
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: true
 
       - name: Install dependencies
@@ -1082,7 +663,7 @@ jobs:
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: true
 
       - name: Update version in package.json
@@ -1200,7 +781,7 @@ jobs:
   # =============================================================================
   # steps to tag and release artifacts
   release:
-    needs: [build_macos, build_windows, build_windows_arm, build_linux, generate_tag, test_unit, test_integration]
+    needs: [build_macos, build_windows, build_windows_arm, build_linux, generate_tag, test_unit, test_integration, resolve_backend]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'no_build') && !contains(github.event.head_commit.message, '[auto-changelog]')
 
@@ -1302,13 +883,17 @@ jobs:
           echo "$CHANGELOG_NOTES"
 
           # Record which backend commit this release was built against. The
-          # build jobs check out cabbage develop at build time; re-resolve it
-          # here so the pairing is explicit in the release notes.
-          CABBAGE_SHA=$(git ls-remote https://github.com/rorywalsh/cabbage.git refs/heads/develop | cut -f1)
-          echo "Backend cabbage develop SHA at release time: $CABBAGE_SHA"
+          # packaging jobs use the CabbageBundle resolved by resolve_backend;
+          # use that SHA rather than re-resolving develop, which may have moved
+          # on (or may not have finished building yet).
+          CABBAGE_SHA="${{ needs.resolve_backend.outputs.backend_sha }}"
+          if [ -z "$CABBAGE_SHA" ]; then
+            CABBAGE_SHA=$(git ls-remote https://github.com/rorywalsh/cabbage.git refs/heads/develop | cut -f1)
+          fi
+          echo "Backend cabbage SHA used for this release: $CABBAGE_SHA"
           CHANGELOG_NOTES="$CHANGELOG_NOTES
 
-          Built against cabbage develop @ $CABBAGE_SHA"
+          Built against cabbage @ $CABBAGE_SHA"
 
           echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
           echo "$CHANGELOG_NOTES" >> $GITHUB_ENV
