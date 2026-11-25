@@ -59,6 +59,7 @@ import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
 import { readGlibcRequirements } from './utils/elfGlibc';
 import { ensurePluginExtension, pluginNameFromPath } from './utils/pluginExportPath';
+import { normalizePackageIncludeEntry, packageIncludeBase } from './utils/packageInclude';
 import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
@@ -4215,17 +4216,18 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
     /**
      * Processes package.include entries and copies files to the destination directory.
-     * Each entry must be an object with { src: string, dest: string }
+     * Each entry must be an object with { src: string, dest?: string }
      * - src: source path (absolute or relative to CSD directory), can include glob patterns
-     * - dest: destination path (must be relative), where files will be placed
+     * - dest: optional destination directory (must be relative); defaults to the
+     *   top level of the resources directory
      *
-     * @param packageInclude - Array of { src, dest } objects
+     * @param packageInclude - Array of { src, dest? } objects
      * @param csdDir - Directory containing the CSD file (for resolving relative paths)
      * @param destDir - Destination directory where files will be copied
      * @returns true if successful, false if there was a validation error
      */
     private static async processPackageIncludes(
-        packageInclude: Array<{ src: string; dest: string }>,
+        packageInclude: Array<{ src: string; dest?: string }>,
         csdDir: string,
         destDir: string
     ): Promise<boolean> {
@@ -4233,20 +4235,19 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         Commands.vscodeOutputChannel.appendLine(`Export: Processing package.include entries...`);
 
-        for (const entry of packageInclude) {
-            // Validate entry format
-            if (!entry || typeof entry !== 'object' || !entry.src || !entry.dest) {
-                Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest }. Skipping: ${JSON.stringify(entry)}`);
+        for (const rawEntry of packageInclude) {
+            const normalized = normalizePackageIncludeEntry(rawEntry);
+            if (!normalized.ok) {
+                if (normalized.error === 'absolute-dest') {
+                    vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${normalized.dest}"`);
+                    return false;
+                }
+
+                Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest? }. Skipping: ${JSON.stringify(rawEntry)}`);
                 continue;
             }
 
-            const { src, dest } = entry;
-
-            // Validate dest is not an absolute path
-            if (path.isAbsolute(dest)) {
-                vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${dest}"`);
-                return false;
-            }
+            const { src, dest } = normalized.entry;
 
             // Resolve src - could be absolute or relative to CSD directory
             const resolvedSrc = path.isAbsolute(src) ? src : path.join(csdDir, src);
@@ -4255,9 +4256,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             // Check if src is a directory (no glob pattern)
             const hasGlobPattern = src.includes('*');
+            const isDirectory = !hasGlobPattern && fs.existsSync(resolvedSrc) && fs.statSync(resolvedSrc).isDirectory();
             let matchedFiles: string[];
 
-            if (!hasGlobPattern && fs.existsSync(resolvedSrc) && fs.statSync(resolvedSrc).isDirectory()) {
+            if (isDirectory) {
                 // It's a directory - match all files recursively
                 matchedFiles = glob.sync(path.join(resolvedSrc, '**/*'), { nodir: true });
             } else {
@@ -4267,10 +4269,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             Commands.vscodeOutputChannel.appendLine(`Export: Found ${matchedFiles.length} files`);
 
-            // Get the base directory for calculating relative paths within the source
-            const srcBase = hasGlobPattern
-                ? resolvedSrc.split('*')[0].replace(/\/+$/, '')
-                : resolvedSrc;
+            // Get the base directory for calculating relative paths within the source.
+            // A single file keeps its own name instead of collapsing `dest` into a file.
+            const srcBase = packageIncludeBase(resolvedSrc, isDirectory);
 
             for (const srcFile of matchedFiles) {
                 // Calculate the relative path from the source base
