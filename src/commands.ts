@@ -63,6 +63,20 @@ import { normalizePackageIncludeEntry, packageIncludeBase } from './utils/packag
 import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
 
+const CABBAGE_STATUS_ICON = '$(cabbage-logo)';
+
+function updateCabbageStatusBar(running: boolean) {
+    if (!cabbageStatusBarItem) {
+        return;
+    }
+    cabbageStatusBarItem.text = `${CABBAGE_STATUS_ICON} ${running ? 'Stop' : 'Start'} Cabbage`;
+    cabbageStatusBarItem.color = new vscode.ThemeColor('charts.green');
+    cabbageStatusBarItem.tooltip = running
+        ? 'Cabbage server is running. Click to stop it.'
+        : 'Cabbage server is stopped. Click to start it.';
+    cabbageStatusBarItem.show();
+}
+
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
  * managing backend communications, document manipulations, UI interactions,
@@ -972,15 +986,10 @@ export class Commands {
     static createStatusBarIcon(context: vscode.ExtensionContext) {
         if (!cabbageStatusBarItem) {
             cabbageStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-
-            // Set the text and icon for the status bar item
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-
-            // Optional: Make the status bar item clickable (command)
+            cabbageStatusBarItem.name = 'Cabbage';
             cabbageStatusBarItem.command = 'cabbage.manageServer';
 
-            // Show the status bar item
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
 
             // Push the item to the context's subscriptions so it gets disposed when the
             // extension is deactivated
@@ -1187,13 +1196,11 @@ export class Commands {
                 // architecture, missing/corrupt binary, spawn error). Keep the
                 // status bar honest so a failed start doesn't masquerade as a
                 // running server.
-                cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-                cabbageStatusBarItem.show();
+                updateCabbageStatusBar(false);
                 this.cabbageServerStarted = false;
                 return;
             }
-            cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(true);
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
 
@@ -1234,8 +1241,7 @@ export class Commands {
                 return ExtensionUtils.terminateProcess(p);
             });
 
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
             this.cabbageServerStarted = false;
             vscode.window.showInformationMessage('Cabbage server stopped');
         }
@@ -1626,8 +1632,7 @@ export class Commands {
             // public "is the server running" state honest so a dead process
             // doesn't masquerade as a running one.
             this.cabbageServerStarted = false;
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
         });
 
         backend.on('exit', (code, signal) => {
@@ -1645,8 +1650,7 @@ export class Commands {
 
             // Same honesty reset as the error handler above.
             this.cabbageServerStarted = false;
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
 
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
             this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
