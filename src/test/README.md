@@ -32,15 +32,18 @@ Notes:
 
 ## CI and merge gating
 
-`.github/workflows/build.yaml` runs two jobs on pushes to `main` and on pull requests to
+`.github/workflows/build.yaml` runs three jobs on pushes to `main` and on pull requests to
 `develop` and `main`:
 
 - **Lint and unit tests** — `npm run lint` + `npm run test:unit`
 - **Integration tests (Linux)** — headless (`xvfb-run`) hosted VS Code tests
+- **Packaging smoke test** — `npm ci`, a production webpack bundle, and `vsce package`
+  using the version pinned in `package-lock.json`. This catches dependency bumps (including
+  Dependabot) that break packaging while the tests stay green.
 
-`main` is protected: both checks are **required** (with `strict`, i.e. the branch must be
-up to date), and force-pushes/deletions are disabled. The `release` job also depends on
-both test jobs.
+`main` is protected: the two test checks are **required** (with `strict`, i.e. the branch
+must be up to date), and force-pushes/deletions are disabled. Add **Packaging smoke test**
+as a required check too. The `release` job also depends on both test jobs.
 
 ---
 
@@ -56,6 +59,10 @@ Cabbage 2 → Cabbage 3 conversion.
 - `detectSoundfilerLoading`: `ftgen` → `tableNumber`; `diskin2` → `file`; no match → empty.
 - Full conversion: adds form mouse channels and rewrites `chnget`; rejects an already-JSON section; rejects a document with no `<Cabbage>` section.
 
+### `cabbageResourcePath.test.ts` — 4 tests
+Platform-specific root for exported-plugin resources (`src/cabbageResourcePath.ts`).
+- macOS `~/Library/CabbageAudio`, Linux `~/.config/CabbageAudio` (regression: the extension used to write to `~/.CabbageAudio`, which the backend never reads), Windows `%PROGRAMDATA%\CabbageAudio`, and the `C:\ProgramData` fallback when `PROGRAMDATA` is missing or blank.
+
 ### `channelScanner.test.ts` — 18 tests
 Channel discovery for “Generate UI from channels”.
 - `scanCabbageChannels`: all four opcodes (including bare calls), no `cabbageGetValue` double-count, dynamic/non-literal references skipped, inline `@widget` hint + range parsing, repeat merging (first hint wins), LHS value types (`CabbageStrTrig`/`CabbageNumTrig`).
@@ -68,6 +75,12 @@ Channel discovery for “Generate UI from channels”.
 CSD formatting.
 - `formatCsdText`: FracturedJson formatting of the Cabbage section, comment preservation, Csound indentation when there is no Cabbage section.
 - `formatCabbageSection`: formats only the Cabbage section, leaving Csound untouched.
+
+### `elfGlibc.test.ts` — 13 tests
+ELF `GLIBC_*` symbol-version reader (`src/utils/elfGlibc.ts`).
+- `compareGlibcVersions` / `highestGlibcVersion`: numeric (not lexical) ordering, missing components, empty list.
+- `parseGlibcRequirements`: ELF32/ELF64 `.gnu.version_r`, dedupe and sort, ignores `GLIBCXX_*`/`GLIBC_PRIVATE`, empty dependency list, non-ELF/truncated input.
+- `readGlibcRequirements`: file and missing-path behaviour, plus the local Node ELF on Linux.
 
 ### `formatting.test.ts` — 9 tests
 Legacy formatter helpers (`src/formatting.ts`).
@@ -91,7 +104,13 @@ Widget-kit preset generation.
 - `buildHiddenProps`: base + identity + deduped unchecked paths.
 - `buildKitWidgetSource`: subclass preset source, rejects unsupported built-in types.
 
-### `validateInstallation.test.ts` — 61 tests
+### `pluginExportPath.test.ts` — 10 tests
+Plugin export save-path helpers (`src/utils/pluginExportPath.ts`).
+- `pluginExtensionForType`: VST3 (including ARA) → `.vst3`, CLAP → `.clap`, AUv2 → `.component`.
+- `ensurePluginExtension`: appends a missing extension (the `~/.vst3/RotaryNotary` regression), leaves existing/mixed-case extensions alone, handles spaces and Windows paths.
+- `pluginNameFromPath`: strips only the plugin extension from POSIX/Windows paths.
+
+### `validateInstallation.test.ts` — 72 tests
 Report-only installation probes (`src/validateInstallation.ts`).
 - `normalizeSourceDirs`.
 - `checkSettingsFile`: missing, invalid JSON, absent `currentConfig`, healthy.
@@ -100,8 +119,10 @@ Report-only installation probes (`src/validateInstallation.ts`).
 - `checkServiceBinary`: public, Pro-preferred, Pro-disabled fallback, missing Pro.
 - `checkCsoundPresent`: macOS bundle, Windows PATH, `csound7_64.dll`, legacy `csound64.dll`, none.
 - `checkServiceBinaryExecutable`: exec bit, missing bit, Pro selection, skips, Windows, `stat` failure.
-- `checkPluginBinaries`: required/optional presence, single-file plugins, macOS/Windows/Linux bundle layouts, architecture match/mismatch/unknown, hostile directory listing.
-- `runAllChecks`/`summarize`/`formatReport`: ten results, hostile inputs never throw, healthy env, formatted failure report.
+- `checkServiceBinaryArch`: match/mismatch/unknown, missing binary, Pro selection.
+- `checkServiceBinaryGlibc`: non-Linux, compatible/too-new glibc (the `GLIBC_2.43` packaging regression), unknown host, unreadable ELF, static/musl binaries, Pro selection.
+- `checkPluginBinaries`: required/optional presence, single-file plugins, macOS/Windows/Linux bundle layouts, architecture match/mismatch/unknown, glibc match/mismatch, hostile directory listing.
+- `runAllChecks`/`summarize`/`formatReport`: eleven results, hostile inputs never throw, healthy env, formatted failure report.
 
 ### `widgetDirectories.test.ts` — 18 tests
 Pure custom-widget path helpers (`src/utils/widgetDirectories.ts`).
@@ -198,5 +219,6 @@ These are known gaps (see the plan notes; adding them should also add an entry h
 
 - Real Csound backend round-trips (actual audio, `prints`/`printks` output). The fake-backend test covers the extension→backend pipe, but not the Csound engine itself (needs the packaged binary).
 - Full widget-interaction simulation for geometry-heavy widgets (sliders, combo boxes, genTable, …) under jsdom. Only the discrete-click widgets (button, checkBox, optionButton) and label pointer-events are covered so far.
+- End-to-end plugin export (bundle copying, binary renaming, resource placement). Unit coverage is limited to the platform resource-root helper (`cabbageResourcePath.test.ts`).
 - Widget insert/edit/duplicate flows driven from the webview (need webview command simulation).
 - Cabbage 2 instrument import and `goToDefinition`/`jumpToWidgetObject` (need dialog mocking/editor fixtures).

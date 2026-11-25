@@ -14,6 +14,7 @@
  */
 
 import { BinaryArch, isCompatibleArch } from './utils/binaryArch';
+import { compareGlibcVersions, highestGlibcVersion } from './utils/elfGlibc';
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
 
@@ -80,6 +81,17 @@ export interface ValidationEnv {
     hostArch: string;
     /** Reads a native binary's architecture from its header. */
     readBinaryArch: (p: string) => BinaryArch;
+    /**
+     * Reads the `GLIBC_*` symbol versions a Linux ELF binary requires.
+     * Returns undefined when the file is unreadable / not an ELF image.
+     */
+    readGlibcRequirements: (p: string) => string[] | undefined;
+    /**
+     * Host glibc version such as '2.39' (Node's
+     * `process.report.header.glibcVersionRuntime`), or undefined when it
+     * cannot be determined or the platform is not glibc Linux.
+     */
+    hostGlibcVersion?: string;
     /** Plugin binaries used by the export commands. */
     pluginBinaries: PluginBinarySpec[];
     /** True when `p` is a directory (e.g. a plugin bundle) rather than a file. */
@@ -228,6 +240,76 @@ export function checkServiceBinaryArch(env: ValidationEnv): CheckResult {
     return {
         ...base, status: 'pass',
         detail: `Backend architecture (${binaryArch}) is compatible with this machine (${env.hostArch})`,
+    };
+}
+
+/**
+ * Returns a short description when a Linux ELF binary requires a newer glibc
+ * than the host provides, or undefined when it is compatible (or the check is
+ * not applicable). glibc is forward-compatible only: a binary built on a
+ * newer distro fails to start on an older one with "version `GLIBC_x.y' not
+ * found", which is what this catches without executing the binary.
+ */
+function glibcIncompatibility(binaryPath: string, env: ValidationEnv): string | undefined {
+    if (env.platform !== 'linux' || !env.hostGlibcVersion) {
+        return undefined;
+    }
+    let required: string[] | undefined;
+    try {
+        required = env.readGlibcRequirements(binaryPath);
+    } catch {
+        required = undefined;
+    }
+    const newest = required ? highestGlibcVersion(required) : undefined;
+    if (!newest) {
+        return undefined;
+    }
+    return compareGlibcVersions(newest, env.hostGlibcVersion) > 0
+        ? `requires glibc ${newest} but this machine has glibc ${env.hostGlibcVersion}`
+        : undefined;
+}
+
+export function checkServiceBinaryGlibc(env: ValidationEnv): CheckResult {
+    const base = { id: 'serviceBinaryGlibc', label: 'Cabbage Server C library (glibc) compatibility' };
+    if (env.platform !== 'linux') {
+        return { ...base, status: 'pass', detail: 'Not applicable on this platform' };
+    }
+    // Same Pro/public precedence as the other binary probes.
+    const usingPro = env.proServiceBinaryPath !== '' && env.proAppEnabled;
+    const binaryPath = usingPro ? env.proServiceBinaryPath : env.cabbageAppBinaryPath;
+    if (!binaryPath || !env.exists(binaryPath)) {
+        // checkServiceBinary() already reports the missing/unresolvable binary.
+        return { ...base, status: 'warn', detail: 'Skipped: binary could not be resolved or is missing' };
+    }
+    if (!env.hostGlibcVersion) {
+        return { ...base, status: 'warn', detail: 'Could not determine this machine\'s glibc version; skipped' };
+    }
+    let required: string[] | undefined;
+    try {
+        required = env.readGlibcRequirements(binaryPath);
+    } catch {
+        required = undefined;
+    }
+    if (required === undefined) {
+        return { ...base, status: 'warn', detail: `Could not read the ELF version requirements of ${binaryPath}` };
+    }
+    const newest = highestGlibcVersion(required);
+    if (!newest) {
+        return {
+            ...base, status: 'pass',
+            detail: `No glibc symbol version requirements found in ${binaryPath} (statically linked, or not a glibc ELF binary)`,
+        };
+    }
+    if (compareGlibcVersions(newest, env.hostGlibcVersion) > 0) {
+        return {
+            ...base, status: 'fail',
+            detail: `The bundled backend requires glibc ${newest}, but this machine has glibc ${env.hostGlibcVersion} (${binaryPath})`,
+            remedy: `This package was built on a newer Linux distribution than this machine, so the backend cannot start ("version \`GLIBC_${newest}' not found"). Install a Cabbage extension build made for glibc ${env.hostGlibcVersion} or older (rebuild the linux-x64 VSIX on Ubuntu 22.04), or upgrade this machine's Linux distribution. Pointing cabbage.pathToCabbageBinary at a locally built CabbageApp also avoids the bundled binary.`,
+        };
+    }
+    return {
+        ...base, status: 'pass',
+        detail: `Backend requires glibc ${newest}; this machine has glibc ${env.hostGlibcVersion}`,
     };
 }
 
@@ -418,12 +500,23 @@ export function checkPluginBinaries(env: ValidationEnv): CheckResult {
             lines.push(`${icon} ${spec.type}: ${arch} binary on ${env.hostArch} host — ${resolved.binaryPath}`);
             continue;
         }
+        const glibcIssue = glibcIncompatibility(resolved.binaryPath, env);
+        if (glibcIssue) {
+            if (spec.required) {
+                requiredFailure = true;
+            } else {
+                warning = true;
+            }
+            const icon = spec.required ? '✗' : '⚠';
+            lines.push(`${icon} ${spec.type}: ${glibcIssue} — ${resolved.binaryPath}`);
+            continue;
+        }
         lines.push(`✓ ${spec.type}: ${resolved.binaryPath} (${arch})`);
     }
 
     const status: CheckStatus = requiredFailure ? 'fail' : warning ? 'warn' : 'pass';
     const remedy = status === 'fail'
-        ? 'Reinstall the Cabbage extension for this OS/architecture, or point cabbage.pathToCabbageBinary at a complete CabbageBinaries directory containing the plugin binaries for this platform.'
+        ? 'Reinstall the Cabbage extension, or point cabbage.pathToCabbageBinary at a complete CabbageBinaries directory containing the plugin binaries for this platform. A "requires glibc ... but this machine has glibc ..." line means the package was built on a newer Linux distribution than this machine: install a build made for this glibc version (the linux-x64 VSIX is built on Ubuntu 22.04), or upgrade the OS.'
         : status === 'warn'
             ? 'Some plugin formats are missing or could not be verified. Reinstall the extension if you need to export those formats.'
             : undefined;
@@ -586,6 +679,7 @@ export function runAllChecks(env: ValidationEnv): CheckResult[] {
     safe(() => checkServiceBinary(env), 'serviceBinary', 'Cabbage Server');
     safe(() => checkServiceBinaryExecutable(env), 'serviceBinaryExecutable', 'Cabbage Server is executable');
     safe(() => checkServiceBinaryArch(env), 'serviceBinaryArch', 'Cabbage Server architecture matches this machine');
+    safe(() => checkServiceBinaryGlibc(env), 'serviceBinaryGlibc', 'Cabbage Server C library (glibc) compatibility');
     safe(() => checkPluginBinaries(env), 'pluginBinaries', 'Export plugin binaries');
     safe(() => checkSettingsFile(env), 'settingsFile', 'Settings file');
     const parsed = parseSettings(env.settingsFileText);

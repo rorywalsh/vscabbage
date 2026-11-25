@@ -57,8 +57,25 @@ import os from 'os';
 import { reorderWidgets } from './utils/widgetSorter';
 import { convertCabbage2ToCabbage3 } from './utils/cabbage2converter';
 import { isCompatibleArch, readBinaryArch } from './utils/binaryArch';
+import { readGlibcRequirements } from './utils/elfGlibc';
+import { ensurePluginExtension, pluginNameFromPath } from './utils/pluginExportPath';
+import { normalizePackageIncludeEntry, packageIncludeBase } from './utils/packageInclude';
 import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec } from './validateInstallation';
 // setupWebSocketServer no longer needed - using pipes
+
+const CABBAGE_STATUS_ICON = '$(cabbage-logo)';
+
+function updateCabbageStatusBar(running: boolean) {
+    if (!cabbageStatusBarItem) {
+        return;
+    }
+    cabbageStatusBarItem.text = `${CABBAGE_STATUS_ICON} ${running ? 'Stop' : 'Start'} Cabbage`;
+    cabbageStatusBarItem.color = new vscode.ThemeColor('charts.green');
+    cabbageStatusBarItem.tooltip = running
+        ? 'Cabbage server is running. Click to stop it.'
+        : 'Cabbage server is stopped. Click to start it.';
+    cabbageStatusBarItem.show();
+}
 
 /**
  * The Commands class encapsulates the functionalities of the VSCode extension,
@@ -969,15 +986,10 @@ export class Commands {
     static createStatusBarIcon(context: vscode.ExtensionContext) {
         if (!cabbageStatusBarItem) {
             cabbageStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-
-            // Set the text and icon for the status bar item
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-
-            // Optional: Make the status bar item clickable (command)
+            cabbageStatusBarItem.name = 'Cabbage';
             cabbageStatusBarItem.command = 'cabbage.manageServer';
 
-            // Show the status bar item
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
 
             // Push the item to the context's subscriptions so it gets disposed when the
             // extension is deactivated
@@ -1184,13 +1196,11 @@ export class Commands {
                 // architecture, missing/corrupt binary, spawn error). Keep the
                 // status bar honest so a failed start doesn't masquerade as a
                 // running server.
-                cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-                cabbageStatusBarItem.show();
+                updateCabbageStatusBar(false);
                 this.cabbageServerStarted = false;
                 return;
             }
-            cabbageStatusBarItem.text = `$(unmute) Stop Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(true);
             this.cabbageServerStarted = true;
             vscode.window.showInformationMessage('Cabbage server started');
 
@@ -1231,8 +1241,7 @@ export class Commands {
                 return ExtensionUtils.terminateProcess(p);
             });
 
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
             this.cabbageServerStarted = false;
             vscode.window.showInformationMessage('Cabbage server stopped');
         }
@@ -1623,8 +1632,7 @@ export class Commands {
             // public "is the server running" state honest so a dead process
             // doesn't masquerade as a running one.
             this.cabbageServerStarted = false;
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
         });
 
         backend.on('exit', (code, signal) => {
@@ -1642,8 +1650,7 @@ export class Commands {
 
             // Same honesty reset as the error handler above.
             this.cabbageServerStarted = false;
-            cabbageStatusBarItem.text = `$(mute) Run Cabbage`;
-            cabbageStatusBarItem.show();
+            updateCabbageStatusBar(false);
 
             this.vscodeOutputChannel.appendLine('=== CABBAGE PROCESS EXIT ===');
             this.vscodeOutputChannel.appendLine(`Exit code: ${code}`);
@@ -3084,6 +3091,19 @@ export class Commands {
                 return false;
             }
         };
+        // Node reports the glibc it is linked against, which is the same
+        // loader CabbageApp will use. Absent on musl/Alpine and non-Linux.
+        let hostGlibcVersion: string | undefined;
+        if (os.platform() === 'linux') {
+            try {
+                const report = process.report?.getReport() as unknown as {
+                    header?: { glibcVersionRuntime?: string };
+                } | undefined;
+                hostGlibcVersion = report?.header?.glibcVersionRuntime;
+            } catch {
+                hostGlibcVersion = undefined;
+            }
+        }
         const env: ValidationEnv = {
             platform: os.platform(),
             settingsPath,
@@ -3099,6 +3119,8 @@ export class Commands {
             isExecutable,
             hostArch: process.arch,
             readBinaryArch,
+            readGlibcRequirements,
+            hostGlibcVersion,
             realpath: (p: string): string => fs.realpathSync(p),
             pluginBinaries,
             isDirectory,
@@ -3483,10 +3505,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
         const shouldEncrypt = encryptChoice === 'Yes';
 
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
-        const pluginName = path.basename(destinationPath,
-            type.includes('CLAP') ? '.clap' :
-                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        // Hosts discover VST3/AU bundles by their extension, and Linux save
+        // dialogs often return a name without one. Normalise before copying.
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
+        const pluginName = pluginNameFromPath(destinationPath, type);
 
         // Get Pro binary path
         let binaryFile = '';
@@ -4198,17 +4220,18 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
     /**
      * Processes package.include entries and copies files to the destination directory.
-     * Each entry must be an object with { src: string, dest: string }
+     * Each entry must be an object with { src: string, dest?: string }
      * - src: source path (absolute or relative to CSD directory), can include glob patterns
-     * - dest: destination path (must be relative), where files will be placed
+     * - dest: optional destination directory (must be relative); defaults to the
+     *   top level of the resources directory
      *
-     * @param packageInclude - Array of { src, dest } objects
+     * @param packageInclude - Array of { src, dest? } objects
      * @param csdDir - Directory containing the CSD file (for resolving relative paths)
      * @param destDir - Destination directory where files will be copied
      * @returns true if successful, false if there was a validation error
      */
     private static async processPackageIncludes(
-        packageInclude: Array<{ src: string; dest: string }>,
+        packageInclude: Array<{ src: string; dest?: string }>,
         csdDir: string,
         destDir: string
     ): Promise<boolean> {
@@ -4216,20 +4239,19 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
         Commands.vscodeOutputChannel.appendLine(`Export: Processing package.include entries...`);
 
-        for (const entry of packageInclude) {
-            // Validate entry format
-            if (!entry || typeof entry !== 'object' || !entry.src || !entry.dest) {
-                Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest }. Skipping: ${JSON.stringify(entry)}`);
+        for (const rawEntry of packageInclude) {
+            const normalized = normalizePackageIncludeEntry(rawEntry);
+            if (!normalized.ok) {
+                if (normalized.error === 'absolute-dest') {
+                    vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${normalized.dest}"`);
+                    return false;
+                }
+
+                Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest? }. Skipping: ${JSON.stringify(rawEntry)}`);
                 continue;
             }
 
-            const { src, dest } = entry;
-
-            // Validate dest is not an absolute path
-            if (path.isAbsolute(dest)) {
-                vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${dest}"`);
-                return false;
-            }
+            const { src, dest } = normalized.entry;
 
             // Resolve src - could be absolute or relative to CSD directory
             const resolvedSrc = path.isAbsolute(src) ? src : path.join(csdDir, src);
@@ -4238,9 +4260,10 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             // Check if src is a directory (no glob pattern)
             const hasGlobPattern = src.includes('*');
+            const isDirectory = !hasGlobPattern && fs.existsSync(resolvedSrc) && fs.statSync(resolvedSrc).isDirectory();
             let matchedFiles: string[];
 
-            if (!hasGlobPattern && fs.existsSync(resolvedSrc) && fs.statSync(resolvedSrc).isDirectory()) {
+            if (isDirectory) {
                 // It's a directory - match all files recursively
                 matchedFiles = glob.sync(path.join(resolvedSrc, '**/*'), { nodir: true });
             } else {
@@ -4250,10 +4273,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             Commands.vscodeOutputChannel.appendLine(`Export: Found ${matchedFiles.length} files`);
 
-            // Get the base directory for calculating relative paths within the source
-            const srcBase = hasGlobPattern
-                ? resolvedSrc.split('*')[0].replace(/\/+$/, '')
-                : resolvedSrc;
+            // Get the base directory for calculating relative paths within the source.
+            // A single file keeps its own name instead of collapsing `dest` into a file.
+            const srcBase = packageIncludeBase(resolvedSrc, isDirectory);
 
             for (const srcFile of matchedFiles) {
                 // Calculate the relative path from the source base
@@ -4405,8 +4427,8 @@ include $(SYSTEM_FILES_DIR)/Makefile
         }
 
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
-        const pluginName = path.basename(destinationPath, '.vst3');
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
+        const pluginName = pluginNameFromPath(destinationPath, type);
 
         let binaryFile = '';
         switch (type) {
@@ -4751,11 +4773,9 @@ i2 5 z
 
         //this.getOutputChannel().appendLine(`Error, please fix the default assets directory`);
         const config = vscode.workspace.getConfiguration('cabbage');
-        const destinationPath = fileUri.fsPath;
+        const destinationPath = ensurePluginExtension(fileUri.fsPath, type);
         const indexDotHtml = ExtensionUtils.getIndexHtml();
-        const pluginName = path.basename(destinationPath,
-            type.includes('CLAP') ? '.clap' :
-                type.indexOf('VST3') !== -1 ? '.vst3' : '.component');
+        const pluginName = pluginNameFromPath(destinationPath, type);
         let jsSource = "";
         if (os.platform() === 'win32') {
             jsSource = config.get<string>('pathToJsSourceWindows') || '';

@@ -119,6 +119,43 @@ jobs:
       - name: Run integration tests
         run: xvfb-run -a npm run test:integration
 
+  # The installers are only built after merge (see the build_* job conditions),
+  # so a dependency bump can pass every test above and still break `vsce
+  # package` or the production webpack bundle. This cheap job runs on every PR
+  # (including Dependabot) and exercises exactly those two steps with the
+  # versions pinned in package-lock.json.
+  package_smoke:
+    name: Packaging smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # @vscode/vsce declares node >= 22; keep this in step with the
+          # packaging jobs' Node version.
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production webpack bundle
+        run: npm run package
+
+      # `npm exec` runs the devDependency installed above, so this checks the
+      # version in package-lock.json rather than whatever `vsce` is latest.
+      # --no-dependencies skips the production dependency audit; the real
+      # release jobs still package with the bundled binaries.
+      - name: Package a smoke-test VSIX
+        run: npm exec -- vsce package --target linux-x64 --no-dependencies --out "$RUNNER_TEMP/smoke.vsix"
+
+      - name: Verify the VSIX was produced
+        run: test -s "$RUNNER_TEMP/smoke.vsix"
+
   build_macos:
     needs: generate_tag
     runs-on: macos-latest
@@ -377,16 +414,13 @@ jobs:
           path: "./src/CabbageBinaries/CabbagePluginSynthARA.vst3"
         continue-on-error: true
 
-      - name: Set up Node.js (v20) on macOS
+      - name: Set up Node.js (v24) on macOS
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies on macOS
         run: npm install
-
-      - name: Install vsce on macOS
-        run: npm install -g @vscode/vsce
 
       # actions/upload-artifact zips files and drops their modes, so the
       # `chmod +x` applied to the built CabbageApp earlier in this job does not
@@ -407,7 +441,7 @@ jobs:
         # Declare the platform target so VS Code refuses to install this
         # ARM64 macOS build on an Intel Mac (and vice versa) instead of
         # shipping a backend that can never launch.
-        run: vsce package --target darwin-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
+        run: npm exec -- vsce package --target darwin-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 
       - name: Upload VSIX artifact from macOS
         uses: actions/upload-artifact@v4
@@ -606,10 +640,10 @@ jobs:
           Write-Host "Updating package.json with version $env:VERSION"
           jq --arg version "$env:VERSION" '.version = $version' package.json | Set-Content package.json
 
-      - name: Set up Node.js (v18) on Windows
+      - name: Set up Node.js (v24) on Windows
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies on Windows
         run: npm install
@@ -671,13 +705,10 @@ jobs:
           path: "./src/CabbageBinaries"
         continue-on-error: true
 
-      - name: Install vsce on Windows
-        run: npm install -g @vscode/vsce
-
       - name: Build and package extension on Windows
         # Declare the platform target so the Marketplace serves the x64
         # binaries only to x64 users (win32-arm64 accepts x64 packages).
-        run: vsce package --target win32-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
+        run: npm exec -- vsce package --target win32-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
 
       - name: Upload VSIX artifact from Windows
         uses: actions/upload-artifact@v4
@@ -865,10 +896,10 @@ jobs:
           Write-Host "Updating package.json with version $env:VERSION"
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
-      - name: Set up Node.js (v20) on Windows ARM64
+      - name: Set up Node.js (v24) on Windows ARM64
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies on Windows ARM64
         run: npm install
@@ -930,13 +961,10 @@ jobs:
           path: "./src/CabbageBinaries"
         continue-on-error: true
 
-      - name: Install vsce on Windows ARM64
-        run: npm install -g @vscode/vsce
-
       - name: Build and package extension on Windows ARM64
         # Declare the platform target so the Marketplace serves the ARM64
         # binaries only to ARM64 users.
-        run: vsce package --target win32-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
+        run: npm exec -- vsce package --target win32-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
 
       - name: Upload VSIX artifact from Windows ARM64
         uses: actions/upload-artifact@v4
@@ -950,7 +978,14 @@ jobs:
 
   build_linux:
     needs: generate_tag
-    runs-on: ubuntu-latest
+    # Build against the OLDEST glibc we support, not ubuntu-latest. Since
+    # November 2026 ubuntu-latest is Ubuntu 26.04 (glibc 2.43); a binary built
+    # there refuses to start on Ubuntu 24.04 (glibc 2.39) or 22.04 (glibc 2.35)
+    # with "version `GLIBC_2.43' not found". glibc symbol versioning is only
+    # forward-compatible, so the VSIX must be produced on an older distro.
+    # ubuntu-22.04 is deprecated on 2027-04-17; before then, move this job into
+    # an ubuntu:22.04 container (or equivalent) to keep the 2.35 floor.
+    runs-on: ubuntu-22.04
     if: (github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, 'run_build')) && !contains(github.event.head_commit.message, '[auto-changelog]')
     steps:
       - name: Checkout source code for cabbage3
@@ -1096,16 +1131,13 @@ jobs:
           path: "./src/CabbageBinaries"
         continue-on-error: false
 
-      - name: Set up Node.js (v20) on Linux
+      - name: Set up Node.js (v24) on Linux
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies on Linux
         run: npm install
-
-      - name: Install vsce on Linux
-        run: npm install -g @vscode/vsce
 
       # actions/upload-artifact zips files and drops their modes, so the
       # executable bit on the built CabbageApp does not survive the
@@ -1122,10 +1154,42 @@ jobs:
           fi
           ls -l ./src/CabbageBinaries/CabbageApp
 
+      # Packaging on an older runner is only useful if the binaries actually
+      # link against that runner's glibc. Fail the build (rather than shipping
+      # a VSIX that cannot launch on users' machines) if any bundled binary
+      # needs a newer libc than the ubuntu-22.04 floor.
+      - name: Verify bundled Linux binaries target glibc 2.35
+        run: |
+          set -euo pipefail
+          max_glibc="2.35"
+          mapfile -t bins < <(find ./src/CabbageBinaries -type f \
+            \( -name 'CabbageApp' -o -name '*.so' -o -name '*.clap' \) | sort)
+          if [ ${#bins[@]} -eq 0 ]; then
+            echo "::error::No bundled Linux binaries found to verify"
+            exit 1
+          fi
+          failed=0
+          for bin in "${bins[@]}"; do
+            required=$(objdump -T "$bin" 2>/dev/null \
+              | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' \
+              | sed 's/^GLIBC_//' | sort -Vu | tail -n1)
+            if [ -z "$required" ]; then
+              echo "$bin: no glibc symbol versions"
+              continue
+            fi
+            echo "$bin: requires glibc $required"
+            newest=$(printf '%s\n%s\n' "$max_glibc" "$required" | sort -V | tail -n1)
+            if [ "$newest" != "$max_glibc" ]; then
+              echo "::error::$bin requires glibc $required, newer than the $max_glibc floor"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
       - name: Build and package extension on Linux
         # Declare the platform target so VS Code refuses to install the x64
         # Linux build on other architectures.
-        run: vsce package --target linux-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
+        run: npm exec -- vsce package --target linux-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
 
       - name: Upload VSIX artifact from Linux
         uses: actions/upload-artifact@v4

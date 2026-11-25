@@ -25,6 +25,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "icons": {
+      "cabbage-logo": {
+        "description": "Cabbage logo",
+        "default": {
+          "fontPath": "assets/cabbage-icon.woff",
+          "fontCharacter": "\\e900"
+        }
+      }
+    },
     "languages": [
       {
         "id": "jsonc",

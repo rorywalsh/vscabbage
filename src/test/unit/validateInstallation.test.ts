@@ -7,6 +7,7 @@ import {
     checkServiceBinary,
     checkServiceBinaryExecutable,
     checkServiceBinaryArch,
+    checkServiceBinaryGlibc,
     checkPluginBinaries,
     resolvePluginBundleBinary,
     checkSettingsFile,
@@ -36,6 +37,8 @@ function baseEnv(overrides: Partial<ValidationEnv> = {}): ValidationEnv {
         isExecutable: () => true,
         hostArch: 'x64',
         readBinaryArch: () => 'x64',
+        readGlibcRequirements: () => [],
+        hostGlibcVersion: undefined,
         pluginBinaries: [
             { type: 'VST3 effect', path: '/ext/bin/CabbagePluginEffect.vst3', required: true },
         ],
@@ -320,6 +323,76 @@ describe('checkServiceBinaryArch', () => {
     });
 });
 
+describe('checkServiceBinaryGlibc', () => {
+    it('passes on non-Linux platforms without probing', () => {
+        const r = checkServiceBinaryGlibc(baseEnv());
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('Not applicable'));
+    });
+    it('passes when the binary needs an older glibc than the host', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => ['2.2.5', '2.34'],
+        }));
+        assert.strictEqual(r.status, 'pass');
+        assert.ok(r.detail.includes('2.34'));
+        assert.ok(r.detail.includes('2.39'));
+    });
+    it('fails when the binary needs a newer glibc than the host', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => ['2.2.5', '2.43'],
+        }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('2.43'));
+        assert.ok(r.detail.includes('2.39'));
+        assert.ok(r.remedy && r.remedy.includes('GLIBC_2.43'));
+    });
+    it('warns when the host glibc version cannot be determined', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: undefined,
+            readGlibcRequirements: () => ['2.43'],
+        }));
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.detail.includes('glibc version'));
+    });
+    it('warns when the binary is missing so checkServiceBinary owns that failure', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({ platform: 'linux', exists: () => false }));
+        assert.strictEqual(r.status, 'warn');
+    });
+    it('warns when the ELF requirements cannot be read', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => undefined,
+        }));
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.detail.includes('Could not read'));
+    });
+    it('passes for a binary without glibc requirements (static/musl)', () => {
+        const r = checkServiceBinaryGlibc(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => [],
+        }));
+        assert.strictEqual(r.status, 'pass');
+    });
+    it('checks the Pro binary when the Pro app is configured and enabled', () => {
+        const seen: string[] = [];
+        const env = baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            proServiceBinaryPath: '/pro/CabbageApp',
+            readGlibcRequirements: (p) => { seen.push(p); return ['2.34']; },
+        });
+        checkServiceBinaryGlibc(env);
+        assert.deepStrictEqual(seen, ['/pro/CabbageApp']);
+    });
+});
+
 describe('checkPluginBinaries', () => {
     it('passes for a single-file plugin with a compatible architecture', () => {
         const r = checkPluginBinaries(baseEnv());
@@ -441,6 +514,37 @@ describe('checkPluginBinaries', () => {
         assert.ok(r.detail.includes('could not determine architecture'));
     });
 
+    it('fails a required plugin that needs a newer glibc than the host', () => {
+        const r = checkPluginBinaries(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => ['2.43'],
+        }));
+        assert.strictEqual(r.status, 'fail');
+        assert.ok(r.detail.includes('requires glibc 2.43'));
+        assert.ok(r.remedy && r.remedy.includes('Ubuntu 22.04'));
+    });
+
+    it('warns when only an optional plugin needs a newer glibc', () => {
+        const r = checkPluginBinaries(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            pluginBinaries: [{ type: 'AUv2 effect', path: '/ext/bin/CabbagePluginEffectAUv2.component', required: false }],
+            readGlibcRequirements: () => ['2.43'],
+        }));
+        assert.strictEqual(r.status, 'warn');
+        assert.ok(r.detail.includes('requires glibc 2.43'));
+    });
+
+    it('passes plugins that target the host glibc or older', () => {
+        const r = checkPluginBinaries(baseEnv({
+            platform: 'linux',
+            hostGlibcVersion: '2.39',
+            readGlibcRequirements: () => ['2.2.5', '2.34'],
+        }));
+        assert.strictEqual(r.status, 'pass');
+    });
+
     it('warns when no plugin binaries are configured', () => {
         const r = checkPluginBinaries(baseEnv({ pluginBinaries: [] }));
         assert.strictEqual(r.status, 'warn');
@@ -469,7 +573,7 @@ describe('checkPluginBinaries', () => {
 });
 
 describe('runAllChecks', () => {
-    it('returns 10 results and never throws on hostile inputs', () => {
+    it('returns 11 results and never throws on hostile inputs', () => {
         const env = baseEnv({
             settingsFileText: '{broken',
             exists: () => { throw new Error('fs boom'); },
@@ -477,7 +581,7 @@ describe('runAllChecks', () => {
             isExecutable: () => { throw new Error('stat boom'); },
         });
         const results = runAllChecks(env);
-        assert.strictEqual(results.length, 10);
+        assert.strictEqual(results.length, 11);
         assert.ok(results.every((r) => r.id && r.label && r.detail));
     });
     it('a healthy env produces zero fails and warns', () => {
