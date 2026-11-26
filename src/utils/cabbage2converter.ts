@@ -57,6 +57,8 @@ export interface ConvertResult {
     comboChannels: Set<string>;
     /** set of soundfiler identChannel names (→ genTable; need tableNumber/file wiring) */
     soundfilerIdents: Set<string>;
+    /** popup plant channel → matching button channel (e.g. clfiltPlant → clfiltButton) */
+    popupPlants: Map<string, string>;
     /** number of rotary sliders whose bounds were scaled for Cabbage 3 */
     scaledRotarySliders: number;
     /** number of horizontal sliders whose height was scaled for Cabbage 3 */
@@ -627,6 +629,11 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             } else if (isButtonFamily && vals.length > 1) {
                 w.json.label = w.json.label || {};
                 w.json.label.text = { off: vals[0], on: vals[1] };
+            } else if (isButtonFamily) {
+                // Cabbage 3 buttons (button/infoButton/fileButton/optionButton)
+                // read label.text.on/off; a single Cabbage 2 text() maps to both.
+                w.json.label = w.json.label || {};
+                w.json.label.text = { on: vals[0], off: vals[0] };
             } else {
                 w.json.label = w.json.label || {};
                 w.json.label.text = vals[0];
@@ -1136,25 +1143,47 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         }
     } else if (parsed.isPlant) {
         // Plant container keeps its original type (image stays image, groupbox
-        // stays groupBox); the plant() grouping is dropped. Children's bounds are
-        // RELATIVE to the plant container, so offset them by the container's
-        // top-left before flattening.
+        // stays groupBox). Keep the children nested on the container instead of
+        // flattening them; children bounds stay RELATIVE to the container and
+        // insertChildWidgets adds the parent offset at render time.
         const container = build();
-        widgets.push(container);
-        const ox = container.bounds?.left ?? 0;
-        const oy = container.bounds?.top ?? 0;
+        const children: Record<string, any>[] = [];
         for (const child of parsed.children || []) {
             const childWidgets = convertWidget(child, warnings, identToChannel, channels, comboChannels, soundfilerIdents, counter);
-            if (ox !== 0 || oy !== 0) {
-                for (const cw of childWidgets) {
-                    if (cw.bounds) {
-                        cw.bounds.left = (cw.bounds.left ?? 0) + ox;
-                        cw.bounds.top = (cw.bounds.top ?? 0) + oy;
-                    }
+            for (const cw of childWidgets) {
+                // Give each child a top-level id derived from its channel so the
+                // backend never auto-assigns one.
+                if (!cw.id && cw.channels && cw.channels[0] && cw.channels[0].id) {
+                    cw.id = cw.channels[0].id;
                 }
+                children.push(cw);
             }
-            widgets.push(...childWidgets);
         }
+        if (children.length > 0) {
+            container.children = children;
+        }
+        // Cabbage 2 popup plants opened as separate windows; in Cabbage 3 they
+        // become an in-form group that starts hidden and is toggled by its button.
+        // Cabbage 3 has no popup window, so park every popup group in a single
+        // shared slot (top-left) away from its launch button — the buttons must
+        // stay clickable to close the group again.
+        if (container.popup === true) {
+            container.visible = false;
+            if (container.bounds) {
+                container.bounds.left = 0;
+                container.bounds.top = 0;
+            }
+            // Render the popup group (and its children) above every other widget.
+            // The children are separate DOM nodes, so give each one an explicit
+            // high z-index too — the child renderer's own z-index derivation has
+            // proven unreliable here, and a container z-index alone leaves the
+            // children behind the container's opaque background.
+            container.zIndex = 5000;
+            for (const child of children) {
+                child.zIndex = 5001;
+            }
+        }
+        widgets.push(container);
     } else {
         widgets.push(build());
     }
@@ -1291,6 +1320,29 @@ export function convertCabbage2Section(content: string): ConvertResult {
         usedWidgetIds.add(uniqueId);
     }
 
+    // Cabbage 2 popup plants: a button opens a separate window. In Cabbage 3 the
+    // plant becomes a hidden in-form group toggled by that button. Record the
+    // plant channel → button channel pairing and make the button latched so its
+    // value drives the group's visibility.
+    const popupPlants = new Map<string, string>();
+    for (const w of ordered) {
+        if (w.popup === true && w.channels && w.channels[0] && w.channels[0].id) {
+            const plant = w.channels[0].id as string;
+            const base = plant.endsWith('Plant') ? plant.slice(0, -5) : plant;
+            popupPlants.set(plant, `${base}Button`);
+        }
+    }
+    for (const w of ordered) {
+        if (w.type === 'button' && w.channels && w.channels[0] && w.channels[0].id) {
+            for (const button of popupPlants.values()) {
+                if (w.channels[0].id === button) {
+                    w.latched = true;
+                    break;
+                }
+            }
+        }
+    }
+
     return {
         json: JSON.stringify(root, null, 4),
         warnings,
@@ -1298,6 +1350,7 @@ export function convertCabbage2Section(content: string): ConvertResult {
         channels,
         comboChannels,
         soundfilerIdents,
+        popupPlants,
         scaledRotarySliders: counter.scaledRotary,
         scaledHorizontalSliders: counter.scaledHorizontal,
     };
@@ -2177,6 +2230,41 @@ function spaceTernaryOperators(text: string): { text: string; changes: number } 
 }
 
 /**
+ * Rewrite Cabbage 2 plant-launch blocks into Cabbage 3 visibility toggles.
+ *
+ * A Cabbage 2 popup plant was opened with a button:
+ *
+ *     kpressed chnget "clfiltButton"
+ *     if changed(kpressed)==1 then
+ *         Smsg sprintfk "visible(%d), pos(1, 19)", klaunch
+ *         chnset Smsg, "clfiltPlant"
+ *     endif
+ *
+ * The converter makes the button latched, so its value toggles 0/1, and the
+ * plant group starts hidden. This rewrites the block to drive the group's
+ * visibility directly from the button value:
+ *
+ *     kpressed cabbageGetValue "clfiltButton"
+ *     cabbageSet 1, "clfiltPlant", "visible", kpressed
+ */
+function rewritePlantPopups(text: string, popupPlants: Set<string>): string {
+    if (popupPlants.size === 0) return text;
+    for (const plant of popupPlants) {
+        const escaped = plant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(
+            `\\bif\\s+changed\\(([A-Za-z_][\\w]*)\\)\\s*==\\s*1\\s+then\\s*\\n` +
+            `(\\s*)([A-Za-z_][\\w]*)\\s+sprintfk\\s+"visible\\(%d\\),\\s*pos\\([^)]*\\)"\\s*,\\s*[A-Za-z_][\\w]*\\s*\\n` +
+            `\\s*chnset\\s+\\3\\s*,\\s*"${escaped}"\\s*\\n` +
+            `\\s*endif`,
+            'g',
+        );
+        text = text.replace(re, (_m, btnVar: string, indent: string) =>
+            `${indent}cabbageSet 1, "${plant}", "visible", ${btnVar}`);
+    }
+    return text;
+}
+
+/**
  * Rewrite `chnget`/`chnset` calls in the orchestra into Cabbage 3 opcodes.
  * Csound syntax has no parentheses: `chnget "chan"` and `chnset value, "chan"`.
  * `mouseToConvert` lists the MOUSE_* channels the caller decided to convert
@@ -2190,6 +2278,7 @@ export function rewriteOrchestra(
     comboChannels: Set<string> = new Set(),
     soundfilerLoading: Map<string, { tableNumber?: number; file?: string }> = new Map(),
     mouseToConvert: Set<string> = new Set(),
+    popupPlants: Set<string> = new Set(),
 ): CsoundRewriteResult {
     let text = orchestraText;
     let changes = 0;
@@ -2260,6 +2349,13 @@ export function rewriteOrchestra(
         }
         return `${varName} cabbageGetValue "${chan}"`;
     });
+
+    // Plant popup launches → visibility toggles. Run before the chnset handler so
+    // the `chnset Smsg, "<plant>Plant"` line is consumed here rather than left
+    // as a manual-review comment.
+    if (popupPlants.size > 0) {
+        text = rewritePlantPopups(text, popupPlants);
+    }
 
     // chnset <expr>, "chan" → cabbageSetValue / cabbageSet (property)
     text = text.replace(/\bchnset\s+(.+),\s*"([^"]+)"/g, (_m, expr: string, chan: string) => {
@@ -2440,7 +2536,7 @@ export function convertCabbage2ToCabbage3(csdText: string): FullConversion {
     let ternaryChanges = 0;
     let macroChanges = 0;
     if (orchestraMatch) {
-        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, soundfilerLoading, mouseToConvert);
+        const rewritten = rewriteOrchestra(orchestraText, converted.identToChannel, converted.channels, converted.comboChannels, soundfilerLoading, mouseToConvert, new Set(converted.popupPlants.keys()));
         orchestraChanges = rewritten.changes;
         ternaryChanges = rewritten.ternaryChanges;
         macroChanges = rewritten.macroChanges;
