@@ -148,6 +148,21 @@ describe('convertCabbage2Section: duplicate channel ids', () => {
         assert.strictEqual(ids.length, 1);
         assert.strictEqual(ids[0], 'amount');
     });
+
+    it('assigns a unique top-level id to every non-form widget', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'hslider bounds(10,10,100,20), channel("amount"), range(0,1,0.5)',
+            'nslider bounds(10,40,100,30), channel("amount"), range(0,1,0.5)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const widgets = json.widgets.filter((w: any) => w.type !== 'form');
+        for (const w of widgets) {
+            assert.ok(typeof w.id === 'string' && w.id.length > 0, `${w.type} missing id`);
+        }
+        const ids = widgets.map((w: any) => w.id);
+        assert.strictEqual(new Set(ids).size, ids.length);
+    });
 });
 
 describe('rotary slider bounds scaling', () => {

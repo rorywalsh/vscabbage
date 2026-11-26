@@ -1264,6 +1264,33 @@ export function convertCabbage2Section(content: string): ConvertResult {
         w.channels = retained;
     }
 
+    // Give every non-form widget a top-level id. The backend derives the widget
+    // id from the first channel when one is present, but a decorative widget
+    // with no channel has nothing to derive from and the backend logs an error
+    // and auto-assigns. Emit the id explicitly so that never happens.
+    const usedWidgetIds = new Set<string>();
+    for (const w of widgets) {
+        let id = typeof w.id === 'string' && w.id ? w.id : '';
+        if (!id && w.channels && Array.isArray(w.channels) && w.channels[0]
+            && typeof w.channels[0].id === 'string' && w.channels[0].id) {
+            id = w.channels[0].id;
+        }
+        if (!id) {
+            do {
+                counter.n++;
+                id = `${w.type}${counter.n}`;
+            } while (usedWidgetIds.has(id) || channels.has(id));
+        }
+        let uniqueId = id;
+        let suffix = 0;
+        while (usedWidgetIds.has(uniqueId)) {
+            suffix++;
+            uniqueId = `${id}_${suffix}`;
+        }
+        w.id = uniqueId;
+        usedWidgetIds.add(uniqueId);
+    }
+
     return {
         json: JSON.stringify(root, null, 4),
         warnings,
