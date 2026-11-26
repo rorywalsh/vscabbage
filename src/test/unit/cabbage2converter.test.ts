@@ -94,6 +94,32 @@ describe('convertCabbage2Section: range increment defaults', () => {
     });
 });
 
+describe('convertCabbage2Section: range default clamping', () => {
+    it('clamps a default below the minimum into range', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider channel("fold"), range(1, 1024, 0, 0.25)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.strictEqual(slider.channels[0].range.min, 1);
+        assert.strictEqual(slider.channels[0].range.max, 1024);
+        assert.strictEqual(slider.channels[0].range.defaultValue, 1);
+    });
+
+    it('clamps a default above the maximum into range', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'rslider channel("x"), range(0, 1, 2)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.strictEqual(slider.channels[0].range.defaultValue, 1);
+    });
+});
+
 describe('convertCabbage2Section: comboBox channels', () => {
     it('emits an event and a 0-based defaultValue', () => {
         const result = convertCabbage2Section([

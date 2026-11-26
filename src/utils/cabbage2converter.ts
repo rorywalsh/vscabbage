@@ -339,8 +339,29 @@ function makeRange(a: string[]): Record<string, number> | null {
     if (n.length > 3 && !isNaN(n[3])) range.skew = n[3];
     if (n.length > 4 && !isNaN(n[4])) range.increment = n[4];
     else range.increment = 0.01;
+    clampRangeDefault(range);
     return range;
 }
+
+/** Clamp `value` into `[min, max]`, or return it unchanged when the bounds are invalid. */
+function clampNumber(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || min > max) return value;
+    return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Cabbage 2 sliders clamp their value to the widget's range, so a default that
+ * sits outside `[min, max]` (e.g. `range(1, 1024, 0, …)`) is brought back in
+ * bounds. Otherwise the converted slider can start on an out-of-range value and
+ * feed an invalid parameter to an opcode like `fold`.
+ */
+function clampRangeDefault(range: Record<string, number> | undefined): void {
+    if (!range) return;
+    if (typeof range.min === 'number' && typeof range.max === 'number' && typeof range.defaultValue === 'number') {
+        range.defaultValue = clampNumber(range.defaultValue, range.min, range.max);
+    }
+}
+
 
 function parseToken(token: string): IdentifierToken | null {
     const m = token.match(/^([A-Za-z_][\w:]*)\s*\(([\s\S]*)\)$/);
@@ -518,7 +539,10 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
                 const defaults = parseRangeDefaults(a[2]);
                 if (defaults.max !== undefined) {
                     while (w.json.channels.length < 2) w.json.channels.push({ event: 'valueChanged' });
-                    w.json.channels[1].range = { ...(w.json.channels[1].range || {}), defaultValue: defaults.max };
+                    w.json.channels[1].range = {
+                        ...(w.json.channels[1].range || {}),
+                        defaultValue: clampNumber(defaults.max, r.min, r.max),
+                    };
                 }
             }
             return;
@@ -995,6 +1019,14 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             ensureChannels(w);
             w.json.channels[0].id = `${type}${counter.n}`;
             channels.add(w.json.channels[0].id);
+        }
+
+        // Clamp any out-of-range default values once all min/max/defaultValue
+        // tokens have been applied, regardless of token order. Cabbage 2 sliders
+        // clamp their value to the range, so a default like range(1, 1024, 0)
+        // must start at 1 rather than feeding an opcode an invalid 0.
+        for (const c of w.json.channels || []) {
+            clampRangeDefault(c && c.range);
         }
 
         // All non-form widgets use `bounds` for size + position (rules doc §2);
