@@ -1164,8 +1164,15 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
         }
         // Cabbage 2 popup plants opened as separate windows; in Cabbage 3 they
         // become an in-form group that starts hidden and is toggled by its button.
+        // Cabbage 3 has no popup window, so park every popup group in a single
+        // shared slot (top-left) away from its launch button — the buttons must
+        // stay clickable to close the group again.
         if (container.popup === true) {
             container.visible = false;
+            if (container.bounds) {
+                container.bounds.left = 0;
+                container.bounds.top = 0;
+            }
         }
         widgets.push(container);
     } else {
