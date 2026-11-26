@@ -1,13 +1,5 @@
 name: Build and Package Extensions
 
-#Current Csound7 release...
-env:
-  CSOUND_TAG: "7.0.0"
-  # The Linux packaging job still builds cabbage3 locally. macOS, Windows and
-  # Windows ARM consume the prebuilt CabbageBundle artifacts from the cabbage
-  # repository, so they do not compile C++ in this workflow.
-  CMAKE_BUILD_PARALLEL_LEVEL: "4"
-
 on:
   push:
     branches:
@@ -273,6 +265,7 @@ jobs:
               'CabbageBundle-macos',
               'CabbageBundle-windows',
               'CabbageBundle-windows-arm',
+              'CabbageBundle-linux',
             ];
             const missing = required.filter((name) => !artifactNames.has(name));
             if (missing.length > 0) {
@@ -563,109 +556,15 @@ jobs:
 
   build_linux:
     needs: [generate_tag, resolve_backend]
-    # Build against the OLDEST glibc we support, not ubuntu-latest. Since
-    # November 2026 ubuntu-latest is Ubuntu 26.04 (glibc 2.43); a binary built
-    # there refuses to start on Ubuntu 24.04 (glibc 2.39) or 22.04 (glibc 2.35)
-    # with "version `GLIBC_2.43' not found". glibc symbol versioning is only
-    # forward-compatible, so the VSIX must be produced on an older distro.
-    # ubuntu-22.04 is deprecated on 2027-04-17; before then, move this job into
-    # an ubuntu:22.04 container (or equivalent) to keep the 2.35 floor.
+    # The Linux bundle comes from cabbage, which builds it on ubuntu-22.04 so
+    # it keeps the glibc 2.35 floor. Do not point this at an ubuntu-latest
+    # artifact: glibc symbol versioning is only forward-compatible, and Ubuntu
+    # 22.04 users would get "version `GLIBC_2.43' not found".
     runs-on: ubuntu-22.04
     # Packaging is gated by resolve_backend (main pushes, or [package] in the
     # pushed commit message / PR head commit message).
     if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
-      - name: Checkout source code for cabbage3
-        uses: actions/checkout@v4
-        with:
-          repository: rorywalsh/cabbage
-          path: cabbage3
-          ref: develop
-          fetch-depth: 1
-          submodules: true
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build pkg-config \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libx11-dev libxext-dev \
-            libasound2-dev libjack-jackd2-dev libpulse-dev
-
-      - name: Install build-essential
-        run: sudo apt-get update && sudo apt-get install -y build-essential
-
-      - name: Build and install Csound
-        run: |
-          sudo apt-get install -y \
-            libsndfile1-dev libportaudio2 portaudio19-dev libportmidi-dev \
-            libpulse-dev swig liblua5.1-0-dev default-jdk \
-            libfluidsynth-dev liblo-dev fluid \
-            ladspa-sdk libpng-dev dssi-dev libgmm++-dev \
-            bison flex libportsmf-dev libeigen3-dev libcunit1-dev \
-            gettext libsamplerate0-dev
-          git clone --depth 1 --branch ${{ env.CSOUND_TAG }} \
-            https://github.com/csound/csound.git csound-src
-          cmake -G "Unix Makefiles" -B csound-src/build -S csound-src \
-            -DINSTALL_PYTHON_INTERFACE=OFF
-          cd csound-src/build
-          make
-          sudo make install
-
-      - name: Configure and build
-        run: |
-          cd cabbage3
-          cmake -G Ninja -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_ALL_TARGETS=ON \
-            -DCMAKE_C_COMPILER=$(which gcc) \
-            -DCMAKE_CXX_COMPILER=$(which g++)
-
-      - name: Verify builds
-        run: |
-          echo "Checking if the build artifacts exist for CabbageApp"
-          ls cabbage3/build/CabbageApp
-          echo "Checking if the build artifacts exist for CabbagePluginSynth/Effect"
-          ls cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets
-          ls cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbageApp-linux
-          path: cabbage3/build/CabbageApp/CabbageApp
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect-linux.vst3
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CabbagePluginEffect.vst3
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth-linux.vst3
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CabbagePluginSynth.vst3
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginEffect-linux.clap
-          path: cabbage3/build/CabbagePluginEffect/CabbagePluginEffect_assets/CabbagePluginEffect.clap
-          retention-days: 1
-          if-no-files-found: ignore
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CabbagePluginSynth-linux.clap
-          path: cabbage3/build/CabbagePluginSynth/CabbagePluginSynth_assets/CabbagePluginSynth.clap
-          retention-days: 1
-          if-no-files-found: ignore
-
       - name: Checkout source code for vscabbage
         uses: actions/checkout@v4
         with:
@@ -683,40 +582,38 @@ jobs:
         run: |
           mkdir -p "./src/CabbageBinaries"
 
-      - name: Downloading CabbageApp
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbageApp-linux
-          path: "./src/CabbageBinaries"
-        continue-on-error: false
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y unzip binutils
 
-      - name: Downloading CabbagePluginEffect
+      - name: Download Cabbage binaries from cabbage
         uses: actions/download-artifact@v4
         with:
-          name: CabbagePluginEffect-linux.vst3
-          path: "./src/CabbageBinaries/CabbagePluginEffect.vst3"
-        continue-on-error: false
+          name: CabbageBundle-linux
+          path: ${{ runner.temp }}/cabbage-bundle
+          repository: rorywalsh/cabbage
+          run-id: ${{ needs.resolve_backend.outputs.run_id }}
+          github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
 
-      - name: Downloading CabbagePluginSynth
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth-linux.vst3
-          path: "./src/CabbageBinaries/CabbagePluginSynth.vst3"
-        continue-on-error: false
+      - name: Extract Cabbage binaries
+        run: |
+          unzip -q "${{ runner.temp }}/cabbage-bundle/CabbageBundle.zip" -d "${{ runner.temp }}/cabbage-bundle-extracted"
+          find "${{ runner.temp }}/cabbage-bundle-extracted" -type d \( -name '*.vst3' -o -name '*.clap' -o -name '*.component' \) -prune -exec cp -R {} ./src/CabbageBinaries/ \;
+          find "${{ runner.temp }}/cabbage-bundle-extracted" -type f \( -name '*.clap' -o -name '*.component' \) -exec cp {} ./src/CabbageBinaries/ \;
+          app=$(find "${{ runner.temp }}/cabbage-bundle-extracted" -type f -name CabbageApp | head -n 1)
+          if [ -z "$app" ]; then echo "::error::CabbageApp not found in extracted bundle"; exit 1; fi
+          cp "$app" ./src/CabbageBinaries/CabbageApp
+          chmod +x ./src/CabbageBinaries/CabbageApp
 
-      - name: Downloading CabbagePluginEffect CLAP
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginEffect-linux.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: false
-
-      - name: Downloading CabbagePluginSynth CLAP
-        uses: actions/download-artifact@v4
-        with:
-          name: CabbagePluginSynth-linux.clap
-          path: "./src/CabbageBinaries"
-        continue-on-error: false
+      - name: Verify extracted binaries
+        run: |
+          missing=0
+          for binary in CabbagePluginEffect.vst3 CabbagePluginSynth.vst3 CabbagePluginEffect.clap CabbagePluginSynth.clap CabbageApp; do
+            if [ ! -e "./src/CabbageBinaries/$binary" ]; then
+              echo "::error::Missing extracted backend binary: $binary"
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Set up Node.js (v24) on Linux
         uses: actions/setup-node@v4
@@ -726,11 +623,9 @@ jobs:
       - name: Install dependencies on Linux
         run: npm install
 
-      # actions/upload-artifact zips files and drops their modes, so the
-      # executable bit on the built CabbageApp does not survive the
-      # upload/download round-trip. Restore it on the copy that is about to
-      # go into the VSIX, otherwise the extension ships a Linux backend that
-      # cannot be spawned.
+      # The bundle round-trip can lose the executable mode, so restore it on
+      # the copy that is about to go into the VSIX. Otherwise the extension
+      # ships a Linux backend that cannot be spawned.
       - name: Restore executable bit on CabbageApp (Linux)
         run: |
           chmod -R +x ./src/CabbageBinaries/CabbageApp
@@ -741,10 +636,9 @@ jobs:
           fi
           ls -l ./src/CabbageBinaries/CabbageApp
 
-      # Packaging on an older runner is only useful if the binaries actually
-      # link against that runner's glibc. Fail the build (rather than shipping
-      # a VSIX that cannot launch on users' machines) if any bundled binary
-      # needs a newer libc than the ubuntu-22.04 floor.
+      # The Linux bundle is built on ubuntu-22.04 in the cabbage repo. Verify
+      # that the downloaded binaries actually use the 2.35 floor before
+      # packaging; a binary linked against a newer glibc must not ship.
       - name: Verify bundled Linux binaries target glibc 2.35
         run: |
           set -euo pipefail
