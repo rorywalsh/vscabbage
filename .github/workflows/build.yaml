@@ -328,7 +328,9 @@ jobs:
         run: |
           ditto -x -k "${{ runner.temp }}/cabbage-bundle/CabbageBundle.zip" "${{ runner.temp }}/cabbage-bundle-extracted"
           find "${{ runner.temp }}/cabbage-bundle-extracted" -type d \( -name '*.vst3' -o -name '*.clap' -o -name '*.component' \) -prune -exec cp -R {} ./src/CabbageBinaries/ \;
-          cp "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp" ./src/CabbageBinaries/CabbageApp
+          app=$(find "${{ runner.temp }}/cabbage-bundle-extracted" -type f -name CabbageApp | head -n 1)
+          if [ -z "$app" ]; then echo "::error::CabbageApp not found in extracted bundle"; exit 1; fi
+          cp "$app" ./src/CabbageBinaries/CabbageApp
           chmod -R +x ./src/CabbageBinaries/CabbageApp
 
       - name: Verify extracted binaries
@@ -431,7 +433,9 @@ jobs:
           foreach ($item in $items) {
             Copy-Item -Path $item.FullName -Destination ./src/CabbageBinaries -Recurse -Force
           }
-          Copy-Item -Path "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp.exe" -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
+          $app = Get-ChildItem "${{ runner.temp }}/cabbage-bundle-extracted" -Recurse -Filter CabbageApp.exe | Select-Object -First 1
+          if (-not $app) { Write-Error "CabbageApp.exe not found in extracted bundle"; exit 1 }
+          Copy-Item -Path $app.FullName -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
 
       - name: Verify extracted binaries
         shell: pwsh
@@ -519,7 +523,9 @@ jobs:
           foreach ($item in $items) {
             Copy-Item -Path $item.FullName -Destination ./src/CabbageBinaries -Recurse -Force
           }
-          Copy-Item -Path "${{ runner.temp }}/cabbage-bundle-extracted/CabbageApp/Release/CabbageApp.exe" -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
+          $app = Get-ChildItem "${{ runner.temp }}/cabbage-bundle-extracted" -Recurse -Filter CabbageApp.exe | Select-Object -First 1
+          if (-not $app) { Write-Error "CabbageApp.exe not found in extracted bundle"; exit 1 }
+          Copy-Item -Path $app.FullName -Destination ./src/CabbageBinaries/CabbageApp.exe -Force
 
       - name: Verify extracted binaries
         shell: pwsh
