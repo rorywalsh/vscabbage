@@ -22,7 +22,7 @@ jobs:
       version: ${{ steps.generate_version.outputs.version }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Fetch all history for accurate tagging
 
@@ -63,10 +63,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           # jsdom 31 requires Node ^22.22 || ^24.15; keep the tests on a
           # supported runtime even though packaging still uses Node 20.
@@ -88,10 +88,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: 'npm'
@@ -122,10 +122,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           # @vscode/vsce declares node >= 22; keep this in step with the
           # packaging jobs' Node version.
@@ -161,7 +161,7 @@ jobs:
     steps:
       - name: Determine whether packaging was requested
         id: should
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let message = '';
@@ -197,7 +197,7 @@ jobs:
       - name: Find a successful cabbage3-build run
         id: resolve
         if: steps.should.outputs.should_package == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           # Fine-grained PAT with Actions: read on rorywalsh/cabbage.
           github-token: ${{ secrets.CABBAGE_REPO_TOKEN }}
@@ -288,7 +288,7 @@ jobs:
     steps:
       # Checkout source code for vscabbage
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           submodules: true
@@ -309,7 +309,7 @@ jobs:
           ls
 
       - name: Download Cabbage binaries from cabbage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: CabbageBundle-macos
           path: ${{ runner.temp }}/cabbage-bundle
@@ -338,7 +338,7 @@ jobs:
           exit "$missing"
 
       - name: Set up Node.js (v24) on macOS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -365,7 +365,7 @@ jobs:
         run: npm exec -- vsce package --target darwin-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
 
       - name: Upload VSIX artifact from macOS
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vscabbage-extension-macos
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-macos.vsix
@@ -382,7 +382,7 @@ jobs:
     if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           submodules: true
@@ -395,7 +395,7 @@ jobs:
           jq --arg version "$env:VERSION" '.version = $version' package.json | Set-Content package.json
 
       - name: Set up Node.js (v24) on Windows
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -410,7 +410,7 @@ jobs:
           ls
 
       - name: Download Cabbage binaries from cabbage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: CabbageBundle-windows
           path: ${{ runner.temp }}/cabbage-bundle
@@ -455,7 +455,7 @@ jobs:
         run: npm exec -- vsce package --target win32-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
 
       - name: Upload VSIX artifact from Windows
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vscabbage-extension-windows-x64
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows-x64.vsix
@@ -472,7 +472,7 @@ jobs:
     if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           submodules: true
@@ -485,7 +485,7 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       - name: Set up Node.js (v24) on Windows ARM64
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -500,7 +500,7 @@ jobs:
           ls
 
       - name: Download Cabbage binaries from cabbage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: CabbageBundle-windows-arm
           path: ${{ runner.temp }}/cabbage-bundle
@@ -545,7 +545,7 @@ jobs:
         run: npm exec -- vsce package --target win32-arm64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
 
       - name: Upload VSIX artifact from Windows ARM64
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vscabbage-extension-windows-arm
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-windows-arm.vsix
@@ -566,7 +566,7 @@ jobs:
     if: needs.resolve_backend.outputs.should_package == 'true'
     steps:
       - name: Checkout source code for vscabbage
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           submodules: true
@@ -586,7 +586,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y unzip binutils
 
       - name: Download Cabbage binaries from cabbage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: CabbageBundle-linux
           path: ${{ runner.temp }}/cabbage-bundle
@@ -616,7 +616,7 @@ jobs:
           exit "$missing"
 
       - name: Set up Node.js (v24) on Linux
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -673,7 +673,7 @@ jobs:
         run: npm exec -- vsce package --target linux-x64 --out vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
 
       - name: Upload VSIX artifact from Linux
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vscabbage-extension-linux
           path: vscabbage-${{ needs.generate_tag.outputs.version }}-linux.vsix
@@ -687,7 +687,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -698,25 +698,25 @@ jobs:
         run: bash get-commits.sh
 
       - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: vscabbage-extension-macos
           path: ./release
 
       - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: vscabbage-extension-windows-x64
           path: ./release
 
       - name: Download Windows ARM Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: vscabbage-extension-windows-arm
           path: ./release
 
       - name: Download Linux Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: vscabbage-extension-linux
           path: ./release
