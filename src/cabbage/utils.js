@@ -243,6 +243,33 @@ export class CabbageUtils {
   }
 
   /**
+   * Show/hide a container widget's children. Children are rendered as sibling
+   * DOM nodes in the form (marked with data-parent-channel) rather than being
+   * physically nested, so hiding the container must explicitly hide them.
+   * @param {Object} widget - The container widget instance (owns props).
+   * @param {boolean} visible - Whether the container is visible.
+   */
+  static applyContainerVisibility(widget, visible) {
+    if (!widget || !widget.props) {
+      return;
+    }
+    const parentId = CabbageUtils.getWidgetDivId(widget.props);
+    if (!parentId) {
+      return;
+    }
+    const children = document.querySelectorAll(`[data-parent-channel="${parentId}"]`);
+    children.forEach((child) => {
+      if (!visible) {
+        child.style.display = 'none';
+        child.style.pointerEvents = 'none';
+      } else {
+        child.style.display = '';
+        CabbageUtils.applyWidgetPointerEvents(child.cabbageInstance, child);
+      }
+    });
+  }
+
+  /**
    * Wrap a props object in a Proxy that reacts to common widget property changes.
    * The proxy will toggle pointer-events for 'visible' and 'active', and perform
    * safe cleanup when a widget is disabled (active = false).
@@ -300,6 +327,12 @@ export class CabbageUtils {
         // so pointer-events is only enabled when both visible and active are true.
         if (key === 'visible' || key === 'active') {
           CabbageUtils.applyWidgetPointerEvents(widget);
+        }
+
+        // Containers must hide/show their children when their own visibility
+        // changes (children are sibling DOM nodes, not nested inside).
+        if (key === 'visible') {
+          CabbageUtils.applyContainerVisibility(widget, value);
         }
 
         // If active is turned off, perform defensive cleanup so ongoing interactions stop.

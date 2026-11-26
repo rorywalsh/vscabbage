@@ -706,3 +706,60 @@ describe('convertCabbage2ToCabbage3: mouse channels', () => {
         );
     });
 });
+
+describe('convertCabbage2ToCabbage3: popup plants', () => {
+    function csd(): string {
+        return [
+            '<CsoundSynthesizer>',
+            '<Cabbage>',
+            'form caption("Test") size(400, 300)',
+            'button bounds(10,10,100,30), channel("clfiltButton"), text("clfilt")',
+            'groupbox bounds(10,40,150,90), plant("clfilt"), popup(1), identChannel("clfiltPlant")',
+            '{',
+            'rslider bounds(5,16,70,70), channel("npol"), range(2,80,2)',
+            '}',
+            '</Cabbage>',
+            '<CsInstruments>',
+            'instr 1000',
+            'klaunch init 0',
+            '#define LAUNCH_PLANT(name)',
+            '#',
+            'kpressed chnget "$name.Button"',
+            'if changed(kpressed)==1 then',
+            'Smsg sprintfk "visible(%d), pos(1, 19)", klaunch',
+            'chnset Smsg, "$name.Plant"',
+            'endif',
+            '#',
+            '$LAUNCH_PLANT(clfilt)',
+            'klaunch = 1',
+            'endin',
+            '</CsInstruments>',
+            '<CsScore>',
+            'i 1000 0 3600',
+            '</CsScore>',
+            '</CsoundSynthesizer>',
+        ].join('\n');
+    }
+
+    it('nests plant children on the groupBox and starts it hidden', () => {
+        const result = convertCabbage2ToCabbage3(csd());
+        const json = JSON.parse(result.text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/)![1]);
+        const group = json.widgets.find((w: any) => w.type === 'groupBox');
+        assert.ok(group);
+        assert.strictEqual(group.visible, false);
+        assert.ok(Array.isArray(group.children));
+        assert.strictEqual(group.children.length, 1);
+        assert.strictEqual(group.children[0].id, 'npol');
+    });
+
+    it('latches the button and rewrites the launch to a visibility toggle', () => {
+        const result = convertCabbage2ToCabbage3(csd());
+        const json = JSON.parse(result.text.match(/<Cabbage>([\s\S]*?)<\/Cabbage>/)![1]);
+        const button = json.widgets.find((w: any) => w.type === 'button');
+        assert.ok(button);
+        assert.strictEqual(button.latched, true);
+        assert.ok(result.text.includes('cabbageSet changed(kpressed), "clfiltPlant", "visible", kpressed'));
+        assert.ok(!result.text.includes('chnset Smsg, "clfiltPlant"'));
+        assert.ok(!result.text.includes('manual conversion needed'));
+    });
+});

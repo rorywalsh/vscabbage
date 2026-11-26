@@ -860,6 +860,10 @@ export class WidgetManager {
                 parentDiv.style.zIndex = (baseZIndex + parentIndex).toString();
             }
         }
+
+        // Apply the container's initial visibility to its children. A plant
+        // popup starts hidden, so its child widgets must start hidden too.
+        CabbageUtils.applyContainerVisibility(parentWidget, parentWidget.props.visible !== false);
     } static handleRadioGroup(radioGroup, activeChannel) {
         handleRadioGroup(radioGroup, activeChannel);
     }
