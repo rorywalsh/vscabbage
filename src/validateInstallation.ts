@@ -717,5 +717,13 @@ export function formatReport(results: CheckResult[]): string {
     lines.push(fails === 0 && warns === 0
         ? 'Result: healthy — no issues found.'
         : `Result: ${fails} failure(s), ${warns} warning(s). See remedies above.`);
+    lines.push('');
+    lines.push('Troubleshooting: blank editor panel');
+    lines.push('    If the Cabbage editor opens blank and VS Code shows');
+    lines.push('    "Could not register service worker: InvalidStateError…",');
+    lines.push('    that is a VS Code webview host issue, not a Cabbage error.');
+    lines.push('    Fix: run Developer: Reload Window. If it persists, fully quit all');
+    lines.push('    VS Code windows, delete the "Service Worker" folder inside the');
+    lines.push('    VS Code user-data directory, then reopen. See microsoft/vscode#125993.');
     return lines.join('\n');
 }
