@@ -1174,7 +1174,14 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
                 container.bounds.top = 0;
             }
             // Render the popup group (and its children) above every other widget.
+            // The children are separate DOM nodes, so give each one an explicit
+            // high z-index too — the child renderer's own z-index derivation has
+            // proven unreliable here, and a container z-index alone leaves the
+            // children behind the container's opaque background.
             container.zIndex = 5000;
+            for (const child of children) {
+                child.zIndex = 5001;
+            }
         }
         widgets.push(container);
     } else {
