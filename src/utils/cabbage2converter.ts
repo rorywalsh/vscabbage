@@ -1173,6 +1173,8 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
                 container.bounds.left = 0;
                 container.bounds.top = 0;
             }
+            // Render the popup group (and its children) above every other widget.
+            container.zIndex = 5000;
         }
         widgets.push(container);
     } else {
