@@ -1232,7 +1232,10 @@ export function convertCabbage2Section(content: string): ConvertResult {
     const root: Record<string, any> = { widgets: ordered };
     if (pluginId) root.pluginId = pluginId;
 
-    // Flag duplicate channel ids (a Cabbage 2 source bug that Cabbage 3 rejects).
+    // Cabbage 2 let several widgets share one channel name (they stayed in
+    // sync); Cabbage 3 rejects duplicate channel ids and refuses to load the
+    // plugin. Keep the first occurrence and drop the channel from later
+    // widgets, leaving them decorative but the plugin loadable.
     const channelCount = new Map<string, number>();
     for (const w of ordered) {
         if (w.channels && Array.isArray(w.channels)) {
@@ -1243,8 +1246,22 @@ export function convertCabbage2Section(content: string): ConvertResult {
             }
         }
     }
-    for (const [id, n] of channelCount) {
-        if (n > 1) warnings.push(`duplicate channel id "${id}" used ${n} times — Cabbage 3 requires unique channels`);
+    const keptChannels = new Set<string>();
+    for (const w of ordered) {
+        if (!w.channels || !Array.isArray(w.channels)) continue;
+        const retained: any[] = [];
+        for (const c of w.channels) {
+            const id = c && typeof c.id === 'string' ? c.id : '';
+            if (id && (channelCount.get(id) || 0) > 1) {
+                if (keptChannels.has(id)) {
+                    warnings.push(`duplicate channel id "${id}" removed from a ${w.type} widget — Cabbage 3 requires unique channels`);
+                    continue;
+                }
+                keptChannels.add(id);
+            }
+            retained.push(c);
+        }
+        w.channels = retained;
     }
 
     return {

@@ -134,6 +134,22 @@ describe('convertCabbage2Section: comboBox channels', () => {
     });
 });
 
+describe('convertCabbage2Section: duplicate channel ids', () => {
+    it('keeps the first widget and drops later duplicate channels', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'hslider bounds(10,10,100,20), channel("amount"), range(0,1,0.5)',
+            'nslider bounds(10,40,100,30), channel("amount"), range(0,1,0.5)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const sliders = json.widgets.filter((w: any) => w.type === 'horizontalSlider' || w.type === 'numberSlider');
+        assert.strictEqual(sliders.length, 2);
+        const ids = sliders.map((w: any) => w.channels && w.channels[0] && w.channels[0].id).filter(Boolean);
+        assert.strictEqual(ids.length, 1);
+        assert.strictEqual(ids[0], 'amount');
+    });
+});
+
 describe('rotary slider bounds scaling', () => {
     it('leaves unlabelled rotary sliders at full size', () => {
         const result = convertCabbage2Section([
