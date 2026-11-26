@@ -758,7 +758,7 @@ describe('convertCabbage2ToCabbage3: popup plants', () => {
         const button = json.widgets.find((w: any) => w.type === 'button');
         assert.ok(button);
         assert.strictEqual(button.latched, true);
-        assert.ok(result.text.includes('cabbageSet changed(kpressed), "clfiltPlant", "visible", kpressed'));
+        assert.ok(result.text.includes('cabbageSet 1, "clfiltPlant", "visible", kpressed'));
         assert.ok(!result.text.includes('chnset Smsg, "clfiltPlant"'));
         assert.ok(!result.text.includes('manual conversion needed'));
     });

@@ -629,6 +629,11 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             } else if (isButtonFamily && vals.length > 1) {
                 w.json.label = w.json.label || {};
                 w.json.label.text = { off: vals[0], on: vals[1] };
+            } else if (isButtonFamily) {
+                // Cabbage 3 buttons (button/infoButton/fileButton/optionButton)
+                // read label.text.on/off; a single Cabbage 2 text() maps to both.
+                w.json.label = w.json.label || {};
+                w.json.label.text = { on: vals[0], off: vals[0] };
             } else {
                 w.json.label = w.json.label || {};
                 w.json.label.text = vals[0];
@@ -2224,7 +2229,7 @@ function spaceTernaryOperators(text: string): { text: string; changes: number } 
  * visibility directly from the button value:
  *
  *     kpressed cabbageGetValue "clfiltButton"
- *     cabbageSet changed(kpressed), "clfiltPlant", "visible", kpressed
+ *     cabbageSet 1, "clfiltPlant", "visible", kpressed
  */
 function rewritePlantPopups(text: string, popupPlants: Set<string>): string {
     if (popupPlants.size === 0) return text;
@@ -2238,7 +2243,7 @@ function rewritePlantPopups(text: string, popupPlants: Set<string>): string {
             'g',
         );
         text = text.replace(re, (_m, btnVar: string, indent: string) =>
-            `${indent}cabbageSet changed(${btnVar}), "${plant}", "visible", ${btnVar}`);
+            `${indent}cabbageSet 1, "${plant}", "visible", ${btnVar}`);
     }
     return text;
 }
