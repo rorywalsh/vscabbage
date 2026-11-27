@@ -2314,6 +2314,11 @@ export function rewriteOrchestra(
     const ternary = spaceTernaryOperators(text);
     text = ternary.text;
 
+    // Csound 6 tolerated a stray comma after the no-output `loop_*` opcodes
+    // (`loop_lt,icount,1,iftlen,loop3`); Csound 7 reads `loop_lt` as an output
+    // variable instead and fails to parse. Drop the comma.
+    text = text.replace(/\bloop_(lt|le|gt|ge)\s*,/g, 'loop_$1 ');
+
     // Cabbage 2 `cabbageCreate "type", S` → Cabbage 3 `cabbageCreate:i(S)` with
     // the property string converted to JSON.
     const createRewrite = rewriteCabbageCreate(text, warnings);
