@@ -480,7 +480,7 @@ describe('buildMouseChannels', () => {
 });
 
 describe('detectSoundfilerLoading', () => {
-    it('wires an ftgen table to the soundfiler ident', () => {
+    it('wires the file path to the soundfiler ident (ftgen also present)', () => {
         const orchestra = [
             'gSfilepath = "loop.wav"',
             'Smessage sprintfk "file(%s)", gSfilepath',
@@ -490,10 +490,10 @@ describe('detectSoundfilerLoading', () => {
 
         const result = detectSoundfilerLoading(orchestra, new Set(['filer1']));
 
-        assert.deepStrictEqual(result.get('filer1'), { tableNumber: 100 });
+        assert.deepStrictEqual(result.get('filer1'), { file: 'gSfilepath' });
     });
 
-    it('wires a diskin2 stream to the soundfiler ident', () => {
+    it('wires the file path to the soundfiler ident (diskin2 also present)', () => {
         const orchestra = [
             'gSfilepath = "loop.wav"',
             'Smessage sprintfk "file(%s)", gSfilepath',
@@ -506,10 +506,9 @@ describe('detectSoundfilerLoading', () => {
         assert.deepStrictEqual(result.get('filer2'), { file: 'gSfilepath' });
     });
 
-    it('returns an empty map when no loading pattern is found', () => {
+    it('returns an empty map when there is no file(%s) message', () => {
         const orchestra = [
-            'Smessage sprintfk "file(%s)", gSfilepath',
-            'chnset Smessage, "filer3"',
+            'chnset "visible(1)", "filer3"',
         ].join('\n');
 
         assert.strictEqual(detectSoundfilerLoading(orchestra, new Set(['filer3'])).size, 0);
