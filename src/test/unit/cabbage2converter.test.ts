@@ -179,6 +179,25 @@ describe('rewriteOrchestra: comboBox 0-based offset dropping', () => {
         assert.ok(!text.includes('kmode>1'));
     });
 
+    it('shifts an `i(combo) == N` comparison down by one', () => {
+        const { text } = rewriteCombo(
+            'gkTable chnget "Table"\nif i(gkTable)==1 then\n  giT ftgen 1,0,1024,10,1\nelseif i(gkTable)==2 then\n  giT ftgen 1,0,1024,10,2\nendif\n',
+            ['Table'],
+        );
+        assert.ok(text.includes('i(gkTable)==0'));
+        assert.ok(text.includes('i(gkTable)==1'));
+        assert.ok(!text.includes('i(gkTable)==2'));
+    });
+
+    it('bumps the base of a `cpstmid i(combo) + N` table offset', () => {
+        const { text } = rewriteCombo(
+            'gkTuning chnget "Tuning"\nicps cpstmid i(gkTuning) + 200\n',
+            ['Tuning'],
+        );
+        assert.ok(text.includes('cpstmid i(gkTuning) + 201'));
+        assert.ok(!text.includes('cpstmid i(gkTuning) + 200'));
+    });
+
     it('does not shift `==N` when the author already converted to 0-based', () => {
         const { text } = rewriteCombo(
             'ksep chnget "sepmode"\nksep = ksep - 1\nksep init 1\nif ksep==0 then\n  kx = 1\nelseif ksep==1 then\n  kx = 2\nendif\n',
@@ -197,6 +216,66 @@ describe('rewriteOrchestra: comboBox 0-based offset dropping', () => {
             ['basemode'],
         );
         assert.ok(text.includes('(changed:k(kbasemode)==1 || timeinstk()==1)'));
+    });
+});
+
+describe('convertCabbage2ToCabbage3: end-to-end comboBox index handling', () => {
+    it('shifts i(combo)==N and bumps the cpstmid base through the full pipeline', () => {
+        const src = [
+            '<Cabbage>',
+            'form caption("Pad") size(300, 300)',
+            'combobox bounds(5,42,100,22), channel("Table"), text("User 30","D.Bass","Clarinet"), value(1)',
+            'combobox bounds(5,82,100,22), channel("Tuning"), text("Equal","Just"), value(1)',
+            'combobox bounds(10,50,60,22), channel("LegType"), text("Line","Curve"), value(1)',
+            '</Cabbage>',
+            '<CsoundSynthesizer>',
+            '<CsOptions>',
+            '-n -d',
+            '</CsOptions>',
+            '<CsInstruments>',
+            'nchnls = 2',
+            '0dbfs = 1',
+            'gkTable init 1',
+            'instr 1',
+            'gkTable chnget "Table"',
+            'gkTuning chnget "Tuning"',
+            'gkLegType chnget "LegType"',
+            'endin',
+            'instr 2',
+            'if i(gkTable)==1 then',
+            'giT ftgen 1, 0, 1024, 10, 1',
+            'elseif i(gkTable)==2 then',
+            'giT ftgen 1, 0, 1024, 10, 2',
+            'endif',
+            'endin',
+            'instr 3',
+            'icps cpstmid i(gkTuning) + 200',
+            'if i(gkLegType)==1 then',
+            'kcps lineto icps, 0.01',
+            'else',
+            'kcps portk icps, 0.01',
+            'endif',
+            'a1 oscili 0.2, kcps',
+            'outs a1, a1',
+            'endin',
+            '</CsInstruments>',
+            '<CsScore>',
+            'f0 z',
+            'i1 0 z',
+            '</CsScore>',
+            '</CsoundSynthesizer>',
+        ].join('\n');
+
+        const { text } = convertCabbage2ToCabbage3(src);
+
+        assert.ok(text.includes('gkTable init 0'));
+        assert.ok(text.includes('gkTable cabbageGetValue "Table"'));
+        assert.ok(text.includes('i(gkTable)==0'));
+        assert.ok(text.includes('i(gkTable)==1'));
+        assert.ok(!text.includes('i(gkTable)==2'));
+        assert.ok(text.includes('cpstmid i(gkTuning) + 201'));
+        assert.ok(!text.includes('cpstmid i(gkTuning) + 200'));
+        assert.ok(text.includes('i(gkLegType)==0'));
     });
 });
 

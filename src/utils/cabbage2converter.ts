@@ -2467,6 +2467,23 @@ export function rewriteOrchestra(
                 new RegExp(`\\b(${varName}\\s*(?:==|!=|>=|<=|>|<)\\s*)(\\d+)\\b`, 'g'),
                 shift,
             );
+            // Also shift comparisons that wrap the combo in i()/k()/a(), e.g.
+            // `if i(gkTable)==1`. The bare form above misses these because the
+            // closing parenthesis sits between the var and the operator. The
+            // `(?<!:)` guard keeps `changed:k(combo)` (a rate-qualified opcode,
+            // not an i()-value wrap) from being mistaken for `k(combo)`.
+            text = text.replace(
+                new RegExp(`\\b(?<!:)[ika]\\((${varName})\\)\\s*(==|!=|>=|<=|>|<)\\s*(\\d+)\\b`, 'g'),
+                (_m: string, v: string, op: string, n: string) =>
+                    Number(n) > 0 ? `i(${v})${op}${Number(n) - 1}` : _m,
+            );
+            // A 1-based combo offset by a constant base (`cpstmid i(gkTuning) + 200`)
+            // targets the base+N'th table. The 0-based combo is one lower, so
+            // bump the constant to keep hitting the same table (200 -> 201).
+            text = text.replace(
+                new RegExp(`cpstmid\\s+((?:[ika]\\()?${varName}\\)?)\\s*\\+\\s*(\\d+)\\b`, 'g'),
+                (_m: string, expr: string, n: string) => `cpstmid ${expr} + ${Number(n) + 1}`,
+            );
         }
         // `init N` is always the 1-based default item index, so shift it regardless.
         text = text.replace(

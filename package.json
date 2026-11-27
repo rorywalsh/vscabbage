@@ -621,6 +621,7 @@
     "lint": "eslint src --ext ts",
     "test:unit": "npm run compile-tests && mocha \"out/test/unit/**/*.test.js\" --timeout 10000",
     "test:integration": "npm run compile-tests && npm run compile && vscode-test",
+    "test:corpus": "node tools/conversion_manifest.cjs --check",
     "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {

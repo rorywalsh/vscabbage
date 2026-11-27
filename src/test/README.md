@@ -20,8 +20,19 @@ repo (`tests/README.md`); that suite is not part of this package but is exercise
 npm run lint               # eslint (TypeScript only)
 npm run test:unit          # compile + plain mocha (fast; no VS Code)
 npm run test:integration   # compile + webpack + hosted VS Code
+npm run test:corpus        # convert the whole Cabbage 2 corpus and compare to the baseline
 npm test                   # pretest lint, then unit + integration
 ```
+
+### Corpus conversion regression guard
+
+The Cabbage 2 → 3 converter is validated against the full example corpus with a
+hash manifest (`tools/conversion_manifest.cjs`). The committed
+`tools/conversion_manifest.json` is the reviewed baseline. `npm run test:corpus`
+re-converts every `.csd` under `SRC_DIR` (default `~/sourcecode/AllCabbageExamples`)
+and fails if any file's output has drifted — so a converter change that fixes one
+instrument but silently alters another is caught before it ships. When the drift is
+intentional, review the converted files and run `node tools/conversion_manifest.cjs --update`.
 
 Notes:
 
@@ -49,7 +60,7 @@ as a required check too. The `release` job also depends on both test jobs.
 
 ## Unit tests (`src/test/unit/`)
 
-### `cabbage2converter.test.ts` — 25 tests
+### `cabbage2converter.test.ts` — 28 tests
 Cabbage 2 → Cabbage 3 conversion.
 - `rewriteOrchestra`: k-rate and i-rate multi-arg `cabbageSet` `bounds(...)` → `bounds.left/top/width/height`; `colour(...)` → `style.backgroundColor` via `sprintf`/`sprintfk`; scalar updates and `cabbageSetValue` left untouched.
 - `convertCabbage2Section`: default vs explicit range increment; comboBox `valueChanged` + 0-based default; rotary-slider bounds scaling (85% labelled, 80% labelled+value box, 70% knob scale).
