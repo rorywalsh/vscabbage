@@ -51,6 +51,7 @@ function getPackageConfig(root: any, formWidget?: any): any {
 }
 
 export let cabbageStatusBarItem: vscode.StatusBarItem;
+let cabbageStatusBarRunning = false;
 import fs from 'fs';
 import * as xml2js from 'xml2js';
 import os from 'os';
@@ -65,12 +66,23 @@ import { runAllChecks, formatReport, summarize, ValidationEnv, PluginBinarySpec 
 
 const CABBAGE_STATUS_ICON = '$(cabbage-logo)';
 
+function isLightTheme(): boolean {
+    const kind = vscode.window.activeColorTheme.kind;
+    return kind === vscode.ColorThemeKind.Light || kind === vscode.ColorThemeKind.HighContrastLight;
+}
+
 function updateCabbageStatusBar(running: boolean) {
     if (!cabbageStatusBarItem) {
         return;
     }
+    cabbageStatusBarRunning = running;
     cabbageStatusBarItem.text = `${CABBAGE_STATUS_ICON} ${running ? 'Stop' : 'Start'} Cabbage`;
-    cabbageStatusBarItem.color = new vscode.ThemeColor('charts.green');
+    // charts.green is too dark to read on a light status bar, so fall back to
+    // the theme's status bar foreground (white on a classic blue bar, dark on
+    // the modern light bars).
+    cabbageStatusBarItem.color = isLightTheme()
+        ? new vscode.ThemeColor('statusBar.foreground')
+        : new vscode.ThemeColor('charts.green');
     cabbageStatusBarItem.tooltip = running
         ? 'Cabbage server is running. Click to stop it.'
         : 'Cabbage server is stopped. Click to start it.';
@@ -994,6 +1006,13 @@ export class Commands {
             // Push the item to the context's subscriptions so it gets disposed when the
             // extension is deactivated
             context.subscriptions.push(cabbageStatusBarItem);
+
+            // Keep the status bar colour legible when the user switches themes.
+            context.subscriptions.push(
+                vscode.window.onDidChangeActiveColorTheme(() => {
+                    updateCabbageStatusBar(cabbageStatusBarRunning);
+                })
+            );
         }
     }
 
