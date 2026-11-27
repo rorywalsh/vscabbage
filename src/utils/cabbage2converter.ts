@@ -1572,12 +1572,15 @@ export interface SoundfilerLoading {
 }
 
 /**
- * Work out the soundfiler → genTable tableNumber/file wiring from the orchestra.
+ * Work out the soundfiler → genTable file wiring from the orchestra.
  * A Cabbage 2 soundfiler is refreshed via
  *   `Smessage sprintfk "file(%s)", gSfilepath` + `chnset Smessage, "filer1"`.
- * If the file is loaded into a ftable (`ftgen N, 0, 0, 1, gSfilepath, …`) the
- * genTable needs `tableNumber: N`; if it's streamed (`diskin2 gSfilepath`) it
- * needs `file: gSfilepath`. Returns ident → { tableNumber | file }.
+ * That message means "display this FILE", so the genTable should be given the
+ * file path (`file: gSfilepath`) and read/display the same file directly. (An
+ * unrelated `ftgen … , 1, gSfilepath` elsewhere loads the file into a table for
+ * the instrument itself; pointing the genTable at that table number used to be
+ * the approach, but it did not refresh when the table was re-loaded, so the
+ * genTable stayed blank.) Returns ident → { file }.
  */
 export function detectSoundfilerLoading(
     orchestraText: string,
@@ -1598,17 +1601,7 @@ export function detectSoundfilerLoading(
     for (const ident of soundfilerIdents) {
         const path = identToPath.get(ident);
         if (!path) continue;
-
-        // ftgen N, …, 1, <path> (gen 1 = "load from file") — the file is in ftable N.
-        const ftgenRe = new RegExp(`\\bftgen\\s+(\\d+)[^\\n]*?,\\s*1\\s*,\\s*${path}\\b`);
-        const fm = orchestraText.match(ftgenRe);
-        if (fm) {
-            result.set(ident, { tableNumber: Number(fm[1]) });
-            continue;
-        }
-        if (new RegExp(`\\bdiskin2\\b[^\\n]*\\b${path}\\b`).test(orchestraText)) {
-            result.set(ident, { file: path });
-        }
+        result.set(ident, { file: path });
     }
     return result;
 }
