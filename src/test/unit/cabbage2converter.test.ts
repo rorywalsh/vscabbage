@@ -134,6 +134,72 @@ describe('convertCabbage2Section: comboBox channels', () => {
     });
 });
 
+describe('rewriteOrchestra: comboBox 0-based offset dropping', () => {
+    function rewriteCombo(orchestra: string, comboChannels: string[]) {
+        return rewriteOrchestra(
+            orchestra,
+            new Map<string, string>(),
+            new Set<string>(comboChannels),
+            new Set<string>(comboChannels),
+        );
+    }
+
+    it('drops the redundant -1 from `base + combo - 1`', () => {
+        const { text } = rewriteCombo(
+            'iTuning chnget "Tuning"\nicps cpstmid giTTable1 + iTuning - 1\n',
+            ['Tuning'],
+        );
+        assert.ok(text.includes('giTTable1 + iTuning'));
+        assert.ok(!text.includes('iTuning - 1'));
+    });
+
+    it('drops the redundant -1 from `kidx = combo - 1`', () => {
+        const { text } = rewriteCombo(
+            'kmode chnget "mode"\nkidx = kmode - 1\n',
+            ['mode'],
+        );
+        assert.ok(text.includes('kidx = kmode'));
+        assert.ok(!text.includes('kmode - 1'));
+    });
+
+    it('leaves `100 - combo - 1` untouched for manual review', () => {
+        const { text } = rewriteCombo(
+            'kmode chnget "mode"\nkval = 100 - kmode - 1\n',
+            ['mode'],
+        );
+        assert.ok(text.includes('100 - kmode - 1'));
+    });
+
+    it('shifts a raw `combo > N` comparison down by one', () => {
+        const { text } = rewriteCombo(
+            'kmode chnget "mode"\nif kmode>1 then\n  kx = 1\nendif\n',
+            ['mode'],
+        );
+        assert.ok(text.includes('kmode>0'));
+        assert.ok(!text.includes('kmode>1'));
+    });
+
+    it('does not shift `==N` when the author already converted to 0-based', () => {
+        const { text } = rewriteCombo(
+            'ksep chnget "sepmode"\nksep = ksep - 1\nksep init 1\nif ksep==0 then\n  kx = 1\nelseif ksep==1 then\n  kx = 2\nendif\n',
+            ['sepmode'],
+        );
+        assert.ok(text.includes('if ksep==0 then'));
+        assert.ok(text.includes('elseif ksep==1 then'));
+        // the global `- 1` was still dropped
+        assert.ok(text.includes('ksep = ksep'));
+        assert.ok(!text.includes('ksep = ksep - 1'));
+    });
+
+    it('rewrites changed:k(combo) to also fire on the first k-cycle', () => {
+        const { text } = rewriteCombo(
+            'kbasemode chnget "basemode"\nif changed:k(kbasemode)==1 then\n  event "i",2,0,-1\nendif\n',
+            ['basemode'],
+        );
+        assert.ok(text.includes('(changed:k(kbasemode)==1 || timeinstk()==1)'));
+    });
+});
+
 describe('convertCabbage2Section: duplicate channel ids', () => {
     it('keeps the first widget and drops later duplicate channels', () => {
         const result = convertCabbage2Section([
@@ -223,6 +289,24 @@ describe('rotary slider bounds scaling', () => {
         assert.ok(result.text.includes('85%'));
         assert.ok(result.text.includes('80%'));
         assert.ok(result.text.includes('knob scaled to 70%'));
+    });
+});
+
+describe('convertCabbage2Section: #define … # … # macros', () => {
+    it('keeps a token immediately before a $MACRO reference (range is not dropped)', () => {
+        const result = convertCabbage2Section([
+            '#define ATTRS # , text("hi"), colour(1,2,3) #',
+            'form caption("Test")',
+            'rslider bounds(0, 0, 80, 80), channel("x"), range(0, 1, 0.5) $ATTRS',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const slider = json.widgets.find((w: any) => w.type === 'rotarySlider');
+        assert.ok(slider);
+        assert.strictEqual(slider.channels[0].range.min, 0);
+        assert.strictEqual(slider.channels[0].range.max, 1);
+        assert.strictEqual(slider.channels[0].range.defaultValue, 0.5);
+        // The macro's own identifiers still apply after the range token.
+        assert.strictEqual(slider.label.text, 'hi');
     });
 });
 

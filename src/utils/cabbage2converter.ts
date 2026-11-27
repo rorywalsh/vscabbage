@@ -1203,7 +1203,15 @@ function expandMacros(content: string): string {
         const line = rawLine.replace(/\r$/, '');
         const m = line.match(/^\s*#define\s+([A-Za-z_]\w*)\s+(.*)$/);
         if (m) {
-            macros[m[1]] = m[2].trim();
+            let body = m[2].trim();
+            // Csound `#define NAME # body #` uses `#` as the body delimiter.
+            // Strip the surrounding `# … #` pair so the `#`s don't glue onto the
+            // tokens either side of a `$NAME` reference (a stray `#` made the
+            // preceding token, e.g. `range(…)#`, fail to parse and get dropped).
+            if (body.length >= 2 && body.startsWith('#') && body.endsWith('#')) {
+                body = body.slice(1, -1).trim();
+            }
+            macros[m[1]] = body;
             continue;
         }
         kept.push(line);
@@ -2415,17 +2423,32 @@ export function rewriteOrchestra(
     });
 
     // Cabbage 3 combo boxes / option buttons are 0-based; Cabbage 2 was 1-based.
-    // Shift every `comboVar==N` comparison and `comboVar init N` default down by
-    // one, and drop the now-redundant manual `-1` the original authors wrote
-    // (e.g. `i(gkmode)-1`) to feed 0-based opcodes/arrays. The read site already
-    // carries a "0-based" note (added above), so these stay bare.
+    // Shift `comboVar==N` / `>N` / `>=N` / `<N` / `<=N` comparisons and the
+    // `comboVar init N` default down by one, and drop the now-redundant manual
+    // `-1` the original authors wrote (e.g. `i(gkmode)-1`) to feed 0-based
+    // opcodes/arrays. The read site already carries a "0-based" note (added
+    // above), so these stay bare.
+    //
+    // A subtlety: some authors already convert the combo value to 0-based
+    // themselves with `v = v - 1` (e.g. `gksepmode = gksepmode - 1`). Their
+    // later `v==N` comparisons are then already 0-based, so shifting them would
+    // double-shift (collapsing `elseif v==1` into `==0`). Detect that global
+    // conversion and skip the comparison shift for those variables.
     for (const varName of comboVars) {
+        const globallyConverted =
+            new RegExp(`\\b${varName}\\s*=\\s*${varName}\\s*-\\s*1\\b`).test(text) ||
+            new RegExp(`\\b${varName}\\s*-=\\s*1\\b`).test(text);
+
         const shift = (_m: string, prefix: string, n: string) =>
             Number(n) > 0 ? `${prefix}${Number(n) - 1}` : _m;
-        text = text.replace(
-            new RegExp(`\\b(${varName}\\s*==\\s*)(\\d+)\\b`, 'g'),
-            shift,
-        );
+
+        if (!globallyConverted) {
+            text = text.replace(
+                new RegExp(`\\b(${varName}\\s*(?:==|!=|>=|<=|>|<)\\s*)(\\d+)\\b`, 'g'),
+                shift,
+            );
+        }
+        // `init N` is always the 1-based default item index, so shift it regardless.
         text = text.replace(
             new RegExp(`\\b(${varName}\\s+init\\s+)(\\d+)\\b`, 'g'),
             shift,
@@ -2433,6 +2456,30 @@ export function rewriteOrchestra(
         text = text.replace(
             new RegExp(`\\bi\\((${varName})\\)\\s*-\\s*1\\b`, 'g'),
             (_m, v: string) => `i(${v})`,
+        );
+        // The (now 0-based) combo value is often fed straight into a 0-based
+        // table/array as `base + combo - 1` (e.g. `cpstmid giTTable1 + iTuning - 1`)
+        // or `kidx = combo - 1`. Drop the redundant `- 1` so the 0-based value
+        // lands on the same item as before. Only rewrite when the combo var is an
+        // additive term (after `+`, `=`, `(`, `,`, or at line start) so a
+        // subtraction like `100 - combo - 1` is left for manual review instead.
+        text = text.replace(
+            new RegExp(`(^[ \\t]*|[=+,(][ \\t]*)(${varName})[ \\t]*-[ \\t]*1\\b`, 'gm'),
+            (_m, pre: string, v: string) => `${pre}${v}`,
+        );
+
+        // Csound's `changed` opcode seeds its "previous value" to 0, so it does
+        // NOT fire on the first k-cycle when the value is 0 — which is exactly
+        // the default of a 0-based "first item" after the 1→0 shift. Cabbage 2
+        // was 1-based, so `changed:k(combo)` fired on the first cycle and many
+        // instruments relied on that to self-start (e.g. an `event "i",2`
+        // guarded by `changed:k(basemode)==1`). Rewrite a `changed:k(combo)==1`
+        // comparison to also fire on the instrument's first k-cycle, restoring
+        // that startup behaviour. (The `==1` stays inside the `||` so the result
+        // is a boolean, which `if` accepts; `(... || ...)==1` would not compile.)
+        text = text.replace(
+            new RegExp(`changed:k\\((${varName})\\)\\s*==\\s*1\\b`, 'g'),
+            (_m, v: string) => `(changed:k(${v})==1 || timeinstk()==1)`,
         );
     }
 
