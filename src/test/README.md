@@ -20,8 +20,19 @@ repo (`tests/README.md`); that suite is not part of this package but is exercise
 npm run lint               # eslint (TypeScript only)
 npm run test:unit          # compile + plain mocha (fast; no VS Code)
 npm run test:integration   # compile + webpack + hosted VS Code
+npm run test:corpus        # convert the whole Cabbage 2 corpus and compare to the baseline
 npm test                   # pretest lint, then unit + integration
 ```
+
+### Corpus conversion regression guard
+
+The Cabbage 2 → 3 converter is validated against the full example corpus with a
+hash manifest (`tools/conversion_manifest.cjs`). The committed
+`tools/conversion_manifest.json` is the reviewed baseline. `npm run test:corpus`
+re-converts every `.csd` under `SRC_DIR` (default `~/sourcecode/AllCabbageExamples`)
+and fails if any file's output has drifted — so a converter change that fixes one
+instrument but silently alters another is caught before it ships. When the drift is
+intentional, review the converted files and run `node tools/conversion_manifest.cjs --update`.
 
 Notes:
 
