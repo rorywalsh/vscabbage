@@ -219,21 +219,34 @@ jobs:
             const exactRuns = runs.filter((run) => run.head_sha === sha);
             const active = exactRuns.find((run) =>
               run.status === 'queued' || run.status === 'in_progress');
-
-            let run;
-            if (active) {
-              core.setFailed(
-                `cabbage3-build for ${branch}@${sha} is ${active.status}. ` +
-                'Wait for it to finish successfully, then re-run packaging.'
-              );
-              return;
-            }
-
             const exactSuccess = exactRuns.find((run) =>
               run.status === 'completed' && run.conclusion === 'success');
-            if (exactSuccess) {
-              run = exactSuccess;
+            const newestSuccess = () => runs.find((candidate) =>
+              candidate.status === 'completed' && candidate.conclusion === 'success');
+
+            let run = exactSuccess;
+            if (run) {
               core.info(`Using exact cabbage3-build run ${run.id} for ${branch}@${sha}`);
+            } else if (active) {
+              // A build for develop's current SHA is still running. Packaging
+              // a vscabbage change should not have to wait for it: fall back to
+              // the most recent successful backend and record the SHA actually
+              // used (the release notes print it). Re-running packaging after
+              // the build finishes picks up the new backend.
+              run = newestSuccess();
+              if (!run) {
+                core.setFailed(
+                  `cabbage3-build for ${branch}@${sha} is ${active.status} and no ` +
+                  `previous successful ${branch} build exists to fall back to.`
+                );
+                return;
+              }
+              core.warning(
+                `cabbage3-build for ${branch}@${sha} is ${active.status}. ` +
+                `Falling back to the latest successful backend ${run.head_sha} ` +
+                `from run ${run.id}. Re-run packaging once the new backend build ` +
+                'finishes to pick it up.'
+              );
             } else if (exactRuns.length > 0) {
               const failed = exactRuns[0];
               core.setFailed(
@@ -245,8 +258,7 @@ jobs:
             } else {
               // No run for this SHA normally means the push was docs-only and
               // was skipped by paths-ignore. Reuse the newest successful build.
-              run = runs.find((candidate) =>
-                candidate.status === 'completed' && candidate.conclusion === 'success');
+              run = newestSuccess();
               if (!run) {
                 core.setFailed(`No successful cabbage3-build run found on ${branch}.`);
                 return;
