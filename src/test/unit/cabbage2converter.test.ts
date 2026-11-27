@@ -532,6 +532,30 @@ describe('rewriteOrchestra: ternary operator spacing', () => {
     });
 });
 
+describe('rewriteOrchestra: loop_* comma spacing', () => {
+    function rewrite(orchestra: string) {
+        return rewriteOrchestra(orchestra, new Map<string, string>(), new Set<string>());
+    }
+
+    it('drops the stray comma after loop_lt', () => {
+        const { text } = rewrite('loop_lt,icount,1,iftlen,loop3\n');
+        assert.ok(text.includes('loop_lt icount,1,iftlen,loop3'));
+        assert.ok(!text.includes('loop_lt,'));
+    });
+
+    it('handles the other loop_* opcodes', () => {
+        const { text } = rewrite('loop_le,icount,1,iftlen,loop1\nloop_gt,icount,1,iftlen,loop2\nloop_ge,icount,1,iftlen,loop3\n');
+        assert.ok(text.includes('loop_le icount'));
+        assert.ok(text.includes('loop_gt icount'));
+        assert.ok(text.includes('loop_ge icount'));
+    });
+
+    it('leaves a correctly-spaced loop_lt untouched', () => {
+        const { text } = rewrite('loop_lt icount, 1, iftlen, loop3\n');
+        assert.ok(text.includes('loop_lt icount'));
+    });
+});
+
 describe('rewriteOrchestra: Csound macro expansion', () => {
     it('expands a function-like macro and converts a literal ident-channel property update', () => {
         const orchestra = [
