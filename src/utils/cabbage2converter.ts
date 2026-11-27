@@ -1111,6 +1111,16 @@ function convertWidget(parsed: ParsedWidget, warnings: string[], identToChannel:
             }
         }
 
+        // Cabbage 2 `line` (thin separator) maps to `image` and defaults to
+        // white (`Colours::white`). An `image` has no default fill, so without
+        // this the converted separator would be invisible.
+        if (parsed.type === 'line') {
+            w.json.style = w.json.style || {};
+            if (w.json.style.backgroundColor === undefined) {
+                w.json.style.backgroundColor = '#ffffff';
+            }
+        }
+
         // Cabbage 2 combo boxes / option buttons are 1-based; Cabbage 3 is 0-based
         // by default. We leave the widget 0-based and shift the orchestra's
         // `if combo==1/2/…` comparisons down by one in rewriteOrchestra (tracked
