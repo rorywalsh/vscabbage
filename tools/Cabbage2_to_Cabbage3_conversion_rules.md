@@ -99,14 +99,15 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - Symptom to watch for: an image appears briefly and then disappears as later widgets mount; this usually indicates a layering issue, fixed by explicit `zIndex`.
 
 ## 12) ComboBox lessons learned (important)
-- **Cabbage 2 combo boxes (and option buttons) are 1-based; Cabbage 3 are 0-based by default.** The converter leaves the widget 0-based (no `indexOffset`) and instead shifts the orchestra down by one so the logic keeps meaning the same item: `if combo==N` → `if combo==N-1`, `comboVar init N` → `comboVar init N-1`, and a manual `i(comboVar)-1` (a 1→0 shift the original authors wrote to feed 0-based opcodes/arrays) is dropped. Emitting `"indexOffset": true` was tried but is a band-aid that hides the shift and is easy to miss when hand-editing; 0-based is the native Cabbage 3 convention.
+- **Cabbage 2 combo boxes (and option buttons) are 1-based; Cabbage 3 are 0-based by default.** The converter leaves the widget 0-based (no `indexOffset`) and instead shifts the orchestra down by one so the logic keeps meaning the same item: `if combo==N` → `if combo==N-1`, `comboVar init N` → `comboVar init N-1`, and a manual `-1` the original authors wrote to convert the 1-based value into a 0-based index/offset is dropped (`i(comboVar)-1` → `i(comboVar)`, and `base + comboVar - 1` → `base + comboVar`, `kidx = comboVar - 1` → `kidx = comboVar`). Emitting `"indexOffset": true` was tried but is a band-aid that hides the shift and is easy to miss when hand-editing; 0-based is the native Cabbage 3 convention.
+- **`changed:k(combo)` startup trap.** Csound's `changed` opcode seeds its "previous value" to 0, so it does **not** fire on the first k-cycle when the value is 0 — which is the default of a 0-based "first item". Cabbage 2 was 1-based, so `changed:k(combo)` fired on the first cycle and instruments relied on that to self-start (e.g. an `event "i",2` guarded by `changed:k(basemode)==1`). The converter therefore rewrites `changed:k(combo)==1` → `(changed:k(combo)==1 || timeinstk()==1)` so the trigger still fires on the instrument's first k-cycle.
 - You generally do **not** need to set an explicit `channels[0].range` for `comboBox`; range/index domain is inferred from `items`.
 - Prefer omitting manual comboBox `range` in migrations unless there is a very specific legacy reason to force it.
 - Main pitfall observed: manually forcing comboBox ranges can create off-by-one behaviour and item/index mismatches after conversion.
 - Practical rule used now:
   - keep `items`
   - leave the widget 0-based (do **not** emit `"indexOffset"`)
-  - shift the orchestra's `combo==N` / `init N` / `i(combo)-1` references down by one
+  - shift the orchestra's `combo==N` / `init N` / `i(combo)-1` / `+ combo - 1` references down by one
   - avoid explicit comboBox `range` unless required
 
 ## 13) `identChannel` migration rule (critical)

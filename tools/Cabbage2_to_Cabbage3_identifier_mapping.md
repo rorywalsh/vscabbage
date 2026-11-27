@@ -57,7 +57,8 @@ Status legend:
 
 > **comboBox / optionButton indices are 1-based in Cabbage 2, 0-based in Cabbage 3.**
 > The converter leaves the widget 0-based (no `"indexOffset"`) and shifts the orchestra down by
-> one (`combo==N` → `combo==N-1`, `init N` → `init N-1`, and drops a manual `i(combo)-1`).
+> one (`combo==N` → `combo==N-1`, `init N` → `init N-1`, and drops a manual `i(combo)-1` or
+> `+ combo - 1` 0-based offset).
 > See rules doc §12.
 
 ## Colour / style (common)
