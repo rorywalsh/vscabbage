@@ -42,6 +42,9 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `combobox text("A","B",...)` → `"items": ["A","B", ...]`
 - `button text("Off","On")` →
   - `"label": {"text": {"off":"Off", "on":"On"}}`
+- `nslider text("...")` → `"label": {"text": "..."}`
+  - `align(above|below|left|right)` → `"label": {"align": "top"|"bottom"|"left"|"right"}` (Cabbage 2's default `above` is left implicit; the widget's `auto` resolves to top)
+  - `textColour(...)` → `style.label.fontColor`, `fontColour(...)` → `style.fontColor` (value text)`
 
 ## 5) Style mapping (general)
 - `colour(...)` → `style.backgroundColor` (or `style.fill` for `comboBox`, `style.fill` in `form.style`)
@@ -54,7 +57,7 @@ These are the rules used to convert `ChordBotCabbage2.txt` to `ChordBotCabbage3_
 - `textColour(...)` / `fontColour(...)`:
   - buttons: mapped to both `style.off.textColor` and `style.on.textColor`
   - comboBox: `style.fontColor`
-  - sliders/images fallback: `style.label.fontColor`
+  - sliders / numberSlider / images fallback: `style.label.fontColor` for the caption; numberSlider's value text uses `style.fontColor`
 
 ## 6) Button state colors
 - `colour:0(...)` → `style.off.backgroundColor`

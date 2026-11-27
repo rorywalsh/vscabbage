@@ -1476,6 +1476,10 @@ export class PropertyPanel {
                 if (this.type === 'rotarySlider' && fullPath === 'label.align') {
                     alignments = ['auto', 'top', 'bottom'];
                 }
+                // numberSlider labels share the box with the value, so any side works
+                else if (this.type === 'numberSlider' && fullPath === 'label.align') {
+                    alignments = ['auto', 'top', 'bottom', 'left', 'right'];
+                }
                 // Special case for label.align on button (horizontal alignment)
                 else if (this.type === 'button' && fullPath === 'label.align') {
                     alignments = ['left', 'center', 'right'];

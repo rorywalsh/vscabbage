@@ -49,7 +49,7 @@ as a required check too. The `release` job also depends on both test jobs.
 
 ## Unit tests (`src/test/unit/`)
 
-### `cabbage2converter.test.ts` — 23 tests
+### `cabbage2converter.test.ts` — 25 tests
 Cabbage 2 → Cabbage 3 conversion.
 - `rewriteOrchestra`: k-rate and i-rate multi-arg `cabbageSet` `bounds(...)` → `bounds.left/top/width/height`; `colour(...)` → `style.backgroundColor` via `sprintf`/`sprintfk`; scalar updates and `cabbageSetValue` left untouched.
 - `convertCabbage2Section`: default vs explicit range increment; comboBox `valueChanged` + 0-based default; rotary-slider bounds scaling (85% labelled, 80% labelled+value box, 70% knob scale).
@@ -170,6 +170,13 @@ Webview widget → backend message contract (real widget classes loaded via the 
 - `button`/`checkBox`/`optionButton` pointer events emit `controlData` with the right `channel`, `value`, and `gesture`.
 - An inactive button emits no `controlData`.
 - A label's background rect sets `pointer-events="none"` when inactive and `"all"` when active.
+
+### `numberSliderLabel.test.ts` — 6 tests
+`numberSlider` static label rendering (real widget class loaded via the esbuild harness).
+- No label region when `label.text` is empty.
+- Default/`auto`/`above` put the label above the value; `bottom`/`below` place it below.
+- `left`/`right` split the box horizontally.
+- `style.label.*` typography is applied and the label text is HTML-escaped.
 
 ### `webviewPropertyPanel.test.ts` — 11 tests
 Webview `PropertyPanel` serialization/minimization.

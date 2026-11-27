@@ -74,11 +74,11 @@ Status legend:
 | `shape("sharp"/"rounded"/"ellipse")` | `style.borderRadius` (0 / 4); ellipse not directly representable on non-image widgets | ⚠️ |
 | `fontColour(...)` | `style.fontColor` (generic); `style.label.fontColor` (slider caption); `style.valueText.fontColor` (slider value); `style.on.textColor` + `style.off.textColor` (button) | 🔀 |
 | `fontColour:0(...)` / `fontColour:1(...)` | `style.off.textColor` / `style.on.textColor` (button family) | ✅ |
-| `textColour(...)` / `fontColor(...)` | `style.fontColor` | ✅ |
+| `textColour(...)` / `fontColor(...)` | `style.fontColor`; `style.label.fontColor` (numberSlider / slider caption) | 🔀 |
 | `fontSize(n)` | `style.fontSize` | ✅ |
 | `fontStyle(...)` | no direct `fontStyle`; nearest is `style.fontFamily` / italic unsupported | ⚠️ |
 | `typeface(...)` | `style.fontFamily` | ✅ |
-| `align(...)` | `label.align` (slider/groupbox); `style.textAlign` | 🔀 |
+| `align(...)` | `label.align` (numberSlider, slider/groupbox); `style.textAlign` | 🔀 |
 | `fill(n)` | `fill` (genTable) | ✅ |
 
 ## Sliders (rotary / horizontal / vertical)
