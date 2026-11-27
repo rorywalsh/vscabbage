@@ -44,12 +44,21 @@ export class NumberSlider {
                 "fontFamily": "Verdana",
                 "fontSize": "auto",
                 "fontColor": "#dddddd",
-                "textAlign": "center"
+                "textAlign": "center",
+
+                "label": {
+                    "fontFamily": "Verdana",
+                    "fontSize": "auto",
+                    "fontColor": "#dddddd",
+                    "textAlign": "center"
+                }
             },
 
             "label": {
                 "text": "",
-                "offsetY": 0
+                "offsetX": 0,
+                "offsetY": 0,
+                "align": "auto"
             },
 
             "valuePrefix": "",
@@ -243,6 +252,7 @@ export class NumberSlider {
 
     getInnerHTML() {
         // console.log(`NumberSlider getInnerHTML: visible=${this.props.visible}, opacity=${this.props.opacity}`);
+        const { width, height } = this.props.bounds;
         const fontSize = this.props.style.fontSize === "auto" || this.props.style.fontSize === 0 ? 12 : this.props.style.fontSize;
         const channelId = CabbageUtils.getWidgetDivId(this.props);
         const range = CabbageUtils.getChannelRange(this.props, 0, 'drag');
@@ -256,22 +266,80 @@ export class NumberSlider {
         const currentValue = range.value !== null && range.value !== undefined ? range.value : range.defaultValue;
         const valueText = `${this.props.valuePrefix}${currentValue.toFixed(this.decimalPlaces)}${this.props.valuePostfix}`;
 
+        // Optional static label, mirroring rotarySlider's label object. When
+        // present, the widget bounds are split so the label and value share the
+        // box (Cabbage 2's nslider behaviour); align controls where the label
+        // goes. "auto" matches Cabbage 2's default of the label sitting above
+        // the value.
+        const labelText = this.props.label?.text ?? '';
+        const hasLabel = String(labelText).length > 0;
+        const labelStyle = this.props.style.label || {};
+        const labelFontSize = labelStyle.fontSize === "auto" || labelStyle.fontSize === 0 || labelStyle.fontSize === undefined
+            ? fontSize
+            : labelStyle.fontSize;
+        const labelFontFamily = labelStyle.fontFamily || this.props.style.fontFamily;
+        const labelFontColor = labelStyle.fontColor || this.props.style.fontColor;
+        const labelAlignMap = {
+            'left': 'flex-start',
+            'center': 'center',
+            'centre': 'center',
+            'right': 'flex-end',
+        };
+        const labelJustify = labelAlignMap[labelStyle.textAlign] || 'center';
+
+        let labelRect = null;
+        let valueRect = { x: 0, y: 0, width, height };
+
+        if (hasLabel) {
+            let align = String(this.props.label?.align || 'auto').toLowerCase();
+            if (align === 'auto' || align === 'above') align = 'top';
+            else if (align === 'below') align = 'bottom';
+
+            const offsetX = Number(this.props.label?.offsetX) || 0;
+            const offsetY = Number(this.props.label?.offsetY) || 0;
+            const halfWidth = Math.max(1, Math.floor(width / 2));
+            const halfHeight = Math.max(1, Math.floor(height / 2));
+
+            if (align === 'left') {
+                labelRect = { x: offsetX, y: offsetY, width: halfWidth, height };
+                valueRect = { x: halfWidth, y: 0, width: width - halfWidth, height };
+            } else if (align === 'right') {
+                labelRect = { x: halfWidth + offsetX, y: offsetY, width: width - halfWidth, height };
+                valueRect = { x: 0, y: 0, width: halfWidth, height };
+            } else if (align === 'bottom') {
+                labelRect = { x: offsetX, y: halfHeight + offsetY, width, height: height - halfHeight };
+                valueRect = { x: 0, y: 0, width, height: halfHeight };
+            } else {
+                // top (default)
+                labelRect = { x: offsetX, y: offsetY, width, height: halfHeight };
+                valueRect = { x: 0, y: halfHeight, width, height: height - halfHeight };
+            }
+        }
+
+        const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[char]));
+
+        const textRegion = (rect, text, size, family, color, justify) => `
+                    <foreignObject x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}">
+                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${justify}; font-size:${size}px; font-family:${family}; color:${color}; line-height:1; white-space:nowrap; overflow:hidden;">
+                            ${text}
+                        </div>
+                    </foreignObject>`;
+
         const html = `
-            <div id="slider-${channelId}" style="position: relative; width: ${this.props.bounds.width}px; height: ${this.props.bounds.height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
+            <div id="slider-${channelId}" style="position: relative; width: ${width}px; height: ${height}px; user-select: none; opacity: ${this.props.visible ? '1' : '0'}; pointer-events: ${this.props.visible && this.props.active ? 'auto' : 'none'};">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0;">
-                    <rect width="${this.props.bounds.width}" height="${this.props.bounds.height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
+                    <rect width="${width}" height="${height}" x="0" y="0" rx="${this.props.style.borderRadius}" ry="${this.props.style.borderRadius}" fill="${this.props.style.backgroundColor}" 
                         pointer-events="${this.props.visible && this.props.active ? 'all' : 'none'}" opacity="${this.props.style.opacity}"></rect>
                 </svg>
     
                 <!-- Text using foreignObject for consistent rendering -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.props.bounds.width} ${this.props.bounds.height}" width="${this.props.bounds.width}" height="${this.props.bounds.height}" preserveAspectRatio="none"
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" preserveAspectRatio="none"
                      style="position: absolute; top: 0; left: 0; pointer-events: none;">
-                    <foreignObject x="0" y="0" width="${this.props.bounds.width}" height="${this.props.bounds.height}">
-                        <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:${flexAlign}; font-size:${fontSize}px; font-family:${this.props.style.fontFamily}; color:${this.props.style.fontColor};">
-                            ${valueText}
-                        </div>
-                    </foreignObject>
+                    ${hasLabel ? textRegion(labelRect, escapeHtml(labelText), labelFontSize, labelFontFamily, labelFontColor, labelJustify) : ''}
+                    ${textRegion(valueRect, valueText, fontSize, this.props.style.fontFamily, this.props.style.fontColor, flexAlign)}
                 </svg>
             </div>
         `;

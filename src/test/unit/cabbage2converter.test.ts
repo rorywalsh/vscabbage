@@ -231,6 +231,34 @@ describe('convertCabbage2Section: duplicate channel ids', () => {
     });
 });
 
+describe('number slider labels', () => {
+    it('maps text() to label.text and Cabbage 2 align() to label.align', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'nslider bounds(10,10,60,28), channel("damping"), text("Damping")',
+            'nslider bounds(10,40,60,28), channel("rate"), text("Rate"), align(below)',
+            'nslider bounds(10,70,60,28), channel("mix"), text("Mix"), align(left)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const widgets = json.widgets.filter((w: any) => w.type === 'numberSlider');
+        assert.strictEqual(widgets[0].label.text, 'Damping');
+        assert.strictEqual(widgets[0].label.align, undefined); // widget default is auto
+        assert.strictEqual(widgets[1].label.align, 'bottom');
+        assert.strictEqual(widgets[2].label.align, 'left');
+    });
+
+    it('maps textColour to the label and fontColour to the value', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'nslider bounds(10,10,60,28), channel("x"), text("X"), textColour(red), fontColour(white)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const widget = json.widgets.find((w: any) => w.type === 'numberSlider');
+        assert.strictEqual(widget.style.label.fontColor, 'red');
+        assert.strictEqual(widget.style.fontColor, 'white');
+    });
+});
+
 describe('rotary slider bounds scaling', () => {
     it('leaves unlabelled rotary sliders at full size', () => {
         const result = convertCabbage2Section([

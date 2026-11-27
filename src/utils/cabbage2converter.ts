@@ -673,7 +673,7 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             // Colour of the text passed to text() — the caption/label.
             const css = parseColour(a);
             if (!css) return;
-            if (SLIDER_TYPES.has(w.type)) setStyle(w, 'label.fontColor', css);
+            if (SLIDER_TYPES.has(w.type) || w.type === 'numberSlider') setStyle(w, 'label.fontColor', css);
             else setStyle(w, 'fontColor', css);
             return;
         }
@@ -901,7 +901,19 @@ function applyIdentifier(w: WidgetBuilder, token: IdentifierToken, warnings: str
             return;
         }
         case 'align': {
-            w.json.align = unquote(a[0]);
+            const value = unquote(a[0]).toLowerCase();
+            if (w.type === 'numberSlider') {
+                // Cabbage 2's nslider align controls where the text() label sits
+                // relative to the value. Cabbage 3 keeps that under label.align.
+                const alignMap: Record<string, string> = {
+                    above: 'top', below: 'bottom', top: 'top', bottom: 'bottom',
+                    left: 'left', right: 'right', centre: 'center', center: 'center',
+                };
+                w.json.label = w.json.label || {};
+                w.json.label.align = alignMap[value] || value;
+            } else {
+                w.json.align = value;
+            }
             return;
         }
         case 'fontsize': {
