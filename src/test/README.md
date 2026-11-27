@@ -49,7 +49,7 @@ as a required check too. The `release` job also depends on both test jobs.
 
 ## Unit tests (`src/test/unit/`)
 
-### `cabbage2converter.test.ts` — 25 tests
+### `cabbage2converter.test.ts` — 28 tests
 Cabbage 2 → Cabbage 3 conversion.
 - `rewriteOrchestra`: k-rate and i-rate multi-arg `cabbageSet` `bounds(...)` → `bounds.left/top/width/height`; `colour(...)` → `style.backgroundColor` via `sprintf`/`sprintfk`; scalar updates and `cabbageSetValue` left untouched.
 - `convertCabbage2Section`: default vs explicit range increment; comboBox `valueChanged` + 0-based default; rotary-slider bounds scaling (85% labelled, 80% labelled+value box, 70% knob scale).
