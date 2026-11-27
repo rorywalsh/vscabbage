@@ -310,6 +310,30 @@ describe('convertCabbage2Section: #define … # … # macros', () => {
     });
 });
 
+describe('convertCabbage2Section: line separators', () => {
+    it('defaults a line widget to a white image background', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'line bounds(350, 5, 2, 110)',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const line = json.widgets.find((w: any) => w.type === 'image' && w.bounds.width === 2);
+        assert.ok(line);
+        assert.strictEqual(line.style.backgroundColor, '#ffffff');
+    });
+
+    it('respects an explicit colour on a line widget', () => {
+        const result = convertCabbage2Section([
+            'form caption("Test")',
+            'line bounds(350, 5, 2, 110), colour("red")',
+        ].join('\n'));
+        const json = JSON.parse(result.json);
+        const line = json.widgets.find((w: any) => w.type === 'image' && w.bounds.width === 2);
+        assert.ok(line);
+        assert.strictEqual(line.style.backgroundColor, 'red');
+    });
+});
+
 describe('horizontal slider height scaling', () => {
     it('reduces tall hSlider and hRange rows to 20px and centres them vertically', () => {
         const result = convertCabbage2Section([
