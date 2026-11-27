@@ -78,6 +78,15 @@ function updateCabbageStatusBar(running: boolean) {
 }
 
 /**
+ * Result of processing the package.include entries.
+ */
+interface PackageIncludeResult {
+    ok: boolean;
+    filesCopied: number;
+    warnings: number;
+}
+
+/**
  * The Commands class encapsulates the functionalities of the VSCode extension,
  * managing backend communications, document manipulations, UI interactions,
  * and processes related to the Cabbage extension.
@@ -3671,10 +3680,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 const csdPath = path.join(resourcesDir, `${pluginName}.csd`);
 
                 // Process package.include entries if present
+                let includeResult: PackageIncludeResult | undefined;
                 if (packageConfig && Array.isArray(packageConfig.include) && packageConfig.include.length > 0) {
                     const csdDir = path.dirname(csdFilePath);
-                    const success = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
-                    if (!success) {
+                    includeResult = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
+                    if (!includeResult.ok) {
                         return;
                     }
                 }
@@ -3684,6 +3694,9 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 this.vscodeOutputChannel.appendLine(`${resourcesDir}`);
                 await Commands.printFolderTree(resourcesDir);
                 this.vscodeOutputChannel.appendLine('');
+                if (includeResult) {
+                    Commands.logPackageIncludeSummary(includeResult, 'Export Pro:');
+                }
 
                 const exportCmd = `"${cliPath}" export --csd "${csdPath}" --resources-dir "${resourcesDir}" --output "${cabzOutputPath}" --plugin-id "${pluginId}" --verbose`;
                 this.vscodeOutputChannel.appendLine(`Export Pro: Creating encrypted .cabz archive...`);
@@ -4228,14 +4241,16 @@ include $(SYSTEM_FILES_DIR)/Makefile
      * @param packageInclude - Array of { src, dest? } objects
      * @param csdDir - Directory containing the CSD file (for resolving relative paths)
      * @param destDir - Destination directory where files will be copied
-     * @returns true if successful, false if there was a validation error
+     * @returns counters for copied files and warnings; ok is false on a validation error
      */
     private static async processPackageIncludes(
         packageInclude: Array<{ src: string; dest?: string }>,
         csdDir: string,
         destDir: string
-    ): Promise<boolean> {
+    ): Promise<PackageIncludeResult> {
         const glob = require('glob');
+        let filesCopied = 0;
+        let warnings = 0;
 
         Commands.vscodeOutputChannel.appendLine(`Export: Processing package.include entries...`);
 
@@ -4244,10 +4259,11 @@ include $(SYSTEM_FILES_DIR)/Makefile
             if (!normalized.ok) {
                 if (normalized.error === 'absolute-dest') {
                     vscode.window.showErrorMessage(`Package include error: 'dest' must be a relative path, not absolute: "${normalized.dest}"`);
-                    return false;
+                    return { ok: false, filesCopied, warnings };
                 }
 
                 Commands.vscodeOutputChannel.appendLine(`Export: WARNING - Invalid include entry, must have { src, dest? }. Skipping: ${JSON.stringify(rawEntry)}`);
+                warnings++;
                 continue;
             }
 
@@ -4273,6 +4289,13 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
             Commands.vscodeOutputChannel.appendLine(`Export: Found ${matchedFiles.length} files`);
 
+            if (matchedFiles.length === 0) {
+                Commands.vscodeOutputChannel.appendLine(
+                    `Export: WARNING - No files matched { src: "${src}", dest: "${dest}" }. Check that the path exists and is correct. Resolved: ${resolvedSrc}`);
+                warnings++;
+                continue;
+            }
+
             // Get the base directory for calculating relative paths within the source.
             // A single file keeps its own name instead of collapsing `dest` into a file.
             const srcBase = packageIncludeBase(resolvedSrc, isDirectory);
@@ -4290,11 +4313,31 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
                 // Copy the file
                 await fs.promises.copyFile(srcFile, destFile);
+                filesCopied++;
                 Commands.vscodeOutputChannel.appendLine(`Export:   ${path.join(dest, relativeFromSrc)}`);
             }
         }
 
-        return true;
+        return { ok: true, filesCopied, warnings };
+    }
+
+    /**
+     * Logs a one-line summary of the package.include processing and surfaces a
+     * warning notification when any entries could not be resolved.
+     */
+    private static logPackageIncludeSummary(result: PackageIncludeResult, prefix: string): void {
+        const filesLabel = result.filesCopied === 1 ? 'file' : 'files';
+        const warningsLabel = result.warnings === 1 ? 'warning' : 'warnings';
+
+        Commands.vscodeOutputChannel.appendLine(
+            `${prefix} package.include summary - ${result.filesCopied} ${filesLabel} copied successfully, ${result.warnings} ${warningsLabel}`);
+
+        if (result.warnings > 0) {
+            Commands.vscodeOutputChannel.appendLine(
+                `${prefix} Review the warnings above - some package.include entries did not match any files. Check the src paths in the Cabbage JSON.`);
+            vscode.window.showWarningMessage(
+                `Package include: ${result.warnings} ${warningsLabel}. Check the Cabbage output for details.`);
+        }
     }
 
     /**
@@ -4927,8 +4970,8 @@ i2 5 z
                         const packageConfig = getPackageConfig(parsed.root, formWidget);
                         if (packageConfig && Array.isArray(packageConfig.include) && packageConfig.include.length > 0) {
                             const csdDir = path.dirname(editor.document.fileName);
-                            const success = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
-                            if (!success) {
+                            const includeResult = await Commands.processPackageIncludes(packageConfig.include, csdDir, resourcesDir);
+                            if (!includeResult.ok) {
                                 return;
                             }
 
@@ -4936,6 +4979,9 @@ i2 5 z
                             this.vscodeOutputChannel.appendLine(`\nExport: Resources directory structure:`);
                             this.vscodeOutputChannel.appendLine(`${resourcesDir}`);
                             await Commands.printFolderTree(resourcesDir);
+                            this.vscodeOutputChannel.appendLine('');
+
+                            Commands.logPackageIncludeSummary(includeResult, 'Export:');
                             this.vscodeOutputChannel.appendLine('');
                         }
                     } catch (error) {
