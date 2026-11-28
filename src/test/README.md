@@ -121,6 +121,12 @@ Plugin export save-path helpers (`src/utils/pluginExportPath.ts`).
 - `ensurePluginExtension`: appends a missing extension (the `~/.vst3/RotaryNotary` regression), leaves existing/mixed-case extensions alone, handles spaces and Windows paths.
 - `pluginNameFromPath`: strips only the plugin extension from POSIX/Windows paths.
 
+### `processTermination.test.ts` — 13 tests
+Graceful backend shutdown (`src/utils/processTermination.ts`).
+- `isProcessRunning`: live child, exited child, non-existent bare PID.
+- `waitForExit`: resolves true for an exited process, false once the timeout expires.
+- `stopProcess`: a cleanup slower than the old fixed 500 ms completes without SIGKILL (the `Signal: SIGKILL` / `Exit code: null` regression), escalation to SIGKILL after the grace period, `force` skips the graceful phase, already-exited processes are left alone, bare PIDs are accepted, invalid input logs and reports failure, a throwing log sink cannot block termination, invalid grace periods fall back to the default (the wait is always bounded).
+
 ### `validateInstallation.test.ts` — 72 tests
 Report-only installation probes (`src/validateInstallation.ts`).
 - `normalizeSourceDirs`.

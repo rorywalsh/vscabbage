@@ -9,7 +9,12 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import { Commands } from './commands';
-import { ChildProcess, exec } from "child_process";
+import { ChildProcess } from "child_process";
+import {
+    DEFAULT_GRACE_PERIOD_MS,
+    StopOutcome,
+    stopProcess,
+} from './utils/processTermination';
 import { Settings } from './settings';
 import { getCabbageResourcePath } from './cabbageResourcePath';
 import { formatJsonText, minifyJsonText } from './utils/jsonFormat';
@@ -160,64 +165,27 @@ Comments are preserved, but whitespace and property ordering may change. -->\n`;
 
 
     /**
-     * Gracefully or forcefully terminates a process by PID across platforms.
-     * @param {number | ChildProcess | undefined} pid - The process ID or child process to terminate.
-     * @param {boolean} force - Whether to force kill (`SIGKILL` on Unix/macOS, `/F` on Windows).
-     * Not good to forcedly kill the process as the CabbageApp might not clean.
+     * Gracefully or forcefully terminates a process across platforms.
+     *
+     * Sends SIGTERM (or `taskkill` without `/F` on Windows) and only escalates
+     * to SIGKILL after `gracePeriodMs` has passed without the process exiting.
+     * Resolves once the process is gone (or the graceful phase has timed out),
+     * so callers can wait for a clean shutdown before starting a replacement.
+     *
+     * @param pid - The child process (preferred, so we can observe its exit) or a PID.
+     * @param force - Skip the graceful phase (`SIGKILL` on Unix/macOS, `/F` on Windows).
+     * @param gracePeriodMs - How long CabbageApp gets to clean up before SIGKILL.
      */
-    static terminateProcess(pid: number | ChildProcess | undefined, force = false) {
-
-
-        // Handle case where pid is undefined or invalid
-        if (!pid || (typeof pid === 'number' && isNaN(pid))) {
-            Commands.getOutputChannel().appendLine("Invalid PID provided.");
-            return;
-        }
-
-
-        // If pid is a child process, use its pid
-        const targetPid = typeof pid === "number" ? pid : pid?.pid;
-
-        // Ensure targetPid is a valid number before calling process.kill
-        if (typeof targetPid !== "number") {
-            Commands.getOutputChannel().appendLine("Invalid PID value.");
-            return;
-        }
-
-        if (process.platform === "win32") {
-            // Windows: Use `taskkill` command to kill the process (without /F for graceful shutdown)
-            const command = `taskkill /PID ${targetPid} ${force ? "/F" : ""}`;
-            exec(command, (err, stdout, stderr) => {
-                if (err) {
-                    Commands.getOutputChannel().appendLine(`Failed to terminate Cabbage server (${targetPid}): ${(err as Error).message}`);
-                } else {
-                    Commands.getOutputChannel().appendLine(`Cabbage sserver (${targetPid}) terminated successfully.`);
-                }
-            });
-        } else {
-            // Unix/macOS: Use `SIGTERM` first, then `SIGKILL` if needed
-            try {
-                process.kill(targetPid, "SIGTERM");
-                // Commands.getOutputChannel().appendLine(`Sent SIGTERM to process ${targetPid}. Waiting for graceful shutdown...`);
-
-                // Give the process time to handle the signal gracefully
-                setTimeout(() => {
-                    try {
-                        // Check if process is still running
-                        process.kill(targetPid, 0); // Signal 0 checks if process exists
-                        //Commands.getOutputChannel().appendLine(`Process ${targetPid} did not respond to SIGTERM. Sending SIGKILL...`);
-                        process.kill(targetPid, "SIGKILL");
-                        //Commands.getOutputChannel().appendLine(`Process ${targetPid} force terminated with SIGKILL.`);
-                    } catch (killErr) {
-                        // Process already exited
-                        Commands.getOutputChannel().appendLine(`Process ${targetPid} terminated successfully.`);
-                    }
-                }, 500); // Wait 500ms before force killing
-
-            } catch (err) {
-                Commands.getOutputChannel().appendLine(`Failed to terminate process ${targetPid}: ${(err as Error).message}`);
-            }
-        }
+    static terminateProcess(
+        pid: number | ChildProcess | undefined,
+        force = false,
+        gracePeriodMs = DEFAULT_GRACE_PERIOD_MS,
+    ): Promise<StopOutcome> {
+        return stopProcess(pid, {
+            force,
+            gracePeriodMs,
+            log: (message) => Commands.getOutputChannel().appendLine(message),
+        });
     }
 
     /*
