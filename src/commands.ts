@@ -1265,9 +1265,21 @@ export class Commands {
 
 
         } else {
-            this.processes.forEach((p) => {
-                return ExtensionUtils.terminateProcess(p);
-            });
+            // Wait for the backend to actually exit before reporting the server
+            // as stopped: a restarted server must not race the old process for
+            // the websocket port. terminateProcess escalates to SIGKILL only
+            // after a grace period, so a normal stop stays graceful. allSettled
+            // guarantees the state reset below runs even if one stop fails.
+            const results = await Promise.allSettled(
+                this.processes.map((p) => ExtensionUtils.terminateProcess(p)),
+            );
+            for (const result of results) {
+                if (result.status === 'rejected') {
+                    this.getOutputChannel().appendLine(
+                        `Failed to stop Cabbage server: ${result.reason}`,
+                    );
+                }
+            }
 
             updateCabbageStatusBar(false);
             this.cabbageServerStarted = false;
@@ -1718,6 +1730,10 @@ export class Commands {
                 } else {
                     this.vscodeOutputChannel.appendLine(`Cabbage server terminated with non-zero exit code: ${code}`);
                 }
+            } else if (signal === 'SIGTERM') {
+                // Normal stop: CabbageApp handled the signal and exited on its
+                // own, so this is a clean shutdown rather than a crash.
+                this.vscodeOutputChannel.appendLine('Cabbage server stopped.');
             }
 
             this.vscodeOutputChannel.appendLine('=== END EXIT ===');
