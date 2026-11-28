@@ -3481,26 +3481,51 @@ include $(SYSTEM_FILES_DIR)/Makefile
 
 
     /**
-     * Returns the active editor only when it is a real .csd file on disk.
-     * Export commands read the instrument from the active editor, so using a
-     * non-file document (for example the "Cabbage output" channel opened in an
-     * editor) previously produced an unhandled ENOENT from fs.readFile.
+     * Returns the editor holding the instrument to export, falling back to the
+     * CSD bound to the open Cabbage UI when no text editor has focus.
+     *
+     * A focused Cabbage UI webview leaves `activeTextEditor` undefined, which
+     * previously made every export command fail with "No active editor". The
+     * extension already tracks the last compiled/saved CSD, so use that as the
+     * fallback. Export commands read the instrument from this editor, so using
+     * a non-file document (for example the "Cabbage output" channel opened in
+     * an editor) previously produced an unhandled ENOENT from fs.readFile.
      */
-    private static getActiveCsdEditor(): vscode.TextEditor | undefined {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('Cabbage: No active editor. Open a .csd file before exporting.');
-            return undefined;
-        }
-
-        if (editor.document.uri.scheme !== 'file' || !editor.document.fileName.toLowerCase().endsWith('.csd')) {
+    private static async getActiveCsdEditor(): Promise<vscode.TextEditor | undefined> {
+        const active = vscode.window.activeTextEditor;
+        if (active) {
+            if (active.document.uri.scheme === 'file' && active.document.fileName.toLowerCase().endsWith('.csd')) {
+                return active;
+            }
             vscode.window.showErrorMessage(
-                `Cabbage: "${editor.document.fileName}" is not a .csd file on disk. Open your instrument's .csd file and try again.`
+                `Cabbage: "${active.document.fileName}" is not a .csd file on disk. Open your instrument's .csd file and try again.`
             );
             return undefined;
         }
 
-        return editor;
+        // No text editor has focus (e.g. the Cabbage UI panel does): fall back
+        // to the CSD that was last compiled/saved to open the UI.
+        const fallback = Commands.lastSavedFileName;
+        if (fallback && fallback.toLowerCase().endsWith('.csd')) {
+            // Reuse the editor that is already showing this file so the webview
+            // keeps focus instead of jumping to a newly opened tab.
+            const visible = vscode.window.visibleTextEditors.find(
+                (e) => e.document.uri.scheme === 'file' && e.document.fileName === fallback
+            );
+            if (visible) {
+                return visible;
+            }
+
+            try {
+                const document = await vscode.workspace.openTextDocument(fallback);
+                return await vscode.window.showTextDocument(document, { preview: true, preserveFocus: true });
+            } catch (error) {
+                console.error(`Cabbage: Failed to open instrument "${fallback}" for export:`, error);
+            }
+        }
+
+        vscode.window.showErrorMessage('Cabbage: No active editor. Open a .csd file before exporting.');
+        return undefined;
     }
 
     /**
@@ -3527,7 +3552,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
                 ? { 'CLAP Plugin': ['clap'] }
                 : { 'VST3 Plugin': ['vst3'] };
 
-        const editor = Commands.getActiveCsdEditor();
+        const editor = await Commands.getActiveCsdEditor();
         if (!editor) {
             return;
         }
@@ -4835,7 +4860,7 @@ i2 5 z
                 ? { 'CLAP Plugin': ['clap'] }
                 : { 'VST3 Plugin': ['vst3'] };
 
-        const editor = Commands.getActiveCsdEditor();
+        const editor = await Commands.getActiveCsdEditor();
         if (!editor) {
             return;
         }
